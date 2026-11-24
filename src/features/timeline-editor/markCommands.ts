@@ -17,17 +17,6 @@ function songMarks() {
   return useSongStore.getState().current?.marks ?? []
 }
 
-/** Selects the mark and gives it the focus. The view scrolls when the mark is out of view. */
-export function selectAndFocus(id: string): void {
-  const content = useSongStore.getState().current
-  const mark = content && findMark(content.marks, id)
-  if (!content || !mark) return
-  useViewStore.getState().selectMarks([id])
-  const scrollMs = followCursor(currentStageInput(content.song.durationMs), mark.startMs)
-  if (scrollMs !== null) useViewStore.getState().setScroll(scrollMs)
-  useMarkUiStore.getState().requestFocus(id)
-}
-
 /**
  * Applies a click on a mark to the selection.
  * - With Shift, the selection becomes the marks from the last selected mark to the clicked mark on one layer.
@@ -119,15 +108,20 @@ export function endPending(confirmed: boolean): void {
 
 /**
  * Selects the next or the previous mark on the layer of a mark, and gives it the focus.
+ * The view scrolls when that mark is out of view.
  * Returns false when no mark has the id, or when no mark is in that direction.
  * @param id The mark that has the focus.
  * @param direction 1 selects the next mark, -1 the previous mark.
  */
 export function stepSelection(id: string, direction: 1 | -1): boolean {
-  const marks = songMarks()
+  const content = useSongStore.getState().current
+  const marks = content?.marks ?? []
   const mark = findMark(marks, id)
   const next = mark && (direction === 1 ? nextOnLayer(marks, mark) : previousOnLayer(marks, mark))
-  if (!next) return false
-  selectAndFocus(next.id)
+  if (!content || !next) return false
+  useViewStore.getState().selectMarks([next.id])
+  const scrollMs = followCursor(currentStageInput(content.song.durationMs), next.startMs)
+  if (scrollMs !== null) useViewStore.getState().setScroll(scrollMs)
+  useMarkUiStore.getState().requestFocus(next.id)
   return true
 }
