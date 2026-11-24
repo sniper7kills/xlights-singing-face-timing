@@ -29,6 +29,7 @@ export type ViewState = {
   selectMarks: (ids: string[]) => void
   /** Replaces the selection with the marks that have the ids, and keeps the anchor. A Shift+click calls it. */
   extendSelection: (ids: string[]) => void
+  /** Sets the voice that the layers show. A different voice id also clears the mark selection. */
   selectVoice: (voiceId: string | null) => void
   /** Replaces the time selection. Null clears it. */
   setSelection: (selection: TimeRange | null) => void
@@ -62,7 +63,13 @@ export const useViewStore = create<ViewState>()((set) => ({
   setPlayTime: (playTimeMs) => set({ playTimeMs }),
   selectMarks: (ids) => set({ selectedMarkIds: ids, selectionAnchorId: ids.at(-1) ?? null }),
   extendSelection: (ids) => set({ selectedMarkIds: ids }),
-  selectVoice: (selectedVoiceId) => set({ selectedVoiceId }),
+  // The layers do not show the marks of another voice, so those marks must not stay selected.
+  selectVoice: (selectedVoiceId) =>
+    set((view) =>
+      view.selectedVoiceId === selectedVoiceId
+        ? {}
+        : { selectedVoiceId, selectedMarkIds: [], selectionAnchorId: null },
+    ),
   setSelection: (selection) => set({ selection }),
   setStageWidth: (stageWidthPx) => set({ stageWidthPx }),
   resetView: () => set(DEFAULT_VIEW),

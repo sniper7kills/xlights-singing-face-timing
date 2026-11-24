@@ -14,6 +14,7 @@ import { CustomDictionaryAction } from '../phoneme-breakdown/CustomDictionaryAct
 import { UnknownWordCounter } from '../phoneme-breakdown/UnknownWordCounter.tsx'
 import type { BreakDownFailure, TranscribeOutcome } from '../transcription/runTranscription.ts'
 import { TranscribeDialog } from '../transcription/TranscribeDialog.tsx'
+import { VoiceRail } from '../voices-sections/VoiceRail.tsx'
 import { outcomeText } from '../transcription/transcribeDialogState.ts'
 import { ExportAction } from '../xtiming-export/ExportAction.tsx'
 import { EditorToolbar } from './EditorToolbar.tsx'
@@ -165,6 +166,7 @@ export function EditorPage({ songId }: EditorPageProps) {
             {saveState === 'saved' ? 'Saved' : 'Saving'}
           </span>
         </div>
+        <VoiceRail />
         {saveError instanceof StorageFullError && (
           <p className="message" role="alert">
             {saveError.message}
