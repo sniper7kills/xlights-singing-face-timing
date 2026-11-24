@@ -15,7 +15,7 @@ type WaveformProps = {
   songId: string
 }
 
-// The browser draws native controls for the space bar, so the editor leaves the key to them.
+// A focused control uses the space bar itself, so a toggle here would apply the key two times.
 const CONTROL_SELECTOR = 'input, textarea, select, button, a[href], [contenteditable]'
 
 function readColors(element: HTMLElement): WaveformColors {
