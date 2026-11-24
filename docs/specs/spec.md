@@ -312,7 +312,8 @@ erDiagram
 - **Custom entry.** `word` is upper case. `symbols` is a list of CMU symbols
   separated by spaces. Custom entries belong to the browser, not to one song.
 - **App settings.** One record. `speechModelId` is one of the three supported speech
-  models. `device` is `webgpu` or `wasm`.
+  models. The app does not store `device`. The app derives the device from the
+  browser on each visit.
 
 ## Cross-cutting concerns
 
@@ -350,11 +351,10 @@ erDiagram
 | local | Development with `npm run dev`. | `http://localhost:5173` |
 | production | The `main` branch on S3 with CloudFront. | The default `*.cloudfront.net` domain of the distribution. Recorded in `docs/external.md` by Epic 0. No custom domain in v1. |
 
-Environment variables, all build-time and all optional:
+The app reads one environment variable. It is build-time and optional:
 
 | Name | Purpose | Default |
 |---|---|---|
-| `VITE_MODEL_HOST` | Base URL for speech model files. | The Hugging Face Hub default of the library. |
 | `VITE_APP_VERSION` | Version text that the app writes into `SourceVersion`. | The `version` field of `package.json`. |
 
 The deploy workflow reads three GitHub Actions repository variables. They are

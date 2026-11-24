@@ -17,8 +17,8 @@ Do not reconcile by guess.
 
 | Item | Version pinned | Documentation |
 |---|---|---|
-| `@huggingface/transformers` | 4.3.x | https://huggingface.co/docs/transformers.js/api/pipelines , https://huggingface.co/docs/transformers.js/en/guides/webgpu , https://huggingface.co/docs/transformers.js/en/guides/dtypes |
-| Whisper speech model files | `onnx-community/whisper-{tiny,base,small}_timestamped` (candidates) | https://huggingface.co/onnx-community |
+| `@huggingface/transformers` | 4.3.2 | https://huggingface.co/docs/transformers.js/api/pipelines , https://huggingface.co/docs/transformers.js/en/guides/webgpu , https://huggingface.co/docs/transformers.js/en/guides/dtypes |
+| Whisper speech model files | `onnx-community/whisper-{tiny,base,small}_timestamped` | https://huggingface.co/onnx-community |
 | wavesurfer.js | 8.1.x | https://wavesurfer.xyz/docs/ |
 | CMU Pronouncing Dictionary | file `cmudict.dict` | https://github.com/cmusphinx/cmudict |
 | Web Audio `decodeAudioData` | browser | https://developer.mozilla.org/en-US/docs/Web/API/BaseAudioContext/decodeAudioData |
@@ -36,7 +36,7 @@ Not confirmed yet. Confirm each one before the code that depends on it:
 
 Confirmed on 2026-11-24 for `@huggingface/transformers` 4.3.2, from the typed API
 in `node_modules/@huggingface/transformers/types/` and the model files on the
-Hugging Face Hub. The pull request of issue #15 cites each source.
+Hugging Face Hub. Pull request #71 cites each source.
 
 - Word times: `onnx-community/whisper-{tiny,base,small}_timestamped` each have
   `alignment_heads` in `generation_config.json`. A real run of tiny and base

@@ -341,12 +341,15 @@ body.rv-open .layout { padding-right:21rem; }
 </li>
 <li>finishing: "Aligning lyrics and breaking down words".
 </li>
+<li>confirm: "The run replaces the marks of this voice." with "Continue" and "Cancel".
+</li>
 <li>error: the message, with "Retry" and "Close".
 </li>
 <li>done: the dialog closes. A toast shows "214 words, 9 estimated".
 </li>
 </ul>
 <p>The device note reads "Uses your graphics card (WebGPU)" or "WebGPU is not available. Transcription is slower on this browser."</p>
+<p>If the person selects "Lyrics only" and the lyrics field has no word, the app disables "Start". The hint reads "Paste the lyrics to use Lyrics only."</p>
 <h3 id="transcription-behaviour-rules">Behaviour rules</h3>
 <ul>
 <li>The default speech model is base. The app remembers the last selection.
@@ -425,8 +428,13 @@ body.rv-open .layout { padding-right:21rem; }
 </ul>
 <h3 id="transcription-data-touched">Data touched</h3>
 <ul>
-<li>Reads <code>AUDIO_FILE</code>. Reads and writes <code>APP_SETTINGS.speechModelId</code> and <code>device</code>.
+<li>Reads <code>AUDIO_FILE</code>. Reads and writes <code>APP_SETTINGS.speechModelId</code>.
 </li>
+<li>The app does not store the device. The app derives the device from the browser on
+</li>
+</ul>
+<p>each visit.</p>
+<ul>
 <li>Writes <code>MARK</code> on the phrase, word and phoneme layers of the selected voice.
 </li>
 <li>Adds the field <code>estimated: bool</code> to <code>MARK</code>. The field is false after the person
@@ -459,41 +467,63 @@ body.rv-open .layout { padding-right:21rem; }
 <li>Result: <code>{ text, chunks: [{ text, timestamp: [start, end] }] }</code>, times in seconds.
 </li>
 </ul>
-<p>Not confirmed, to be settled first in Epic 2 (see spec.md, Risks 2, 3, 4):</p>
+<p>Confirmed on 2026-11-24 for version 4.3.2. Pull request #71 cites each source.</p>
 <ul>
-<li>which model repositories return word times; candidates are
+<li><strong>Model repositories.</strong> The app uses <code>onnx-community/whisper-tiny_timestamped</code>,
 </li>
 </ul>
-<p><code>onnx-community/whisper-tiny_timestamped</code>, <code>onnx-community/whisper-base_timestamped</code> and <code>onnx-community/whisper-small_timestamped</code>,</p>
+<p><code>onnx-community/whisper-base_timestamped</code> and <code>onnx-community/whisper-small_timestamped</code>. Each repository has <code>alignment_heads</code> in <code>generation_config.json</code>, and the library needs them for <code>return_timestamps: 'word'</code>. Source: https://huggingface.co/onnx-community/whisper-base_timestamped/resolve/main/generation_config.json (the same path for tiny and small).</p>
 <ul>
-<li>the option name and event shape for download progress,
-</li>
-<li>the sample rate that a <code>Float32Array</code> input must have,
-</li>
-<li>how to stop a run; the fallback is to terminate the worker.
+<li><strong>dtype.</strong> <code>{ encoder_model: 'fp32', decoder_model_merged: 'q8' }</code>. The app also
 </li>
 </ul>
+<p>sets the key <code>model: 'fp32'</code>, because the cache check of the library reads that key. Source: https://huggingface.co/docs/transformers.js/en/guides/dtypes</p>
+<ul>
+<li><strong>Download sizes.</strong> tiny 66 MB, base 139 MB, small 512 MB, for that dtype
+</li>
+</ul>
+<p>(1 MB = 1 000 000 bytes). Source: <code>https://huggingface.co/api/models/onnx-community/whisper-*_timestamped/tree/main/onnx</code></p>
+<ul>
+<li><strong>Download progress.</strong> The <code>pipeline</code> option is <code>progress_callback</code>. The event
+</li>
+</ul>
+<p><code>{ status: 'progress_total', name, progress, loaded, total, files }</code> gives the bytes of all files. Source: https://huggingface.co/docs/transformers.js/api/pipelines and <code>node_modules/@huggingface/transformers/types/utils/core.d.ts</code> (<code>ProgressInfo</code>).</p>
+<ul>
+<li><strong>Input sample rate.</strong> A <code>Float32Array</code> input must be at 16 kHz. The
+</li>
+</ul>
+<p><code>preprocessor_config.json</code> of each repository sets <code>"sampling_rate": 16000</code>, and the library does not resample a <code>Float32Array</code>. Source: https://huggingface.co/onnx-community/whisper-base_timestamped/resolve/main/preprocessor_config.json</p>
+<ul>
+<li><strong>Stop a run.</strong> The library has no stop operation for a pipeline call. The client
+</li>
+</ul>
+<p>terminates the worker. Source: <code>node_modules/@huggingface/transformers/types/pipelines/automatic-speech-recognition.d.ts</code></p>
 <p><strong>Worker message contract, <code>src/workers/transcribe.worker.ts</code>:</strong></p>
-<pre class="code"><code>// to worker
-{ type: 'load'; speechModelId: string; device: 'webgpu' | 'wasm' }
+<p>The types are in <code>src/features/transcription/protocol.ts</code>.</p>
+<pre class="code"><code>type Device = 'webgpu' | 'wasm'
+type ErrorKind = 'download' | 'device' | 'memory' | 'unknown'
+// to worker (ToWorkerMessage)
+{ type: 'load'; speechModelId: string; device: Device }
 { type: 'transcribe'; runId: string; samples: Float32Array; offsetMs: number }
-{ type: 'cancel'; runId: string }
-// from worker
+// from worker (FromWorkerMessage)
 { type: 'download'; loadedBytes: number; totalBytes: number }
 { type: 'ready' }
 { type: 'progress'; runId: string; doneMs: number }
-{ type: 'result'; runId: string; words: { text: string; startMs: number; endMs: number }[] }
-{ type: 'error'; runId?: string; kind: 'download' | 'device' | 'memory' | 'unknown'; detail: string }</code></pre>
+{ type: 'result'; runId: string; words: TimedWord[] }
+{ type: 'error'; runId?: string; kind: ErrorKind; detail: string }</code></pre>
+<p><code>TimedWord</code> is <code>{ text: string; startMs: number; endMs: number }</code>. The client stops a run by terminating the worker, and the next run loads the speech model again from the browser cache.</p>
 <p><strong>Pure functions, <code>src/features/transcription/</code>:</strong></p>
-<pre class="code"><code>alignLyrics(transcribed: TimedWord[], lyrics: string): AlignedPhrase[]
+<pre class="code"><code>alignLyrics(transcribed: TimedWord[], lyrics: string): AlignResult
 groupIntoPhrases(words: TimedWord[]): AlignedPhrase[]
 spreadLyrics(lyrics: string, startMs: number, endMs: number): AlignedPhrase[]</code></pre>
+<p><code>AlignResult</code> is <code>{ phrases: AlignedPhrase[]; matchRatio: number }</code>. <code>matchRatio</code> is from 0 to 1.</p>
 <h3 id="transcription-edge-cases-failures">Edge cases &amp; failures</h3>
 <div class="table-wrap"><table>
 <tr><th>Case</th><th>What the person sees</th></tr>
 <tr><td>Network fails during the download</td><td>"The speech model did not download. Check the connection and retry."</td></tr>
 <tr><td>WebGPU run fails</td><td>No message. The app retries on <code>wasm</code> and updates the device note.</td></tr>
 <tr><td>Out of memory</td><td>"This browser ran out of memory. Select a smaller speech model."</td></tr>
+<tr><td>The run fails on both devices</td><td>"The transcription failed. Select a smaller speech model and retry."</td></tr>
 <tr><td>No words returned</td><td>"No words were found. Paste the lyrics and use Lyrics only."</td></tr>
 <tr><td>Match below 30%</td><td>"Only 22% of the lyrics matched the audio. Check that the lyrics belong to this song." with "Continue" and "Cancel".</td></tr>
 <tr><td>Person closes the tab during a run</td><td>No marks change. The next visit shows the old marks.</td></tr>
