@@ -172,7 +172,28 @@ Controls on the layers:
   mark by one frame size. `Alt+Left` and `Alt+Right` nudge the start only.
   `Shift+Alt+Left` and `Shift+Alt+Right` nudge the end only. `Ctrl+Z` undo.
   `Ctrl+Shift+Z` redo. `+` and `-` zoom. `?` shortcut list. On macOS, `Cmd`
-  replaces `Ctrl`.
+  replaces `Ctrl`. With no selected mark, `Left` and `Right` move the play cursor
+  by one frame size. `S`, `M`, the nudge keys, `Up` and `Down` act when exactly
+  one mark is selected. `Up` selects the parent, and `Down` selects the first
+  child. A shortcut does not act while the focus is in a field, a list or a
+  dialog. The shortcut list has the title "Keyboard shortcuts", a "Close" button
+  and the note "On macOS, use Cmd in place of Ctrl."
+- **Transport.** "Loop" has the tooltip "Play the selection in a loop (L)". With
+  more than one selected mark, the loop goes from the earliest start to the
+  latest end. "Play speed" has "50%", "75%" and "100%", and the pitch does not
+  change. "Frame size" has "25 ms" and "50 ms". A change of the frame size shows
+  "The app moves every mark of this song to a multiple of 25 ms." (or 50 ms)
+  with "Continue" and "Cancel", and it is one undo step. A song with no marks
+  shows no dialog. "Undo" and "Redo" are buttons in the group "Undo and redo".
+- **Inspector.** The region has the name "Inspector". "Face preview" shows the
+  mouth shape of the phoneme under the play time, and the closed mouth between
+  words. The fields "Label", "Start", "End" and "Length" show when exactly one
+  mark is selected, under "Selected phrase", "Selected word" or "Selected
+  phoneme". With a different selection, the hint is "Select one mark to see its
+  fields." A time has the format `m:ss.mmm`. The length reads as
+  "2000 ms · 40 frames".
+- After a delete, a split, a merge, an undo or a redo, the selection holds only
+  marks that exist.
 - `Ctrl` with the mouse wheel zooms at the pointer. The wheel alone scrolls in
   time.
 - A click on the ruler or the waveform moves the play cursor.

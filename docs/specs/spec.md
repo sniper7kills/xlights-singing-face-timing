@@ -472,8 +472,12 @@ None of these blocks approval. Each one names the epic that settles it.
    16 kHz mono before the resample code is written.
 5. **Cross-origin isolation.** Multi-thread WASM needs the
    `Cross-Origin-Opener-Policy` and `Cross-Origin-Embedder-Policy` headers. Those
-   headers can block model downloads from another origin. Epic 0 sets no such
-   header. The response headers policy can add them later. Epic 2 tests the `wasm` device speed and decides.
+   headers can block model downloads from another origin. Decided in issue #93: the
+   app sends `Cross-Origin-Opener-Policy: same-origin` and
+   `Cross-Origin-Embedder-Policy: require-corp`, and the `wasm` device uses 2
+   threads. The base speech model was 1.44 to 1.58 times faster in the
+   measurement. Each cross-origin resource now needs CORS or
+   `Cross-Origin-Resource-Policy` (ADR 0006).
 6. **CMU dictionary format and size.** The repository
    https://github.com/cmusphinx/cmudict holds `cmudict.dict`. The entry format and
    the entry count were not on the page read. Epic 3 confirms both from the file.
@@ -719,3 +723,6 @@ The spec has one editor epic. The tracker has two, because 30 requirements do no
   loads the dictionary when it opens a song that has a word. The acceptance
   criterion "A click on a mark shows its fields in the inspector" moved from issue
   #30 to issue #34.
+- 2026-11-24 — Batch gate of epic #31. The app selects the device from measured
+  speeds and uses 2 threads on the `wasm` device (issue #93, ADR 0006). The
+  maintainer said that transcription in the browser was "Just very slow".

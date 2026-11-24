@@ -39,10 +39,14 @@ leaves the browser, and the app shows the host before each run.
   model.
 - FR-transcribe-4 — The transcribe dialog has an optional lyrics text field.
 - FR-transcribe-5 — The app runs the speech model in a Web Worker.
-- FR-transcribe-6 — The app uses the `webgpu` device when the browser supports
-  WebGPU.
+- FR-transcribe-6 — The app selects the device from the measured speed of earlier
+  runs. With no measured speed, the first run uses the `wasm` device. When the
+  browser supports WebGPU, the next run uses the `webgpu` device one time. After
+  that, the app uses the faster device. After a `webgpu` run that fails or is too
+  slow, the app does not select `webgpu` for 7 days.
 - FR-transcribe-7 — The app uses the `wasm` device when the browser does not
-  support WebGPU.
+  support WebGPU. The `wasm` device uses 2 threads when the page is cross-origin
+  isolated.
 - FR-transcribe-8 — The app shows download progress for the speech model as a
   percentage.
 - FR-transcribe-9 — The app shows transcribe progress as the audio time that is
@@ -336,8 +340,9 @@ Each base URL that the app refuses shows a message:
 - Reads and writes `APP_SETTINGS.transcribeSource` and
   `APP_SETTINGS.remoteEndpoint` (`baseUrl`, `apiKey`, `model`). The API key stays in
   IndexedDB and goes only to the base URL.
-- The app does not store the device. The app derives the device from the browser on
-  each visit.
+- Reads and writes `APP_SETTINGS.deviceSpeeds`: for each speech model, the measured
+  speed of each device and the time of the last `webgpu` failure. The app selects
+  the device from these values.
 - Writes `MARK` on the phrase, word and phoneme layers of the selected voice.
 - Adds the field `estimated: bool` to `MARK`. The field is false after the person
   moves the mark.

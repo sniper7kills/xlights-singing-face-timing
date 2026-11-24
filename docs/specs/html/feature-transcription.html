@@ -194,15 +194,15 @@ body.rv-open .layout { padding-right:21rem; }
 </li>
 <li>FR-transcribe-5 — The app runs the speech model in a Web Worker.
 </li>
-<li>FR-transcribe-6 — The app uses the <code>webgpu</code> device when the browser supports
+<li>FR-transcribe-6 — The app selects the device from the measured speed of earlier
 </li>
 </ul>
-<p>WebGPU.</p>
+<p>runs. With no measured speed, the first run uses the <code>wasm</code> device. When the browser supports WebGPU, the next run uses the <code>webgpu</code> device one time. After that, the app uses the faster device. After a <code>webgpu</code> run that fails or is too slow, the app does not select <code>webgpu</code> for 7 days.</p>
 <ul>
 <li>FR-transcribe-7 — The app uses the <code>wasm</code> device when the browser does not
 </li>
 </ul>
-<p>support WebGPU.</p>
+<p>support WebGPU. The <code>wasm</code> device uses 2 threads when the page is cross-origin isolated.</p>
 <ul>
 <li>FR-transcribe-8 — The app shows download progress for the speech model as a
 </li>
@@ -698,10 +698,10 @@ body.rv-open .layout { padding-right:21rem; }
 </ul>
 <p><code>APP_SETTINGS.remoteEndpoint</code> (<code>baseUrl</code>, <code>apiKey</code>, <code>model</code>). The API key stays in IndexedDB and goes only to the base URL.</p>
 <ul>
-<li>The app does not store the device. The app derives the device from the browser on
+<li>Reads and writes <code>APP_SETTINGS.deviceSpeeds</code>: for each speech model, the measured
 </li>
 </ul>
-<p>each visit.</p>
+<p>speed of each device and the time of the last <code>webgpu</code> failure. The app selects the device from these values.</p>
 <ul>
 <li>Writes <code>MARK</code> on the phrase, word and phoneme layers of the selected voice.
 </li>

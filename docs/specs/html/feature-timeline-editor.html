@@ -394,7 +394,22 @@ body.rv-open .layout { padding-right:21rem; }
 <li><strong>Shortcuts.</strong> <code>Space</code> play or pause. <code>L</code> loop the selection. <code>S</code> split at the
 </li>
 </ul>
-<p>play cursor. <code>M</code> merge with the next mark. <code>Delete</code> delete. <code>Enter</code> or <code>F2</code> edit the label. <code>Tab</code> and <code>Shift+Tab</code> select the next or previous mark. <code>Up</code> and <code>Down</code> move the selection between layers. <code>Left</code> and <code>Right</code> nudge the selected mark by one frame size. <code>Alt+Left</code> and <code>Alt+Right</code> nudge the start only. <code>Shift+Alt+Left</code> and <code>Shift+Alt+Right</code> nudge the end only. <code>Ctrl+Z</code> undo. <code>Ctrl+Shift+Z</code> redo. <code>+</code> and <code>-</code> zoom. <code>?</code> shortcut list. On macOS, <code>Cmd</code> replaces <code>Ctrl</code>.</p>
+<p>play cursor. <code>M</code> merge with the next mark. <code>Delete</code> delete. <code>Enter</code> or <code>F2</code> edit the label. <code>Tab</code> and <code>Shift+Tab</code> select the next or previous mark. <code>Up</code> and <code>Down</code> move the selection between layers. <code>Left</code> and <code>Right</code> nudge the selected mark by one frame size. <code>Alt+Left</code> and <code>Alt+Right</code> nudge the start only. <code>Shift+Alt+Left</code> and <code>Shift+Alt+Right</code> nudge the end only. <code>Ctrl+Z</code> undo. <code>Ctrl+Shift+Z</code> redo. <code>+</code> and <code>-</code> zoom. <code>?</code> shortcut list. On macOS, <code>Cmd</code> replaces <code>Ctrl</code>. With no selected mark, <code>Left</code> and <code>Right</code> move the play cursor by one frame size. <code>S</code>, <code>M</code>, the nudge keys, <code>Up</code> and <code>Down</code> act when exactly one mark is selected. <code>Up</code> selects the parent, and <code>Down</code> selects the first child. A shortcut does not act while the focus is in a field, a list or a dialog. The shortcut list has the title "Keyboard shortcuts", a "Close" button and the note "On macOS, use Cmd in place of Ctrl."</p>
+<ul>
+<li><strong>Transport.</strong> "Loop" has the tooltip "Play the selection in a loop (L)". With
+</li>
+</ul>
+<p>more than one selected mark, the loop goes from the earliest start to the latest end. "Play speed" has "50%", "75%" and "100%", and the pitch does not change. "Frame size" has "25 ms" and "50 ms". A change of the frame size shows "The app moves every mark of this song to a multiple of 25 ms." (or 50 ms) with "Continue" and "Cancel", and it is one undo step. A song with no marks shows no dialog. "Undo" and "Redo" are buttons in the group "Undo and redo".</p>
+<ul>
+<li><strong>Inspector.</strong> The region has the name "Inspector". "Face preview" shows the
+</li>
+</ul>
+<p>mouth shape of the phoneme under the play time, and the closed mouth between words. The fields "Label", "Start", "End" and "Length" show when exactly one mark is selected, under "Selected phrase", "Selected word" or "Selected phoneme". With a different selection, the hint is "Select one mark to see its fields." A time has the format <code>m:ss.mmm</code>. The length reads as "2000 ms · 40 frames".</p>
+<ul>
+<li>After a delete, a split, a merge, an undo or a redo, the selection holds only
+</li>
+</ul>
+<p>marks that exist.</p>
 <ul>
 <li><code>Ctrl</code> with the mouse wheel zooms at the pointer. The wheel alone scrolls in
 </li>
