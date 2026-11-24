@@ -17,9 +17,25 @@ describe('loadSettings', () => {
 
     expect(await loadSettings()).toEqual(stored)
   })
+
+  it('fills a field that a record of an earlier version does not have', async () => {
+    const { deviceSpeeds: _missing, ...earlier } = DEFAULT_SETTINGS
+    // A record of an earlier version has no `deviceSpeeds`, so the test writes it past the type.
+    await putRecord('settings', { ...earlier, theme: 'light' } as typeof DEFAULT_SETTINGS)
+
+    expect(await loadSettings()).toEqual({ ...DEFAULT_SETTINGS, theme: 'light' })
+  })
 })
 
 describe('updateSettings', () => {
+  it('keeps the measured speeds of a device when another field changes', async () => {
+    await updateSettings({ deviceSpeeds: { 'whisper-tiny': { wasm: 4 } } })
+
+    await updateSettings({ theme: 'light' })
+
+    expect((await loadSettings()).deviceSpeeds).toEqual({ 'whisper-tiny': { wasm: 4 } })
+  })
+
   it('writes the default settings with the change when the app has stored none', async () => {
     await updateSettings({ speechModelId: 'whisper-tiny' })
 

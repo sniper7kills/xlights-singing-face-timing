@@ -12,7 +12,8 @@ import { keepFocusInside, tabStops } from '../../app/modalFocus.ts'
 import { formatTime } from '../../lib/time/formatTime.ts'
 import type { TimeRange } from '../../lib/time/timeRange.ts'
 import { DEFAULT_SETTINGS, loadSettings, updateSettings } from '../../store/settings.ts'
-import { chooseDevice } from './device.ts'
+import type { DeviceSpeeds } from '../../store/types.ts'
+import { hasWebGpu, pickDevice, withSpeed } from './device.ts'
 import { parseLyrics } from './phrases.ts'
 import { type Device, SPEECH_MODELS } from './protocol.ts'
 import {
@@ -178,7 +179,7 @@ export function TranscribeDialog({
               </label>
             ))}
           </fieldset>
-          <DeviceNote device={run.device} meter={meter} />
+          <DeviceNote webgpu={run.webgpu} device={run.device} meter={meter} />
           <label className="dialog-field">
             Lyrics (optional)
             <textarea rows={5} value={lyrics} onChange={(event) => setLyrics(event.target.value)} />
@@ -208,7 +209,7 @@ export function TranscribeDialog({
             <button
               type="button"
               className="button primary"
-              disabled={run.device === null || needsLyrics}
+              disabled={run.webgpu === null || needsLyrics}
               aria-describedby={needsLyrics ? hintId : undefined}
               onClick={start}
             >
@@ -295,22 +296,22 @@ function meterAfterProgress(meter: RunMeter | null, doneMs: number, totalMs: num
  */
 function useTranscribeRun(onDone: (outcome: TranscribeOutcome) => void) {
   const [state, dispatch] = useReducer(transcribeDialogReducer, IDLE)
+  const [webgpu, setWebgpu] = useState<boolean | null>(null)
   const [device, setDevice] = useState<Device | null>(null)
   const [meter, setMeter] = useState<RunMeter | null>(null)
   const clientRef = useRef<TranscribeClient | null>(null)
   const runRef = useRef<AbortController | null>(null)
   const answerRef = useRef<((value: boolean) => void) | null>(null)
+  const speedsRef = useRef<Record<string, DeviceSpeeds>>({})
+  const speechModelRef = useRef('')
 
   useEffect(() => {
     let mounted = true
-    const onDeviceChange = (next: Device, reason: DeviceChangeReason) => {
-      setDevice(next)
-      if (reason === 'slow') setMeter((current) => current && { ...current, slowDevice: true })
-    }
-    void chooseDevice().then((first) => {
+    const settings = loadSettings().catch(() => DEFAULT_SETTINGS)
+    void Promise.all([hasWebGpu(), settings]).then(([available, { deviceSpeeds }]) => {
       if (!mounted) return
-      setDevice(first)
-      clientRef.current = createTranscribeClient({ device: first, onDeviceChange })
+      speedsRef.current = deviceSpeeds
+      setWebgpu(available)
     })
     return () => {
       mounted = false
@@ -322,8 +323,31 @@ function useTranscribeRun(onDone: (outcome: TranscribeOutcome) => void) {
 
   const start = useCallback(
     async (request: TranscribeRequest) => {
+      if (webgpu === null) return
+      const { speechModelId } = request
+      speechModelRef.current = speechModelId
+      // A client can outlive this run, so the handler reads the speech model of the active run.
+      const recordSpeed = (measured: Device, speed: number) => {
+        speedsRef.current = withSpeed(speedsRef.current, speechModelRef.current, measured, speed)
+        void updateSettings({ deviceSpeeds: speedsRef.current }).catch(() => undefined)
+      }
+      const first = pickDevice(webgpu, speedsRef.current[speechModelId])
+      // The client keeps one device, so a run that needs the other device needs a new client.
+      if (clientRef.current?.device !== first) {
+        clientRef.current?.dispose()
+        clientRef.current = createTranscribeClient({
+          device: first,
+          onDeviceChange: (next, reason) => {
+            setDevice(next)
+            // A failed or stalled WebGPU device gets the lowest speed, so the app does not select it again.
+            recordSpeed('webgpu', 0)
+            if (reason === 'slow') setMeter((current) => current && { ...current, slowDevice: true })
+          },
+          onSpeed: recordSpeed,
+        })
+      }
       const client = clientRef.current
-      if (client === null) return
+      setDevice(first)
       const controller = new AbortController()
       runRef.current = controller
       // An event from a run that the person cancelled must not change the state of a later run.
@@ -369,7 +393,7 @@ function useTranscribeRun(onDone: (outcome: TranscribeOutcome) => void) {
         send(isCancel(error) ? { type: 'cancelled' } : { type: 'failed', error })
       }
     },
-    [onDone],
+    [onDone, webgpu],
   )
 
   function answer(value: boolean) {
@@ -386,7 +410,7 @@ function useTranscribeRun(onDone: (outcome: TranscribeOutcome) => void) {
     dispatch({ type: 'cancelled' })
   }
 
-  return { state, device, meter, start, answer, cancel }
+  return { state, webgpu, device, meter, start, answer, cancel }
 }
 
 /** Returns `Date.now()`, updated each second while `ticking` is true. */
@@ -402,16 +426,19 @@ function useNow(ticking: boolean): number {
 }
 
 type DeviceNoteProps = {
+  /** True when the browser gives a WebGPU adapter, or null before the check ends. */
+  webgpu: boolean | null
+  /** The device of the active run. The app selects it from the measured speeds. */
   device: Device | null
   /** The meter of the active run, or null when no run is active. */
   meter: RunMeter | null
 }
 
 /** Shows the device note when no run is active, and the device line during a speech model run. */
-function DeviceNote({ device, meter }: DeviceNoteProps) {
-  if (device === null) return null
-  if (meter === null || meter.mode !== 'model')
-    return <p className="dialog-note">{DEVICE_NOTE[device]}</p>
+function DeviceNote({ webgpu, device, meter }: DeviceNoteProps) {
+  if (webgpu === null) return null
+  if (device === null || meter === null || meter.mode !== 'model')
+    return <p className="dialog-note">{DEVICE_NOTE[webgpu ? 'webgpu' : 'wasm']}</p>
   return <p className="dialog-note transcribe-device">{deviceLine(device, meter.speed)}</p>
 }
 

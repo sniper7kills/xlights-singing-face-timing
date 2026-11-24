@@ -8,4 +8,10 @@ export default defineConfig({
     // The documented local URL is http://localhost:5173, so a busy port is an error.
     strictPort: true,
   },
+  preview: {
+    headers: {
+      'Cross-Origin-Opener-Policy': 'same-origin',
+      'Cross-Origin-Embedder-Policy': 'require-corp',
+    },
+  },
 })

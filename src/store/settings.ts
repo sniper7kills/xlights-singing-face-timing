@@ -7,14 +7,17 @@ import type { AppSettings } from './types.ts'
  */
 export const DEFAULT_SETTINGS: AppSettings = {
   speechModelId: 'whisper-base',
-  device: 'wasm',
+  deviceSpeeds: {},
   defaultFrameMs: 50,
   theme: 'dark',
 }
 
-/** Returns the app settings, or `DEFAULT_SETTINGS` when the app has stored none. */
+/**
+ * Returns the app settings, or `DEFAULT_SETTINGS` when the app has stored none.
+ * A record from an earlier version of the app can miss a field, so the default fills it.
+ */
 export async function loadSettings(): Promise<AppSettings> {
-  return (await getRecord('settings', SETTINGS_KEY)) ?? DEFAULT_SETTINGS
+  return { ...DEFAULT_SETTINGS, ...(await getRecord('settings', SETTINGS_KEY)) }
 }
 
 /**

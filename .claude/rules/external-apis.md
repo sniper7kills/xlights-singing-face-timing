@@ -29,6 +29,8 @@ Do not reconcile by guess.
 | AWS CloudFormation (S3, CloudFront, IAM) | current | https://docs.aws.amazon.com/AWSCloudFormation/latest/TemplateReference/ |
 | AWS CLI | 2.x | `aws s3 sync help`, `aws cloudfront create-invalidation help` |
 | GitHub OIDC with AWS | current | https://docs.aws.amazon.com/IAM/latest/UserGuide/id_roles_create_for-idp_oidc.html |
+| ONNX Runtime Web (`onnxruntime-web`) | 1.31.0-dev.20260914, from `@huggingface/transformers` | https://onnxruntime.ai/docs/tutorials/web/env-flags-and-session-options.html |
+| Cross-origin isolation headers | browser | https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Cross-Origin-Embedder-Policy , https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Cross-Origin-Opener-Policy |
 
 Not confirmed yet. Confirm each one before the code that depends on it:
 
@@ -106,6 +108,60 @@ Confirmed on 2026-11-24 for the browser Web Audio API (issue #91):
   `AudioContext` from starting until the page has sticky activation. Firefox
   controls this with `media.autoplay.block-webaudio`. The specification defines
   "allowed to start" for `AudioContext` only.
+
+Confirmed on 2026-11-24 for cross-origin isolation and the `wasm` threads (issue #93):
+
+- `Cross-Origin-Opener-Policy: same-origin` and `Cross-Origin-Embedder-Policy:
+  require-corp` make a page cross-origin isolated. Source:
+  https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Cross-Origin-Embedder-Policy
+  (last modified 2026-09-04) and
+  https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Cross-Origin-Opener-Policy
+  (last modified 2026-07-12).
+- Under `require-corp`, a request in `cors` mode passes when the server sends a
+  valid `Access-Control-Allow-Origin`. It needs no `Cross-Origin-Resource-Policy`.
+- Browser support, from
+  https://raw.githubusercontent.com/mdn/browser-compat-data/main/http/headers/Cross-Origin-Embedder-Policy.json:
+  the header in Chrome 83, Firefox 79 and Safari 15.2. The value `credentialless`
+  in Chrome 96 and Firefox 119. Safari and Safari on iOS do not support
+  `credentialless`, so the app uses `require-corp`.
+- `SharedArrayBuffer` exists only in a secure context that is cross-origin
+  isolated. Source:
+  https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/SharedArrayBuffer#security_requirements.
+  A dedicated worker of an isolated page was isolated in the measured runs of
+  Chromium and Firefox (`crossOriginIsolated` true in the worker).
+- ONNX Runtime Web: `env.wasm.numThreads` defaults to `0`. With `0`, the runtime
+  uses 1 thread when the page is not cross-origin isolated, else
+  `min(4, ceil(hardwareConcurrency / 2))`. Source:
+  https://onnxruntime.ai/docs/tutorials/web/env-flags-and-session-options.html and
+  `node_modules/onnxruntime-web/lib/backend-wasm.ts` (1.31.0-dev.20260914). A value
+  above 1 with no `SharedArrayBuffer` falls back to 1 thread with a console warning
+  (`lib/wasm/wasm-factory.ts`).
+- `@huggingface/transformers` 4.3.2 exposes the runtime settings as
+  `env.backends.onnx.wasm` (type `Partial<Env>` of `onnxruntime-common`). The
+  worker must set `numThreads` before the first `pipeline` call. Source:
+  https://huggingface.co/docs/transformers.js/api/env and `src/backends/onnx.js`.
+- The runtime JavaScript is in the worker chunk. The worker sets
+  `wasmPaths.wasm` only, so the runtime fetches the `.wasm` file from the app
+  origin. The thread workers of the runtime load the same worker chunk.
+- The Hugging Face hosts send CORS headers. A `GET` with an `Origin` header on
+  2026-11-24:
+  - `https://huggingface.co/<repo>/resolve/main/config.json` answers `307` with
+    `access-control-allow-origin: <origin>` and `vary: Origin`.
+  - `https://huggingface.co/<repo>/resolve/main/onnx/encoder_model.onnx` answers
+    `302` to `https://us.aws.cdn.hf.co/...` with the same CORS header.
+  - `us.aws.cdn.hf.co` answers `206` with `access-control-allow-origin: *`.
+  - No host sends `Cross-Origin-Resource-Policy`. The library fetches in `cors`
+    mode, so `require-corp` lets the downloads through.
+- CloudFront: a response headers policy adds a header that is not a security
+  header through `CustomHeadersConfig.Items`, each with `Header`, `Value` and
+  `Override`. Source:
+  https://docs.aws.amazon.com/AWSCloudFormation/latest/TemplateReference/aws-properties-cloudfront-responseheaderspolicy-customheader.html
+  and
+  https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/understanding-response-headers-policies.html.
+  The guide lists no restriction on the two header names. AWS has not validated
+  the change, because no stack exists yet.
+- Firefox refuses port 4190 (`deniedPortAccess`). Serve a local build on another
+  port for a Firefox test.
 
 Confirmed on 2026-11-24: the CloudFormation properties in `infra/hosting.yml` and
 the IAM action names of the deploy role. Pull request #52 cites each page. The
