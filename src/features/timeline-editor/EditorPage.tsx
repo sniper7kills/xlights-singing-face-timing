@@ -5,11 +5,14 @@ import { useAutosaveStore, useSaveState } from '../../store/autosave.ts'
 import { StorageFullError } from '../../store/db.ts'
 import { useSongStore } from '../../store/songStore.ts'
 import { selectedVoice, useViewStore } from '../../store/viewStore.ts'
+import { AddWordAction } from '../phoneme-breakdown/AddWordAction.tsx'
 import { CustomDictionaryAction } from '../phoneme-breakdown/CustomDictionaryAction.tsx'
+import { UnknownWordCounter } from '../phoneme-breakdown/UnknownWordCounter.tsx'
 import type { BreakDownFailure, TranscribeOutcome } from '../transcription/runTranscription.ts'
 import { TranscribeDialog } from '../transcription/TranscribeDialog.tsx'
 import { outcomeText } from '../transcription/transcribeDialogState.ts'
 import { ExportAction } from '../xtiming-export/ExportAction.tsx'
+import { EditorToolbar } from './EditorToolbar.tsx'
 import { Layers } from './Layers.tsx'
 import { Waveform } from './Waveform.tsx'
 
@@ -20,7 +23,7 @@ type EditorPageProps = {
   songId: string
 }
 
-/** Shows the editor for one song: the top bar, the waveform region and the layers. */
+/** Shows the editor for one song: the top bar, the waveform region, the layers and the toolbar. */
 export function EditorPage({ songId }: EditorPageProps) {
   const content = useSongStore((state) => state.current)
   const openSong = useSongStore((state) => state.openSong)
@@ -123,6 +126,10 @@ export function EditorPage({ songId }: EditorPageProps) {
           onTranscribe={voice === undefined ? undefined : openTranscribeDialog}
         />
       </Waveform>
+      <EditorToolbar>
+        <UnknownWordCounter />
+        <AddWordAction />
+      </EditorToolbar>
       {dialogOpen && voice !== undefined && (
         <TranscribeDialog
           voiceId={voice.id}
