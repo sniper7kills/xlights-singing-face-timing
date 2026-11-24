@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { nextUnknownWord, selectedUnknownWord, unknownWords } from './selectors.ts'
+import { nextUnknownWord, phonemeLabelAt, selectedUnknownWord, unknownWords } from './selectors.ts'
 import { makeSongContent } from './fixtures.test-helpers.ts'
 import { type SongStoreState, useSongStore } from './songStore.ts'
 import type { Mark } from './types.ts'
@@ -99,5 +99,48 @@ describe('selectedUnknownWord', () => {
     expect(selectedUnknownWord(marks, [])).toBeUndefined()
     expect(selectedUnknownWord(marks, ['w1', 'known'])).toBeUndefined()
     expect(selectedUnknownWord(marks, ['missing'])).toBeUndefined()
+  })
+})
+
+describe('phonemeLabelAt', () => {
+  const phoneme = (
+    id: string,
+    label: string,
+    startMs: number,
+    endMs: number,
+    voiceId = 'v1',
+  ): Mark => ({
+    ...word(id, startMs, undefined, voiceId),
+    layer: 'phoneme',
+    label,
+    endMs,
+  })
+  const marks = [
+    word('w1', 1000),
+    phoneme('f1', 'etc', 1000, 1200),
+    phoneme('f2', 'O', 1200, 1500),
+    phoneme('f3', 'AI', 2000, 2500),
+    phoneme('other', 'E', 1500, 2000, 'v2'),
+    phoneme('bad', 'XX', 3000, 3500),
+  ]
+
+  it('gives the label of the phoneme at a time inside it', () => {
+    expect(phonemeLabelAt(marks, 'v1', 1300)).toBe('O')
+  })
+
+  it('gives the later phoneme at a shared boundary', () => {
+    expect(phonemeLabelAt(marks, 'v1', 1200)).toBe('O')
+    expect(phonemeLabelAt(marks, 'v1', 1000)).toBe('etc')
+  })
+
+  it('gives null between two phonemes and for a phoneme of another voice', () => {
+    expect(phonemeLabelAt(marks, 'v1', 1500)).toBeNull()
+    expect(phonemeLabelAt(marks, 'v1', 1700)).toBeNull()
+    expect(phonemeLabelAt(marks, 'v2', 1700)).toBe('E')
+  })
+
+  it('gives null for a song with no voice and for a label that is not a phoneme label', () => {
+    expect(phonemeLabelAt(marks, undefined, 1300)).toBeNull()
+    expect(phonemeLabelAt(marks, 'v1', 3200)).toBeNull()
   })
 })

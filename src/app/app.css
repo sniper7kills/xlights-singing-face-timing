@@ -260,7 +260,158 @@ button {
 
 .editor {
   display: grid;
+  grid-template-columns: minmax(0, 1fr) 280px;
   gap: 16px;
+}
+
+/* The inspector takes the right column. Each other region stays in the left column, in page order. */
+.editor > * {
+  grid-column: 1;
+}
+
+.editor > .editor-top {
+  grid-column: 1 / -1;
+}
+
+.editor > .inspector {
+  grid-column: 2;
+  grid-row: span 2;
+  align-self: start;
+}
+
+.inspector {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--panel);
+}
+
+.inspector h3 {
+  margin: 0;
+  font: 600 14px var(--display);
+}
+
+.inspector-hint {
+  margin: 0;
+  color: var(--mute);
+  font-size: 13px;
+}
+
+.face-preview {
+  margin: 0;
+}
+
+.face {
+  display: grid;
+  place-items: center;
+  aspect-ratio: 1 / 1;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: radial-gradient(circle at 50% 40%, var(--panel2), var(--bg));
+}
+
+.face svg {
+  width: 78%;
+}
+
+.face-outline {
+  fill: none;
+  stroke: var(--line);
+  stroke-width: 2;
+}
+
+.face-eyes {
+  fill: var(--ink);
+  transform-box: view-box;
+  transform-origin: 60px 48px;
+}
+
+/* xLights blinks the eyes of a face while the phoneme is rest. */
+.face-eyes.blink {
+  animation: face-blink 3.2s infinite;
+}
+
+@keyframes face-blink {
+  0%,
+  92%,
+  100% {
+    transform: scaleY(1);
+  }
+
+  96% {
+    transform: scaleY(0.15);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .face-eyes.blink {
+    animation: none;
+  }
+}
+
+.face-mouth {
+  stroke: var(--ink);
+  stroke-width: 3;
+  stroke-linejoin: round;
+}
+
+.face-caption {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-top: 6px;
+  color: var(--mute);
+  font: 12px var(--mono);
+}
+
+.face-caption b {
+  color: var(--amber);
+  font-size: 15px;
+}
+
+.mark-fields {
+  display: grid;
+  gap: 8px;
+}
+
+.inspector-field,
+.inspector-field label {
+  display: grid;
+  grid-template-columns: 56px 1fr;
+  align-items: center;
+  gap: 4px 8px;
+  font: 12px var(--mono);
+}
+
+.inspector-field label {
+  grid-column: 1 / -1;
+}
+
+.inspector-field > span:first-child,
+.inspector-field label > span {
+  color: var(--mute);
+}
+
+.inspector-field input,
+.inspector-field select {
+  width: 100%;
+  min-width: 0;
+  padding: 4px 6px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--ink);
+  font: 12px var(--mono);
+}
+
+.inspector-field input[aria-invalid='true'] {
+  border-color: var(--red);
+}
+
+.inspector-field .field-error {
+  grid-column: 2;
 }
 
 .editor[hidden] {
