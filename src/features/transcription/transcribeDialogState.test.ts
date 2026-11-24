@@ -10,6 +10,7 @@ import {
   isActive,
   isCancel,
   lowMatchMessage,
+  outcomeText,
   progressText,
   progressValue,
   shownRunState,
@@ -110,6 +111,16 @@ describe('lowMatchMessage', () => {
     expect(lowMatchMessage(0.22)).toBe(
       'Only 22% of the lyrics matched the audio. Check that the lyrics belong to this song.',
     )
+  })
+})
+
+describe('outcomeText', () => {
+  it('shows the word count and the estimated count', () => {
+    expect(outcomeText({ wordCount: 214, estimatedCount: 9 })).toBe('214 words, 9 estimated')
+  })
+
+  it('shows one word in the singular', () => {
+    expect(outcomeText({ wordCount: 1, estimatedCount: 1 })).toBe('1 word, 1 estimated')
   })
 })
 

@@ -1,5 +1,5 @@
 import { formatClock } from '../../lib/time/formatClock.ts'
-import { NoWordsError, type TranscribeMode } from './runTranscription.ts'
+import { NoWordsError, type TranscribeMode, type TranscribeOutcome } from './runTranscription.ts'
 import { TranscribeError } from './transcribeClient.ts'
 
 /** A state in which a transcribe run is active and the dialog shows its progress. */
@@ -69,6 +69,12 @@ export function errorMessage(error: unknown): string {
 /** Returns true when the error is the stop of a run that the person asked for. */
 export function isCancel(error: unknown): boolean {
   return error instanceof TranscribeError && error.kind === 'cancelled'
+}
+
+/** Returns the text of the toast after a run, for example "214 words, 9 estimated". */
+export function outcomeText(outcome: TranscribeOutcome): string {
+  const words = outcome.wordCount === 1 ? 'word' : 'words'
+  return `${outcome.wordCount} ${words}, ${outcome.estimatedCount} estimated`
 }
 
 /** Returns the copy of the low-match warning for a match ratio from 0 to 1. */

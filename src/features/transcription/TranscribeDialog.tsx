@@ -10,7 +10,11 @@ import {
 import { DEFAULT_SETTINGS, loadSettings, updateSettings } from '../../store/settings.ts'
 import { chooseDevice } from './device.ts'
 import { type Device, SPEECH_MODELS } from './protocol.ts'
-import { runTranscription, type TranscribeRequest } from './runTranscription.ts'
+import {
+  runTranscription,
+  type TranscribeOutcome,
+  type TranscribeRequest,
+} from './runTranscription.ts'
 import { createTranscribeClient, type TranscribeClient } from './transcribeClient.ts'
 import {
   type DialogEvent,
@@ -41,8 +45,10 @@ type TranscribeDialogProps = {
   durationMs: number
   /** Receives true when a run starts and false when it stops. */
   onActiveChange: (active: boolean) => void
-  /** Closes the dialog. The dialog calls it after a run that ends well, and for "Close". */
+  /** Closes the dialog for "Close" and Escape. */
   onClose: () => void
+  /** Receives the counts of a run that ends well. The parent closes the dialog and shows the toast. */
+  onDone: (outcome: TranscribeOutcome) => void
 }
 
 /**
@@ -54,6 +60,7 @@ export function TranscribeDialog({
   durationMs,
   onActiveChange,
   onClose,
+  onDone,
 }: TranscribeDialogProps) {
   const titleId = useId()
   const hintId = useId()
@@ -61,7 +68,7 @@ export function TranscribeDialog({
   const [lyrics, setLyrics] = useState('')
   const [lyricsOnly, setLyricsOnly] = useState(false)
   const dialogRef = useRef<HTMLDivElement>(null)
-  const run = useTranscribeRun(durationMs, onClose)
+  const run = useTranscribeRun(durationMs, onDone)
   const { state } = run
   const active = isActive(state)
   const needsLyrics = lyricsOnly && lyrics.trim() === ''
@@ -192,7 +199,7 @@ type TranscribeRun = ReturnType<typeof useTranscribeRun>
  * Returns the state of the transcribe run and the functions that start, answer and cancel it.
  * The hook owns one transcribe client for the life of the dialog.
  */
-function useTranscribeRun(durationMs: number, onClose: () => void) {
+function useTranscribeRun(durationMs: number, onDone: (outcome: TranscribeOutcome) => void) {
   const [state, dispatch] = useReducer(transcribeDialogReducer, IDLE)
   const [device, setDevice] = useState<Device | null>(null)
   const clientRef = useRef<TranscribeClient | null>(null)
@@ -231,7 +238,7 @@ function useTranscribeRun(durationMs: number, onClose: () => void) {
         })
       send({ type: 'start', mode: request.mode, totalMs: durationMs })
       try {
-        await runTranscription(request, client, {
+        const outcome = await runTranscription(request, client, {
           signal: controller.signal,
           onDownload: (loaded, total) =>
             send({ type: 'download', percent: downloadPercent(loaded, total) }),
@@ -242,12 +249,12 @@ function useTranscribeRun(durationMs: number, onClose: () => void) {
         })
         if (controller.signal.aborted) return
         send({ type: 'done' })
-        onClose()
+        onDone(outcome)
       } catch (error) {
         send(isCancel(error) ? { type: 'cancelled' } : { type: 'failed', error })
       }
     },
-    [durationMs, onClose],
+    [durationMs, onDone],
   )
 
   function answer(value: boolean) {

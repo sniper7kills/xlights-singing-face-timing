@@ -1,9 +1,14 @@
+import { hasMarksInRange, replaceMarksInRange } from '../../store/actions/replaceMarksInRange.ts'
 import { getAudioFile } from '../../store/db.ts'
 import { useSongStore } from '../../store/songStore.ts'
-import { parseLyrics } from './phrases.ts'
+import type { Mark, SongContent } from '../../store/types.ts'
+import { alignLyrics } from './alignLyrics.ts'
+import { buildMarks } from './buildMarks.ts'
+import { groupIntoPhrases, parseLyrics, spreadLyrics } from './phrases.ts'
 import { SPEECH_SAMPLE_RATE } from './protocol.ts'
 import { resampleForSpeech, type TimeRange } from './resample.ts'
 import { type DownloadHandler, type TranscribeClient, TranscribeError } from './transcribeClient.ts'
+import type { AlignedPhrase } from './types.ts'
 
 /** The source of the words: the speech model, or the lyrics alone with no speech model. */
 export type TranscribeMode = 'model' | 'lyrics-only'
@@ -54,19 +59,48 @@ export class NoWordsError extends Error {
   }
 }
 
+/** Below this match ratio, the run asks the person before it creates marks. */
+const LOW_MATCH_RATIO = 0.3
+
+function declined(): TranscribeError {
+  return new TranscribeError('cancelled', 'The person declined to continue the transcribe run.')
+}
+
 function stopIfCancelled(signal: AbortSignal): void {
   if (signal.aborted)
     throw new TranscribeError('cancelled', 'The person cancelled the transcribe run.')
 }
 
+/** Returns the counts of the toast "214 words, 9 estimated" for the word marks of a run. */
+function countWords(marks: Mark[]): TranscribeOutcome {
+  const words = marks.filter((mark) => mark.layer === 'word')
+  return { wordCount: words.length, estimatedCount: words.filter((mark) => mark.estimated).length }
+}
+
 /**
- * Runs one transcription for the open song and returns the count of words.
- * @param request The run that the person started.
- * @param client The client that runs the speech model.
+ * Asks the person to replace the marks of the voice in the range, when the range has marks.
+ * The feature file asks before the download, so a "Cancel" costs no download and no wait.
+ * Rejects as cancelled when the person declines.
+ */
+async function askToReplace(
+  content: SongContent,
+  voiceId: string,
+  range: TimeRange,
+  handlers: TranscribeRunHandlers,
+): Promise<void> {
+  if (hasMarksInRange(content, voiceId, range) && !(await handlers.confirmReplace()))
+    throw declined()
+}
+
+/**
+ * Runs one transcription for the open song, writes the marks as one undo step, and returns the counts.
+ * The run replaces the marks of the voice that lie fully inside the range. The marks outside it stay.
+ * @param request The run that the person started. Without a range, the range is the full song.
+ * @param client The client that runs the speech model. A lyrics-only run does not call it.
  * @param handlers The progress functions, the cancel signal and the two confirm callbacks of the dialog.
  * Rejects with TranscribeError of kind 'cancelled' when the signal aborts or the person declines a confirm.
  * Rejects with NoWordsError when no word is found.
- * Rejects with TranscribeError for a failure of the speech model, or with Error when the audio file is missing.
+ * Rejects with TranscribeError for a failure of the speech model, or with Error when no song is open or the audio file is missing.
  */
 export async function runTranscription(
   request: TranscribeRequest,
@@ -74,15 +108,43 @@ export async function runTranscription(
   handlers: TranscribeRunHandlers,
 ): Promise<TranscribeOutcome> {
   const { signal } = handlers
-  if (request.mode === 'lyrics-only') {
-    const wordCount = parseLyrics(request.lyrics ?? '').flat().length
-    if (wordCount === 0) throw new NoWordsError()
-    // TODO(#18): Spread the lyrics over the range, write the marks and count the estimated words.
-    return { wordCount, estimatedCount: wordCount }
-  }
+  const content = useSongStore.getState().current
+  if (content === null) throw new Error('The open song has no audio file.')
+  const { song } = content
+  const range = request.range ?? { startMs: 0, endMs: song.durationMs }
 
-  const songId = useSongStore.getState().current?.song.id
-  const audio = songId === undefined ? undefined : await getAudioFile(songId)
+  if (request.mode === 'lyrics-only' && parseLyrics(request.lyrics ?? '').length === 0)
+    throw new NoWordsError()
+  await askToReplace(content, request.voiceId, range, handlers)
+  stopIfCancelled(signal)
+
+  const phrases =
+    request.mode === 'lyrics-only'
+      ? spreadLyrics(request.lyrics ?? '', range.startMs, range.endMs)
+      : await transcribePhrases(request, song.id, client, handlers)
+
+  const marks = buildMarks(phrases, request.voiceId, song.frameMs)
+  const outcome = countWords(marks)
+  if (outcome.wordCount === 0) throw new NoWordsError()
+  // TODO(#23): Add the phonemes of the new words to `marks` here.
+  // The write below then holds the break down in the same undo step.
+  stopIfCancelled(signal)
+  replaceMarksInRange(request.voiceId, range, marks)
+  return outcome
+}
+
+/**
+ * Returns the phrases of a speech model run: aligned with the lyrics when the person supplies them, else grouped.
+ * Rejects as for `runTranscription`, and as cancelled when the person declines the low-match warning.
+ */
+async function transcribePhrases(
+  request: TranscribeRequest,
+  songId: string,
+  client: TranscribeClient,
+  handlers: TranscribeRunHandlers,
+): Promise<AlignedPhrase[]> {
+  const { signal } = handlers
+  const audio = await getAudioFile(songId)
   if (audio === undefined) throw new Error('The open song has no audio file.')
   const samples = await resampleForSpeech(audio.data, request.range)
   stopIfCancelled(signal)
@@ -92,6 +154,7 @@ export async function runTranscription(
 
   const totalMs = (samples.length / SPEECH_SAMPLE_RATE) * 1000
   handlers.onProgress(0, totalMs)
+  // The client adds the start of the range, so each word time is a song time.
   const words = await client.transcribe(samples, request.range?.startMs ?? 0, {
     onDownload: handlers.onDownload,
     onProgress: (doneMs) => handlers.onProgress(doneMs, totalMs),
@@ -99,6 +162,10 @@ export async function runTranscription(
   stopIfCancelled(signal)
   if (words.length === 0) throw new NoWordsError()
   handlers.onFinishing()
-  // TODO(#18): Group or align the words, call the confirm callbacks, and write the marks.
-  return { wordCount: words.length, estimatedCount: 0 }
+
+  if (request.lyrics === undefined) return groupIntoPhrases(words)
+  const { phrases, matchRatio } = alignLyrics(words, request.lyrics)
+  if (matchRatio < LOW_MATCH_RATIO && !(await handlers.confirmLowMatch(matchRatio)))
+    throw declined()
+  return phrases
 }

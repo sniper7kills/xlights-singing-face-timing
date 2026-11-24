@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useSongStore } from '../../store/songStore.ts'
+import type { Mark } from '../../store/types.ts'
 import { storeNewSong } from '../audio-import/storeNewSong.ts'
 import { SPEECH_SAMPLE_RATE } from './protocol.ts'
 import { resampleForSpeech } from './resample.ts'
@@ -20,10 +21,25 @@ const audio = {
   mimeType: 'audio/ogg',
 }
 
+const VOICE = 'voice-1'
+
 const WORDS: TimedWord[] = [
-  { text: 'Silent', startMs: 100, endMs: 600 },
-  { text: 'night,', startMs: 700, endMs: 1200 },
+  { text: ' Silent', startMs: 100, endMs: 600 },
+  { text: ' night,', startMs: 700, endMs: 1200 },
 ]
+
+function oldMark(id: string, startMs: number, endMs: number): Mark {
+  return {
+    id,
+    voiceId: VOICE,
+    layer: 'phrase',
+    label: id,
+    startMs,
+    endMs,
+    parentId: null,
+    edited: false,
+  }
+}
 
 function fakeClient(words: TimedWord[] = WORDS): TranscribeClient {
   return {
@@ -52,16 +68,38 @@ function handlers(controller = new AbortController()): TranscribeRunHandlers {
 }
 
 const modelRequest: TranscribeRequest = {
-  voiceId: 'voice-1',
+  voiceId: VOICE,
   speechModelId: 'whisper-base',
   mode: 'model',
+}
+
+const lyricsOnly: TranscribeRequest = {
+  ...modelRequest,
+  mode: 'lyrics-only',
+  lyrics: 'Silent night, holy night\n[Chorus]\nAll is calm',
+}
+
+const marks = () => useSongStore.getState().current?.marks ?? []
+const labels = (layer: Mark['layer']) =>
+  marks()
+    .filter((mark) => mark.layer === layer)
+    .map((mark) => mark.label)
+
+async function openSong(existing: Mark[] = []) {
+  const song = await storeNewSong({
+    name: 'carol',
+    durationMs: 30_000,
+    audio,
+    voices: [{ id: VOICE, name: 'Lead Vocals', order: 0, color: '#e05d5d' }],
+    marks: existing,
+  })
+  await useSongStore.getState().openSong(song.id)
 }
 
 beforeEach(async () => {
   // 30 seconds of audio at the speech model sample rate.
   vi.mocked(resampleForSpeech).mockResolvedValue(new Float32Array(30 * SPEECH_SAMPLE_RATE))
-  const song = await storeNewSong({ name: 'carol', durationMs: 30_000, audio })
-  await useSongStore.getState().openSong(song.id)
+  await openSong()
 })
 
 afterEach(() => {
@@ -69,7 +107,7 @@ afterEach(() => {
 })
 
 describe('runTranscription with the speech model', () => {
-  it('loads the speech model, transcribes the audio and returns the count of words', async () => {
+  it('loads the speech model, transcribes the audio and returns the counts of the word marks', async () => {
     const client = fakeClient()
     const run = handlers()
 
@@ -83,9 +121,110 @@ describe('runTranscription with the speech model', () => {
     expect(run.onFinishing).toHaveBeenCalledOnce()
   })
 
+  it('writes the grouped phrase and the words with clean labels when no lyrics are supplied', async () => {
+    await runTranscription(modelRequest, fakeClient(), handlers())
+
+    expect(labels('phrase')).toEqual(['Silent night,'])
+    expect(labels('word')).toEqual(['Silent', 'night'])
+    expect(marks().every((mark) => mark.voiceId === VOICE)).toBe(true)
+  })
+
+  it('records the run as one undo step that restores the earlier marks', async () => {
+    useSongStore.getState().closeSong()
+    await openSong([oldMark('old-phrase', 5000, 6000)])
+
+    await runTranscription(modelRequest, fakeClient(), handlers())
+    expect(labels('word')).toEqual(['Silent', 'night'])
+    expect(useSongStore.getState().history.past).toHaveLength(1)
+
+    useSongStore.getState().undo()
+    expect(marks()).toEqual([oldMark('old-phrase', 5000, 6000)])
+  })
+
+  it('aligns the words with the lyrics and takes the lyrics spelling for a good match', async () => {
+    const run = handlers()
+
+    const outcome = await runTranscription(
+      { ...modelRequest, lyrics: 'SILENT night, holy night' },
+      fakeClient(),
+      run,
+    )
+
+    expect(labels('phrase')).toEqual(['SILENT night, holy night'])
+    expect(labels('word')).toEqual(['SILENT', 'night', 'holy', 'night'])
+    expect(outcome).toEqual({ wordCount: 4, estimatedCount: 2 })
+    expect(run.confirmLowMatch).not.toHaveBeenCalled()
+  })
+
+  it('asks before it writes a low lyrics match, and writes the marks for "Continue"', async () => {
+    const run = handlers()
+
+    await runTranscription(
+      { ...modelRequest, lyrics: 'Away in a manger no crib for a bed' },
+      fakeClient(),
+      run,
+    )
+
+    expect(run.confirmLowMatch).toHaveBeenCalledWith(0)
+    expect(labels('phrase')).toEqual(['Away in a manger no crib for a bed'])
+  })
+
+  it('rejects as cancelled and writes no mark when the person declines a low lyrics match', async () => {
+    const run = handlers()
+    vi.mocked(run.confirmLowMatch).mockResolvedValue(false)
+
+    const result = runTranscription(
+      { ...modelRequest, lyrics: 'Away in a manger' },
+      fakeClient(),
+      run,
+    )
+
+    await expect(result).rejects.toMatchObject({ kind: 'cancelled' })
+    expect(marks()).toEqual([])
+    expect(useSongStore.getState().history.past).toHaveLength(0)
+  })
+
+  it('asks before the download when marks exist, and replaces them for "Continue"', async () => {
+    useSongStore.getState().closeSong()
+    await openSong([oldMark('old-phrase', 5000, 6000)])
+    const client = fakeClient()
+    const run = handlers()
+    vi.mocked(run.confirmReplace).mockImplementation(async () => {
+      expect(client.load).not.toHaveBeenCalled()
+      return true
+    })
+
+    await runTranscription(modelRequest, client, run)
+
+    expect(run.confirmReplace).toHaveBeenCalledOnce()
+    expect(labels('phrase')).toEqual(['Silent night,'])
+  })
+
+  it('rejects as cancelled, loads no speech model and keeps the marks when the person declines the replace', async () => {
+    useSongStore.getState().closeSong()
+    await openSong([oldMark('old-phrase', 5000, 6000)])
+    const client = fakeClient()
+    const run = handlers()
+    vi.mocked(run.confirmReplace).mockResolvedValue(false)
+
+    await expect(runTranscription(modelRequest, client, run)).rejects.toMatchObject({
+      kind: 'cancelled',
+    })
+    expect(client.load).not.toHaveBeenCalled()
+    expect(marks()).toEqual([oldMark('old-phrase', 5000, 6000)])
+  })
+
+  it('does not ask to replace when the voice has no mark', async () => {
+    const run = handlers()
+
+    await runTranscription(modelRequest, fakeClient(), run)
+
+    expect(run.confirmReplace).not.toHaveBeenCalled()
+  })
+
   it('reads the range and gives the start of the range as the song time of the first sample', async () => {
     const client = fakeClient()
-    const range = { startMs: 10_000, endMs: 40_000 }
+    const range = { startMs: 10_000, endMs: 20_000 }
 
     await runTranscription({ ...modelRequest, range }, client, handlers())
 
@@ -97,18 +236,53 @@ describe('runTranscription with the speech model', () => {
     )
   })
 
-  it('changes no mark', async () => {
-    const before = useSongStore.getState().current?.marks
+  it('replaces only the marks inside the range and keeps the marks outside it', async () => {
+    useSongStore.getState().closeSong()
+    const outside = oldMark('outside', 1000, 2000)
+    await openSong([outside, oldMark('inside', 11_000, 12_000)])
+    const words: TimedWord[] = [{ text: 'holy', startMs: 12_000, endMs: 12_500 }]
+    const run = handlers()
 
-    await runTranscription(modelRequest, fakeClient(), handlers())
+    await runTranscription(
+      { ...modelRequest, range: { startMs: 10_000, endMs: 20_000 } },
+      fakeClient(words),
+      run,
+    )
 
-    expect(useSongStore.getState().current?.marks).toEqual(before)
+    expect(run.confirmReplace).toHaveBeenCalledOnce()
+    expect(labels('phrase').sort()).toEqual(['holy', 'outside'])
+    expect(marks()).toContainEqual(outside)
   })
 
-  it('rejects with NoWordsError when the speech model returns no word', async () => {
+  it('does not ask to replace for a range with no mark inside it', async () => {
+    useSongStore.getState().closeSong()
+    await openSong([oldMark('outside', 1000, 2000)])
+    const run = handlers()
+
+    await runTranscription(
+      { ...modelRequest, range: { startMs: 10_000, endMs: 20_000 } },
+      fakeClient([{ text: 'holy', startMs: 12_000, endMs: 12_500 }]),
+      run,
+    )
+
+    expect(run.confirmReplace).not.toHaveBeenCalled()
+  })
+
+  it('rejects with NoWordsError and writes no mark when the speech model returns no word', async () => {
     await expect(runTranscription(modelRequest, fakeClient([]), handlers())).rejects.toBeInstanceOf(
       NoWordsError,
     )
+    expect(marks()).toEqual([])
+  })
+
+  it('rejects with NoWordsError when no word keeps a letter or a digit', async () => {
+    const result = runTranscription(
+      modelRequest,
+      fakeClient([{ text: '...', startMs: 100, endMs: 600 }]),
+      handlers(),
+    )
+
+    await expect(result).rejects.toBeInstanceOf(NoWordsError)
   })
 
   it('rejects as cancelled and loads no speech model when the signal aborts during the resample', async () => {
@@ -123,6 +297,24 @@ describe('runTranscription with the speech model', () => {
 
     await expect(result).rejects.toMatchObject({ kind: 'cancelled' })
     expect(client.load).not.toHaveBeenCalled()
+  })
+
+  it('rejects as cancelled and writes no mark when the signal aborts during the low-match question', async () => {
+    const controller = new AbortController()
+    const run = handlers(controller)
+    vi.mocked(run.confirmLowMatch).mockImplementation(async () => {
+      controller.abort()
+      return true
+    })
+
+    const result = runTranscription(
+      { ...modelRequest, lyrics: 'Away in a manger' },
+      fakeClient(),
+      run,
+    )
+
+    await expect(result).rejects.toMatchObject({ kind: 'cancelled' })
+    expect(marks()).toEqual([])
   })
 
   it('passes a failure of the client to the dialog', async () => {
@@ -144,27 +336,56 @@ describe('runTranscription with the speech model', () => {
 })
 
 describe('runTranscription with lyrics only', () => {
-  it('returns the count of lyrics words with no speech model', async () => {
+  it('spreads the lyrics over the full song and makes no client call', async () => {
     const client = fakeClient()
 
-    const outcome = await runTranscription(
-      {
-        ...modelRequest,
-        mode: 'lyrics-only',
-        lyrics: 'Silent night, holy night\n[Chorus]\nAll is calm',
-      },
-      client,
-      handlers(),
-    )
+    const outcome = await runTranscription(lyricsOnly, client, handlers())
 
     expect(outcome).toEqual({ wordCount: 7, estimatedCount: 7 })
+    expect(labels('phrase')).toEqual(['Silent night, holy night', 'All is calm'])
+    expect(labels('word')).toEqual(['Silent', 'night', 'holy', 'night', 'All', 'is', 'calm'])
+    const phrases = marks().filter((mark) => mark.layer === 'phrase')
+    expect(phrases.map((mark) => [mark.startMs, mark.endMs])).toEqual([
+      [0, 15_000],
+      [15_000, 30_000],
+    ])
     expect(client.load).not.toHaveBeenCalled()
+    expect(client.transcribe).not.toHaveBeenCalled()
     expect(resampleForSpeech).not.toHaveBeenCalled()
   })
 
-  it('rejects with NoWordsError for lyrics with no word', async () => {
+  it('spreads the lyrics over the range only', async () => {
+    await runTranscription(
+      { ...lyricsOnly, range: { startMs: 10_000, endMs: 20_000 } },
+      fakeClient(),
+      handlers(),
+    )
+
+    const phrases = marks().filter((mark) => mark.layer === 'phrase')
+    expect(phrases.map((mark) => [mark.startMs, mark.endMs])).toEqual([
+      [10_000, 15_000],
+      [15_000, 20_000],
+    ])
+  })
+
+  it('asks to replace the marks that exist', async () => {
+    useSongStore.getState().closeSong()
+    await openSong([oldMark('old-phrase', 5000, 6000)])
+    const run = handlers()
+    vi.mocked(run.confirmReplace).mockResolvedValue(false)
+
+    await expect(runTranscription(lyricsOnly, fakeClient(), run)).rejects.toMatchObject({
+      kind: 'cancelled',
+    })
+    expect(marks()).toEqual([oldMark('old-phrase', 5000, 6000)])
+  })
+
+  it('rejects with NoWordsError for lyrics with no word and does not ask to replace', async () => {
+    const run = handlers()
+
     await expect(
-      runTranscription({ ...modelRequest, mode: 'lyrics-only' }, fakeClient(), handlers()),
+      runTranscription({ ...modelRequest, mode: 'lyrics-only' }, fakeClient(), run),
     ).rejects.toBeInstanceOf(NoWordsError)
+    expect(run.confirmReplace).not.toHaveBeenCalled()
   })
 })
