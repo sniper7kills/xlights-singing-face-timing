@@ -2,8 +2,8 @@
 id: audio-import
 feature: Audio import
 epic: "Epic 1: Song and waveform"
-status: issued
-issues: [8, 9, 10, 11, 12, 13]
+status: built
+issues: [8, 9, 10, 11, 12, 13, 58]
 mockups: [mockups/01-song-library.html]
 ---
 
