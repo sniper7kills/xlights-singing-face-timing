@@ -439,7 +439,6 @@ body.rv-open .layout { padding-right:21rem; }
   }
   APP_SETTINGS {
     string speechModelId
-    string device
     int defaultFrameMs
     string theme
   }</pre></div>
@@ -474,7 +473,7 @@ body.rv-open .layout { padding-right:21rem; }
 <li><strong>App settings.</strong> One record. <code>speechModelId</code> is one of the three supported speech
 </li>
 </ul>
-<p>models. <code>device</code> is <code>webgpu</code> or <code>wasm</code>.</p>
+<p>models. The app does not store <code>device</code>. The app derives the device from the browser on each visit.</p>
 <h2 id="cross-cutting-concerns">Cross-cutting concerns</h2>
 <ul>
 <li><strong>Auth.</strong> None. The app has no accounts and no server data.
@@ -536,10 +535,9 @@ body.rv-open .layout { padding-right:21rem; }
 <tr><td>local</td><td>Development with <code>npm run dev</code>.</td><td><code>http://localhost:5173</code></td></tr>
 <tr><td>production</td><td>The <code>main</code> branch on S3 with CloudFront.</td><td>The default <code>*.cloudfront.net</code> domain of the distribution. Recorded in <code>docs/external.md</code> by Epic 0. No custom domain in v1.</td></tr>
 </table></div>
-<p>Environment variables, all build-time and all optional:</p>
+<p>The app reads one environment variable. It is build-time and optional:</p>
 <div class="table-wrap"><table>
 <tr><th>Name</th><th>Purpose</th><th>Default</th></tr>
-<tr><td><code>VITE_MODEL_HOST</code></td><td>Base URL for speech model files.</td><td>The Hugging Face Hub default of the library.</td></tr>
 <tr><td><code>VITE_APP_VERSION</code></td><td>Version text that the app writes into <code>SourceVersion</code>.</td><td>The <code>version</code> field of <code>package.json</code>.</td></tr>
 </table></div>
 <p>The deploy workflow reads three GitHub Actions repository variables. They are names of resources, not secrets:</p>
@@ -645,7 +643,7 @@ body.rv-open .layout { padding-right:21rem; }
 <li><strong>Speech model accuracy on songs.</strong> Whisper is trained on speech. Music and
 </li>
 </ol>
-<p>harmony lower the accuracy of words and times. Mitigation: the lyrics align flow in <a href="html/feature-transcription.html">features/02-transcription.md</a> and the editor. Epic 2 measures the demo song and records the result.</p>
+<p>harmony lower the accuracy of words and times. Mitigation: the lyrics align flow in <a href="html/feature-transcription.html">features/02-transcription.md</a> and the editor. Epic 2 measured the demo song: the base speech model returned 15 words for the choir clip, with one wrong line. The spec has no accuracy criterion for a song. Vocal separation (to transcribe the voice without the instruments) is an accepted later option. It is not in v1. A spec update adds it if real songs show the need.</p>
 <ol>
 <li><strong>Word times need the right model export.</strong> The docs confirm
 </li>
@@ -717,6 +715,11 @@ body.rv-open .layout { padding-right:21rem; }
 </li>
 </ul>
 <p>bytes. The demo song has the name "Silent Night". The editor saves a pending change when the person leaves it and when the page is hidden. Issue #58 joined the batch of epic #8.</p>
+<ul>
+<li>2026-11-24 — Epic 2 batch. The 150 ms accuracy criterion for the demo song is
+</li>
+</ul>
+<p>removed (issue #77): it measured the speech model and unchecked demo marks, not the code. The user accepts vocal separation as a later option. A transcribe run stops by terminating the worker (<code>docs/adr/0004</code>). The variable <code>VITE_MODEL_HOST</code> is removed. The app does not store the device. Issues #64 and #77 joined the batch of epic #14. The real speech model runs under the production Content-Security-Policy with no violation.</p>
 <h2 id="issue-map">Issue map</h2>
 <p>Written by <code>/spec-to-issues</code> on 2026-11-24. Repository: <code>sniper7kills/xlights-singing-face-timing</code>.</p>
 <p>The spec has one editor epic. The tracker has two, because 30 requirements do not fit one batch.</p>
@@ -724,7 +727,7 @@ body.rv-open .layout { padding-right:21rem; }
 <tr><th>Epic</th><th>Epic issue</th><th>Sub-issues</th></tr>
 <tr><td>Foundation</td><td>#1</td><td>#2, #3, #4, #5, #6, #7</td></tr>
 <tr><td>Song and waveform</td><td>#8</td><td>#9, #10, #11, #12, #13, #58</td></tr>
-<tr><td>Transcription</td><td>#14</td><td>#15, #16, #17, #18, #19</td></tr>
+<tr><td>Transcription</td><td>#14</td><td>#15, #16, #17, #18, #19, #64, #77</td></tr>
 <tr><td>Phoneme breakdown</td><td>#20</td><td>#21, #22, #23, #24, #25</td></tr>
 <tr><td>Editor — edit marks</td><td>#26</td><td>#27, #28, #29, #30</td></tr>
 <tr><td>Editor — play tools</td><td>#31</td><td>#32, #33, #34</td></tr>

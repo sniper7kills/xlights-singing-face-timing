@@ -1,4 +1,5 @@
-import { act, render, screen } from '@testing-library/react'
+import { act, render, screen, within } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { LIBRARY_HASH } from '../../app/routes.ts'
 import { startAutosave, useAutosaveStore } from '../../store/autosave.ts'
@@ -7,10 +8,15 @@ import { loadSong, StorageFullError } from '../../store/db.ts'
 import { useSongStore } from '../../store/songStore.ts'
 import { useViewStore } from '../../store/viewStore.ts'
 import { storeNewSong } from '../audio-import/storeNewSong.ts'
+import { runTranscription } from '../transcription/runTranscription.ts'
 import { EditorPage } from './EditorPage.tsx'
 import { createWaveformPlayer } from './waveformPlayer.ts'
 
 vi.mock('./waveformPlayer.ts', () => ({ createWaveformPlayer: vi.fn() }))
+vi.mock('../transcription/runTranscription.ts', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../transcription/runTranscription.ts')>()),
+  runTranscription: vi.fn(),
+}))
 
 const audio = {
   data: new Blob([new Uint8Array([1])], { type: 'audio/ogg' }),
@@ -36,6 +42,12 @@ async function renderEditor() {
   return { song, view }
 }
 
+function topBarTranscribe(): HTMLElement {
+  const bar = screen.getByRole('heading', { level: 2 }).parentElement
+  if (bar === null) throw new Error('The editor has no top bar.')
+  return within(bar).getByRole('button', { name: 'Transcribe' })
+}
+
 describe('EditorPage', () => {
   it('shows a link back to the song library and the song name in the top bar', async () => {
     await renderEditor()
@@ -45,6 +57,98 @@ describe('EditorPage', () => {
       LIBRARY_HASH,
     )
     expect(screen.getByRole('region', { name: 'Waveform' })).toBeInTheDocument()
+  })
+
+  it('shows the layers of the song under the waveform, also before the audio loads', async () => {
+    await renderEditor()
+
+    const layers = screen.getByRole('region', { name: 'Layers' })
+    expect(screen.getByRole('region', { name: 'Waveform' })).toContainElement(layers)
+    expect(layers).toHaveTextContent('No marks yet. Select Transcribe to find the words.')
+  })
+
+  it('opens the transcribe dialog from the top bar and gives the focus back on close', async () => {
+    const user = userEvent.setup()
+    await renderEditor()
+    const action = topBarTranscribe()
+    await user.click(action)
+
+    const dialog = screen.getByRole('dialog', { name: 'Transcribe' })
+    expect(dialog).toContainElement(document.activeElement as HTMLElement)
+    await user.click(within(dialog).getByRole('button', { name: 'Close' }))
+    expect(screen.queryByRole('dialog')).toBeNull()
+    expect(action).toHaveFocus()
+  })
+
+  it('closes the dialog after a run and gives the focus back to the action', async () => {
+    vi.mocked(runTranscription).mockResolvedValue({ wordCount: 16, estimatedCount: 0 })
+    const user = userEvent.setup()
+    await renderEditor()
+    const action = topBarTranscribe()
+    await user.click(action)
+    const start = within(screen.getByRole('dialog')).getByRole('button', { name: 'Start' })
+    await vi.waitFor(() => expect(start).toBeEnabled())
+
+    await user.click(start)
+
+    await vi.waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+    expect(action).toHaveFocus()
+  })
+
+  it('shows the toast with the word count and the estimated count after a run', async () => {
+    vi.mocked(runTranscription).mockResolvedValue({ wordCount: 214, estimatedCount: 9 })
+    const user = userEvent.setup()
+    await renderEditor()
+    await user.click(topBarTranscribe())
+    const start = within(screen.getByRole('dialog')).getByRole('button', { name: 'Start' })
+    await vi.waitFor(() => expect(start).toBeEnabled())
+
+    await user.click(start)
+
+    expect(await screen.findByText('214 words, 9 estimated')).toHaveAttribute('role', 'status')
+  })
+
+  it('shows no "Transcribe" action for a song with no voice', async () => {
+    const song = await storeNewSong({ name: 'carol', durationMs: 3000, audio, voices: [] })
+    render(<EditorPage songId={song.id} />)
+    const heading = await screen.findByRole('heading', { level: 2, name: 'carol' })
+
+    expect(within(heading.parentElement ?? document.body).queryByRole('button')).toBeNull()
+  })
+
+  it('shows no "Transcribe" button in the empty state of the layers for a song with no voice', async () => {
+    const song = await storeNewSong({ name: 'carol', durationMs: 3000, audio, voices: [] })
+    render(<EditorPage songId={song.id} />)
+    await screen.findByRole('heading', { level: 2, name: 'carol' })
+
+    const layers = screen.getByRole('region', { name: 'Layers' })
+    expect(within(layers).queryByRole('button', { name: 'Transcribe' })).toBeNull()
+  })
+
+  it('opens the transcribe dialog from the empty state of the layers', async () => {
+    const user = userEvent.setup()
+    await renderEditor()
+
+    const layers = screen.getByRole('region', { name: 'Layers' })
+    await user.click(within(layers).getByRole('button', { name: 'Transcribe' }))
+
+    expect(screen.getByRole('dialog', { name: 'Transcribe' })).toBeInTheDocument()
+  })
+
+  it('disables the "Transcribe" action of the top bar during a run', async () => {
+    vi.mocked(runTranscription).mockReturnValue(new Promise(() => undefined))
+    const user = userEvent.setup()
+    await renderEditor()
+    await user.click(topBarTranscribe())
+    const dialog = screen.getByRole('dialog', { name: 'Transcribe' })
+    const start = within(dialog).getByRole('button', { name: 'Start' })
+    await vi.waitFor(() => expect(start).toBeEnabled())
+
+    await user.click(start)
+
+    expect(topBarTranscribe()).toBeDisabled()
+    await user.click(within(dialog).getByRole('button', { name: 'Cancel' }))
+    expect(topBarTranscribe()).toBeEnabled()
   })
 
   it('shows "Saved" and then "Saving" while a change waits for its save', async () => {

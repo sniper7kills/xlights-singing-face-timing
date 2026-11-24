@@ -289,7 +289,6 @@ erDiagram
   }
   APP_SETTINGS {
     string speechModelId
-    string device
     int defaultFrameMs
     string theme
   }
@@ -312,7 +311,8 @@ erDiagram
 - **Custom entry.** `word` is upper case. `symbols` is a list of CMU symbols
   separated by spaces. Custom entries belong to the browser, not to one song.
 - **App settings.** One record. `speechModelId` is one of the three supported speech
-  models. `device` is `webgpu` or `wasm`.
+  models. The app does not store `device`. The app derives the device from the
+  browser on each visit.
 
 ## Cross-cutting concerns
 
@@ -350,11 +350,10 @@ erDiagram
 | local | Development with `npm run dev`. | `http://localhost:5173` |
 | production | The `main` branch on S3 with CloudFront. | The default `*.cloudfront.net` domain of the distribution. Recorded in `docs/external.md` by Epic 0. No custom domain in v1. |
 
-Environment variables, all build-time and all optional:
+The app reads one environment variable. It is build-time and optional:
 
 | Name | Purpose | Default |
 |---|---|---|
-| `VITE_MODEL_HOST` | Base URL for speech model files. | The Hugging Face Hub default of the library. |
 | `VITE_APP_VERSION` | Version text that the app writes into `SourceVersion`. | The `version` field of `package.json`. |
 
 The deploy workflow reads three GitHub Actions repository variables. They are
@@ -437,7 +436,11 @@ None of these blocks approval. Each one names the epic that settles it.
 1. **Speech model accuracy on songs.** Whisper is trained on speech. Music and
    harmony lower the accuracy of words and times. Mitigation: the lyrics align flow
    in [features/02-transcription.md](features/02-transcription.md) and the editor.
-   Epic 2 measures the demo song and records the result.
+   Epic 2 measured the demo song: the base speech model returned 15 words for the
+   choir clip, with one wrong line. The spec has no accuracy criterion for a
+   song. Vocal separation (to transcribe the voice without the instruments) is an
+   accepted later option. It is not in v1. A spec update adds it if real songs
+   show the need.
 2. **Word times need the right model export.** The docs confirm
    `return_timestamps: 'word'`. They do not state which model repositories support
    it. The `onnx-community/whisper-*_timestamped` repositories are the candidates.
@@ -488,6 +491,13 @@ None of these blocks approval. Each one names the epic that settles it.
   bytes. The demo song has the name "Silent Night". The editor saves a pending
   change when the person leaves it and when the page is hidden. Issue #58 joined
   the batch of epic #8.
+- 2026-11-24 — Epic 2 batch. The 150 ms accuracy criterion for the demo song is
+  removed (issue #77): it measured the speech model and unchecked demo marks, not
+  the code. The user accepts vocal separation as a later option. A transcribe run
+  stops by terminating the worker (`docs/adr/0004`). The variable
+  `VITE_MODEL_HOST` is removed. The app does not store the device. Issues #64 and
+  #77 joined the batch of epic #14. The real speech model runs under the
+  production Content-Security-Policy with no violation.
 
 ## Issue map
 
@@ -499,7 +509,7 @@ The spec has one editor epic. The tracker has two, because 30 requirements do no
 |---|---|---|
 | Foundation | #1 | #2, #3, #4, #5, #6, #7 |
 | Song and waveform | #8 | #9, #10, #11, #12, #13, #58 |
-| Transcription | #14 | #15, #16, #17, #18, #19 |
+| Transcription | #14 | #15, #16, #17, #18, #19, #64, #77 |
 | Phoneme breakdown | #20 | #21, #22, #23, #24, #25 |
 | Editor — edit marks | #26 | #27, #28, #29, #30 |
 | Editor — play tools | #31 | #32, #33, #34 |

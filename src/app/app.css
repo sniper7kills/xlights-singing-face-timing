@@ -10,6 +10,19 @@
   --red: #ff5a4d;
   --wave: #3d4a78;
   --wave-hi: #ffb238;
+  /* One colour for each phoneme label. The text on each colour has a contrast of 4.5:1 or more. */
+  --p-AI: #ff5a4d;
+  --p-E: #ffb238;
+  --p-O: #4dd0ff;
+  --p-U: #7c8cff;
+  --p-WQ: #c77dff;
+  --p-L: #53e08a;
+  --p-MBP: #ff7fc0;
+  --p-FV: #ffe45c;
+  --p-etc: #9aa6c7;
+  --p-rest: #3a4466;
+  --p-ink: #0b0f1a;
+  --p-rest-ink: #f3ead7;
   --display: 'Rockwell', 'Roboto Slab', 'DejaVu Serif', Georgia, serif;
   --body: 'Avenir Next', 'Segoe UI Variable', 'Trebuchet MS', Verdana, sans-serif;
   --mono: ui-monospace, 'JetBrains Mono', 'DejaVu Sans Mono', Menlo, Consolas, monospace;
@@ -30,6 +43,10 @@
     --red: #b91c1c;
     --wave: #b9ad92;
     --wave-hi: #c2410c;
+    --p-FV: #d9a400;
+    --p-etc: #7d8399;
+    --p-rest: #cfc4aa;
+    --p-rest-ink: #0b0f1a;
     color-scheme: light;
   }
 }
@@ -46,6 +63,10 @@
   --red: #b91c1c;
   --wave: #b9ad92;
   --wave-hi: #c2410c;
+  --p-FV: #d9a400;
+  --p-etc: #7d8399;
+  --p-rest: #cfc4aa;
+  --p-rest-ink: #0b0f1a;
   color-scheme: light;
 }
 
@@ -335,6 +356,151 @@ button {
   font-variant-numeric: tabular-nums;
 }
 
+/* The layers have the same border as the waveform stage, so both have the same inner width. */
+.layers {
+  position: relative;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--bg);
+  overflow: hidden;
+}
+
+.time-ruler {
+  position: relative;
+  height: 22px;
+  border-bottom: 1px solid var(--line);
+}
+
+.time-ruler .tick {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  padding: 3px 0 0 4px;
+  border-left: 1px solid var(--line);
+  color: var(--mute);
+  font: 10px var(--mono);
+  white-space: nowrap;
+}
+
+.layer-row {
+  border-bottom: 1px solid var(--line);
+}
+
+.layer-row:last-child {
+  border-bottom: 0;
+}
+
+.layer-name {
+  display: block;
+  padding: 2px 6px;
+  color: var(--mute);
+  font: 700 10px var(--mono);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.layer-track {
+  position: relative;
+  height: 32px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.mark {
+  position: absolute;
+  top: 2px;
+  bottom: 6px;
+  display: flex;
+  align-items: center;
+  min-width: 2px;
+  padding: 0 6px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--panel2);
+  color: var(--ink);
+  font-size: 13px;
+}
+
+.mark-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mark-phrase {
+  background: color-mix(in srgb, var(--amber) 14%, var(--panel));
+  font: 600 13px var(--display);
+}
+
+.mark-phoneme {
+  top: 3px;
+  bottom: 7px;
+  justify-content: center;
+  padding: 0 2px;
+  border: 0;
+  border-right: 1px solid var(--bg);
+  border-radius: 3px;
+  background: var(--p-etc);
+  color: var(--p-ink);
+  font: 700 10px var(--mono);
+}
+
+.mark-phoneme[data-label='AI'] {
+  background: var(--p-AI);
+}
+
+.mark-phoneme[data-label='E'] {
+  background: var(--p-E);
+}
+
+.mark-phoneme[data-label='etc'] {
+  background: var(--p-etc);
+}
+
+.mark-phoneme[data-label='FV'] {
+  background: var(--p-FV);
+}
+
+.mark-phoneme[data-label='L'] {
+  background: var(--p-L);
+}
+
+.mark-phoneme[data-label='MBP'] {
+  background: var(--p-MBP);
+}
+
+.mark-phoneme[data-label='O'] {
+  background: var(--p-O);
+}
+
+.mark-phoneme[data-label='rest'] {
+  background: var(--p-rest);
+  color: var(--p-rest-ink);
+}
+
+.mark-phoneme[data-label='U'] {
+  background: var(--p-U);
+}
+
+.mark-phoneme[data-label='WQ'] {
+  background: var(--p-WQ);
+}
+
+.layers-empty {
+  display: grid;
+  gap: 12px;
+  justify-items: center;
+  padding: 28px 16px;
+  text-align: center;
+}
+
+.layers-empty p {
+  margin: 0;
+  color: var(--mute);
+}
+
 @media (max-width: 760px) {
   .header {
     padding: 16px 16px 14px;
@@ -538,8 +704,141 @@ button {
   color: var(--red);
 }
 
+/* The backdrop takes the pointer, so the editor behind the dialog gets no click. */
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgb(0 0 0 / 55%);
+}
+
+.dialog {
+  display: grid;
+  gap: 14px;
+  width: min(520px, 100%);
+  max-height: calc(100vh - 40px);
+  overflow: auto;
+  padding: 20px 22px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--panel);
+  color: var(--ink);
+}
+
+.dialog h3 {
+  margin: 0;
+  font: 600 18px var(--display);
+}
+
+.dialog-fields {
+  display: grid;
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.choice-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  margin: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+.choice-group legend {
+  padding: 0 4px;
+  color: var(--mute);
+}
+
+.choice {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.choice input {
+  accent-color: var(--amber);
+}
+
+.choice-size {
+  font: 12px var(--mono);
+  color: var(--mute);
+}
+
+.dialog-field {
+  display: grid;
+  gap: 6px;
+}
+
+.dialog-field textarea {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel2);
+  color: var(--ink);
+  font: inherit;
+  resize: vertical;
+}
+
+.dialog-note {
+  margin: 0;
+  color: var(--mute);
+}
+
+.dialog-progress {
+  display: grid;
+  gap: 6px;
+}
+
+.dialog-progress p {
+  min-height: 1.4em;
+  margin: 0;
+}
+
+.dialog-progress progress {
+  width: 100%;
+  accent-color: var(--amber);
+}
+
+.dialog-confirm {
+  margin: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--amber);
+  border-radius: 8px;
+}
+
+.dialog-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.dialog fieldset:disabled {
+  opacity: 0.6;
+}
+
 @media (max-width: 760px) {
   .library {
     grid-template-columns: 1fr;
   }
+}
+
+.toast {
+  position: fixed;
+  bottom: 20px;
+  left: 50%;
+  z-index: 20;
+  margin: 0;
+  padding: 10px 16px;
+  border-radius: 10px;
+  background: var(--panel2);
+  box-shadow: 0 4px 16px rgb(0 0 0 / 35%);
+  transform: translateX(-50%);
 }
