@@ -1,3 +1,4 @@
+import { EditorPage } from '../features/timeline-editor/EditorPage.tsx'
 import { useDatabaseStatus } from './database.ts'
 import { useHashRoute } from './routes.ts'
 import { SongLibraryPage } from './SongLibraryPage.tsx'
@@ -5,8 +6,7 @@ import { useTheme } from './theme.ts'
 
 export function App() {
   const { theme, toggleTheme } = useTheme()
-  // The call keeps hash routing active: an unknown hash goes back to the song library.
-  useHashRoute()
+  const route = useHashRoute()
   const databaseStatus = useDatabaseStatus()
   const nextTheme = theme === 'dark' ? 'light' : 'dark'
 
@@ -28,7 +28,11 @@ export function App() {
         </button>
       </header>
       <main className="main">
-        <SongLibraryPage databaseStatus={databaseStatus} />
+        {route.name === 'song' ? (
+          <EditorPage songId={route.songId} />
+        ) : (
+          <SongLibraryPage databaseStatus={databaseStatus} />
+        )}
       </main>
     </>
   )
