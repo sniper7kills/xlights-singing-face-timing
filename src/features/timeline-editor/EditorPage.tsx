@@ -4,6 +4,7 @@ import { useAutosaveStore, useSaveState } from '../../store/autosave.ts'
 import { StorageFullError } from '../../store/db.ts'
 import { useSongStore } from '../../store/songStore.ts'
 import { useViewStore } from '../../store/viewStore.ts'
+import { ExportAction } from '../xtiming-export/ExportAction.tsx'
 import { Waveform } from './Waveform.tsx'
 
 type EditorPageProps = {
@@ -45,6 +46,7 @@ export function EditorPage({ songId }: EditorPageProps) {
         </a>
         <h2 id="editor-title">{song.name}</h2>
         <span className="spacer" />
+        <ExportAction />
         <span className="save-state" role="status">
           {saveState === 'saved' ? 'Saved' : 'Saving'}
         </span>
