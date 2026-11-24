@@ -1,0 +1,39 @@
+{
+  "version": 1,
+  "pluginVersion": "0.17.0",
+  "forge": {
+    "type": "github",
+    "host": "github.com",
+    "owner": "sniper7kills",
+    "repo": "xlights-singing-face-timing",
+    "interface": "cli"
+  },
+  "concurrency": 3,
+  "batchSize": 4,
+  "runLength": { "mode": "backlog", "value": null },
+  "prGranularity": "batch",
+  "prAuthority": "autonomous",
+  "planReview": false,
+  "reviewWipLimit": 2,
+  "review": { "when": "end-of-session" },
+  "deploy": {
+    "mode": "none",
+    "statusCmd": null,
+    "startCmd": null,
+    "workflow": null,
+    "url": null,
+    "previewUrlPattern": null,
+    "pollSeconds": 30,
+    "maxMinutes": 30
+  },
+  "docsMcp": { "offered": [], "installed": ["aws-mcp"], "marketplacesAdded": [], "declined": false, "restartPending": false },
+  "practices": {
+    "tdd": false,
+    "ddd": false,
+    "e2e": "user-facing",
+    "coverage": 90,
+    "commitStyle": "imperative subject, 72 characters or fewer",
+    "docs": "public-api"
+  },
+  "notes": "Coverage 90% of lines applies to src/lib and src/store only. deploy.mode becomes actions when issues #6 and #7 land. The user gave no answer on the development method, so tdd and ddd are false and the spec testing strategy applies."
+}
