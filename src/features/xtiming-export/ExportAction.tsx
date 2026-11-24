@@ -2,6 +2,7 @@ import { useRef, useState } from 'react'
 import type { ExportOptions } from '../../lib/xtiming/types.ts'
 import { useSongStore } from '../../store/songStore.ts'
 import type { SongContent } from '../../store/types.ts'
+import { downloadFiles } from './download.ts'
 import { ExportDialog } from './ExportDialog.tsx'
 import { loadSongExportOptions } from './exportOptionsStore.ts'
 
@@ -31,8 +32,7 @@ export function ExportAction() {
           content={content}
           initialOptions={options}
           onClose={close}
-          // TODO(#46): Give the files to the browser as downloads and show the done state.
-          onDownload={close}
+          onDownload={downloadFiles}
         />
       )}
     </>

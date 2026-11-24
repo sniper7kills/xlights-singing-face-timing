@@ -298,6 +298,66 @@ describe('ExportDialog', () => {
     expect((await loadExportOptions('song-1'))?.packaging).toBe('file-per-track')
   })
 
+  it('stays open after a download with the done line and the import steps expanded', async () => {
+    const user = userEvent.setup()
+    const { onClose } = renderDialog(twoVoices)
+    const steps = screen.getByText('Next, in xLights').closest('details')
+    expect(steps).not.toHaveAttribute('open')
+
+    await user.click(download())
+
+    expect(await screen.findByRole('status')).toHaveTextContent(
+      '2 timing tracks written to Carol.xtiming',
+    )
+    expect(steps).toHaveAttribute('open')
+    expect(within(steps as HTMLElement).getAllByRole('listitem')).toHaveLength(7)
+    expect(onClose).not.toHaveBeenCalled()
+  })
+
+  it('names the count of files in the done line for one file for each timing track', async () => {
+    const user = userEvent.setup()
+    renderDialog(twoVoices, { ...makeOptions(twoVoices), packaging: 'file-per-track' })
+
+    await user.click(download())
+
+    expect(await screen.findByRole('status')).toHaveTextContent(
+      '2 timing tracks written to 2 files',
+    )
+  })
+
+  it('removes the done line when the person changes an option', async () => {
+    const user = userEvent.setup()
+    renderDialog(twoVoices)
+    await user.click(download())
+    await vi.waitFor(() => expect(screen.getByRole('status')).not.toBeEmptyDOMElement())
+
+    await user.click(screen.getByRole('checkbox', { name: 'Write rest phonemes in gaps' }))
+
+    expect(screen.getByRole('status')).toBeEmptyDOMElement()
+  })
+
+  it('shows the blocked-download hint only when several files download', async () => {
+    const user = userEvent.setup()
+    const hint =
+      'The browser blocked some downloads. Allow downloads for this site, or select One file.'
+    renderDialog(twoVoices)
+    expect(screen.queryByText(hint)).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole('radio', { name: 'One file for each timing track' }))
+
+    expect(screen.getByText(hint)).toBeInTheDocument()
+    expect(
+      screen.getByRole('radio', { name: 'One file for each timing track' }),
+    ).toHaveAccessibleDescription(hint)
+  })
+
+  it('shows no blocked-download hint for one file for each timing track with one file', () => {
+    const oneVoice = makeContent([lead], makeSungPhrase('v1', 1000))
+    renderDialog(oneVoice, { ...makeOptions(oneVoice), packaging: 'file-per-track' })
+
+    expect(screen.queryByText(/The browser blocked some downloads/)).not.toBeInTheDocument()
+  })
+
   it('shows the storage-full message and keeps the dialog when the options do not save', async () => {
     const user = userEvent.setup()
     vi.spyOn(db, 'saveExportOptions').mockRejectedValue(new StorageFullError())
