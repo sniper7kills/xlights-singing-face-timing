@@ -1,11 +1,8 @@
 import type { Mark, Song, Voice } from '../../store/types.ts'
-import { storeNewSong } from './storeNewSong.ts'
+import { DEFAULT_VOICE_COLOR, storeNewSong } from './storeNewSong.ts'
 
 const AUDIO_PATH = 'demo/silent-night.ogg'
 const MARKS_PATH = 'demo/silent-night.marks.json'
-
-// The marks file has no voice colour. This is the colour of "Lead Vocals" in the editor mockup.
-const DEMO_VOICE_COLOR = '#ffb238'
 
 /** The shape of public/demo/silent-night.marks.json. */
 type DemoMarksFile = {
@@ -57,7 +54,8 @@ export async function createDemoSong(): Promise<Song> {
       id: newId(voice.id),
       name: voice.name,
       order: voice.order,
-      color: DEMO_VOICE_COLOR,
+      // The marks file has no voice colour.
+      color: DEFAULT_VOICE_COLOR,
     })),
     marks: demo.marks.map((mark) => ({
       ...mark,
