@@ -1,0 +1,267 @@
+import type { Device, ErrorKind, FromWorkerMessage, ToWorkerMessage } from './protocol.ts'
+import type { TimedWord } from './types.ts'
+
+declare global {
+  /**
+   * When an E2E test sets this flag to true before the app starts, the client uses the fixture worker.
+   * The fixture worker returns the demo song words and downloads no speech model.
+   */
+  var __TRANSCRIBE_FIXTURE__: boolean | undefined
+}
+
+/** The cause of a rejected client call. */
+export type TranscribeErrorKind = ErrorKind | 'cancelled' | 'busy'
+
+/** A client call failed. `kind` tells the dialog which message to show. */
+export class TranscribeError extends Error {
+  readonly kind: TranscribeErrorKind
+  constructor(kind: TranscribeErrorKind, detail: string) {
+    super(detail)
+    this.name = 'TranscribeError'
+    this.kind = kind
+  }
+}
+
+/** The part of `Worker` that the client uses. Tests supply a fake. */
+export type WorkerLike = {
+  postMessage(message: ToWorkerMessage): void
+  terminate(): void
+  onmessage: ((event: MessageEvent<FromWorkerMessage>) => void) | null
+  onerror: ((event: ErrorEvent) => void) | null
+}
+
+/** Receives the download progress of the speech model files. */
+export type DownloadHandler = (loadedBytes: number, totalBytes: number) => void
+
+/** The functions that receive the progress of one transcribe run. */
+export type TranscribeHandlers = {
+  /** Receives the download progress when the client loads the speech model again on `wasm`. */
+  onDownload?: DownloadHandler
+  /** Receives the audio time that is complete, from the first sample of the run. */
+  onProgress?: (doneMs: number) => void
+}
+
+/** The options of `createTranscribeClient`. */
+export type TranscribeClientOptions = {
+  /** The first device. `chooseDevice` gives the value. */
+  device: Device
+  /** Receives 'wasm' when the client moves the speech model from WebGPU to `wasm` after a failure. */
+  onDeviceChange?: (device: Device) => void
+  /** Makes the worker. The default reads the fixture flag `__TRANSCRIBE_FIXTURE__`. */
+  createWorker?: () => WorkerLike
+}
+
+/** Runs the speech model in a Web Worker. The client handles one call at a time. */
+export type TranscribeClient = {
+  /** The device that runs the speech model now. */
+  readonly device: Device
+  /**
+   * Loads a speech model and resolves when it is ready.
+   * If the same speech model is ready, the call resolves at once.
+   * @param speechModelId One `SpeechModel.id`.
+   * @param onDownload Receives the download progress. The worker reports no progress for a cached speech model.
+   * Rejects with TranscribeError.
+   */
+  load(speechModelId: string, onDownload?: DownloadHandler): Promise<void>
+  /**
+   * Transcribes the samples with the loaded speech model and returns the words with song times.
+   * If the run fails on WebGPU, the client loads the speech model on `wasm` and runs once more.
+   * @param samples One channel at `SPEECH_SAMPLE_RATE`. `resampleForSpeech` gives the value.
+   * @param offsetMs The song time of the first sample.
+   * @param handlers The functions that receive the progress.
+   * Rejects with TranscribeError.
+   */
+  transcribe(
+    samples: Float32Array,
+    offsetMs: number,
+    handlers?: TranscribeHandlers,
+  ): Promise<TimedWord[]>
+  /**
+   * Stops the active call at once and rejects it with the kind 'cancelled'.
+   * The library has no stop operation, so the client terminates the worker. The next call loads the speech model again.
+   */
+  cancel(): void
+  /** Terminates the worker. */
+  dispose(): void
+}
+
+type LoadPending = {
+  type: 'load'
+  onDownload?: DownloadHandler
+  resolve: () => void
+  reject: (error: TranscribeError) => void
+}
+
+type RunPending = {
+  type: 'run'
+  runId: string
+  onProgress?: (doneMs: number) => void
+  resolve: (words: TimedWord[]) => void
+  reject: (error: TranscribeError) => void
+}
+
+type Pending = LoadPending | RunPending
+
+function createDefaultWorker(): WorkerLike {
+  if (globalThis.__TRANSCRIBE_FIXTURE__ === true) {
+    return new Worker(new URL('../../workers/transcribeFixture.worker.ts', import.meta.url), {
+      type: 'module',
+    })
+  }
+  return new Worker(new URL('../../workers/transcribe.worker.ts', import.meta.url), {
+    type: 'module',
+  })
+}
+
+/**
+ * Returns a client that starts the transcribe worker when the first call needs it.
+ * @param options The first device, the device change handler and the worker factory.
+ */
+export function createTranscribeClient(options: TranscribeClientOptions): TranscribeClient {
+  const createWorker = options.createWorker ?? createDefaultWorker
+  let device = options.device
+  let worker: WorkerLike | null = null
+  let loadedModelId: string | null = null
+  let lastModelId: string | null = null
+  let pending: Pending | null = null
+  let runCount = 0
+
+  function reset(): void {
+    worker?.terminate()
+    worker = null
+    loadedModelId = null
+  }
+
+  function settleError(error: TranscribeError): void {
+    const active = pending
+    pending = null
+    active?.reject(error)
+  }
+
+  function handleLoadMessage(active: LoadPending, message: FromWorkerMessage): void {
+    if (message.type === 'download') {
+      active.onDownload?.(message.loadedBytes, message.totalBytes)
+    } else if (message.type === 'ready') {
+      pending = null
+      loadedModelId = lastModelId
+      active.resolve()
+    } else if (message.type === 'error') {
+      settleError(new TranscribeError(message.kind, message.detail))
+    }
+  }
+
+  function handleRunMessage(active: RunPending, message: FromWorkerMessage): void {
+    if (message.type === 'download' || message.type === 'ready' || message.runId !== active.runId)
+      return
+    if (message.type === 'progress') {
+      active.onProgress?.(message.doneMs)
+    } else if (message.type === 'result') {
+      pending = null
+      active.resolve(message.words)
+    } else {
+      settleError(new TranscribeError(message.kind, message.detail))
+    }
+  }
+
+  function handleMessage(message: FromWorkerMessage): void {
+    if (pending?.type === 'load') handleLoadMessage(pending, message)
+    else if (pending?.type === 'run') handleRunMessage(pending, message)
+  }
+
+  function ensureWorker(): WorkerLike {
+    if (worker !== null) return worker
+    const created = createWorker()
+    created.onmessage = (event) => handleMessage(event.data)
+    created.onerror = (event) => {
+      reset()
+      settleError(new TranscribeError('unknown', event.message))
+    }
+    worker = created
+    return created
+  }
+
+  function start<T>(
+    build: (resolve: (value: T) => void, reject: (error: TranscribeError) => void) => Pending,
+    message: () => ToWorkerMessage,
+  ): Promise<T> {
+    if (pending !== null)
+      return Promise.reject(new TranscribeError('busy', 'A transcribe call is already active.'))
+    return new Promise<T>((resolve, reject) => {
+      pending = build(resolve, reject)
+      ensureWorker().postMessage(message())
+    })
+  }
+
+  function loadOnce(speechModelId: string, onDownload?: DownloadHandler): Promise<void> {
+    if (pending === null && loadedModelId === speechModelId) return Promise.resolve()
+    return start<void>(
+      (resolve, reject) => {
+        lastModelId = speechModelId
+        return { type: 'load', onDownload, resolve: () => resolve(), reject }
+      },
+      () => ({ type: 'load', speechModelId, device }),
+    )
+  }
+
+  function runOnce(
+    samples: Float32Array,
+    offsetMs: number,
+    handlers: TranscribeHandlers,
+  ): Promise<TimedWord[]> {
+    runCount += 1
+    const runId = `run-${runCount}`
+    return start<TimedWord[]>(
+      (resolve, reject) => ({
+        type: 'run',
+        runId,
+        onProgress: handlers.onProgress,
+        resolve,
+        reject,
+      }),
+      () => ({ type: 'transcribe', runId, samples, offsetMs }),
+    )
+  }
+
+  /** Returns true and moves to `wasm` when the error is the first WebGPU failure. */
+  function moveToWasm(error: unknown): boolean {
+    if (!(error instanceof TranscribeError) || error.kind !== 'device' || device !== 'webgpu')
+      return false
+    reset()
+    device = 'wasm'
+    options.onDeviceChange?.('wasm')
+    return true
+  }
+
+  return {
+    get device() {
+      return device
+    },
+    async load(speechModelId, onDownload) {
+      try {
+        await loadOnce(speechModelId, onDownload)
+      } catch (error) {
+        if (!moveToWasm(error)) throw error
+        await loadOnce(speechModelId, onDownload)
+      }
+    },
+    async transcribe(samples, offsetMs, handlers = {}) {
+      try {
+        return await runOnce(samples, offsetMs, handlers)
+      } catch (error) {
+        const modelId = lastModelId
+        if (modelId === null || !moveToWasm(error)) throw error
+        await loadOnce(modelId, handlers.onDownload)
+        return runOnce(samples, offsetMs, handlers)
+      }
+    },
+    cancel() {
+      if (pending === null) return
+      reset()
+      settleError(new TranscribeError('cancelled', 'The person cancelled the transcribe run.'))
+    },
+    dispose() {
+      reset()
+      settleError(new TranscribeError('cancelled', 'The client closed.'))
+    },
+  }
+}
