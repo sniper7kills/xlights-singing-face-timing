@@ -2,8 +2,8 @@
 id: timeline-editor
 feature: Timeline editor
 epic: "Epic 4: Editor"
-status: planned
-issues: []
+status: issued
+issues: [19, 26, 27, 28, 29, 30, 31, 32, 33, 34]
 mockups: [mockups/02-editor.html]
 ---
 

@@ -2,8 +2,8 @@
 id: voices-sections
 feature: Voices and sections
 epic: "Epic 5: Voices and sections"
-status: planned
-issues: []
+status: issued
+issues: [35, 36, 37, 38, 39, 40]
 mockups: []
 ---
 

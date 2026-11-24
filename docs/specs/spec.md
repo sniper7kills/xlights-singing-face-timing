@@ -472,3 +472,180 @@ None of these blocks approval. Each one names the epic that settles it.
   CloudFront over AWS Amplify Hosting. The user chose the default domain, with no
   custom domain in v1. The foundation feature and the hosting sections changed to
   match.
+- 2026-11-24 — Issues created. The user chose the AWS region `us-east-1` for the
+  hosting stack. The user chose a public-domain recording for the demo song, and
+  confirms its licence before the file is committed. The editor epic became two
+  tracker epics.
+
+## Issue map
+
+Written by `/spec-to-issues` on 2026-11-24. Repository: `sniper7kills/xlights-singing-face-timing`.
+
+The spec has one editor epic. The tracker has two, because 30 requirements do not fit one batch.
+
+| Epic | Epic issue | Sub-issues |
+|---|---|---|
+| Foundation | #1 | #2, #3, #4, #5, #6, #7 |
+| Song and waveform | #8 | #9, #10, #11, #12, #13 |
+| Transcription | #14 | #15, #16, #17, #18, #19 |
+| Phoneme breakdown | #20 | #21, #22, #23, #24, #25 |
+| Editor — edit marks | #26 | #27, #28, #29, #30 |
+| Editor — play tools | #31 | #32, #33, #34 |
+| Voices and sections | #35 | #36, #37, #38, #39, #40 |
+| Export | #41 | #42, #43, #44, #45, #46 |
+
+| Requirement | Issues |
+|---|---|
+| FR-foundation-1 | #2 |
+| FR-foundation-2 | #2 |
+| FR-foundation-3 | #2 |
+| FR-foundation-4 | #2 |
+| FR-foundation-5 | #3 |
+| FR-foundation-6 | #3 |
+| FR-foundation-7 | #3 |
+| FR-foundation-8 | #3 |
+| FR-foundation-9 | #3 |
+| FR-foundation-10 | #4 |
+| FR-foundation-11 | #6, #7 |
+| FR-foundation-12 | #6, #7 |
+| FR-foundation-13 | #2 |
+| FR-foundation-14 | #5 |
+| FR-foundation-15 | #6, #7 |
+| FR-foundation-16 | #2 |
+| FR-foundation-17 | #6, #7 |
+| FR-foundation-18 | #6 |
+| FR-audio-1 | #11 |
+| FR-audio-2 | #10 |
+| FR-audio-3 | #10 |
+| FR-audio-4 | #10 |
+| FR-audio-5 | #10 |
+| FR-audio-6 | #10 |
+| FR-audio-7 | #10 |
+| FR-audio-8 | #10 |
+| FR-audio-9 | #10 |
+| FR-audio-10 | #9 |
+| FR-audio-11 | #10 |
+| FR-audio-12 | #12 |
+| FR-audio-13 | #12 |
+| FR-audio-14 | #12 |
+| FR-audio-15 | #11 |
+| FR-audio-16 | #11 |
+| FR-audio-17 | #13 |
+| FR-audio-18 | #11 |
+| FR-audio-19 | #9 |
+| FR-audio-20 | #11 |
+| FR-transcribe-1 | #17 |
+| FR-transcribe-2 | #17 |
+| FR-transcribe-3 | #17 |
+| FR-transcribe-4 | #17 |
+| FR-transcribe-5 | #15 |
+| FR-transcribe-6 | #15 |
+| FR-transcribe-7 | #15 |
+| FR-transcribe-8 | #17 |
+| FR-transcribe-9 | #17 |
+| FR-transcribe-10 | #17 |
+| FR-transcribe-11 | #15 |
+| FR-transcribe-12 | #18 |
+| FR-transcribe-13 | #16 |
+| FR-transcribe-14 | #16 |
+| FR-transcribe-15 | #16 |
+| FR-transcribe-16 | #16 |
+| FR-transcribe-17 | #23 |
+| FR-transcribe-18 | #18 |
+| FR-transcribe-19 | #18 |
+| FR-transcribe-20 | #15 |
+| FR-transcribe-21 | #16, #18 |
+| FR-transcribe-22 | #18 |
+| FR-phoneme-1 | #21 |
+| FR-phoneme-2 | #22 |
+| FR-phoneme-3 | #22 |
+| FR-phoneme-4 | #22 |
+| FR-phoneme-5 | #22 |
+| FR-phoneme-6 | #22 |
+| FR-phoneme-7 | #22 |
+| FR-phoneme-8 | #22 |
+| FR-phoneme-9 | #23 |
+| FR-phoneme-10 | #25 |
+| FR-phoneme-11 | #25 |
+| FR-phoneme-12 | #24 |
+| FR-phoneme-13 | #24 |
+| FR-phoneme-14 | #24 |
+| FR-phoneme-15 | #24 |
+| FR-phoneme-16 | #23, #24 |
+| FR-phoneme-17 | #24 |
+| FR-phoneme-18 | #24 |
+| FR-phoneme-19 | #23 |
+| FR-phoneme-20 | #23 |
+| FR-editor-1 | #19, #29 |
+| FR-editor-2 | #29 |
+| FR-editor-3 | #29 |
+| FR-editor-4 | #29 |
+| FR-editor-5 | #29 |
+| FR-editor-6 | #30 |
+| FR-editor-7 | #30 |
+| FR-editor-8 | #30 |
+| FR-editor-9 | #30 |
+| FR-editor-10 | #27 |
+| FR-editor-11 | #27 |
+| FR-editor-12 | #27 |
+| FR-editor-13 | #27 |
+| FR-editor-14 | #27 |
+| FR-editor-15 | #30 |
+| FR-editor-16 | #28, #30 |
+| FR-editor-17 | #28, #32 |
+| FR-editor-18 | #28, #32 |
+| FR-editor-19 | #28, #32 |
+| FR-editor-20 | #28, #30 |
+| FR-editor-21 | #33 |
+| FR-editor-22 | #33 |
+| FR-editor-23 | #34 |
+| FR-editor-24 | #34 |
+| FR-editor-25 | #32 |
+| FR-editor-26 | #30 |
+| FR-editor-27 | #34 |
+| FR-editor-28 | #34 |
+| FR-editor-29 | #32 |
+| FR-editor-30 | #28, #30 |
+| FR-voice-1 | #36 |
+| FR-voice-2 | #36 |
+| FR-voice-3 | #36 |
+| FR-voice-4 | #36 |
+| FR-voice-5 | #36 |
+| FR-voice-6 | #36 |
+| FR-voice-7 | #36 |
+| FR-voice-8 | #37 |
+| FR-voice-9 | #37 |
+| FR-voice-10 | #37 |
+| FR-voice-11 | #38 |
+| FR-voice-12 | #38 |
+| FR-voice-13 | #38 |
+| FR-voice-14 | #39 |
+| FR-voice-15 | #39 |
+| FR-voice-16 | #39 |
+| FR-voice-17 | #39 |
+| FR-voice-18 | #39 |
+| FR-voice-19 | #39 |
+| FR-voice-20 | #40 |
+| FR-voice-21 | #39 |
+| FR-export-1 | #45 |
+| FR-export-2 | #45 |
+| FR-export-3 | #43 |
+| FR-export-4 | #43 |
+| FR-export-5 | #45 |
+| FR-export-6 | #45 |
+| FR-export-7 | #45 |
+| FR-export-8 | #45 |
+| FR-export-9 | #45 |
+| FR-export-10 | #43 |
+| FR-export-11 | #42 |
+| FR-export-12 | #43 |
+| FR-export-13 | #42 |
+| FR-export-14 | #42 |
+| FR-export-15 | #42 |
+| FR-export-16 | #44 |
+| FR-export-17 | #45 |
+| FR-export-18 | #44 |
+| FR-export-19 | #46 |
+| FR-export-20 | #46 |
+| FR-export-21 | #45 |
+| FR-export-22 | #45 |

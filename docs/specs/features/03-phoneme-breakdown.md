@@ -2,8 +2,8 @@
 id: phoneme-breakdown
 feature: Phoneme breakdown
 epic: "Epic 3: Phoneme breakdown"
-status: planned
-issues: []
+status: issued
+issues: [20, 21, 22, 23, 24, 25]
 mockups: []
 ---
 
