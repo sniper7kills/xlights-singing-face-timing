@@ -78,6 +78,7 @@ The user's request, verbatim:
 | speech model | noun | A Whisper model that transcribes the audio: a model file that the browser downloads and runs, or the model of a remote endpoint. | model, AI, engine |
 | remote endpoint | noun | A server that the person selects to transcribe the audio in place of the speech model in the browser. It is compatible with the OpenAI transcription API. | cloud, API server, backend, service |
 | base URL | noun | The address of a remote endpoint, for example `https://api.openai.com/v1`. The app adds `/audio/transcriptions`. | endpoint URL, server address |
+| CORS | noun | Cross-Origin Resource Sharing: the HTTP headers that let a server accept a request from a page of another origin. A remote endpoint needs them for the app. | cross-site permission |
 | API key | noun | The secret text that a remote endpoint can ask for. The app sends it only to the base URL of the remote endpoint. | token, password, secret |
 | device | noun | The part of the computer that runs the speech model: the graphics card (`webgpu`) or the CPU (`wasm`). | backend, processor, hardware |
 | transcribe | verb | To run the speech model on the audio file and get words with times. | recognise, sync, analyse |

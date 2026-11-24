@@ -586,8 +586,10 @@ describe('runTranscription with a remote endpoint', () => {
     await openSong()
     FakeXhr.responder = (xhr) => xhr.respond(200, VERBOSE)
 
-    const outcome = await runTranscription(remoteRequest, fakeClient(), handlers())
+    // A client with no word proves that the words of the second run come from the endpoint.
+    const outcome = await runTranscription(remoteRequest, fakeClient([]), handlers())
 
+    expect(FakeXhr.instances).toHaveLength(1)
     expect(outcome).toMatchObject({ wordCount: 2, estimatedCount: 0, breakDownFailure: null })
     expect(shape()).toEqual(browserMarks)
     expect(labels('phoneme').length).toBeGreaterThan(0)
