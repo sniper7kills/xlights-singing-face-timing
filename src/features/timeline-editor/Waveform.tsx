@@ -17,6 +17,9 @@ type WaveformProps = {
   children?: ReactNode
 }
 
+const STORAGE_READ_MESSAGE =
+  'The app could not read the audio from browser storage. Reload the page.'
+
 // A focused control uses the space bar itself, so a toggle here would apply the key two times.
 const CONTROL_SELECTOR = 'input, textarea, select, button, a[href], [contenteditable]'
 
@@ -73,11 +76,7 @@ export function Waveform({ songId, children }: WaveformProps) {
 
     load(container).catch((error: unknown) => {
       if (cancelled) return
-      setLoadMessage(
-        error instanceof ImportError
-          ? error.message
-          : 'The app could not read the audio from browser storage. Reload the page.',
-      )
+      setLoadMessage(error instanceof ImportError ? error.message : STORAGE_READ_MESSAGE)
       setState('error')
     })
     return () => {
@@ -133,8 +132,11 @@ export function Waveform({ songId, children }: WaveformProps) {
         byteLength: file.size,
       })
     } catch (error) {
-      if (!(error instanceof ImportError || error instanceof StorageFullError)) throw error
-      setFileMessage(error.message)
+      setFileMessage(
+        error instanceof ImportError || error instanceof StorageFullError
+          ? error.message
+          : STORAGE_READ_MESSAGE,
+      )
       return
     }
     setFileMessage(null)
