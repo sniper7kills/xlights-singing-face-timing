@@ -4,15 +4,19 @@ import { useAutosaveStore, useSaveState } from '../../store/autosave.ts'
 import { StorageFullError } from '../../store/db.ts'
 import { useSongStore } from '../../store/songStore.ts'
 import { useViewStore } from '../../store/viewStore.ts'
+import { Layers } from './Layers.tsx'
 import { Waveform } from './Waveform.tsx'
 
 type EditorPageProps = {
   songId: string
 }
 
-/** Shows the editor for one song: the top bar and the waveform region. */
+// TODO(#17): Open the transcribe dialog.
+function openTranscribeDialog() {}
+
+/** Shows the editor for one song: the top bar, the waveform region and the layers. */
 export function EditorPage({ songId }: EditorPageProps) {
-  const song = useSongStore((state) => state.current?.song)
+  const content = useSongStore((state) => state.current)
   const openSong = useSongStore((state) => state.openSong)
   const saveState = useSaveState()
   const saveError = useAutosaveStore((state) => state.error)
@@ -36,7 +40,8 @@ export function EditorPage({ songId }: EditorPageProps) {
     }
   }, [openSong, songId])
 
-  if (song?.id !== songId) return null
+  if (content?.song.id !== songId) return null
+  const { song } = content
   return (
     <section className="editor" aria-labelledby="editor-title">
       <div className="editor-top">
@@ -54,7 +59,9 @@ export function EditorPage({ songId }: EditorPageProps) {
           {saveError.message}
         </p>
       )}
-      <Waveform key={songId} songId={songId} />
+      <Waveform key={songId} songId={songId}>
+        <Layers content={content} onTranscribe={openTranscribeDialog} />
+      </Waveform>
     </section>
   )
 }
