@@ -37,6 +37,8 @@ function fakePlayer(listeners: WaveformListeners): FakePlayer {
       player.playing = false
       listeners.onPlayChange(false)
     }),
+    loop: vi.fn(async () => undefined),
+    setPlayRate: vi.fn(),
     isPlaying: () => player.playing,
     setColors: vi.fn(),
     setView: vi.fn(),
