@@ -1,3 +1,4 @@
+import type { ExportOptions } from '../lib/xtiming/types.ts'
 import type {
   AppSettings,
   AudioFile,
@@ -200,6 +201,36 @@ export function deleteCustomEntryRecord(word: string): Promise<void> {
   })
 }
 
+// The settings store holds one record for the app and one for the export options of each song.
+function exportOptionsKey(songId: string): string {
+  return `export:${songId}`
+}
+
+/** The export options of a song in the form that the `settings` object store holds. */
+export type StoredExportOptions = ExportOptions & {
+  /** The ids of all voices of the song at the export. A voice outside this list is new to the options. */
+  knownVoiceIds: string[]
+}
+
+/** Returns the export options of the previous export of the song, or undefined if the song has none. */
+export function loadExportOptions(songId: string): Promise<StoredExportOptions | undefined> {
+  return transact(['settings'], 'readonly', (transaction) => {
+    const request = transaction.objectStore('settings').get(exportOptionsKey(songId))
+    return () => request.result
+  })
+}
+
+/**
+ * Stores the export options of the song in the `settings` object store, and replaces the previous options.
+ * Rejects with StorageFullError when the browser storage is full.
+ */
+export function saveExportOptions(songId: string, options: StoredExportOptions): Promise<void> {
+  return transact(['settings'], 'readwrite', (transaction) => {
+    transaction.objectStore('settings').put(options, exportOptionsKey(songId))
+    return nothing
+  })
+}
+
 /** Returns all saved songs, in key order. */
 export function listSongs(): Promise<Song[]> {
   return listRecords('songs')
@@ -301,11 +332,15 @@ export function renameSong(songId: string, name: string): Promise<Song | undefin
   })
 }
 
-/** Deletes the song, its audio file, its voices, its sections and their marks in one transaction. */
+/**
+ * Deletes the song, its audio file, its voices, its sections, their marks and its export options
+ * in one transaction.
+ */
 export function deleteSong(songId: string): Promise<void> {
-  return transact(SONG_STORES, 'readwrite', (transaction) => {
+  return transact([...SONG_STORES, 'settings'], 'readwrite', (transaction) => {
     transaction.objectStore('songs').delete(songId)
     transaction.objectStore('audioFiles').delete(songId)
+    transaction.objectStore('settings').delete(exportOptionsKey(songId))
     deleteStaleChildren(transaction, songId, new Set())
     return nothing
   })

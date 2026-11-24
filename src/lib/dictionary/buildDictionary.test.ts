@@ -44,14 +44,28 @@ describe('parseCmudict', () => {
 
   it.each([
     ['a word with no symbols', 'star\n', 1],
-    ['a symbol in lower case', 'ok OW2 K EY1\nstar s t aa1 r\n', 2],
-    ['a stress digit above 2', 'star S T AA3 R\n', 1],
     ['a variant marker with no number', 'star() S T AA1 R\n', 1],
   ])('rejects %s and names the line number', (_name, text, lineNumber) => {
     const parse = () => parseCmudict(text)
 
     expect(parse).toThrow(DictionaryFormatError)
     expect(parse).toThrow(`cmudict.dict line ${lineNumber} is not an entry`)
+  })
+})
+
+describe('parseCmudict, symbols', () => {
+  it.each([
+    ['a symbol in lower case', 'ok OW2 K EY1\nstar s t aa1 r\n', 2, 'star', 's'],
+    ['a stress digit above 2', 'star S T AA3 R\n', 1, 'star', 'AA3'],
+    ['an upper-case token that is not a CMU symbol', 'star S T XX R\n', 1, 'star', 'XX'],
+    ['a consonant with a stress digit', 'hello(2) HH1 EH0 L OW1\n', 1, 'hello', 'HH1'],
+  ])('rejects %s and names the word and the symbol', (_name, text, lineNumber, word, symbol) => {
+    const parse = () => parseCmudict(text)
+
+    expect(parse).toThrow(DictionaryFormatError)
+    expect(parse).toThrow(
+      `cmudict.dict line ${lineNumber}: the word "${word}" has "${symbol}", which is not a CMU symbol.`,
+    )
   })
 })
 

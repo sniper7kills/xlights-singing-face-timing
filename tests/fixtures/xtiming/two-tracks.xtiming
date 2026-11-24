@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<timings>
+<timing name="Lead Vocals" subType="" SourceVersion="2024.01">
+   <EffectLayer>
+      <Effect label="Jingle bells" starttime="12350" endtime="13900" />
+   </EffectLayer>
+   <EffectLayer>
+      <Effect label="Jingle" starttime="12350" endtime="13000" />
+      <Effect label="bells" starttime="13000" endtime="13900" />
+   </EffectLayer>
+   <EffectLayer>
+      <Effect label="etc" starttime="12350" endtime="12450" />
+      <Effect label="AI" starttime="12450" endtime="12700" />
+   </EffectLayer>
+</timing>
+<timing name="Harmony" subType="" SourceVersion="2024.01">
+   <EffectLayer>
+      <Effect label="Oh what fun" starttime="14000" endtime="15500" />
+   </EffectLayer>
+   <EffectLayer>
+      <Effect label="Oh" starttime="14000" endtime="14500" />
+      <Effect label="what" starttime="14500" endtime="15000" />
+      <Effect label="fun" starttime="15000" endtime="15500" />
+   </EffectLayer>
+   <EffectLayer>
+      <Effect label="O" starttime="14000" endtime="14500" />
+      <Effect label="WQ" starttime="14500" endtime="14750" />
+      <Effect label="etc" starttime="14750" endtime="15000" />
+      <Effect label="FV" starttime="15000" endtime="15250" />
+      <Effect label="U" starttime="15250" endtime="15500" />
+   </EffectLayer>
+</timing>
+</timings>

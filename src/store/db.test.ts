@@ -6,12 +6,15 @@ import {
   getRecord,
   listRecords,
   listSongs,
+  loadExportOptions,
   loadSong,
   openDatabase,
   putRecord,
   renameSong,
+  saveExportOptions,
   saveSong,
   SETTINGS_KEY,
+  type StoredExportOptions,
   StorageFullError,
 } from './db.ts'
 import { makeSongContent } from './fixtures.test-helpers.ts'
@@ -126,6 +129,25 @@ describe('records', () => {
   })
 })
 
+describe('export options', () => {
+  const options: StoredExportOptions = {
+    voiceIds: ['voice-1'],
+    grouping: 'voice',
+    packaging: 'file-per-track',
+    writeRest: true,
+    trackNames: { 'voice-1': 'Santa' },
+    knownVoiceIds: ['voice-1', 'voice-2'],
+  }
+
+  it('stores the export options of each song apart from the app settings', async () => {
+    await saveExportOptions('song-1', options)
+
+    expect(await loadExportOptions('song-1')).toEqual(options)
+    expect(await loadExportOptions('song-2')).toBeUndefined()
+    expect(await getRecord('settings', SETTINGS_KEY)).toBeUndefined()
+  })
+})
+
 describe('saveSong', () => {
   it('sets updatedAt to the time of the save and keeps createdAt', async () => {
     vi.useFakeTimers({ toFake: ['Date'] })
@@ -231,11 +253,21 @@ describe('renameSong', () => {
 })
 
 describe('deleteSong', () => {
-  it('deletes the song, its audio file, voices, sections and marks, and keeps the other songs', async () => {
+  it('deletes the song, its audio file, voices, sections, marks and export options, and keeps the other songs', async () => {
     const deleted = makeSongContent('song-1')
     const kept = makeSongContent('song-2')
     await saveSong(deleted, makeAudioFile('song-1'))
     const keptSong = await saveSong(kept, makeAudioFile('song-2'))
+    const options: StoredExportOptions = {
+      voiceIds: [],
+      grouping: 'voice',
+      packaging: 'one-file',
+      writeRest: false,
+      trackNames: {},
+      knownVoiceIds: [],
+    }
+    await saveExportOptions('song-1', options)
+    await saveExportOptions('song-2', options)
 
     await deleteSong('song-1')
 
@@ -246,5 +278,7 @@ describe('deleteSong', () => {
     expect(await listRecords('sections')).toEqual(kept.sections)
     expect(await listRecords('marks')).toEqual(expect.arrayContaining(kept.marks))
     expect(await listRecords('marks')).toHaveLength(kept.marks.length)
+    expect(await loadExportOptions('song-1')).toBeUndefined()
+    expect(await loadExportOptions('song-2')).toBeDefined()
   })
 })

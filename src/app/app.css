@@ -423,6 +423,13 @@ button {
   font-size: 13px;
 }
 
+/* The outline shows the selection without colour alone. It is inside the mark, so the layer does not cut it. */
+.mark[aria-current='true'] {
+  outline: 2px solid var(--amber);
+  outline-offset: -2px;
+  z-index: 1;
+}
+
 .mark-label {
   overflow: hidden;
   text-overflow: ellipsis;
@@ -912,6 +919,219 @@ button {
 
 @media (max-width: 760px) {
   .library {
+    grid-template-columns: 1fr;
+  }
+}
+
+.export-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: color-mix(in srgb, var(--bg) 70%, transparent);
+}
+
+.export-dialog {
+  display: grid;
+  gap: 14px;
+  width: min(980px, 100%);
+  max-height: 100%;
+  overflow: auto;
+  padding: 18px 20px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--panel);
+  color: var(--ink);
+}
+
+.export-dialog:focus {
+  /* The dialog takes the focus only to move the focus into the modal, so it shows no ring. */
+  outline: none;
+}
+
+.export-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 12px;
+}
+
+.export-head h2 {
+  margin: 0;
+  font: 700 20px var(--display);
+}
+
+.export-head span,
+.export-hint,
+.export-tracks span,
+.export-foot small {
+  font: 12px var(--mono);
+  color: var(--mute);
+}
+
+.export-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr);
+  gap: 16px;
+}
+
+.export-column {
+  display: grid;
+  gap: 12px;
+  align-content: start;
+}
+
+.export-group {
+  margin: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--panel2);
+}
+
+.export-group legend,
+.export-group h3,
+.export-checks summary,
+.export-steps summary {
+  padding: 0 4px;
+  font: 600 13px var(--body);
+}
+
+.export-group h3 {
+  margin: 0 0 8px;
+  padding: 0;
+}
+
+.export-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 3px 0;
+}
+
+.export-option:has(input:disabled) {
+  color: var(--mute);
+}
+
+.chip {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
+
+.export-tracks {
+  display: grid;
+  gap: 6px;
+  max-height: 240px;
+  overflow: auto;
+  margin: 0;
+  padding: 2px;
+  list-style: none;
+}
+
+.export-tracks li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.export-checks summary {
+  cursor: pointer;
+}
+
+.export-checks ul {
+  display: grid;
+  gap: 4px;
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.finding {
+  display: flex;
+  gap: 8px;
+  width: 100%;
+  padding: 6px 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+  text-align: left;
+}
+
+button.finding:hover {
+  border-color: var(--amber);
+}
+
+.badge {
+  font: 11px var(--mono);
+  text-transform: uppercase;
+}
+
+.badge.error {
+  color: var(--red);
+}
+
+.badge.warning {
+  color: var(--amber);
+}
+
+.export-preview {
+  max-height: 260px;
+  overflow: auto;
+  margin: 0;
+  padding: 8px;
+  border-radius: 8px;
+  background: var(--bg);
+  font: 12px/1.5 var(--mono);
+}
+
+.export-empty {
+  margin: 0;
+  padding: 24px 12px;
+  color: var(--mute);
+  text-align: center;
+}
+
+.export-foot {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.export-done {
+  font: 12px var(--mono);
+  color: var(--ink);
+}
+
+.export-done:not(:empty)::before {
+  content: '✓ ';
+  color: var(--amber);
+}
+
+.export-steps summary {
+  cursor: pointer;
+}
+
+.export-steps ol {
+  display: grid;
+  gap: 5px;
+  margin: 8px 0 0;
+  padding-left: 20px;
+  font-size: 13px;
+}
+
+.export-steps b {
+  font-family: var(--display);
+}
+
+.export-steps .export-hint {
+  display: block;
+}
+
+@media (max-width: 760px) {
+  .export-body {
     grid-template-columns: 1fr;
   }
 }

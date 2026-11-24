@@ -1,6 +1,14 @@
 import { describe, expect, it } from 'vitest'
 import cmudictText from '../../../vendor/cmudict/cmudict.dict?raw'
-import { CMU_SYMBOLS, findCmuSymbol } from './cmuSymbols.ts'
+import { CMU_SYMBOLS, findCmuSymbol, PHONEME_LABELS } from './cmuSymbols.ts'
+
+describe('PHONEME_LABELS', () => {
+  it('holds the ten phoneme labels of the xLights Faces effect', () => {
+    expect([...PHONEME_LABELS].sort()).toEqual(
+      ['AI', 'E', 'FV', 'L', 'MBP', 'O', 'U', 'WQ', 'etc', 'rest'].sort(),
+    )
+  })
+})
 
 describe('CMU_SYMBOLS', () => {
   it('holds 39 symbols, each one time', () => {

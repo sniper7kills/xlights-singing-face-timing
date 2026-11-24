@@ -2,8 +2,9 @@ import { describe, expect, it } from 'vitest'
 import { snap } from './snap.ts'
 
 describe('snap', () => {
-  it('keeps a time that is a multiple of a frame size of 50 ms', () => {
+  it('keeps a time that is a multiple of the frame size', () => {
     expect(snap(100, 50)).toBe(100)
+    expect(snap(2500, 25)).toBe(2500)
   })
 
   it('moves a time down to the nearer multiple', () => {
@@ -34,11 +35,7 @@ describe('snap', () => {
     expect(snap(1237.4, 25)).toBe(1225)
   })
 
-  it('keeps a time that is a multiple of the frame size', () => {
-    expect(snap(2500, 25)).toBe(2500)
-  })
-
-  it('moves a fraction of a millisecond to the nearest frame', () => {
+  it('moves a fraction of a millisecond up to the nearest frame', () => {
     expect(snap(37.6, 25)).toBe(50)
   })
 })

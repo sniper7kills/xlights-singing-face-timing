@@ -498,6 +498,12 @@ None of these blocks approval. Each one names the epic that settles it.
   `VITE_MODEL_HOST` is removed. The app does not store the device. Issues #64 and
   #77 joined the batch of epic #14. The real speech model runs under the
   production Content-Security-Policy with no violation.
+- 2026-11-24 — Export batch. The export code shipped without the manual check in
+  xLights, which waits for the user (issue #79). The export omits characters that
+  XML 1.0 forbids in a label. A page cannot detect a blocked download, so the
+  dialog shows a standing hint. A click on a finding selects the voice and the
+  mark, and the layers draw a selected mark. The export batch started before the
+  phoneme epic ended, and it carried issues #21 and #22 of epic #20 into `main`.
 
 ## Issue map
 
@@ -514,7 +520,7 @@ The spec has one editor epic. The tracker has two, because 30 requirements do no
 | Editor — edit marks | #26 | #27, #28, #29, #30 |
 | Editor — play tools | #31 | #32, #33, #34 |
 | Voices and sections | #35 | #36, #37, #38, #39, #40 |
-| Export | #41 | #42, #43, #44, #45, #46 |
+| Export | #41 | #42, #43, #44, #45, #46, #79 |
 
 | Requirement | Issues |
 |---|---|
