@@ -131,7 +131,7 @@ export function VoiceRow({
         >
           <span className="voice-chip" style={{ background: voice.color }} aria-hidden="true" />
           <span className="voice-text">
-            <span id={nameId} className="voice-name">
+            <span id={nameId} className="voice-name" title={voice.name}>
               {voice.name}
             </span>
             <small id={countId} className="voice-count">
