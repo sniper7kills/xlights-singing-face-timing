@@ -1,11 +1,15 @@
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react'
 import { LIBRARY_HASH } from '../../app/routes.ts'
+import { breakDownWords } from '../../store/actions/breakDown.ts'
 import { useAutosaveStore, useSaveState } from '../../store/autosave.ts'
 import { StorageFullError } from '../../store/db.ts'
 import { readSavedView, saveView } from '../../store/savedView.ts'
 import { useSongStore } from '../../store/songStore.ts'
 import { selectedVoice, useViewStore } from '../../store/viewStore.ts'
-import type { TranscribeOutcome } from '../transcription/runTranscription.ts'
+import { AddWordAction } from '../phoneme-breakdown/AddWordAction.tsx'
+import { CustomDictionaryAction } from '../phoneme-breakdown/CustomDictionaryAction.tsx'
+import { UnknownWordCounter } from '../phoneme-breakdown/UnknownWordCounter.tsx'
+import type { BreakDownFailure, TranscribeOutcome } from '../transcription/runTranscription.ts'
 import { TranscribeDialog } from '../transcription/TranscribeDialog.tsx'
 import { outcomeText } from '../transcription/transcribeDialogState.ts'
 import { ExportAction } from '../xtiming-export/ExportAction.tsx'
@@ -33,7 +37,7 @@ type EditorPageProps = {
   songId: string
 }
 
-/** Shows the editor for one song: the top bar, the waveform region and the layers. */
+/** Shows the editor for one song: the top bar, the waveform region, the layers and the toolbar. */
 export function EditorPage({ songId }: EditorPageProps) {
   const content = useSongStore((state) => state.current)
   const openSong = useSongStore((state) => state.openSong)
@@ -44,6 +48,7 @@ export function EditorPage({ songId }: EditorPageProps) {
   const [dialogOpen, setDialogOpen] = useState(false)
   const [running, setRunning] = useState(false)
   const [toast, setToast] = useState<string | null>(null)
+  const [breakDownFailure, setBreakDownFailure] = useState<BreakDownFailure | null>(null)
   const opener = useRef<HTMLElement | null>(null)
   const narrow = useSyncExternalStore(subscribeToResize, isNarrowWindow)
 
@@ -60,6 +65,7 @@ export function EditorPage({ songId }: EditorPageProps) {
   const finishTranscribe = useCallback(
     (outcome: TranscribeOutcome) => {
       setToast(outcomeText(outcome))
+      setBreakDownFailure(outcome.breakDownFailure)
       closeTranscribeDialog()
     },
     [closeTranscribeDialog],
@@ -130,6 +136,7 @@ export function EditorPage({ songId }: EditorPageProps) {
               Transcribe
             </button>
           )}
+          <CustomDictionaryAction />
           <ExportAction />
           <span className="save-state" role="status">
             {saveState === 'saved' ? 'Saved' : 'Saving'}
@@ -149,6 +156,8 @@ export function EditorPage({ songId }: EditorPageProps) {
         </Waveform>
         <EditorToolbar>
           <ZoomControl durationMs={song.durationMs} />
+          <UnknownWordCounter />
+          <AddWordAction />
         </EditorToolbar>
         {dialogOpen && voice !== undefined && (
           <TranscribeDialog
@@ -160,6 +169,7 @@ export function EditorPage({ songId }: EditorPageProps) {
             onDone={finishTranscribe}
           />
         )}
+        <BreakDownNotice failure={breakDownFailure} onChange={setBreakDownFailure} />
         {toast !== null && (
           <p className="toast" role="status">
             {toast}
@@ -167,5 +177,34 @@ export function EditorPage({ songId }: EditorPageProps) {
         )}
       </section>
     </>
+  )
+}
+
+type BreakDownNoticeProps = {
+  /** The failure to show. Null shows nothing. */
+  failure: BreakDownFailure | null
+  /** Receives null after a retry that breaks down the words, or the new failure. */
+  onChange: (failure: BreakDownFailure | null) => void
+}
+
+/** Shows a break down that did not run, with a "Retry" button that breaks down the same words. */
+function BreakDownNotice({ failure, onChange }: BreakDownNoticeProps) {
+  if (failure === null) return null
+  const retry = () =>
+    breakDownWords(failure.wordIds).then(
+      () => onChange(null),
+      (error: unknown) =>
+        onChange({
+          message: error instanceof Error ? error.message : failure.message,
+          wordIds: failure.wordIds,
+        }),
+    )
+  return (
+    <p className="message" role="alert">
+      {failure.message}{' '}
+      <button type="button" className="button" onClick={() => void retry()}>
+        Retry
+      </button>
+    </p>
   )
 }

@@ -10,10 +10,12 @@ type MarkViewProps = {
 /**
  * Shows one mark at its time. CSS cuts a long label with an ellipsis, and the
  * tooltip shows the full label. A selected mark has `aria-current`, and CSS gives it an outline.
+ * An unknown word has `data-unknown`, and CSS gives it a dotted border.
  */
 export function MarkView({ mark, scale }: MarkViewProps) {
   const selected = useViewStore((view) => view.selectedMarkIds.includes(mark.id))
   const { leftPx, widthPx } = rangeToPx(scale, mark)
+  const unknown = mark.layer === 'word' && mark.unknown === true
   return (
     <li
       className={`mark mark-${mark.layer}`}
@@ -21,10 +23,15 @@ export function MarkView({ mark, scale }: MarkViewProps) {
       data-label={mark.layer === 'phoneme' ? mark.label : undefined}
       // A list item has no `aria-selected`, so `aria-current` tells a screen reader which mark is selected.
       aria-current={selected ? 'true' : undefined}
+      data-unknown={unknown ? 'true' : undefined}
+      // The custom dictionary dialog gives the focus to the selected mark when its opener is gone.
+      tabIndex={selected ? -1 : undefined}
       title={mark.label}
       style={{ left: `${leftPx}px`, width: `${widthPx}px` }}
     >
       <span className="mark-label">{mark.label}</span>
+      {/* A screen reader cannot see the dotted border, so it reads this text. */}
+      {unknown && <span className="visually-hidden"> (unknown word)</span>}
     </li>
   )
 }

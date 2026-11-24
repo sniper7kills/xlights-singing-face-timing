@@ -1,8 +1,7 @@
-import type { Song, Voice } from '../../store/types.ts'
+import type { Mark, Song, Voice } from '../../store/types.ts'
 import { PHONEME_LABELS } from '../dictionary/cmuSymbols.ts'
 import { formatTime } from '../time/formatTime.ts'
 import { snap } from '../time/snap.ts'
-import type { SourceMark } from './buildTracks.ts'
 import type { ExportMark, ExportOptions, ExportTrack, Finding } from './types.ts'
 
 const PHONEME_LABEL_SET: ReadonlySet<string> = new Set(PHONEME_LABELS)
@@ -36,7 +35,7 @@ export function checkTracks(
   tracks: readonly ExportTrack[],
   song: Song,
   voices: readonly Voice[],
-  marks: readonly SourceMark[],
+  marks: readonly Mark[],
   options: ExportOptions,
 ): Finding[] {
   const voiceName = (voiceId: string | undefined): string =>
@@ -120,7 +119,7 @@ function nameFindings(
 function timeFindings(
   track: ExportTrack,
   mark: ExportMark,
-  stored: SourceMark | undefined,
+  stored: Mark | undefined,
   song: Song,
 ): Finding[] {
   const findings: Finding[] = []

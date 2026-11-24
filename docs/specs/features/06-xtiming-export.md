@@ -290,20 +290,19 @@ interface Finding {
   voiceId?: string
 }
 interface ExportFile { name: string; text: string }
-type SourceMark = Mark & { unknown?: boolean }
 
 buildTracks(
   song: Song,
   voices: readonly Voice[],
   sections: readonly Section[],
-  marks: readonly SourceMark[],
+  marks: readonly Mark[],
   options: ExportOptions,
 ): ExportTrack[]
 checkTracks(
   tracks: readonly ExportTrack[],
   song: Song,
   voices: readonly Voice[],
-  marks: readonly SourceMark[],
+  marks: readonly Mark[],
   options: ExportOptions,
 ): Finding[]
 writeXtiming(tracks: ExportTrack[], sourceVersion: string): string   // XML text

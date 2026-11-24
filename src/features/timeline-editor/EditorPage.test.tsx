@@ -2,6 +2,7 @@ import { act, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { LIBRARY_HASH } from '../../app/routes.ts'
+import { breakDownWords } from '../../store/actions/breakDown.ts'
 import { startAutosave, useAutosaveStore } from '../../store/autosave.ts'
 import * as db from '../../store/db.ts'
 import { loadSong, StorageFullError } from '../../store/db.ts'
@@ -13,6 +14,10 @@ import { EditorPage } from './EditorPage.tsx'
 import { createWaveformPlayer } from './waveformPlayer.ts'
 
 vi.mock('./waveformPlayer.ts', () => ({ createWaveformPlayer: vi.fn() }))
+vi.mock('../../store/actions/breakDown.ts', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../store/actions/breakDown.ts')>()),
+  breakDownWords: vi.fn(),
+}))
 vi.mock('../transcription/runTranscription.ts', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../transcription/runTranscription.ts')>()),
   runTranscription: vi.fn(),
@@ -82,7 +87,11 @@ describe('EditorPage', () => {
   })
 
   it('closes the dialog after a run and gives the focus back to the action', async () => {
-    vi.mocked(runTranscription).mockResolvedValue({ wordCount: 16, estimatedCount: 0 })
+    vi.mocked(runTranscription).mockResolvedValue({
+      wordCount: 16,
+      estimatedCount: 0,
+      breakDownFailure: null,
+    })
     const user = userEvent.setup()
     await renderEditor()
     const action = topBarTranscribe()
@@ -97,7 +106,11 @@ describe('EditorPage', () => {
   })
 
   it('shows the toast with the word count and the estimated count after a run', async () => {
-    vi.mocked(runTranscription).mockResolvedValue({ wordCount: 214, estimatedCount: 9 })
+    vi.mocked(runTranscription).mockResolvedValue({
+      wordCount: 214,
+      estimatedCount: 9,
+      breakDownFailure: null,
+    })
     const user = userEvent.setup()
     await renderEditor()
     await user.click(topBarTranscribe())
@@ -109,6 +122,34 @@ describe('EditorPage', () => {
     expect(await screen.findByText('214 words, 9 estimated')).toHaveAttribute('role', 'status')
   })
 
+  it('shows the dictionary failure after a run, and removes it when "Retry" breaks down the words', async () => {
+    const message = 'The dictionary did not load. Check the connection and retry.'
+    vi.mocked(runTranscription).mockResolvedValue({
+      wordCount: 2,
+      estimatedCount: 0,
+      breakDownFailure: { message, wordIds: ['word-1', 'word-2'] },
+    })
+    vi.mocked(breakDownWords)
+      .mockRejectedValueOnce(new Error(message))
+      .mockResolvedValueOnce(undefined)
+    const user = userEvent.setup()
+    await renderEditor()
+    await user.click(topBarTranscribe())
+    const start = within(screen.getByRole('dialog')).getByRole('button', { name: 'Start' })
+    await vi.waitFor(() => expect(start).toBeEnabled())
+    await user.click(start)
+
+    const alert = await screen.findByRole('alert')
+    expect(alert).toHaveTextContent(message)
+    await user.click(within(alert).getByRole('button', { name: 'Retry' }))
+    expect(breakDownWords).toHaveBeenLastCalledWith(['word-1', 'word-2'])
+    expect(await screen.findByRole('alert')).toHaveTextContent(message)
+
+    await user.click(within(screen.getByRole('alert')).getByRole('button', { name: 'Retry' }))
+    await vi.waitFor(() => expect(screen.queryByRole('alert')).toBeNull())
+    expect(breakDownWords).toHaveBeenCalledTimes(2)
+  })
+
   it('shows no "Transcribe" action for a song with no voice', async () => {
     const song = await storeNewSong({ name: 'carol', durationMs: 3000, audio, voices: [] })
     render(<EditorPage songId={song.id} />)
@@ -116,17 +157,18 @@ describe('EditorPage', () => {
 
     const bar = within(heading.parentElement ?? document.body)
     expect(bar.queryByRole('button', { name: 'Transcribe' })).toBeNull()
+    expect(bar.getByRole('button', { name: 'Custom dictionary' })).toBeInTheDocument()
     expect(bar.getByRole('button', { name: 'Export' })).toBeInTheDocument()
   })
 
-  it('shows the "Transcribe" action before the "Export" action in the top bar', async () => {
+  it('shows the "Transcribe", "Custom dictionary" and "Export" actions in this order in the top bar', async () => {
     await renderEditor()
     const bar = screen.getByRole('heading', { level: 2 }).parentElement ?? document.body
 
     const names = within(bar)
       .getAllByRole('button')
       .map((button) => button.textContent)
-    expect(names).toEqual(['Transcribe', 'Export'])
+    expect(names).toEqual(['Transcribe', 'Custom dictionary', 'Export'])
   })
 
   it('shows no "Transcribe" button in the empty state of the layers for a song with no voice', async () => {
@@ -181,6 +223,44 @@ describe('EditorPage', () => {
     expect(screen.getByRole('alert')).toHaveTextContent(
       'Browser storage is full. Delete a song and try again.',
     )
+  })
+
+  it('shows the unknown-word counter and "Add to custom dictionary" in the toolbar under the waveform region', async () => {
+    const user = userEvent.setup()
+    await renderEditor()
+    const content = useSongStore.getState().current
+    if (content === null) throw new Error('The editor has no open song.')
+    const voiceId = content.voices[0]?.id ?? ''
+    act(() =>
+      useSongStore.setState({
+        current: {
+          ...content,
+          marks: [
+            {
+              id: 'zxqv',
+              voiceId,
+              layer: 'word',
+              label: 'Zxqv',
+              startMs: 500,
+              endMs: 1000,
+              parentId: null,
+              edited: false,
+              unknown: true,
+            },
+          ],
+        },
+      }),
+    )
+
+    const toolbar = screen.getByRole('toolbar', { name: 'Editor tools' })
+    expect(toolbar).toHaveClass('editor-toolbar')
+    expect(
+      screen.getByRole('region', { name: 'Waveform' }).compareDocumentPosition(toolbar) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy()
+    await user.click(within(toolbar).getByRole('button', { name: '1 unknown word' }))
+    expect(useViewStore.getState().selectedMarkIds).toEqual(['zxqv'])
+    expect(within(toolbar).getByRole('button', { name: 'Add to custom dictionary' })).toBeVisible()
   })
 
   it('opens the song at the default view and at time 0', async () => {

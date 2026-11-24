@@ -500,6 +500,11 @@ button {
   z-index: 1;
 }
 
+/* The dotted border shows an unknown word without colour alone. The selection outline sits inside it, so a selected unknown word shows both. */
+.mark[data-unknown='true'] {
+  border: 2px dotted var(--ink);
+}
+
 .mark-label {
   overflow: hidden;
   text-overflow: ellipsis;
@@ -899,6 +904,92 @@ button {
 
 .dialog fieldset:disabled {
   opacity: 0.6;
+}
+
+.dialog-field input {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel2);
+  color: var(--ink);
+  font: inherit;
+}
+
+.dialog-field input[readonly] {
+  color: var(--mute);
+}
+
+.field-error {
+  margin: 0;
+  color: var(--red);
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.mono {
+  font-family: var(--mono);
+}
+
+.dictionary-dialog {
+  width: min(760px, 100%);
+}
+
+.dictionary-table-wrap {
+  max-height: 260px;
+  overflow: auto;
+}
+
+.dictionary-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.dictionary-table caption {
+  padding-bottom: 6px;
+  color: var(--mute);
+  text-align: left;
+}
+
+.dictionary-table th,
+.dictionary-table td {
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--line);
+  text-align: left;
+}
+
+.dictionary-table thead th {
+  color: var(--mute);
+  font-weight: 600;
+}
+
+.row-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.entry-form {
+  display: grid;
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+.entry-form h4 {
+  margin: 0;
+}
+
+.symbol-reference summary {
+  cursor: pointer;
 }
 
 @media (max-width: 760px) {

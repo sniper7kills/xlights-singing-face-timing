@@ -61,6 +61,11 @@ export type Mark = {
    * A transcribe run sets it on each word. Phrases, phonemes and marks from before the field have no value.
    */
   estimated?: boolean
+  /**
+   * True when no dictionary has the word, so its phonemes come from the rule-based guess.
+   * Each break down sets it on the word. Phrases, phonemes and words with no break down have no value.
+   */
+  unknown?: boolean
 }
 
 export type CustomEntry = {

@@ -181,6 +181,26 @@ export function putRecord<S extends StoreName>(store: S, value: StoreRecords[S])
   })
 }
 
+/**
+ * Writes the custom entries in one transaction. An entry replaces the saved entry with the same word.
+ * Rejects with StorageFullError when the browser storage is full. Nothing is saved then.
+ */
+export function putCustomEntryRecords(entries: readonly CustomEntry[]): Promise<void> {
+  return transact(['customEntries'], 'readwrite', (transaction) => {
+    const store = transaction.objectStore('customEntries')
+    for (const entry of entries) store.put(entry)
+    return nothing
+  })
+}
+
+/** Deletes the custom entry of the word. A word with no entry changes nothing. */
+export function deleteCustomEntryRecord(word: string): Promise<void> {
+  return transact(['customEntries'], 'readwrite', (transaction) => {
+    transaction.objectStore('customEntries').delete(word)
+    return nothing
+  })
+}
+
 // The settings store holds one record for the app and one for the export options of each song.
 function exportOptionsKey(songId: string): string {
   return `export:${songId}`

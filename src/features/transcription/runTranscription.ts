@@ -1,7 +1,10 @@
+import { breakDownMarks, loadDictionaries } from '../../store/actions/breakDown.ts'
 import { hasMarksInRange, replaceMarksInRange } from '../../store/actions/replaceMarksInRange.ts'
 import type { TimeRange } from '../../lib/time/timeRange.ts'
 import { getAudioFile } from '../../store/db.ts'
+import { DictionaryLoadError } from '../phoneme-breakdown/loadDictionary.ts'
 import { useSongStore } from '../../store/songStore.ts'
+import type { Mark } from '../../store/types.ts'
 import { alignLyrics } from './alignLyrics.ts'
 import { buildMarks } from './buildMarks.ts'
 import { groupIntoPhrases, parseLyrics, spreadLyrics } from './phrases.ts'
@@ -30,6 +33,18 @@ export type TranscribeRequest = {
 export type TranscribeOutcome = {
   wordCount: number
   estimatedCount: number
+  /**
+   * The break down failure of the run, or null when every new word has phonemes.
+   * The words of the run then have no phonemes, and `wordIds` lets the person retry.
+   */
+  breakDownFailure: BreakDownFailure | null
+}
+
+/** A break down that did not run, and the words that it leaves without phonemes. */
+export type BreakDownFailure = {
+  /** The message that the person sees. */
+  message: string
+  wordIds: string[]
 }
 
 /** The functions that the transcribe dialog supplies to one run. */
@@ -73,6 +88,7 @@ function stopIfCancelled(signal: AbortSignal): void {
 
 /**
  * Runs one transcription for the open song, writes the marks as one undo step, and returns the counts.
+ * The same undo step holds the phonemes of each new word. If the break down fails, the words have no phonemes and the outcome reports it.
  * The run replaces the marks of the voice that lie fully inside the range. The marks outside it stay.
  * @param request The run that the person started. Without a range, the range is the full song.
  * @param client The client that runs the speech model. A lyrics-only run does not call it.
@@ -104,11 +120,43 @@ export async function runTranscription(
   const marks = buildMarks(phrases, request.voiceId, song.frameMs, range)
   const words = marks.filter((mark) => mark.layer === 'word')
   if (words.length === 0) throw new NoWordsError()
-  // TODO(#23): Add the phonemes of the new words to `marks` here.
-  // The write below then holds the break down in the same undo step.
+  const { written, breakDownFailure } = await breakDownRun(marks, words, song.frameMs)
   stopIfCancelled(signal)
-  replaceMarksInRange(request.voiceId, range, marks)
-  return { wordCount: words.length, estimatedCount: words.filter((mark) => mark.estimated).length }
+  // The phonemes go in the same write, so one undo removes the run and its break down.
+  replaceMarksInRange(request.voiceId, range, written)
+  return {
+    wordCount: words.length,
+    estimatedCount: words.filter((mark) => mark.estimated).length,
+    breakDownFailure,
+  }
+}
+
+/**
+ * Returns the marks of a run with the phonemes of each new word added.
+ * A break down that fails must not lose the run, so the words then stay without phonemes and the failure names them.
+ * The failure is a dictionary that does not load, or any other failure, for example a database that cannot read the custom dictionary.
+ */
+async function breakDownRun(
+  marks: Mark[],
+  words: Mark[],
+  frameMs: number,
+): Promise<{ written: Mark[]; breakDownFailure: BreakDownFailure | null }> {
+  try {
+    const dictionaries = await loadDictionaries()
+    return {
+      written: [...breakDownMarks(marks, () => true, dictionaries, frameMs)],
+      breakDownFailure: null,
+    }
+  } catch (error) {
+    const message =
+      error instanceof DictionaryLoadError
+        ? error.message
+        : 'The app could not break down the words. Select Retry.'
+    return {
+      written: marks,
+      breakDownFailure: { message, wordIds: words.map((word) => word.id) },
+    }
+  }
 }
 
 /**
