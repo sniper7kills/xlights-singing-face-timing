@@ -1,5 +1,8 @@
+/** The ten mouth shapes that the xLights Faces effect reads. The labels are case-sensitive. */
+export const PHONEME_LABELS = ['AI', 'E', 'etc', 'FV', 'L', 'MBP', 'O', 'rest', 'U', 'WQ'] as const
+
 /** One of the ten mouth shapes that the xLights Faces effect reads. The labels are case-sensitive. */
-export type PhonemeLabel = 'AI' | 'E' | 'etc' | 'FV' | 'L' | 'MBP' | 'O' | 'rest' | 'U' | 'WQ'
+export type PhonemeLabel = (typeof PHONEME_LABELS)[number]
 
 /** One CMU symbol without its stress digit, and the phoneme label that it maps to. */
 export interface CmuSymbol {

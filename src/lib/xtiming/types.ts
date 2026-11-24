@@ -33,6 +33,23 @@ export interface ExportTrack {
   voiceId?: string
 }
 
+/**
+ * One result of the checks before export.
+ * The export dialog lists each finding and blocks "Download" while an error exists.
+ */
+export interface Finding {
+  /** `error` blocks the export. `warning` does not. */
+  type: 'error' | 'warning'
+  /** The name of the check, for example `unknown-word`. Each check has one name. */
+  check: string
+  /** The text that the dialog shows. It names the label or the timing track, and the time of a mark. */
+  message: string
+  /** The id of the stored mark that the finding is about. */
+  markId?: string
+  /** The id of the voice that the finding is about. */
+  voiceId?: string
+}
+
 /** The choices of the person in the export dialog. */
 export interface ExportOptions {
   /** The ids of the voices to export. `buildTracks` writes them in the order of `Voice.order`. */
