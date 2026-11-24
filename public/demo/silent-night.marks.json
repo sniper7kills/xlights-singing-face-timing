@@ -1,0 +1,716 @@
+{
+  "song": {
+    "name": "silent-night",
+    "durationMs": 28900,
+    "frameMs": 50
+  },
+  "voices": [
+    {
+      "id": "voice-1",
+      "name": "Lead Vocals",
+      "order": 0
+    }
+  ],
+  "marks": [
+    {
+      "id": "phrase-1",
+      "voiceId": "voice-1",
+      "layer": "phrase",
+      "label": "Silent night, holy night",
+      "startMs": 100,
+      "endMs": 8950,
+      "parentId": null,
+      "edited": false
+    },
+    {
+      "id": "phrase-1-word-1",
+      "voiceId": "voice-1",
+      "layer": "word",
+      "label": "Silent",
+      "startMs": 100,
+      "endMs": 2300,
+      "parentId": "phrase-1",
+      "edited": false
+    },
+    {
+      "id": "phrase-1-word-1-phoneme-1",
+      "voiceId": "voice-1",
+      "layer": "phoneme",
+      "label": "etc",
+      "startMs": 100,
+      "endMs": 300,
+      "parentId": "phrase-1-word-1",
+      "edited": false
+    },
+    {
+      "id": "phrase-1-word-1-phoneme-2",
+      "voiceId": "voice-1",
+      "layer": "phoneme",
+      "label": "AI",
+      "startMs": 300,
+      "endMs": 1000,
+      "parentId": "phrase-1-word-1",
+      "edited": false
+    },
+    {
+      "id": "phrase-1-word-1-phoneme-3",
+      "voiceId": "voice-1",
+      "layer": "phoneme",
+      "label": "L",
+      "startMs": 1000,
+      "endMs": 1400,
+      "parentId": "phrase-1-word-1",
+      "edited": false
+    },
+    {
+      "id": "phrase-1-word-1-phoneme-4",
+      "voiceId": "voice-1",
+      "layer": "phoneme",
+      "label": "AI",
+      "startMs": 1400,
+      "endMs": 2100,
+      "parentId": "phrase-1-word-1",
+      "edited": false
+    },
+    {
+      "id": "phrase-1-word-1-phoneme-5",
+      "voiceId": "voice-1",
+      "layer": "phoneme",
+      "label": "etc",
+      "startMs": 2100,
+      "endMs": 2300,
+      "parentId": "phrase-1-word-1",
+      "edited": false
+    },
+    {
+      "id": "phrase-1-word-2",
+      "voiceId": "voice-1",
+      "layer": "word",
+      "label": "night",
+      "startMs": 2300,
+      "endMs": 4650,
+      "parentId": "phrase-1",
+      "edited": false
+    },
+    {
+      "id": "phrase-1-word-2-phoneme-1",
+      "voiceId": "voice-1",
+      "layer": "phoneme",
+      "label": "etc",
+      "startMs": 2300,
+      "endMs": 2750,
+      "parentId": "phrase-1-word-2",
+      "edited": false
+    },
+    {
+      "id": "phrase-1-word-2-phoneme-2",
+      "voiceId": "voice-1",
+      "layer": "phoneme",
+      "label": "AI",
+      "startMs": 2750,
+      "endMs": 4200,
+      "parentId": "phrase-1-word-2",
+      "edited": false
+    },
+    {
+      "id": "phrase-1-word-2-phoneme-3",
+      "voiceId": "voice-1",
+      "layer": "phoneme",
+      "label": "etc",
+      "startMs": 4200,
+      "endMs": 4650,
+      "parentId": "phrase-1-word-2",
+      "edited": false
+    },
+    {
+      "id": "phrase-1-word-3",
+      "voiceId": "voice-1",
+      "layer": "word",
+      "label": "holy",
+      "startMs": 4700,
+      "endMs": 6700,
+      "parentId": "phrase-1",
+      "edited": false
+    },
+    {
+      "id": "phrase-1-word-3-phoneme-1",
+      "voiceId": "voice-1",
+      "layer": "phoneme",
+      "label": "etc",
+      "startMs": 4700,
+      "endMs": 4900,
+      "parentId": "phrase-1-word-3",
+      "edited": false
+    },
+    {
+      "id": "phrase-1-word-3-phoneme-2",
+      "voiceId": "voice-1",
+      "layer": "phoneme",
+      "label": "O",
+      "startMs": 4900,
+      "endMs": 5600,
+      "parentId": "phrase-1-word-3",
+      "edited": false
+    },
+    {
+      "id": "phrase-1-word-3-phoneme-3",
+      "voiceId": "voice-1",
+      "layer": "phoneme",
+      "label": "L",
+      "startMs": 5600,
+      "endMs": 6050,
+      "parentId": "phrase-1-word-3",
+      "edited": false
+    },
+    {
+      "id": "phrase-1-word-3-phoneme-4",
+      "voiceId": "voice-1",
+      "layer": "phoneme",
+      "label": "E",
+      "startMs": 6050,
+      "endMs": 6700,
+      "parentId": "phrase-1-word-3",
+      "edited": false
+    },
+    {
+      "id": "phrase-1-word-4",
+      "voiceId": "voice-1",
+      "layer": "word",
+      "label": "night",
+      "startMs": 6700,
+      "endMs": 8950,
+      "parentId": "phrase-1",
+      "edited": false
+    },
+    {
+      "id": "phrase-1-word-4-phoneme-1",
+      "voiceId": "voice-1",
+      "layer": "phoneme",
+      "label": "etc",
+      "startMs": 6700,
+      "endMs": 7150,
+      "parentId": "phrase-1-word-4",
+      "edited": false
+    },
+    {
+      "id": "phrase-1-word-4-phoneme-2",
+      "voiceId": "voice-1",
+      "layer": "phoneme",
+      "label": "AI",
+      "startMs": 7150,
+      "endMs": 8500,
+      "parentId": "phrase-1-word-4",
+      "edited": false
+    },
+    {
+      "id": "phrase-1-word-4-phoneme-3",
+      "voiceId": "voice-1",
+      "layer": "phoneme",
+      "label": "etc",
+      "startMs": 8500,
+      "endMs": 8950,
+      "parentId": "phrase-1-word-4",
+      "edited": false
+    },
+    {
+      "id": "phrase-2",
+      "voiceId": "voice-1",
+      "layer": "phrase",
+      "label": "All is calm, all is bright",
+      "startMs": 9800,
+      "endMs": 18700,
+      "parentId": null,
+      "edited": false
+    },
+    {
+      "id": "phrase-2-word-1",
+      "voiceId": "voice-1",
+      "layer": "word",
+      "label": "All",
+      "startMs": 9800,
+      "endMs": 11250,
+      "parentId": "phrase-2",
+      "edited": false
+    },
+    {
+      "id": "phrase-2-word-1-phoneme-1",
+      "voiceId": "voice-1",
+      "layer": "phoneme",
+      "label": "O",
+      "startMs": 9800,
+      "endMs": 10650,
+      "parentId": "phrase-2-word-1",
+      "edited": false
+    },
+    {
+      "id": "phrase-2-word-1-phoneme-2",
+      "voiceId": "voice-1",
+      "layer": "phoneme",
+      "label": "L",
+      "startMs": 10650,
+      "endMs": 11250,
+      "parentId": "phrase-2-word-1",
+      "edited": false
+    },
+    {
+      "id": "phrase-2-word-2",
+      "voiceId": "voice-1",
+      "layer": "word",
+      "label": "is",
+      "startMs": 11250,
+      "endMs": 11950,
+      "parentId": "phrase-2",
+      "edited": false
+    },
+    {
+      "id": "phrase-2-word-2-phoneme-1",
+      "voiceId": "voice-1",
+      "layer": "phoneme",
+      "label": "AI",
+      "startMs": 11250,
+      "endMs": 11800,
+      "parentId": "phrase-2-word-2",
+      "edited": false
+    },
+    {
+      "id": "phrase-2-word-2-phoneme-2",
+      "voiceId": "voice-1",
+      "layer": "phoneme",
+      "label": "etc",
+      "startMs": 11800,
+      "endMs": 11950,
+      "parentId": "phrase-2-word-2",
+      "edited": false
+    },
+    {
+      "id": "phrase-2-word-3",
+      "voiceId": "voice-1",
+      "layer": "word",
+      "label": "calm",
+      "startMs": 11950,
+      "endMs": 14250,
+      "parentId": "phrase-2",
+      "edited": false
+    },
+    {
+      "id": "phrase-2-word-3-phoneme-1",
+      "voiceId": "voice-1",
+      "layer": "phoneme",
+      "label": "etc",
+      "startMs": 11950,
+      "endMs": 12400,
+      "parentId": "phrase-2-word-3",
+      "edited": false
+    },
+    {
+      "id": "phrase-2-word-3-phoneme-2",
+      "voiceId": "voice-1",
+      "layer": "phoneme",
+      "label": "AI",
+      "startMs": 12400,
+      "endMs": 13800,
+      "parentId": "phrase-2-word-3",
+      "edited": false
+    },
+    {
+      "id": "phrase-2-word-3-phoneme-3",
+      "voiceId": "voice-1",
+      "layer": "phoneme",
+      "label": "MBP",
+      "startMs": 13800,
+      "endMs": 14250,
+      "parentId": "phrase-2-word-3",
+      "edited": false
+    },
+    {
+      "id": "phrase-2-word-4",
+      "voiceId": "voice-1",
+      "layer": "word",
+      "label": "all",
+      "startMs": 14300,
+      "endMs": 15750,
+      "parentId": "phrase-2",
+      "edited": false
+    },
+    {
+      "id": "phrase-2-word-4-phoneme-1",
+      "voiceId": "voice-1",
+      "layer": "phoneme",
+      "label": "O",
+      "startMs": 14300,
+      "endMs": 15150,
+      "parentId": "phrase-2-word-4",
+      "edited": false
+    },
+    {
+      "id": "phrase-2-word-4-phoneme-2",
+      "voiceId": "voice-1",
+      "layer": "phoneme",
+      "label": "L",
+      "startMs": 15150,
+      "endMs": 15750,
+      "parentId": "phrase-2-word-4",
+      "edited": false
+    },
+    {
+      "id": "phrase-2-word-5",
+      "voiceId": "voice-1",
+      "layer": "word",
+      "label": "is",
+      "startMs": 15750,
+      "endMs": 16550,
+      "parentId": "phrase-2",
+      "edited": false
+    },
+    {
+      "id": "phrase-2-word-5-phoneme-1",
+      "voiceId": "voice-1",
+      "layer": "phoneme",
+      "label": "AI",
+      "startMs": 15750,
+      "endMs": 16350,
+      "parentId": "phrase-2-word-5",
+      "edited": false
+    },
+    {
+      "id": "phrase-2-word-5-phoneme-2",
+      "voiceId": "voice-1",
+      "layer": "phoneme",
+      "label": "etc",
+      "startMs": 16350,
+      "endMs": 16550,
+      "parentId": "phrase-2-word-5",
+      "edited": false
+    },
+    {
+      "id": "phrase-2-word-6",
+      "voiceId": "voice-1",
+      "layer": "word",
+      "label": "bright",
+      "startMs": 16550,
+      "endMs": 18700,
+      "parentId": "phrase-2",
+      "edited": false
+    },
+    {
+      "id": "phrase-2-word-6-phoneme-1",
+      "voiceId": "voice-1",
+      "layer": "phoneme",
+      "label": "MBP",
+      "startMs": 16550,
+      "endMs": 16900,
+      "parentId": "phrase-2-word-6",
+      "edited": false
+    },
+    {
+      "id": "phrase-2-word-6-phoneme-2",
+      "voiceId": "voice-1",
+      "layer": "phoneme",
+      "label": "etc",
+      "startMs": 16900,
+      "endMs": 17250,
+      "parentId": "phrase-2-word-6",
+      "edited": false
+    },
+    {
+      "id": "phrase-2-word-6-phoneme-3",
+      "voiceId": "voice-1",
+      "layer": "phoneme",
+      "label": "AI",
+      "startMs": 17250,
+      "endMs": 18350,
+      "parentId": "phrase-2-word-6",
+      "edited": false
+    },
+    {
+      "id": "phrase-2-word-6-phoneme-4",
+      "voiceId": "voice-1",
+      "layer": "phoneme",
+      "label": "etc",
+      "startMs": 18350,
+      "endMs": 18700,
+      "parentId": "phrase-2-word-6",
+      "edited": false
+    },
+    {
+      "id": "phrase-3",
+      "voiceId": "voice-1",
+      "layer": "phrase",
+      "label": "Round yon virgin mother and child",
+      "startMs": 19450,
+      "endMs": 28750,
+      "parentId": null,
+      "edited": false
+    },
+    {
+      "id": "phrase-3-word-1",
+      "voiceId": "voice-1",
+      "layer": "word",
+      "label": "Round",
+      "startMs": 19450,
+      "endMs": 20800,
+      "parentId": "phrase-3",
+      "edited": false
+    },
+    {
+      "id": "phrase-3-word-1-phoneme-1",
+      "voiceId": "voice-1",
+      "layer": "phoneme",
+      "label": "etc",
+      "startMs": 19450,
+      "endMs": 19700,
+      "parentId": "phrase-3-word-1",
+      "edited": false
+    },
+    {
+      "id": "phrase-3-word-1-phoneme-2",
+      "voiceId": "voice-1",
+      "layer": "phoneme",
+      "label": "O",
+      "startMs": 19700,
+      "endMs": 20550,
+      "parentId": "phrase-3-word-1",
+      "edited": false
+    },
+    {
+      "id": "phrase-3-word-1-phoneme-3",
+      "voiceId": "voice-1",
+      "layer": "phoneme",
+      "label": "etc",
+      "startMs": 20550,
+      "endMs": 20800,
+      "parentId": "phrase-3-word-1",
+      "edited": false
+    },
+    {
+      "id": "phrase-3-word-2",
+      "voiceId": "voice-1",
+      "layer": "word",
+      "label": "yon",
+      "startMs": 20800,
+      "endMs": 21600,
+      "parentId": "phrase-3",
+      "edited": false
+    },
+    {
+      "id": "phrase-3-word-2-phoneme-1",
+      "voiceId": "voice-1",
+      "layer": "phoneme",
+      "label": "etc",
+      "startMs": 20800,
+      "endMs": 20950,
+      "parentId": "phrase-3-word-2",
+      "edited": false
+    },
+    {
+      "id": "phrase-3-word-2-phoneme-2",
+      "voiceId": "voice-1",
+      "layer": "phoneme",
+      "label": "AI",
+      "startMs": 20950,
+      "endMs": 21450,
+      "parentId": "phrase-3-word-2",
+      "edited": false
+    },
+    {
+      "id": "phrase-3-word-2-phoneme-3",
+      "voiceId": "voice-1",
+      "layer": "phoneme",
+      "label": "etc",
+      "startMs": 21450,
+      "endMs": 21600,
+      "parentId": "phrase-3-word-2",
+      "edited": false
+    },
+    {
+      "id": "phrase-3-word-3",
+      "voiceId": "voice-1",
+      "layer": "word",
+      "label": "virgin",
+      "startMs": 21600,
+      "endMs": 23950,
+      "parentId": "phrase-3",
+      "edited": false
+    },
+    {
+      "id": "phrase-3-word-3-phoneme-1",
+      "voiceId": "voice-1",
+      "layer": "phoneme",
+      "label": "FV",
+      "startMs": 21600,
+      "endMs": 21850,
+      "parentId": "phrase-3-word-3",
+      "edited": false
+    },
+    {
+      "id": "phrase-3-word-3-phoneme-2",
+      "voiceId": "voice-1",
+      "layer": "phoneme",
+      "label": "E",
+      "startMs": 21850,
+      "endMs": 22650,
+      "parentId": "phrase-3-word-3",
+      "edited": false
+    },
+    {
+      "id": "phrase-3-word-3-phoneme-3",
+      "voiceId": "voice-1",
+      "layer": "phoneme",
+      "label": "etc",
+      "startMs": 22650,
+      "endMs": 22900,
+      "parentId": "phrase-3-word-3",
+      "edited": false
+    },
+    {
+      "id": "phrase-3-word-3-phoneme-4",
+      "voiceId": "voice-1",
+      "layer": "phoneme",
+      "label": "AI",
+      "startMs": 22900,
+      "endMs": 23700,
+      "parentId": "phrase-3-word-3",
+      "edited": false
+    },
+    {
+      "id": "phrase-3-word-3-phoneme-5",
+      "voiceId": "voice-1",
+      "layer": "phoneme",
+      "label": "etc",
+      "startMs": 23700,
+      "endMs": 23950,
+      "parentId": "phrase-3-word-3",
+      "edited": false
+    },
+    {
+      "id": "phrase-3-word-4",
+      "voiceId": "voice-1",
+      "layer": "word",
+      "label": "mother",
+      "startMs": 23950,
+      "endMs": 25550,
+      "parentId": "phrase-3",
+      "edited": false
+    },
+    {
+      "id": "phrase-3-word-4-phoneme-1",
+      "voiceId": "voice-1",
+      "layer": "phoneme",
+      "label": "MBP",
+      "startMs": 23950,
+      "endMs": 24150,
+      "parentId": "phrase-3-word-4",
+      "edited": false
+    },
+    {
+      "id": "phrase-3-word-4-phoneme-2",
+      "voiceId": "voice-1",
+      "layer": "phoneme",
+      "label": "AI",
+      "startMs": 24150,
+      "endMs": 24750,
+      "parentId": "phrase-3-word-4",
+      "edited": false
+    },
+    {
+      "id": "phrase-3-word-4-phoneme-3",
+      "voiceId": "voice-1",
+      "layer": "phoneme",
+      "label": "etc",
+      "startMs": 24750,
+      "endMs": 24950,
+      "parentId": "phrase-3-word-4",
+      "edited": false
+    },
+    {
+      "id": "phrase-3-word-4-phoneme-4",
+      "voiceId": "voice-1",
+      "layer": "phoneme",
+      "label": "E",
+      "startMs": 24950,
+      "endMs": 25550,
+      "parentId": "phrase-3-word-4",
+      "edited": false
+    },
+    {
+      "id": "phrase-3-word-5",
+      "voiceId": "voice-1",
+      "layer": "word",
+      "label": "and",
+      "startMs": 25550,
+      "endMs": 25900,
+      "parentId": "phrase-3",
+      "edited": false
+    },
+    {
+      "id": "phrase-3-word-5-phoneme-1",
+      "voiceId": "voice-1",
+      "layer": "phoneme",
+      "label": "AI",
+      "startMs": 25550,
+      "endMs": 25800,
+      "parentId": "phrase-3-word-5",
+      "edited": false
+    },
+    {
+      "id": "phrase-3-word-5-phoneme-2",
+      "voiceId": "voice-1",
+      "layer": "phoneme",
+      "label": "etc",
+      "startMs": 25800,
+      "endMs": 25900,
+      "parentId": "phrase-3-word-5",
+      "edited": false
+    },
+    {
+      "id": "phrase-3-word-6",
+      "voiceId": "voice-1",
+      "layer": "word",
+      "label": "child",
+      "startMs": 25900,
+      "endMs": 28750,
+      "parentId": "phrase-3",
+      "edited": false
+    },
+    {
+      "id": "phrase-3-word-6-phoneme-1",
+      "voiceId": "voice-1",
+      "layer": "phoneme",
+      "label": "etc",
+      "startMs": 25900,
+      "endMs": 26300,
+      "parentId": "phrase-3-word-6",
+      "edited": false
+    },
+    {
+      "id": "phrase-3-word-6-phoneme-2",
+      "voiceId": "voice-1",
+      "layer": "phoneme",
+      "label": "AI",
+      "startMs": 26300,
+      "endMs": 27550,
+      "parentId": "phrase-3-word-6",
+      "edited": false
+    },
+    {
+      "id": "phrase-3-word-6-phoneme-3",
+      "voiceId": "voice-1",
+      "layer": "phoneme",
+      "label": "L",
+      "startMs": 27550,
+      "endMs": 28350,
+      "parentId": "phrase-3-word-6",
+      "edited": false
+    },
+    {
+      "id": "phrase-3-word-6-phoneme-4",
+      "voiceId": "voice-1",
+      "layer": "phoneme",
+      "label": "etc",
+      "startMs": 28350,
+      "endMs": 28750,
+      "parentId": "phrase-3-word-6",
+      "edited": false
+    }
+  ]
+}

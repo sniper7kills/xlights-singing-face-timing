@@ -476,6 +476,12 @@ None of these blocks approval. Each one names the epic that settles it.
   hosting stack. The user chose a public-domain recording for the demo song, and
   confirms its licence before the file is committed. The editor epic became two
   tracker epics.
+- 2026-11-24 — Epic 0 batch. The user accepted "Silent Night" by the United States
+  Army Chorus (2010) as the demo recording. Its public-domain status is for the
+  United States only. The batch ships without issue #7 (create the hosting stack),
+  which waits for the user's AWS account and approval. The project compiles with
+  TypeScript 7 and lints with the TypeScript 6 API (`docs/adr/0003`). The
+  distribution redirects HTTP to HTTPS.
 
 ## Issue map
 
