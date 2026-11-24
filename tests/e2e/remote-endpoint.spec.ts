@@ -112,6 +112,8 @@ test('a remote run creates the same marks on three layers as a browser run of th
   await expect(page.getByText('16 words, 0 estimated')).toBeVisible()
 
   expect(await allLayers(page)).toEqual(browserMarks)
+  // `require-corp` (ADR 0006) lets a CORS request to another host through.
+  expect(await page.evaluate('crossOriginIsolated')).toBe(true)
   expect(posts).toHaveLength(1)
   expect(posts[0]?.url).toBe(ENDPOINT_URL)
   expect(posts[0]?.headers.authorization).toBeUndefined()

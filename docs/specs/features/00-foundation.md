@@ -167,12 +167,15 @@ Headers that the response headers policy sets on every response:
 
 | Header | Value |
 |---|---|
-| `Content-Security-Policy` | `default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; connect-src 'self' https://huggingface.co https://*.huggingface.co https://*.hf.co; img-src 'self' data: blob:; media-src 'self' blob:; worker-src 'self' blob:; style-src 'self' 'unsafe-inline'` |
+| `Content-Security-Policy` | `default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; connect-src 'self' https: http://localhost:* http://127.0.0.1:*; img-src 'self' data: blob:; media-src 'self' blob:; worker-src 'self' blob:; style-src 'self' 'unsafe-inline'` |
 | `X-Content-Type-Options` | `nosniff` |
 | `Referrer-Policy` | `no-referrer` |
+| `Cross-Origin-Opener-Policy` | `same-origin` |
+| `Cross-Origin-Embedder-Policy` | `require-corp` |
 
-Epic 2 changes the `connect-src` list if the speech model files come from other
-hosts.
+The `connect-src` list allows the speech model hosts and the remote endpoint that
+the person selects (ADR 0007). The two `Cross-Origin-` headers make the page
+cross-origin isolated, so the `wasm` device uses more than one thread (ADR 0006).
 
 **Deploy status.** The deploy runs in GitHub Actions, so the workflow run is the
 deploy status. The repository needs no separate status script.

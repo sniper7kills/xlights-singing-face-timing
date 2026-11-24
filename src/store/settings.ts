@@ -7,7 +7,7 @@ import type { AppSettings } from './types.ts'
  */
 export const DEFAULT_SETTINGS: AppSettings = {
   speechModelId: 'whisper-base',
-  device: 'wasm',
+  deviceSpeeds: {},
   defaultFrameMs: 50,
   theme: 'dark',
   transcribeSource: 'browser',

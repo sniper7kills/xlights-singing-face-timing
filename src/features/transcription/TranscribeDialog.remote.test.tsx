@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { RemoteError } from '../../lib/remote/response.ts'
 import { loadSettings, updateSettings } from '../../store/settings.ts'
-import { chooseDevice } from './device.ts'
+import { hasWebGpu } from './device.ts'
 import { testConnection } from './remoteClient.ts'
 import {
   runTranscription,
@@ -14,7 +14,10 @@ import {
 import { TranscribeDialog } from './TranscribeDialog.tsx'
 import { createTranscribeClient, TranscribeError } from './transcribeClient.ts'
 
-vi.mock('./device.ts', () => ({ chooseDevice: vi.fn() }))
+vi.mock('./device.ts', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('./device.ts')>()),
+  hasWebGpu: vi.fn(),
+}))
 vi.mock('./transcribeClient.ts', async (importOriginal) => ({
   ...(await importOriginal<typeof import('./transcribeClient.ts')>()),
   createTranscribeClient: vi.fn(),
@@ -43,7 +46,7 @@ let runs: HeldRun[]
 
 beforeEach(() => {
   runs = []
-  vi.mocked(chooseDevice).mockResolvedValue('wasm')
+  vi.mocked(hasWebGpu).mockResolvedValue(false)
   vi.mocked(createTranscribeClient).mockReturnValue({
     device: 'wasm',
     load: vi.fn(),
