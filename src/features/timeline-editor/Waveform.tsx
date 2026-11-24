@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { type ReactNode, useCallback, useEffect, useRef, useState } from 'react'
 import { formatTime } from '../../lib/time/formatTime.ts'
 import { getAudioFile, putRecord, StorageFullError } from '../../store/db.ts'
 import { useViewStore } from '../../store/viewStore.ts'
@@ -13,6 +13,8 @@ type WaveformState = 'loading' | 'ready' | 'missing' | 'error'
 
 type WaveformProps = {
   songId: string
+  /** The layers. They show between the waveform and the transport, also without audio. */
+  children?: ReactNode
 }
 
 // A focused control uses the space bar itself, so a toggle here would apply the key two times.
@@ -28,10 +30,10 @@ function readColors(element: HTMLElement): WaveformColors {
 }
 
 /**
- * Shows the waveform region of the editor: the waveform of the song, a play button and
- * the play time. If the song has no audio file, it asks the person for the file again.
+ * Shows the waveform region of the editor: the waveform of the song, the children, a play
+ * button and the play time. If the song has no audio file, it asks the person for the file again.
  */
-export function Waveform({ songId }: WaveformProps) {
+export function Waveform({ songId, children }: WaveformProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const playerRef = useRef<WaveformPlayer | null>(null)
@@ -179,6 +181,7 @@ export function Waveform({ songId }: WaveformProps) {
           </div>
         )}
       </div>
+      {children}
       <div className="transport">
         <button
           type="button"

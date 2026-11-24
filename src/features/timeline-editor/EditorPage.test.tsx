@@ -47,6 +47,14 @@ describe('EditorPage', () => {
     expect(screen.getByRole('region', { name: 'Waveform' })).toBeInTheDocument()
   })
 
+  it('shows the layers of the song under the waveform, also before the audio loads', async () => {
+    await renderEditor()
+
+    const layers = screen.getByRole('region', { name: 'Layers' })
+    expect(screen.getByRole('region', { name: 'Waveform' })).toContainElement(layers)
+    expect(layers).toHaveTextContent('No marks yet. Select Transcribe to find the words.')
+  })
+
   it('shows "Saved" and then "Saving" while a change waits for its save', async () => {
     await renderEditor()
     expect(screen.getByText('Saved')).toBeInTheDocument()

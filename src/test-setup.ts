@@ -17,6 +17,16 @@ vi.stubGlobal('matchMedia', (query: string): MediaQueryList => {
   })
 })
 
+// jsdom has no layout and no ResizeObserver. A test sets the width through clientWidth.
+vi.stubGlobal(
+  'ResizeObserver',
+  class {
+    observe() {}
+    unobserve() {}
+    disconnect() {}
+  },
+)
+
 afterEach(async () => {
   cleanup()
   // Each test starts with no open connection and an empty database.
