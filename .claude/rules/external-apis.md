@@ -35,12 +35,19 @@ Not confirmed yet. Confirm each one before the code that depends on it:
 - The option name and the event shape for speech model download progress.
 - The sample rate that a `Float32Array` input to the speech model must have.
 - The entry format and the licence file of `cmudict.dict`.
-- The wavesurfer.js method and event names for zoom, scroll and time.
+- The wavesurfer.js method and event names for zoom and scroll.
 - The output of the xLights `XmlSafe` function for `&`, `<`, `>`, `"` and `'`.
 
 Confirmed on 2026-11-24: the CloudFormation properties in `infra/hosting.yml` and
 the IAM action names of the deploy role. Pull request #52 cites each page. The
 template passes `cfn-lint`. No stack exists yet, so AWS has not validated it.
+
+Confirmed on 2026-11-24 for wavesurfer.js 8.1.1, from the typed API in
+`node_modules/wavesurfer.js/dist/wavesurfer.d.ts`: `loadBlob(blob, channelData?,
+duration?)`, `play()`, `pause()`, `isPlaying()`, `setOptions()`, `destroy()`, and the
+events `timeupdate` (time in seconds), `play`, `pause` and `finish`. If
+`loadBlob` gets `channelData` and `duration`, wavesurfer.js does not decode the
+blob. The pull request of issue #12 cites the pages.
 
 Evidence format:
 
