@@ -504,6 +504,13 @@ None of these blocks approval. Each one names the epic that settles it.
   dialog shows a standing hint. A click on a finding selects the voice and the
   mark, and the layers draw a selected mark. The export batch started before the
   phoneme epic ended, and it carried issues #21 and #22 of epic #20 into `main`.
+- 2026-11-24 — Phoneme batch. The store normalises the word of a custom entry on
+  each write. A change of a custom entry is not an undo step, and the break down
+  that follows it is one. A break down that fails keeps the words of the run. The
+  control for "Break down again" (FR-phoneme-19) moves to issue #30. The link from
+  a moved word to its edited phonemes (FR-phoneme-20) moves to issue #27. The
+  control for a range run (FR-transcribe-19) is in issue #29, and the style for an
+  estimated word (FR-transcribe-16) is in issue #30.
 
 ## Issue map
 
