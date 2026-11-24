@@ -1,5 +1,6 @@
 import { getRecord, saveSong, SETTINGS_KEY } from '../../store/db.ts'
 import type { Mark, Song, Voice } from '../../store/types.ts'
+import { requestPersistentStorageForFirstSong } from './persistentStorage.ts'
 
 /** The name of the one voice in a new song. */
 export const DEFAULT_VOICE_NAME = 'Lead Vocals'
@@ -24,6 +25,7 @@ export type NewSong = {
  * Creates a song with its voices, marks and audio file, stores them in one transaction,
  * and returns the stored song.
  * The `frameMs` of the song comes from the app settings, and is 50 when no settings exist.
+ * After the first song, it requests persistent storage and does not wait for the answer.
  * @param newSong The name, the duration, the audio file, and optional voices and marks.
  * Rejects with StorageFullError when the browser storage is full. Nothing is stored then.
  */
@@ -45,7 +47,7 @@ export async function storeNewSong(newSong: NewSong): Promise<Song> {
       { id: crypto.randomUUID(), name: DEFAULT_VOICE_NAME, order: 0, color: DEFAULT_VOICE_COLOR },
     ]
   ).map((voice) => ({ ...voice, songId }))
-  return saveSong(
+  const stored = await saveSong(
     { song, voices, sections: [], marks },
     {
       songId,
@@ -55,4 +57,7 @@ export async function storeNewSong(newSong: NewSong): Promise<Song> {
       byteLength: audio.data.size,
     },
   )
+  // Firefox asks the person, so the editor opens before the answer.
+  void requestPersistentStorageForFirstSong()
+  return stored
 }

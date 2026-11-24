@@ -1,7 +1,8 @@
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { getAudioFile, loadSong, putRecord } from '../../store/db.ts'
 import type { Mark } from '../../store/types.ts'
 import { storeNewSong } from './storeNewSong.ts'
+import { removeStorageStub, stubStorage } from './storageStub.test-helpers.ts'
 
 const audio = {
   data: new Blob([new Uint8Array([1, 2, 3])], { type: 'audio/ogg' }),
@@ -9,7 +10,23 @@ const audio = {
   mimeType: 'audio/ogg',
 }
 
+afterEach(() => {
+  removeStorageStub()
+})
+
 describe('storeNewSong', () => {
+  it('requests persistent storage one time for the first song only', async () => {
+    const storage = stubStorage()
+
+    await storeNewSong({ name: 'carol', durationMs: 1000, audio })
+    await vi.waitFor(() => expect(storage.persist).toHaveBeenCalledTimes(1))
+    await storeNewSong({ name: 'noel', durationMs: 1000, audio })
+    // The request runs after the save without a wait, so the test gives it time to finish.
+    await new Promise((resolve) => setTimeout(resolve, 50))
+
+    expect(storage.persist).toHaveBeenCalledTimes(1)
+  })
+
   it('stores a song with one "Lead Vocals" voice, no marks and the audio file', async () => {
     const song = await storeNewSong({ name: 'silent-night', durationMs: 28900, audio })
 
