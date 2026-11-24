@@ -1,10 +1,11 @@
 import {
   ModelRegistry,
-  WhisperTextStreamer,
+  TextStreamer,
   env,
   pipeline,
   type AutomaticSpeechRecognitionPipeline,
   type ProgressInfo,
+  type WhisperTextStreamer,
 } from '@huggingface/transformers'
 // The library fetches the ONNX runtime from cdn.jsdelivr.net by default, and the CSP blocks that host.
 import ortWasmUrl from 'onnxruntime-web/ort-wasm-simd-threaded.asyncify.wasm?url'
@@ -15,6 +16,7 @@ import {
   STRIDE_LENGTH_S,
   createRunClock,
   errorKind,
+  type RunClock,
   wordsFromChunks,
   type Device,
   type FromWorkerMessage,
@@ -27,6 +29,9 @@ const TASK = 'automatic-speech-recognition'
 const onnxWasm = env.backends.onnx.wasm
 if (onnxWasm) onnxWasm.wasmPaths = { wasm: ortWasmUrl }
 
+/** The tokenizer of a Whisper pipeline. It has the id of the first timestamp token. */
+type Tokenizer = ConstructorParameters<typeof WhisperTextStreamer>[0]
+
 let transcriber: AutomaticSpeechRecognitionPipeline | null = null
 let loadedDevice: Device = 'wasm'
 let busy = false
@@ -34,6 +39,31 @@ let onChunkEnd: (() => void) | null = null
 
 function post(message: FromWorkerMessage): void {
   self.postMessage(message)
+}
+
+/**
+ * Receives the tokens of each generate pass and reports the audio time of each timestamp token.
+ * The typed pipeline options accept a `TextStreamer` only.
+ * `TextStreamer` and `WhisperTextStreamer` decode the text after each token, and the run needs no text, so `put` and `end` replace theirs.
+ */
+class ProgressStreamer extends TextStreamer {
+  private readonly clock: RunClock
+  private readonly onDone: (doneMs: number) => void
+
+  constructor(tokenizer: Tokenizer, clock: RunClock, onDone: (doneMs: number) => void) {
+    super(tokenizer, { callback_function: () => undefined })
+    this.clock = clock
+    this.onDone = onDone
+  }
+
+  put(value: bigint[][]): void {
+    const doneMs = this.clock.token(value[0] ?? [])
+    if (doneMs !== null) this.onDone(doneMs)
+  }
+
+  end(): void {
+    this.clock.passEnd()
+  }
 }
 
 async function load(speechModelId: string, device: Device): Promise<void> {
@@ -68,19 +98,10 @@ async function transcribe(runId: string, samples: Float32Array, offsetMs: number
   if (transcriber === null) throw new Error('No speech model is loaded.')
   const postDone = (doneMs: number) => post({ type: 'progress', runId, doneMs })
   // The library types the tokenizer as `PreTrainedTokenizer`. A Whisper pipeline has a `WhisperTokenizer`.
-  const tokenizer = transcriber.tokenizer as ConstructorParameters<typeof WhisperTextStreamer>[0]
+  const tokenizer = transcriber.tokenizer as Tokenizer
   const clock = createRunClock(samples.length, tokenizer.timestamp_begin)
   // The timestamp tokens give the audio time inside a chunk, so the progress moves before the chunk ends.
-  const streamer = new WhisperTextStreamer(tokenizer, {
-    skip_prompt: true,
-    // The default callback writes each piece of text to the console.
-    callback_function: () => undefined,
-    token_callback_function: (tokens) => {
-      const doneMs = clock.token(tokens)
-      if (doneMs !== null) postDone(doneMs)
-    },
-    on_finalize: () => clock.passEnd(),
-  })
+  const streamer = new ProgressStreamer(tokenizer, clock, postDone)
   onChunkEnd = () => postDone(clock.chunkEnd())
   const output = await transcriber(samples, {
     return_timestamps: 'word',

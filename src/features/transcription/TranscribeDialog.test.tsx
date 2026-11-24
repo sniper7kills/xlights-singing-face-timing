@@ -308,6 +308,19 @@ describe('TranscribeDialog', () => {
     expect(progress()).toHaveTextContent('Loading speech model, 0:05 elapsed')
   })
 
+  it('shows the current elapsed time at once after a download', async () => {
+    fakeClock()
+    const { user, start } = await renderDialog()
+    await user.click(start)
+    act(() => vi.advanceTimersByTime(1000))
+    act(() => lastRun().handlers.onDownload(500_000, 1_000_000))
+    act(() => vi.advanceTimersByTime(30_000))
+
+    act(() => lastRun().handlers.onStage('transcribing'))
+
+    expect(progress()).toHaveTextContent('Transcribing, 0:31 elapsed')
+  })
+
   it('announces the name of each state, and not the elapsed time', async () => {
     fakeClock()
     const { user, start } = await renderDialog()

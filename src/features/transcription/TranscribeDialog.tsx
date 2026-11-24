@@ -42,7 +42,6 @@ import {
   type RunSpeed,
   runSpeed,
   shownRunState,
-  showsElapsed,
   SLOW_GPU_MESSAGE,
   stateLabel,
   transcribeDialogReducer,
@@ -428,7 +427,8 @@ type ProgressAreaProps = {
  */
 function ProgressArea({ state, meter }: ProgressAreaProps) {
   const runState = shownRunState(state)
-  const now = useNow(runState !== null && showsElapsed(runState))
+  // The clock runs for the full run. A clock that starts again after the download shows an old elapsed time for up to one second.
+  const now = useNow(runState !== null)
   const elapsedMs = now - (meter?.startedAtMs ?? now)
   return (
     <div className="dialog-progress">
