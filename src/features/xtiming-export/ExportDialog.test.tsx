@@ -306,8 +306,10 @@ describe('ExportDialog', () => {
 
     await user.click(download())
 
-    expect(await screen.findByRole('status')).toHaveTextContent(
-      '2 timing tracks written to Carol.xtiming',
+    await vi.waitFor(() =>
+      expect(screen.getByRole('status')).toHaveTextContent(
+        '2 timing tracks written to Carol.xtiming',
+      ),
     )
     expect(steps).toHaveAttribute('open')
     expect(within(steps as HTMLElement).getAllByRole('listitem')).toHaveLength(7)
@@ -320,8 +322,8 @@ describe('ExportDialog', () => {
 
     await user.click(download())
 
-    expect(await screen.findByRole('status')).toHaveTextContent(
-      '2 timing tracks written to 2 files',
+    await vi.waitFor(() =>
+      expect(screen.getByRole('status')).toHaveTextContent('2 timing tracks written to 2 files'),
     )
   })
 

@@ -9,6 +9,7 @@ import { useViewStore } from '../../store/viewStore.ts'
 import { ChecksList } from './ChecksList.tsx'
 import { FilePreview } from './FilePreview.tsx'
 import { ImportSteps } from './ImportSteps.tsx'
+import { PackagingGroup } from './PackagingGroup.tsx'
 
 const FOCUSABLE = 'button, input, summary, [tabindex="0"]'
 
@@ -68,7 +69,6 @@ export function ExportDialog({ content, initialOptions, onClose, onDownload }: E
   const dialogRef = useRef<HTMLDivElement>(null)
   const titleId = useId()
   const sectionHintId = useId()
-  const blockedHintId = useId()
 
   const tracks = useMemo(
     () => buildTracks(song, voices, sections, marks, options),
@@ -86,8 +86,6 @@ export function ExportDialog({ content, initialOptions, onClose, onDownload }: E
   const empty = marks.length === 0
   const blocked = findings.some((finding) => finding.type === 'error')
   const firstFile = files[0]
-  // A page cannot detect that the browser blocks the second and later downloads, so the hint stays visible.
-  const severalDownloads = options.packaging === 'file-per-track' && files.length > 1
 
   useEffect(() => {
     dialogRef.current?.focus()
@@ -203,34 +201,11 @@ export function ExportDialog({ content, initialOptions, onClose, onDownload }: E
                 </small>
               )}
             </fieldset>
-            <fieldset className="export-group">
-              <legend>Files</legend>
-              <label className="export-option">
-                <input
-                  type="radio"
-                  name="packaging"
-                  checked={options.packaging === 'one-file'}
-                  onChange={() => change({ packaging: 'one-file' })}
-                />
-                One file with all timing tracks
-              </label>
-              <label className="export-option">
-                <input
-                  type="radio"
-                  name="packaging"
-                  checked={options.packaging === 'file-per-track'}
-                  aria-describedby={severalDownloads ? blockedHintId : undefined}
-                  onChange={() => change({ packaging: 'file-per-track' })}
-                />
-                One file for each timing track
-              </label>
-              {severalDownloads && (
-                <small id={blockedHintId} className="export-hint">
-                  The browser blocked some downloads. Allow downloads for this site, or select One
-                  file.
-                </small>
-              )}
-            </fieldset>
+            <PackagingGroup
+              packaging={options.packaging}
+              fileCount={files.length}
+              onChange={(packaging) => change({ packaging })}
+            />
             <fieldset className="export-group">
               <legend>Options</legend>
               <label className="export-option">
