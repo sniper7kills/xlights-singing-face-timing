@@ -1,4 +1,5 @@
 // The entity types of the data model in docs/specs/spec.md. Times are whole milliseconds.
+import type { RemoteEndpoint } from '../lib/remote/endpoint.ts'
 
 /** The length of one xLights frame in milliseconds. */
 export type FrameMs = 25 | 50
@@ -81,7 +82,17 @@ export type AppSettings = {
   device: 'webgpu' | 'wasm'
   defaultFrameMs: FrameMs
   theme: 'light' | 'dark'
+  /** The last "Where to transcribe" choice of the transcribe dialog. */
+  transcribeSource: TranscribeSource
+  /**
+   * The remote endpoint that the person typed. An empty base URL means no endpoint.
+   * The API key stays in this record and in the `Authorization` header to the base URL only.
+   */
+  remoteEndpoint: RemoteEndpoint
 }
+
+/** Where a transcribe run finds the words: the speech model in this browser, or a remote endpoint. */
+export type TranscribeSource = 'browser' | 'remote'
 
 /** One song with all voices, sections and marks that belong to it, without the audio bytes. */
 export type SongContent = {

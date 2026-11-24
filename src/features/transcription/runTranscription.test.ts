@@ -13,6 +13,7 @@ import {
 } from './runTranscription.ts'
 import { type TranscribeClient, TranscribeError } from './transcribeClient.ts'
 import type { TimedWord } from './types.ts'
+import { FakeXhr } from './fakeXhr.test-helpers.ts'
 
 vi.mock('./resample.ts', () => ({ resampleForSpeech: vi.fn() }))
 vi.mock('../phoneme-breakdown/loadDictionary.ts', async (importOriginal) => ({
@@ -545,5 +546,116 @@ describe('runTranscription with lyrics only', () => {
       runTranscription({ ...modelRequest, mode: 'lyrics-only' }, fakeClient(), run),
     ).rejects.toBeInstanceOf(NoWordsError)
     expect(run.confirmReplace).not.toHaveBeenCalled()
+  })
+})
+
+describe('runTranscription with a remote endpoint', () => {
+  const endpoint = { baseUrl: 'http://localhost:8000/v1', apiKey: '', model: 'whisper-1' }
+  const remoteRequest: TranscribeRequest = { ...modelRequest, remote: endpoint }
+  // The same words as WORDS, in seconds, as the endpoint returns them.
+  const VERBOSE = {
+    text: 'Silent night,',
+    words: [
+      { word: ' Silent', start: 0.1, end: 0.6 },
+      { word: ' night,', start: 0.7, end: 1.2 },
+    ],
+  }
+
+  beforeEach(() => {
+    vi.stubGlobal('XMLHttpRequest', FakeXhr)
+  })
+
+  afterEach(() => {
+    FakeXhr.reset()
+    vi.unstubAllGlobals()
+  })
+
+  const shape = () =>
+    marks().map(({ layer, label, startMs, endMs, estimated }) => ({
+      layer,
+      label,
+      startMs,
+      endMs,
+      estimated,
+    }))
+
+  it('creates the same marks as a browser run with the same words', async () => {
+    await runTranscription(modelRequest, fakeClient(), handlers())
+    const browserMarks = shape()
+    useSongStore.getState().closeSong()
+    await openSong()
+    FakeXhr.responder = (xhr) => xhr.respond(200, VERBOSE)
+
+    const outcome = await runTranscription(remoteRequest, fakeClient(), handlers())
+
+    expect(outcome).toMatchObject({ wordCount: 2, estimatedCount: 0, breakDownFailure: null })
+    expect(shape()).toEqual(browserMarks)
+    expect(labels('phoneme').length).toBeGreaterThan(0)
+  })
+
+  it('loads no speech model and reports the steps preparing, sending and waiting', async () => {
+    const client = fakeClient()
+    const run = handlers()
+    const onUpload = vi.fn()
+    FakeXhr.responder = (xhr) => {
+      xhr.uploadAll(4000)
+      xhr.respond(200, VERBOSE)
+    }
+
+    await runTranscription(remoteRequest, client, { ...run, onUpload })
+
+    expect(client.load).not.toHaveBeenCalled()
+    expect(client.transcribe).not.toHaveBeenCalled()
+    expect(vi.mocked(run.onStage).mock.calls.flat()).toEqual(['preparing', 'sending', 'waiting'])
+    expect(onUpload).toHaveBeenLastCalledWith(4000, 4000)
+    expect(run.onFinishing).toHaveBeenCalledOnce()
+  })
+
+  it('sends only the audio of the range and writes the word times of the song', async () => {
+    const range = { startMs: 10_000, endMs: 20_000 }
+    vi.mocked(resampleForSpeech).mockResolvedValue(new Float32Array(10 * SPEECH_SAMPLE_RATE))
+    FakeXhr.responder = (xhr) => xhr.respond(200, { words: [{ word: 'holy', start: 2, end: 2.5 }] })
+
+    await runTranscription({ ...remoteRequest, range }, fakeClient(), handlers())
+
+    expect(resampleForSpeech).toHaveBeenCalledWith(expect.anything(), range)
+    const file = FakeXhr.last().body?.get('file')
+    expect(file).toMatchObject({ size: 44 + 10 * SPEECH_SAMPLE_RATE * 2 })
+    const word = marks().find((mark) => mark.layer === 'word')
+    expect(word).toMatchObject({ label: 'holy', startMs: 12_000, endMs: 12_500 })
+  })
+
+  it('aborts the request, rejects as cancelled and keeps the marks when the person cancels', async () => {
+    useSongStore.getState().closeSong()
+    const kept = oldMark('kept', 1000, 2000)
+    await openSong([kept])
+    const controller = new AbortController()
+    FakeXhr.responder = (xhr) => {
+      xhr.uploadAll()
+      controller.abort()
+    }
+
+    const result = runTranscription(remoteRequest, fakeClient(), handlers(controller))
+
+    await expect(result).rejects.toMatchObject({ kind: 'cancelled' })
+    expect(FakeXhr.last().aborted).toBe(true)
+    expect(marks()).toEqual([kept])
+  })
+
+  it('passes a failure of the endpoint to the dialog and writes no mark', async () => {
+    FakeXhr.responder = (xhr) => xhr.respond(401, 'Unauthorized')
+
+    await expect(runTranscription(remoteRequest, fakeClient(), handlers())).rejects.toMatchObject({
+      kind: 'auth',
+      status: 401,
+    })
+    expect(marks()).toEqual([])
+  })
+
+  it('creates phrases from lyrics only and sends no request', async () => {
+    await runTranscription({ ...lyricsOnly, remote: endpoint }, fakeClient(), handlers())
+
+    expect(FakeXhr.instances).toEqual([])
+    expect(labels('phrase')).toEqual(['Silent night, holy night', 'All is calm'])
   })
 })

@@ -1,5 +1,7 @@
 import { breakDownMarks, loadDictionaries } from '../../store/actions/breakDown.ts'
 import { hasMarksInRange, replaceMarksInRange } from '../../store/actions/replaceMarksInRange.ts'
+import type { RemoteEndpoint } from '../../lib/remote/endpoint.ts'
+import { encodeWav } from '../../lib/remote/wav.ts'
 import type { TimeRange } from '../../lib/time/timeRange.ts'
 import { getAudioFile } from '../../store/db.ts'
 import { DictionaryLoadError } from '../phoneme-breakdown/loadDictionary.ts'
@@ -9,6 +11,7 @@ import { alignLyrics } from './alignLyrics.ts'
 import { buildMarks } from './buildMarks.ts'
 import { groupIntoPhrases, parseLyrics, spreadLyrics } from './phrases.ts'
 import { SPEECH_SAMPLE_RATE } from './protocol.ts'
+import { postTranscription } from './remoteClient.ts'
 import { resampleForSpeech } from './resample.ts'
 import {
   type ClientStage,
@@ -16,7 +19,7 @@ import {
   type TranscribeClient,
   TranscribeError,
 } from './transcribeClient.ts'
-import type { AlignedPhrase } from './types.ts'
+import type { AlignedPhrase, TimedWord } from './types.ts'
 
 /** The source of the words: the speech model, or the lyrics alone with no speech model. */
 export type TranscribeMode = 'model' | 'lyrics-only'
@@ -25,8 +28,13 @@ export type TranscribeMode = 'model' | 'lyrics-only'
 export type TranscribeRequest = {
   /** The voice that receives the marks. */
   voiceId: string
-  /** One `SpeechModel.id`. A lyrics-only run does not read it. */
+  /** One `SpeechModel.id`. A lyrics-only run and a remote run do not read it. */
   speechModelId: string
+  /**
+   * The remote endpoint that finds the words in place of the speech model in the browser.
+   * Without it, a speech model run uses the browser. A lyrics-only run does not read it.
+   */
+  remote?: RemoteEndpoint
   mode: TranscribeMode
   /** The lyrics text. A lyrics-only run needs it. */
   lyrics?: string
@@ -57,8 +65,10 @@ export type BreakDownFailure = {
  * - `preparing`: the page decodes and resamples the audio.
  * - `loading`: the worker loads the speech model. A download also sends download progress.
  * - `transcribing`: the worker runs the speech model and has sent no progress yet.
+ * - `sending`: a remote run sends the audio to the endpoint. The upload also sends upload progress.
+ * - `waiting`: a remote run sent all audio and waits for the response of the endpoint.
  */
-export type RunStage = 'preparing' | ClientStage
+export type RunStage = 'preparing' | ClientStage | 'sending' | 'waiting'
 
 /** The functions that the transcribe dialog supplies to one run. */
 export type TranscribeRunHandlers = {
@@ -68,6 +78,8 @@ export type TranscribeRunHandlers = {
   onDownload: DownloadHandler
   /** Receives each step of a speech model run before its first progress. A device change sends the steps again. */
   onStage: (stage: RunStage) => void
+  /** Receives the bytes that a remote run sent, and the bytes of its request. */
+  onUpload?: (loadedBytes: number, totalBytes: number) => void
   /** Receives the audio time that is complete, from the start of the run, and the audio time of the run. */
   onProgress: (doneMs: number, totalMs: number) => void
   /** Tells the dialog that the run aligns the lyrics and breaks down the words. */
@@ -110,7 +122,8 @@ function stopIfCancelled(signal: AbortSignal): void {
  * @param handlers The progress functions, the cancel signal and the two confirm callbacks of the dialog.
  * Rejects with TranscribeError of kind 'cancelled' when the signal aborts or the person declines a confirm.
  * Rejects with NoWordsError when no word is found.
- * Rejects with TranscribeError for a failure of the speech model, or with Error when no song is open or the audio file is missing.
+ * Rejects with TranscribeError for a failure of the speech model, and with RemoteError for a failure of the remote endpoint.
+ * Rejects with Error when no song is open or the audio file is missing.
  */
 export async function runTranscription(
   request: TranscribeRequest,
@@ -199,25 +212,8 @@ async function findPhrases(
 ): Promise<AlignedPhrase[]> {
   if (request.mode === 'lyrics-only')
     return spreadLyrics(request.lyrics ?? '', range.startMs, range.endMs)
-  const { signal } = handlers
-  handlers.onStage('preparing')
-  const audio = await getAudioFile(songId)
-  if (audio === undefined) throw new Error('The open song has no audio file.')
-  const samples = await resampleForSpeech(audio.data, request.range)
-  stopIfCancelled(signal)
-
-  handlers.onStage('loading')
-  await client.load(request.speechModelId, handlers.onDownload)
-  stopIfCancelled(signal)
-
-  const totalMs = (samples.length / SPEECH_SAMPLE_RATE) * 1000
-  // The client adds the start of the range, so each word time is a song time.
-  const words = await client.transcribe(samples, request.range?.startMs ?? 0, {
-    onDownload: handlers.onDownload,
-    onProgress: (doneMs) => handlers.onProgress(doneMs, totalMs),
-    onStage: handlers.onStage,
-  })
-  stopIfCancelled(signal)
+  const words = await findWords(request, songId, client, handlers)
+  stopIfCancelled(handlers.signal)
   if (words.length === 0) throw new NoWordsError()
   handlers.onFinishing()
 
@@ -226,4 +222,44 @@ async function findPhrases(
   if (matchRatio < LOW_MATCH_RATIO && !(await handlers.confirmLowMatch(matchRatio)))
     throw declined()
   return phrases
+}
+
+/**
+ * Returns the words of the audio of the run, with song times, from the speech model in the browser or from the remote endpoint.
+ * A range run converts and sends only the audio of the range, and adds the start of the range to each word time.
+ */
+async function findWords(
+  request: TranscribeRequest,
+  songId: string,
+  client: TranscribeClient,
+  handlers: TranscribeRunHandlers,
+): Promise<TimedWord[]> {
+  const { signal } = handlers
+  handlers.onStage('preparing')
+  const audio = await getAudioFile(songId)
+  if (audio === undefined) throw new Error('The open song has no audio file.')
+  const samples = await resampleForSpeech(audio.data, request.range)
+  stopIfCancelled(signal)
+  const offsetMs = request.range?.startMs ?? 0
+
+  if (request.remote !== undefined) {
+    handlers.onStage('sending')
+    return postTranscription(request.remote, encodeWav(samples, SPEECH_SAMPLE_RATE), offsetMs, {
+      signal,
+      onUpload: handlers.onUpload,
+      onWaiting: () => handlers.onStage('waiting'),
+    })
+  }
+
+  handlers.onStage('loading')
+  await client.load(request.speechModelId, handlers.onDownload)
+  stopIfCancelled(signal)
+
+  const totalMs = (samples.length / SPEECH_SAMPLE_RATE) * 1000
+  // The client adds the start of the range, so each word time is a song time.
+  return client.transcribe(samples, offsetMs, {
+    onDownload: handlers.onDownload,
+    onProgress: (doneMs) => handlers.onProgress(doneMs, totalMs),
+    onStage: handlers.onStage,
+  })
 }

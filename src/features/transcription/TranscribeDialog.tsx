@@ -9,12 +9,15 @@ import {
   useState,
 } from 'react'
 import { keepFocusInside, tabStops } from '../../app/modalFocus.ts'
+import { endpointHost, isMixedContent, type RemoteEndpoint } from '../../lib/remote/endpoint.ts'
 import { formatTime } from '../../lib/time/formatTime.ts'
 import type { TimeRange } from '../../lib/time/timeRange.ts'
 import { DEFAULT_SETTINGS, loadSettings, updateSettings } from '../../store/settings.ts'
+import type { AppSettings, TranscribeSource } from '../../store/types.ts'
 import { chooseDevice } from './device.ts'
 import { parseLyrics } from './phrases.ts'
 import { type Device, SPEECH_MODELS } from './protocol.ts'
+import { RemoteEndpointPanel } from './RemoteEndpointPanel.tsx'
 import {
   type RunStage,
   runTranscription,
@@ -37,8 +40,10 @@ import {
   isCancel,
   isRunState,
   lowMatchMessage,
+  MIXED_CONTENT_MESSAGE,
   progressText,
   progressValue,
+  remoteWarning,
   type RunSpeed,
   runSpeed,
   shownRunState,
@@ -85,6 +90,8 @@ export function TranscribeDialog({
   const [lyrics, setLyrics] = useState('')
   const [lyricsOnly, setLyricsOnly] = useState(false)
   const [range, setRange] = useState<TimeRange | undefined>(undefined)
+  const remote = useRemoteChoice()
+  const { restore } = remote
   const dialogRef = useRef<HTMLDivElement>(null)
   const run = useTranscribeRun(onDone)
   const { state } = run
@@ -93,18 +100,22 @@ export function TranscribeDialog({
   // Lyrics with no word, such as one "[Chorus]" line, give no phrase, so they count as no lyrics.
   const hasLyrics = parseLyrics(lyrics).length > 0
   const needsLyrics = lyricsOnly && !hasLyrics
+  const usesRemote = remote.appliesTo(lyricsOnly)
+  const canStart = remote.canStart(usesRemote, run.device !== null) && !needsLyrics
 
   useEffect(() => {
     let mounted = true
     void loadSettings().then((settings) => {
-      if (mounted && SPEECH_MODELS.some((model) => model.id === settings.speechModelId))
+      if (!mounted) return
+      if (SPEECH_MODELS.some((model) => model.id === settings.speechModelId))
         setSpeechModelId(settings.speechModelId)
+      restore(settings)
     })
     if (dialogRef.current !== null) tabStops(dialogRef.current)[0]?.focus()
     return () => {
       mounted = false
     }
-  }, [])
+  }, [restore])
 
   useEffect(() => onActiveChange(active), [active, onActiveChange])
 
@@ -128,6 +139,7 @@ export function TranscribeDialog({
       mode: lyricsOnly ? 'lyrics-only' : 'model',
       lyrics: hasLyrics ? lyrics : undefined,
       range,
+      remote: usesRemote ? remote.endpoint : undefined,
     })
   }
 
@@ -164,21 +176,39 @@ export function TranscribeDialog({
         <h3 id={titleId}>Transcribe</h3>
         <fieldset className="dialog-fields" disabled={active}>
           <fieldset className="choice-group" disabled={lyricsOnly}>
-            <legend>Speech model</legend>
-            {SPEECH_MODELS.map((model) => (
-              <label key={model.id} className="choice">
-                <input
-                  type="radio"
-                  name="speech-model"
-                  value={model.id}
-                  checked={speechModelId === model.id}
-                  onChange={() => selectSpeechModel(model.id)}
-                />
-                {model.label} <span className="choice-size">{model.downloadMb} MB</span>
-              </label>
-            ))}
+            <legend>Where to transcribe</legend>
+            <SourceChoices source={remote.source} onChange={remote.selectSource} />
           </fieldset>
-          <DeviceNote device={run.device} meter={meter} />
+          {remote.source === 'remote' ? (
+            <fieldset className="choice-group remote-endpoint" disabled={lyricsOnly}>
+              <legend>Remote endpoint</legend>
+              <RemoteEndpointPanel
+                endpoint={remote.endpoint}
+                editing={remote.editing}
+                onEdit={remote.edit}
+                onSave={remote.save}
+              />
+            </fieldset>
+          ) : (
+            <>
+              <fieldset className="choice-group" disabled={lyricsOnly}>
+                <legend>Speech model</legend>
+                {SPEECH_MODELS.map((model) => (
+                  <label key={model.id} className="choice">
+                    <input
+                      type="radio"
+                      name="speech-model"
+                      value={model.id}
+                      checked={speechModelId === model.id}
+                      onChange={() => selectSpeechModel(model.id)}
+                    />
+                    {model.label} <span className="choice-size">{model.downloadMb} MB</span>
+                  </label>
+                ))}
+              </fieldset>
+              <DeviceNote device={run.device} meter={meter} />
+            </>
+          )}
           <label className="dialog-field">
             Lyrics (optional)
             <textarea rows={5} value={lyrics} onChange={(event) => setLyrics(event.target.value)} />
@@ -196,6 +226,7 @@ export function TranscribeDialog({
             <RangeChoices selection={selection} range={range} onChange={setRange} />
           </fieldset>
         </fieldset>
+        {usesRemote && <RemoteNotice remote={remote} />}
         <ProgressArea state={state} meter={meter} />
         <DialogMessage state={state} />
         {needsLyrics && state.status === 'idle' && (
@@ -208,7 +239,7 @@ export function TranscribeDialog({
             <button
               type="button"
               className="button primary"
-              disabled={run.device === null || needsLyrics}
+              disabled={!canStart}
               aria-describedby={needsLyrics ? hintId : undefined}
               onClick={start}
             >
@@ -262,11 +293,111 @@ function RangeChoices({ selection, range, onChange }: RangeChoicesProps) {
   )
 }
 
+const SOURCE_LABEL: Record<TranscribeSource, string> = {
+  browser: 'In this browser',
+  remote: 'Remote endpoint',
+}
+
+/** Shows the "Where to transcribe" choices. */
+function SourceChoices({
+  source,
+  onChange,
+}: {
+  source: TranscribeSource
+  onChange: (source: TranscribeSource) => void
+}) {
+  return (
+    <>
+      {(['browser', 'remote'] as const).map((value) => (
+        <label key={value} className="choice">
+          <input
+            type="radio"
+            name="transcribe-source"
+            value={value}
+            checked={source === value}
+            onChange={() => onChange(value)}
+          />
+          {SOURCE_LABEL[value]}
+        </label>
+      ))}
+    </>
+  )
+}
+
+type RemoteChoice = ReturnType<typeof useRemoteChoice>
+
+/**
+ * Returns the "Where to transcribe" choice, the stored remote endpoint and the functions that change them.
+ * The endpoint fields open when the person selects "Remote endpoint" with no stored endpoint.
+ */
+function useRemoteChoice() {
+  const [source, setSource] = useState<TranscribeSource>(DEFAULT_SETTINGS.transcribeSource)
+  const [endpoint, setEndpoint] = useState<RemoteEndpoint>(DEFAULT_SETTINGS.remoteEndpoint)
+  const [editing, setEditing] = useState(false)
+  const stored = endpoint.baseUrl !== ''
+  const blocked = stored && isMixedContent(globalThis.location.protocol, endpoint.baseUrl)
+
+  const restore = useCallback((settings: AppSettings) => {
+    setSource(settings.transcribeSource)
+    setEndpoint(settings.remoteEndpoint)
+    setEditing(settings.remoteEndpoint.baseUrl === '')
+  }, [])
+
+  function selectSource(next: TranscribeSource) {
+    setSource(next)
+    if (next === 'remote' && !stored) setEditing(true)
+    // The choice applies to this run even when the browser storage is full.
+    void updateSettings({ transcribeSource: next }).catch(() => undefined)
+  }
+
+  function save(next: RemoteEndpoint) {
+    setEndpoint(next)
+    setEditing(false)
+    void updateSettings({ remoteEndpoint: next }).catch(() => undefined)
+  }
+
+  return {
+    source,
+    endpoint,
+    editing,
+    /** The host of the stored endpoint, or null when the person has stored none. */
+    host: stored ? endpointHost(endpoint.baseUrl) : null,
+    /** True when the browser blocks the call to the stored endpoint as mixed content. */
+    blocked,
+    /** Returns true when the run uses the endpoint. A lyrics-only run sends no audio, so it never uses the endpoint. */
+    appliesTo: (lyricsOnly: boolean) => source === 'remote' && !lyricsOnly,
+    /** Returns true when the run can start: the endpoint is ready for a remote run, the device for a browser run. */
+    canStart: (usesRemote: boolean, deviceReady: boolean) =>
+      usesRemote ? stored && !editing && !blocked : deviceReady,
+    restore,
+    selectSource,
+    save,
+    edit: () => setEditing(true),
+  }
+}
+
+/**
+ * Shows the warning with the host before a remote run, or the mixed content message that blocks the run.
+ * The warning stays visible during the run, so the person always sees where the audio goes.
+ */
+function RemoteNotice({ remote }: { remote: RemoteChoice }) {
+  if (remote.host === null || remote.editing) return null
+  if (remote.blocked)
+    return (
+      <p className="message" role="alert">
+        {MIXED_CONTENT_MESSAGE}
+      </p>
+    )
+  return <p className="dialog-confirm remote-warning">{remoteWarning(remote.host)}</p>
+}
+
 type TranscribeRun = ReturnType<typeof useTranscribeRun>
 
 /** The facts of the active run that the dialog shows beside its state. */
 type RunMeter = {
   mode: TranscribeMode
+  /** The host of the remote endpoint of the run, or null for a run in the browser. */
+  host: string | null
   /** The `Date.now()` of the "Start" click. */
   startedAtMs: number
   /** The `Date.now()` of the start of the run in the worker, or null before it. */
@@ -337,6 +468,7 @@ function useTranscribeRun(onDone: (outcome: TranscribeOutcome) => void) {
         })
       setMeter({
         mode: request.mode,
+        host: request.remote === undefined ? null : endpointHost(request.remote.baseUrl),
         startedAtMs: Date.now(),
         runAtMs: null,
         speed: null,
@@ -348,6 +480,8 @@ function useTranscribeRun(onDone: (outcome: TranscribeOutcome) => void) {
           signal: controller.signal,
           onDownload: (loaded, total) =>
             send({ type: 'download', percent: downloadPercent(loaded, total) }),
+          onUpload: (loaded, total) =>
+            send({ type: 'upload', percent: downloadPercent(loaded, total) }),
           onStage: (stage) => {
             if (controller.signal.aborted) return
             setMeter((current) => meterAfterStage(current, stage))
@@ -430,13 +564,14 @@ function ProgressArea({ state, meter }: ProgressAreaProps) {
   // The clock runs for the full run. A clock that starts again after the download shows an old elapsed time for up to one second.
   const now = useNow(runState !== null)
   const elapsedMs = now - (meter?.startedAtMs ?? now)
+  const host = meter?.host ?? ''
   return (
     <div className="dialog-progress">
       <p className="transcribe-progress">
-        {runState === null ? '' : progressText(runState, elapsedMs)}
+        {runState === null ? '' : progressText(runState, elapsedMs, host)}
       </p>
       <p className="visually-hidden" role="status" aria-live="polite">
-        {runState === null ? '' : stateLabel(runState)}
+        {runState === null ? '' : stateLabel(runState, host)}
       </p>
       {runState !== null && <progress aria-hidden="true" max={1} value={progressValue(runState)} />}
       {meter?.slowDevice === true && (
