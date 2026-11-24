@@ -83,7 +83,7 @@ Resources:
         Comment: The security headers from docs/specs/features/00-foundation.md.
         SecurityHeadersConfig:
           ContentSecurityPolicy:
-            ContentSecurityPolicy: "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; connect-src 'self' https://huggingface.co https://*.huggingface.co https://*.hf.co; img-src 'self' data: blob:; media-src 'self' blob:; worker-src 'self' blob:; style-src 'self' 'unsafe-inline'"
+            ContentSecurityPolicy: "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; connect-src 'self' https: http://localhost:* http://127.0.0.1:*; img-src 'self' data: blob:; media-src 'self' blob:; worker-src 'self' blob:; style-src 'self' 'unsafe-inline'"
             Override: true
           ContentTypeOptions:
             Override: true

@@ -42,8 +42,9 @@ xLights reads the phoneme layer and moves the mouth of a face model.
 The same work in xLights is manual today. The person types the lyrics, then drags
 each phrase, each word and each phoneme into position by ear. A three-minute song can
 take several hours. The app does the first pass in minutes and gives the person an
-editor to correct the result. All audio stays in the browser. The app has no server
-that receives audio.
+editor to correct the result. Audio leaves the browser only when the person selects
+a remote endpoint, and the app shows the host first. The app has no server that
+receives audio.
 
 The user's request, verbatim:
 
@@ -74,7 +75,10 @@ The user's request, verbatim:
 | CMU symbol | noun | One sound symbol from the CMU Pronouncing Dictionary, for example `AY1`. | ARPAbet, CMU phoneme |
 | dictionary | noun | The table that gives the CMU symbols for a word. | lexicon |
 | custom dictionary | noun | The table of words that the person adds or changes. It takes priority over the dictionary. | user library, overrides |
-| speech model | noun | A Whisper model file that the browser downloads and runs. | model, AI, engine |
+| speech model | noun | A Whisper model that transcribes the audio: a model file that the browser downloads and runs, or the model of a remote endpoint. | model, AI, engine |
+| remote endpoint | noun | A server that the person selects to transcribe the audio in place of the speech model in the browser. It is compatible with the OpenAI transcription API. | cloud, API server, backend, service |
+| base URL | noun | The address of a remote endpoint, for example `https://api.openai.com/v1`. The app adds `/audio/transcriptions`. | endpoint URL, server address |
+| API key | noun | The secret text that a remote endpoint can ask for. The app sends it only to the base URL of the remote endpoint. | token, password, secret |
 | device | noun | The part of the computer that runs the speech model: the graphics card (`webgpu`) or the CPU (`wasm`). | backend, processor, hardware |
 | transcribe | verb | To run the speech model on the audio file and get words with times. | recognise, sync, analyse |
 | align | verb | To match the transcribed words with lyrics that the person supplies. | reconcile, merge |
@@ -95,7 +99,8 @@ The user's request, verbatim:
    with no manual edit in xLights.
 4. A person corrects a wrong word time in the editor in one drag action.
 5. A person exports one file that holds one timing track for each voice.
-6. No audio data leaves the browser.
+6. Audio leaves the browser only when the person selects a remote endpoint, and the
+   app shows the host first.
 
 ## Non-goals
 
@@ -105,7 +110,8 @@ The user's request, verbatim:
 - The app does not have accounts, a server database or shared songs.
 - The app does not read or write Papagayo `.pgo` files in v1.
 - The app does not support phone-size screens in v1. The minimum width is 1024 px.
-- The app does not use a paid speech service.
+- The app does not include a paid speech service. A remote endpoint belongs to the
+  person.
 - The app does not support dictionaries for languages other than English in v1.
 
 ## Users & personas
@@ -151,6 +157,7 @@ flowchart LR
   end
   Host[Amazon CloudFront + private S3 bucket: static files]
   HF[Hugging Face Hub: speech model files]
+  Remote[Remote endpoint of the person: optional]
   File[.xtiming download]
   XL[xLights: Import Timing Track]
 
@@ -162,6 +169,8 @@ flowchart LR
   HF -- model files, first use only --> Worker
   Worker <--> Cache
   Worker -- words with times --> Store
+  Store -- WAV of the song or the range, remote run only --> Remote
+  Remote -- words with times --> Store
   Store --> Dict --> Store
   Store --> Writer --> File --> XL
 ```
@@ -181,8 +190,10 @@ The app is a static single-page application. It has no backend. Each component:
 - **Transcribe worker.** A Web Worker runs `@huggingface/transformers` 4.3.2
   (Apache-2.0) with a Whisper speech model. The worker keeps the UI responsive. The
   library accepts `device: 'webgpu'` and returns word times when the call passes
-  `return_timestamps: 'word'`. Browser Whisper is the user's choice. A cloud speech
-  service costs money and sends audio to a third party.
+  `return_timestamps: 'word'`. Browser Whisper is the user's choice and the default.
+  The person can select a remote endpoint that is compatible with the OpenAI
+  transcription API, for example a self-hosted server (issue #101,
+  `docs/adr/0007-remote-whisper-endpoint.md`).
   Verified against: https://huggingface.co/docs/transformers.js/api/pipelines and
   https://huggingface.co/docs/transformers.js/en/guides/webgpu (retrieved
   2026-11-24), `npm view @huggingface/transformers version` (4.3.2).
@@ -292,6 +303,8 @@ erDiagram
     string speechModelId
     int defaultFrameMs
     string theme
+    string transcribeSource
+    object remoteEndpoint
   }
 ```
 
@@ -313,13 +326,18 @@ erDiagram
   separated by spaces. Custom entries belong to the browser, not to one song.
 - **App settings.** One record. `speechModelId` is one of the three supported speech
   models. The app does not store `device`. The app derives the device from the
-  browser on each visit.
+  browser on each visit. `transcribeSource` is `browser` or `remote`, and the
+  default is `browser`. `remoteEndpoint` holds `baseUrl`, `apiKey` and `model`. The
+  API key stays in this record. No export and no custom dictionary file holds it.
 
 ## Cross-cutting concerns
 
 - **Auth.** None. The app has no accounts and no server data.
-- **Privacy.** The app sends no audio, no lyrics and no marks to any server. The
-  only network requests are for the app files and the speech model files.
+- **Privacy.** Audio leaves the browser only when the person selects a remote
+  endpoint, and the app shows the host first. A remote run sends the audio of the
+  song or of the range to that host only. The app sends no lyrics and no marks to
+  any server. The other network requests are for the app files and the speech model
+  files. The API key goes only to the base URL of the remote endpoint.
 - **Error handling.** Each failure shows a message that states the cause and the
   next action. The app never fails without a message. Feature files give the copy.
 - **Validation.** The app validates at two boundaries only: files that the person
@@ -515,6 +533,13 @@ None of these blocks approval. Each one names the epic that settles it.
 - 2026-11-24 — The transcribe dialog shows the stages before the first chunk, the
   elapsed time, finer progress and the device (issue #91, from the review of the
   maintainer in Firefox).
+- 2026-11-24 — The maintainer asked for "an API call ability to go to a whisper
+  endpoint" (issue #101). The person can select a remote endpoint that is
+  compatible with the OpenAI transcription API, for example a self-hosted server.
+  The privacy promise changes: audio leaves the browser only when the person
+  selects a remote endpoint, and the app shows the host first. The
+  Content-Security-Policy `connect-src` allows any `https` address and `http` on
+  `localhost` (`docs/adr/0007`).
 
 ## Issue map
 

@@ -152,6 +152,7 @@ body.rv-open .layout { padding-right:21rem; }
 <p class="meta">Epic 2: Transcription &nbsp; <span class="badge">issued</span></p>
 <h3 id="transcription-purpose">Purpose</h3>
 <p>The app runs a speech model in the browser and finds each sung word with its start time and its end time. The app groups the words into phrases. If the person has the lyrics, the app uses them to correct the words.</p>
+<p>The person can select a remote endpoint in place of the speech model in the browser. A remote endpoint is a server that is compatible with the OpenAI transcription API, for example a self-hosted server of the person. The audio then leaves the browser, and the app shows the host before each run.</p>
 <h3 id="transcription-user-stories">User stories</h3>
 <ul>
 <li>As the person, I want the app to find the words and their times, so that I do not
@@ -170,6 +171,11 @@ body.rv-open .layout { padding-right:21rem; }
 </li>
 </ul>
 <p>part without losing the good parts.</p>
+<ul>
+<li>As the person, I want to send the audio to my own Whisper server, so that a run
+</li>
+</ul>
+<p>is fast on a computer with no fast graphics card.</p>
 <h3 id="transcription-functional-requirements">Functional requirements</h3>
 <ul>
 <li>FR-transcribe-1 — The editor has a "Transcribe" action for the selected voice.
@@ -261,7 +267,58 @@ body.rv-open .layout { padding-right:21rem; }
 </li>
 <li>FR-transcribe-22 — One transcribe run is one undo step.
 </li>
+<li>FR-transcribe-23 — The transcribe dialog offers the choice "Where to transcribe":
+</li>
 </ul>
+<p>"In this browser" or "Remote endpoint".</p>
+<ul>
+<li>FR-transcribe-24 — "In this browser" is the default choice.
+</li>
+<li>FR-transcribe-25 — The app remembers the last "Where to transcribe" choice.
+</li>
+<li>FR-transcribe-26 — The person types the base URL, an optional API key and the
+</li>
+</ul>
+<p>speech model name of the remote endpoint.</p>
+<ul>
+<li>FR-transcribe-27 — The API key field hides its text.
+</li>
+<li>FR-transcribe-28 — "Test connection" sends one second of silence to the remote
+</li>
+</ul>
+<p>endpoint and shows the result.</p>
+<ul>
+<li>FR-transcribe-29 — The dialog shows the warning with the host before each remote
+</li>
+</ul>
+<p>run.</p>
+<ul>
+<li>FR-transcribe-30 — A remote run sends one WAV file to
+</li>
+</ul>
+<p><code>&lt;base URL&gt;/audio/transcriptions</code>.</p>
+<ul>
+<li>FR-transcribe-31 — A range run with a remote endpoint sends only the audio of the
+</li>
+</ul>
+<p>range.</p>
+<ul>
+<li>FR-transcribe-32 — The app sends the API key only in the <code>Authorization</code> header
+</li>
+</ul>
+<p>of a request to the base URL.</p>
+<ul>
+<li>FR-transcribe-33 — The app converts the words of a remote endpoint to the same
+</li>
+</ul>
+<p>word list as a run in the browser.</p>
+<ul>
+<li>FR-transcribe-34 — "Cancel" stops the request of a remote run.
+</li>
+<li>FR-transcribe-35 — The dialog disables "Start" when the browser blocks the call to
+</li>
+</ul>
+<p>the remote endpoint as mixed content.</p>
 <h3 id="transcription-user-flows">User flows</h3>
 <h4 id="transcription-transcribe-a-song">Transcribe a song</h4>
 <div class="diagram"><pre class="mermaid">sequenceDiagram
@@ -315,6 +372,52 @@ body.rv-open .layout { padding-right:21rem; }
   F -- none --&gt; E3[Message: no words found, offer lyrics-only flow]
   F -- some --&gt; G[Marks created]
   A -. Person selects Cancel .-&gt; H[Worker stops, no marks change]</pre></div>
+<h4 id="transcription-transcribe-with-a-remote-endpoint">Transcribe with a remote endpoint</h4>
+<div class="diagram"><pre class="mermaid">sequenceDiagram
+  actor P as Person
+  participant UI as Editor
+  participant R as Remote endpoint
+  P-&gt;&gt;UI: Select Transcribe, select "Remote endpoint"
+  alt no endpoint stored
+    P-&gt;&gt;UI: Type base URL, API key (optional), speech model name, Save endpoint
+  end
+  UI--&gt;&gt;P: Warning: the audio goes to the host
+  P-&gt;&gt;UI: Select Start
+  UI-&gt;&gt;UI: Convert audio of the song or the range to 16 kHz mono WAV
+  UI-&gt;&gt;R: POST base URL + /audio/transcriptions (multipart)
+  UI--&gt;&gt;P: Sending audio to the host, upload percent
+  UI--&gt;&gt;P: Waiting for the host, elapsed time
+  R--&gt;&gt;UI: verbose_json with words and times in seconds
+  UI-&gt;&gt;UI: Add the start of the range, align, group, break down
+  UI--&gt;&gt;P: Layers show phrases, words, phonemes</pre></div>
+<ol>
+<li>The person selects "Transcribe".
+</li>
+<li>The person selects "Remote endpoint".
+</li>
+<li>If no endpoint is stored, the person types the base URL, the API key and the
+</li>
+</ol>
+<p>speech model name, and selects "Save endpoint".</p>
+<ol>
+<li>The person reads the warning with the host.
+</li>
+<li>The person selects "Start".
+</li>
+<li>If one mark or more overlaps the target range, the app asks for confirmation.
+</li>
+<li>The app converts the audio of the song or the range to a WAV file.
+</li>
+<li>The app sends the file to the remote endpoint and shows the upload, then the
+</li>
+</ol>
+<p>wait.</p>
+<ol>
+<li>The app aligns, groups and breaks down the words, as for a run in the browser.
+</li>
+<li>The app closes the dialog and shows the layers.
+</li>
+</ol>
 <h4 id="transcription-create-phrases-from-lyrics-without-a-speech-model">Create phrases from lyrics without a speech model</h4>
 <ol>
 <li>The person selects "Lyrics only" in the transcribe dialog.
@@ -331,7 +434,7 @@ body.rv-open .layout { padding-right:21rem; }
 </li>
 </ol>
 <h3 id="transcription-screens-states">Screens &amp; states</h3>
-<p><strong>Transcribe dialog.</strong> Regions: speech model selector, device note, lyrics field, range selector (full song or the time selection), progress area, buttons.</p>
+<p><strong>Transcribe dialog.</strong> Regions: "Where to transcribe" choice, speech model selector or endpoint panel, device note, lyrics field, range selector (full song or the time selection), progress area, buttons.</p>
 <ul>
 <li>idle: selectors enabled, "Start" enabled.
 </li>
@@ -393,6 +496,64 @@ body.rv-open .layout { padding-right:21rem; }
 </ul>
 <p>card was too slow. The run continues on the CPU." one time.</p>
 <p>If the person selects "Lyrics only" and the lyrics field has no word, the app disables "Start". The hint reads "Paste the lyrics to use Lyrics only."</p>
+<p><strong>Where to transcribe.</strong> The choice "Where to transcribe" comes first in the dialog, with "In this browser" and "Remote endpoint". "Lyrics only" disables the choice, because a lyrics-only run sends no audio.</p>
+<p>With "Remote endpoint" selected:</p>
+<ul>
+<li>The endpoint panel replaces the speech model selector and the device note.
+</li>
+<li>With a stored endpoint, the panel reads "Endpoint &lt;host&gt;, speech model &lt;name&gt;"
+</li>
+</ul>
+<p>with the button "Change".</p>
+<ul>
+<li>With no stored endpoint, or after "Change", the panel shows the fields "Base URL",
+</li>
+</ul>
+<p>"API key (optional)" and "Speech model name", and the buttons "Save endpoint" and "Test connection". "Start" is disabled while the fields show.</p>
+<ul>
+<li>The help text under "Base URL" reads "For example https://api.openai.com/v1 or
+</li>
+</ul>
+<p>http://localhost:8000/v1. The app sends the audio to the base URL and /audio/transcriptions. The server must allow this page in its CORS settings. A page from an https address can call an http address only on this computer (localhost)."</p>
+<ul>
+<li>The API key field has the type <code>password</code> and no autocomplete.
+</li>
+<li>The warning "The app sends the audio of this song to &lt;host&gt;. The audio leaves
+</li>
+</ul>
+<p>this computer." shows before "Start" and stays during the run.</p>
+<ul>
+<li>If the page is <code>https</code> and the base URL is <code>http</code> on a host other than
+</li>
+</ul>
+<p><code>localhost</code> or <code>127.0.0.1</code>, the dialog shows "This page is secure (https), and the browser blocks a call to an http address. Use an https address for the endpoint." and disables "Start".</p>
+<p>The states of a remote run:</p>
+<ul>
+<li>preparing: as for a run in the browser.
+</li>
+<li>sending: "Sending audio to &lt;host&gt;, 42%" with a bar. Before the first upload
+</li>
+</ul>
+<p>progress, "Sending audio to &lt;host&gt;, 0:02 elapsed" with a bar that has no end.</p>
+<ul>
+<li>waiting: "Waiting for &lt;host&gt;, 0:12 elapsed" with a bar that has no end. The
+</li>
+</ul>
+<p>upload is complete, and the server transcribes the audio.</p>
+<ul>
+<li>finishing, confirm, error and done: as for a run in the browser.
+</li>
+<li>The device line does not show during a remote run.
+</li>
+</ul>
+<p>"Test connection" shows "Testing the connection to &lt;host&gt;." and then "The connection works. &lt;host&gt; returned word times." or the message of the failure. Each base URL that the app refuses shows a message:</p>
+<div class="table-wrap"><table>
+<tr><th>Base URL</th><th>Message</th></tr>
+<tr><td>Empty</td><td>"Type the base URL of the endpoint."</td></tr>
+<tr><td>Not an <code>http</code> or <code>https</code> URL, or with <code>?</code> or <code>#</code></td><td>"The base URL is not valid. Type an address that starts with https:// or http://, with no ? and no #."</td></tr>
+<tr><td>With a user name or a password</td><td>"Remove the user name and the password from the base URL. Type the API key in the API key field."</td></tr>
+<tr><td>Speech model name empty</td><td>"Type the name of the speech model, for example whisper-1."</td></tr>
+</table></div>
 <h3 id="transcription-behaviour-rules">Behaviour rules</h3>
 <ul>
 <li>The default speech model is base. The app remembers the last selection.
@@ -487,11 +648,56 @@ body.rv-open .layout { padding-right:21rem; }
 </li>
 <li>The language is English. The task is transcribe.
 </li>
+<li><strong>Remote endpoint rules.</strong>
+<ul>
+<li>The app removes the spaces and the trailing slashes of the base URL. It keeps
+</li>
+</ul>
+</li>
+</ul>
+<p>the path as typed and adds <code>/audio/transcriptions</code>.</p>
+<ul>
+<li>The request is <code>multipart/form-data</code> with the fields <code>file</code> (<code>audio.wav</code>,
+</li>
+</ul>
+<p><code>audio/wav</code>), <code>model</code>, <code>language=en</code>, <code>response_format=verbose_json</code> and <code>timestamp_granularities[]=word</code>.</p>
+<ul>
+<li>The file is 16-bit PCM WAV with one channel at 16 kHz, about 1.9 MB for each
+</li>
+</ul>
+<p>minute.</p>
+<ul>
+<li>If the file is larger than 25 000 000 bytes, the app sends nothing and shows
+</li>
+</ul>
+<p>the message for a file above the limit. The limit is about 13 minutes of audio.</p>
+<ul>
+<li>If the API key is empty, the request has no <code>Authorization</code> header. A
+</li>
+</ul>
+<p>self-hosted server can work with no key.</p>
+<ul>
+<li>The app adds the start of the range to each word time. The app discards a word
+</li>
+</ul>
+<p>with no start time, no end time or no text.</p>
+<ul>
+<li>A lyrics-only run never sends a request, whatever the choice.
+<ul>
+<li>An error message never holds the API key or the text of the response.
+</li>
+</ul>
+</li>
 </ul>
 <h3 id="transcription-data-touched">Data touched</h3>
 <ul>
 <li>Reads <code>AUDIO_FILE</code>. Reads and writes <code>APP_SETTINGS.speechModelId</code>.
 </li>
+<li>Reads and writes <code>APP_SETTINGS.transcribeSource</code> and
+</li>
+</ul>
+<p><code>APP_SETTINGS.remoteEndpoint</code> (<code>baseUrl</code>, <code>apiKey</code>, <code>model</code>). The API key stays in IndexedDB and goes only to the base URL.</p>
+<ul>
 <li>The app does not store the device. The app derives the device from the browser on
 </li>
 </ul>
@@ -570,6 +776,68 @@ body.rv-open .layout { padding-right:21rem; }
 </li>
 </ul>
 <p>with one channel, a length of one frame, and the sample rate of the result. An <code>OfflineAudioContext</code> plays no sound, so the autoplay policy of the browser does not apply to it. <code>decodeAudioData</code> resamples the audio to the sample rate of the context. Sources: https://developer.mozilla.org/en-US/docs/Web/API/OfflineAudioContext/OfflineAudioContext, https://developer.mozilla.org/en-US/docs/Web/API/BaseAudioContext/decodeAudioData, https://developer.mozilla.org/en-US/docs/Web/Media/Guides/Autoplay and https://webaudio.github.io/web-audio-api/ (retrieved 2026-11-24).</p>
+<p><strong>OpenAI transcription API.</strong> Verified against: https://developers.openai.com/api/reference/resources/audio/subresources/transcriptions/methods/create and https://developers.openai.com/api/docs/guides/speech-to-text (retrieved 2026-11-24).</p>
+<ul>
+<li>Operation: <code>POST /audio/transcriptions</code> with <code>multipart/form-data</code>.
+</li>
+<li>Fields: <code>file</code> and <code>model</code> are required. <code>language</code> (ISO-639-1), <code>prompt</code>,
+</li>
+</ul>
+<p><code>response_format</code> (default <code>json</code>) and <code>timestamp_granularities[]</code> (default <code>segment</code>) are optional.</p>
+<ul>
+<li><code>timestamp_granularities[]</code> needs <code>response_format=verbose_json</code>. The guide states
+</li>
+</ul>
+<p>that it "is only supported for <code>whisper-1</code>". <code>gpt-4o-transcribe</code> and <code>gpt-4o-mini-transcribe</code> support <code>json</code> only, so they return no word times.</p>
+<ul>
+<li><code>verbose_json</code> has <code>words</code>, a list of <code>{ word, start, end }</code> with times in
+</li>
+</ul>
+<p>seconds.</p>
+<ul>
+<li>Formats: flac, mp3, mp4, mpeg, mpga, m4a, ogg, wav, webm. "Files can be up to
+</li>
+</ul>
+<p>25 MB."</p>
+<p><strong>Self-hosted server: speaches (faster-whisper-server).</strong> Verified against: https://speaches.ai/configuration/, https://speaches.ai/usage/speech-to-text/ and the source files <code>src/speaches/routers/stt.py</code>, <code>src/speaches/executors/whisper.py</code> and <code>src/speaches/main.py</code> of <code>speaches-ai/speaches</code> on the <code>master</code> branch (retrieved 2026-11-24).</p>
+<ul>
+<li>The server reads the form field <code>timestamp_granularities[]</code> and accepts
+</li>
+</ul>
+<p><code>response_format=verbose_json</code>. <code>"word"</code> in the list turns on word times, and the response has <code>words</code> with <code>word</code>, <code>start</code> and <code>end</code>.</p>
+<ul>
+<li>CORS is off by default. The variable <code>ALLOW_ORIGINS</code> (for example
+</li>
+</ul>
+<p><code>'["https://&lt;app domain&gt;"]'</code>) turns it on for all methods and headers.</p>
+<ul>
+<li>The setting <code>api_key</code> is unset by default. When it is set, each request needs the
+</li>
+</ul>
+<p>key.</p>
+<p><strong>Browser rules.</strong> Verified against MDN (retrieved 2026-11-24): https://developer.mozilla.org/en-US/docs/Web/Security/Mixed_content, https://developer.mozilla.org/en-US/docs/Web/HTTP/Guides/CORS/Errors, https://developer.mozilla.org/en-US/docs/Web/API/XMLHttpRequest/upload, https://developer.mozilla.org/en-US/docs/Web/API/Window/fetch and https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Content-Security-Policy/connect-src. Also https://developer.chrome.com/blog/local-network-access (retrieved 2026-11-24).</p>
+<ul>
+<li>A page from an <code>https</code> address cannot call an <code>http</code> address. A loopback address
+</li>
+</ul>
+<p>such as <code>http://localhost</code> or <code>http://127.0.0.1</code> is not mixed content.</p>
+<ul>
+<li>The details of a CORS failure "are not available to JavaScript code". The page
+</li>
+</ul>
+<p>sees the same error as for no connection.</p>
+<ul>
+<li><code>XMLHttpRequest.upload</code> gives <code>progress</code> and <code>load</code> events. The handlers must
+</li>
+</ul>
+<p>exist before <code>send()</code>, and they make a cross-origin request send a CORS preflight. <code>fetch</code> gives no upload progress, so the app uses <code>XMLHttpRequest</code>.</p>
+<ul>
+<li><code>connect-src</code> controls <code>fetch</code> and <code>XMLHttpRequest</code>.
+</li>
+<li>From Chrome 142, a public page that calls a local network address or <code>localhost</code>
+</li>
+</ul>
+<p>asks the person for the permission first.</p>
 <p><strong>Worker message contract, <code>src/workers/transcribe.worker.ts</code>:</strong></p>
 <p>The types are in <code>src/features/transcription/protocol.ts</code>.</p>
 <pre class="code"><code>type Device = 'webgpu' | 'wasm'
@@ -603,6 +871,18 @@ spreadLyrics(lyrics: string, startMs: number, endMs: number): AlignedPhrase[]</c
 <tr><td>Instrumental range selected</td><td>"No words were found" for that range. Other marks stay.</td></tr>
 <tr><td>Lyrics contain a line with no words</td><td>The app ignores the line.</td></tr>
 <tr><td>Lyrics contain <code>[Chorus]</code> style tags</td><td>The app ignores a line that is only text in square brackets.</td></tr>
+<tr><td>Remote endpoint: no connection, or the CORS settings block the page</td><td>"The app could not connect to &lt;host&gt;. The server is not available, or its CORS settings block this page. Check that the server runs and sends the header Access-Control-Allow-Origin: &lt;origin of the app&gt;"</td></tr>
+<tr><td>Remote endpoint: HTTP 401 or 403</td><td>"&lt;host&gt; refused the API key (HTTP 401). Check the API key of the remote endpoint."</td></tr>
+<tr><td>Remote endpoint: HTTP 404</td><td>"&lt;host&gt; has no transcription service at this address (HTTP 404). Check the base URL. It usually ends with /v1."</td></tr>
+<tr><td>Remote endpoint: HTTP 413, or a WAV file above 25 000 000 bytes</td><td>"The audio is too large for the remote endpoint. Select a shorter part of the song in the editor, and transcribe the time selection."</td></tr>
+<tr><td>Remote endpoint: HTTP 429</td><td>"&lt;host&gt; received too many requests (HTTP 429). Wait one minute, then select Retry."</td></tr>
+<tr><td>Remote endpoint: HTTP 500 or more</td><td>"&lt;host&gt; reported an error (HTTP 500). Check the server, then select Retry."</td></tr>
+<tr><td>Remote endpoint: another HTTP status that is not a success</td><td>"&lt;host&gt; refused the request (HTTP 400). Check the speech model name of the remote endpoint."</td></tr>
+<tr><td>Remote endpoint: the response is not JSON</td><td>"&lt;host&gt; did not return JSON. Check the base URL. It usually ends with /v1."</td></tr>
+<tr><td>Remote endpoint: the response has no <code>words</code> list</td><td>"&lt;host&gt; returned no word times. Use a server and a speech model that return the words field of verbose_json."</td></tr>
+<tr><td>Remote endpoint: the response has an empty <code>words</code> list</td><td>"No words were found. Paste the lyrics and use Lyrics only."</td></tr>
+<tr><td>Remote endpoint: the person selects "Cancel"</td><td>The app stops the request. No mark changes. The dialog goes back to idle with no message.</td></tr>
+<tr><td>Remote endpoint: the browser asks for the permission to reach the local network</td><td>The run waits for the answer of the person. If the person refuses, the dialog shows the message for no connection.</td></tr>
 </table></div>
 <h3 id="transcription-acceptance-criteria">Acceptance criteria</h3>
 <ul>
@@ -666,7 +946,46 @@ spreadLyrics(lyrics: string, startMs: number, endMs: number): AlignedPhrase[]</c
 <ul>
 <li>One undo after a run restores the earlier marks. (FR-transcribe-22)
 </li>
+<li>With "In this browser" selected, a run sends no request with audio, lyrics or
+</li>
 </ul>
+<p>marks. An E2E test checks the requests of a run. (FR-transcribe-23, 24)</p>
+<ul>
+<li>The dialog opens with the last "Where to transcribe" choice. (FR-transcribe-25)
+</li>
+<li>The API key field has the type <code>password</code>. (FR-transcribe-26, 27)
+</li>
+<li>"Test connection" shows "The connection works" for an endpoint that returns a
+</li>
+</ul>
+<p><code>words</code> list. (FR-transcribe-28)</p>
+<ul>
+<li>The warning with the host shows before each remote run. (FR-transcribe-29)
+</li>
+<li>A remote run against a fake endpoint creates the same marks as a run in the
+</li>
+</ul>
+<p>browser with the same words. (FR-transcribe-30, 33)</p>
+<ul>
+<li>A range run sends a WAV file with the samples of the range only, and the word
+</li>
+</ul>
+<p>times are song times. (FR-transcribe-31)</p>
+<ul>
+<li>The API key is in the <code>Authorization</code> header of the request to the base URL, and
+</li>
+</ul>
+<p>in no export, log or error message. (FR-transcribe-32)</p>
+<ul>
+<li>"Cancel" during a remote run aborts the request, and no mark changes.
+</li>
+</ul>
+<p>(FR-transcribe-34)</p>
+<ul>
+<li>On an <code>https</code> page, an <code>http</code> base URL on the local network disables "Start".
+</li>
+</ul>
+<p>(FR-transcribe-35)</p>
 <h3 id="transcription-out-of-scope">Out of scope</h3>
 <ul>
 <li>Separating vocals from instruments.
@@ -677,7 +996,11 @@ spreadLyrics(lyrics: string, startMs: number, endMs: number): AlignedPhrase[]</c
 </li>
 <li>Speech models larger than small.
 </li>
-<li>A cloud speech service.
+<li>A server or a proxy that belongs to the app.
+</li>
+<li>A remote endpoint that is not compatible with the OpenAI transcription API.
+</li>
+<li>A streaming response from a remote endpoint.
 </li>
 </ul>
 <h3 id="transcription-open-questions" class="callout-h">Open questions</h3>
