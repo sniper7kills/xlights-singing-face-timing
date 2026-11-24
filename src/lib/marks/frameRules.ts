@@ -17,7 +17,9 @@ function groupSiblings(marks: readonly Mark[]): Siblings {
   const groups: Siblings = new Map()
   for (const mark of marks) {
     const key = groupKey(mark, ids)
-    groups.set(key, [...(groups.get(key) ?? []), mark])
+    const group = groups.get(key)
+    if (group) group.push(mark)
+    else groups.set(key, [mark])
   }
   for (const group of groups.values()) group.sort((a, b) => a.startMs - b.startMs)
   return groups
