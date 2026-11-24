@@ -1,5 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import type { FromWorkerMessage, ToWorkerMessage } from './protocol.ts'
+import type { DeviceSpeeds } from '../../store/types.ts'
+import { pickDevice } from './device.ts'
+import { SPEECH_SAMPLE_RATE, type FromWorkerMessage, type ToWorkerMessage } from './protocol.ts'
 import {
   createTranscribeClient,
   TranscribeError,
@@ -33,9 +35,11 @@ class FakeWorker implements WorkerLike {
 function setup(device: 'webgpu' | 'wasm' = 'wasm') {
   const workers: FakeWorker[] = []
   const onDeviceChange = vi.fn()
+  const onSpeed = vi.fn()
   const client = createTranscribeClient({
     device,
     onDeviceChange,
+    onSpeed,
     createWorker: () => {
       const worker = new FakeWorker()
       workers.push(worker)
@@ -47,7 +51,7 @@ function setup(device: 'webgpu' | 'wasm' = 'wasm') {
     if (worker === undefined) throw new Error('No worker exists.')
     return worker
   }
-  return { client, workers, current, onDeviceChange }
+  return { client, workers, current, onDeviceChange, onSpeed }
 }
 
 const samples = new Float32Array(16_000)
@@ -306,6 +310,63 @@ describe('createTranscribeClient', () => {
       await vi.advanceTimersByTimeAsync(WEBGPU_STALL_MS * 2)
 
       expect(onDeviceChange).not.toHaveBeenCalled()
+    })
+  })
+
+  describe('measured speed', () => {
+    const minute = new Float32Array(60 * SPEECH_SAMPLE_RATE)
+
+    afterEach(() => {
+      vi.useRealTimers()
+    })
+
+    /** Runs one minute of audio on the device for `runMs` of fake time and returns the reported speed. */
+    async function timedRun(device: 'webgpu' | 'wasm', runMs: number): Promise<DeviceSpeeds> {
+      const { client, current, onSpeed } = await loaded(device)
+      const run = client.transcribe(minute, 0)
+      // A progress before the end keeps the WebGPU watchdog from stopping a slow run.
+      for (let elapsed = 0; elapsed < runMs; elapsed += 10_000) {
+        await vi.advanceTimersByTimeAsync(Math.min(10_000, runMs - elapsed))
+        current().reply({ type: 'progress', runId: current().lastRunId(), doneMs: 1000 })
+      }
+      current().reply({ type: 'result', runId: current().lastRunId(), words })
+      await run
+      expect(onSpeed).toHaveBeenCalledOnce()
+      const [reported, speed] = onSpeed.mock.calls[0] as ['webgpu' | 'wasm', number]
+      return { [reported]: speed }
+    }
+
+    it('reports the seconds of audio for each second of run', async () => {
+      vi.useFakeTimers()
+
+      await expect(timedRun('wasm', 20_000)).resolves.toEqual({ wasm: 3 })
+    })
+
+    it('reports no speed for a run shorter than one chunk', async () => {
+      vi.useFakeTimers()
+      const { client, current, onSpeed } = await loaded('wasm')
+      const run = client.transcribe(samples, 0)
+      await vi.advanceTimersByTimeAsync(1000)
+      current().reply({ type: 'result', runId: current().lastRunId(), words })
+      await run
+
+      expect(onSpeed).not.toHaveBeenCalled()
+    })
+
+    it('selects wasm when the fake WebGPU run takes longer than the fake wasm run', async () => {
+      vi.useFakeTimers()
+      const wasm = await timedRun('wasm', 20_000)
+      const webgpu = await timedRun('webgpu', 80_000)
+
+      expect(pickDevice(true, { ...wasm, ...webgpu })).toBe('wasm')
+    })
+
+    it('selects webgpu when the fake WebGPU run takes less time than the fake wasm run', async () => {
+      vi.useFakeTimers()
+      const wasm = await timedRun('wasm', 20_000)
+      const webgpu = await timedRun('webgpu', 5_000)
+
+      expect(pickDevice(true, { ...wasm, ...webgpu })).toBe('webgpu')
     })
   })
 })

@@ -77,9 +77,13 @@ export type CustomEntry = {
   updatedAt: string
 }
 
+/** The measured speed of each device for one speech model, in seconds of audio for each second of run. */
+export type DeviceSpeeds = Partial<Record<'webgpu' | 'wasm', number>>
+
 export type AppSettings = {
   speechModelId: string
-  device: 'webgpu' | 'wasm'
+  /** The measured speeds in this browser for each speech model id. The app selects the faster device. */
+  deviceSpeeds: Record<string, DeviceSpeeds>
   defaultFrameMs: FrameMs
   theme: 'light' | 'dark'
   /** The last "Where to transcribe" choice of the transcribe dialog. */

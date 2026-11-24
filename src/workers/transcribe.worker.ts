@@ -23,11 +23,16 @@ import {
   type ToWorkerMessage,
   type WordChunk,
 } from '../features/transcription/protocol.ts'
+import { wasmThreads } from '../features/transcription/threads.ts'
 
 const TASK = 'automatic-speech-recognition'
 
 const onnxWasm = env.backends.onnx.wasm
-if (onnxWasm) onnxWasm.wasmPaths = { wasm: ortWasmUrl }
+if (onnxWasm) {
+  onnxWasm.wasmPaths = { wasm: ortWasmUrl }
+  // The runtime reads the thread count once, when the first speech model loads.
+  onnxWasm.numThreads = wasmThreads(self.crossOriginIsolated, navigator.hardwareConcurrency)
+}
 
 /** The tokenizer of a Whisper pipeline. It has the id of the first timestamp token. */
 type Tokenizer = ConstructorParameters<typeof WhisperTextStreamer>[0]
@@ -128,6 +133,8 @@ self.addEventListener('message', (event: MessageEvent<ToWorkerMessage>) => {
     )
     return
   }
+  // The thread workers of the ONNX runtime load this file too, and their messages have no `type`.
+  if (message.type !== 'transcribe') return
   const { runId } = message
   if (busy) {
     post({ type: 'error', runId, kind: 'unknown', detail: 'A transcribe run is already active.' })

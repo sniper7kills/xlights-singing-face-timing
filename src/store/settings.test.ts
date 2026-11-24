@@ -20,6 +20,14 @@ describe('loadSettings', () => {
 })
 
 describe('updateSettings', () => {
+  it('keeps the measured speeds of a device when another field changes', async () => {
+    await updateSettings({ deviceSpeeds: { 'whisper-tiny': { wasm: 4 } } })
+
+    await updateSettings({ theme: 'light' })
+
+    expect((await loadSettings()).deviceSpeeds).toEqual({ 'whisper-tiny': { wasm: 4 } })
+  })
+
   it('writes the default settings with the change when the app has stored none', async () => {
     await updateSettings({ speechModelId: 'whisper-tiny' })
 
@@ -53,9 +61,12 @@ describe('updateSettings', () => {
 describe('loadSettings of an earlier record', () => {
   it('adds the default value of each field that the record does not have', async () => {
     const earlier = { speechModelId: 'whisper-base', device: 'wasm', defaultFrameMs: 50 }
-    // A record from an earlier version of the app does not have the remote fields.
-    await putRecord('settings', { ...earlier, theme: 'light' } as typeof DEFAULT_SETTINGS)
+    // A record from an earlier version of the app has `device`, and it does not have the remote fields or `deviceSpeeds`.
+    await putRecord('settings', {
+      ...earlier,
+      theme: 'light',
+    } as unknown as typeof DEFAULT_SETTINGS)
 
-    expect(await loadSettings()).toEqual({ ...DEFAULT_SETTINGS, theme: 'light' })
+    expect(await loadSettings()).toEqual({ ...DEFAULT_SETTINGS, device: 'wasm', theme: 'light' })
   })
 })

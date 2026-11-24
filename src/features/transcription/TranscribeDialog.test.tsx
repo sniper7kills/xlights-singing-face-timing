@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { TimeRange } from '../../lib/time/timeRange.ts'
 import { loadSettings, updateSettings } from '../../store/settings.ts'
-import { chooseDevice } from './device.ts'
+import { hasWebGpu } from './device.ts'
 import type { Device } from './protocol.ts'
 import {
   NoWordsError,
@@ -20,7 +20,10 @@ import {
   TranscribeError,
 } from './transcribeClient.ts'
 
-vi.mock('./device.ts', () => ({ chooseDevice: vi.fn() }))
+vi.mock('./device.ts', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('./device.ts')>()),
+  hasWebGpu: vi.fn(),
+}))
 vi.mock('./transcribeClient.ts', async (importOriginal) => ({
   ...(await importOriginal<typeof import('./transcribeClient.ts')>()),
   createTranscribeClient: vi.fn(),
@@ -41,14 +44,18 @@ let client: TranscribeClient
 let clientOptions: TranscribeClientOptions | undefined
 let runs: HeldRun[]
 
-beforeEach(() => {
+/** The stored speeds of the tests: WebGPU is the faster device for the base speech model. */
+const FAST_WEBGPU = { 'whisper-base': { wasm: 2, webgpu: 8 } }
+
+beforeEach(async () => {
+  await updateSettings({ deviceSpeeds: FAST_WEBGPU })
   runs = []
   clientOptions = undefined
   client = { device: 'wasm', load: vi.fn(), transcribe: vi.fn(), cancel: vi.fn(), dispose: vi.fn() }
-  vi.mocked(chooseDevice).mockResolvedValue('webgpu')
+  vi.mocked(hasWebGpu).mockResolvedValue(true)
   vi.mocked(createTranscribeClient).mockImplementation((options) => {
     clientOptions = options
-    return client
+    return Object.assign(client, { device: options.device })
   })
   vi.mocked(runTranscription).mockImplementation(
     (request, _client, handlers) =>
@@ -155,11 +162,10 @@ describe('TranscribeDialog', () => {
     await renderDialog()
 
     expect(screen.getByText('Uses your graphics card (WebGPU)')).toBeInTheDocument()
-    expect(clientOptions?.device).toBe('webgpu')
   })
 
   it('shows the slower-browser note for a browser without WebGPU', async () => {
-    vi.mocked(chooseDevice).mockResolvedValue('wasm')
+    vi.mocked(hasWebGpu).mockResolvedValue(false)
 
     await renderDialog()
 
@@ -168,14 +174,57 @@ describe('TranscribeDialog', () => {
     ).toBeInTheDocument()
   })
 
-  it('updates the device note when the client moves from WebGPU to wasm', async () => {
-    await renderDialog()
+  it('starts the run on the faster device of the stored speeds', async () => {
+    const { user, start } = await renderDialog()
+
+    await user.click(start)
+
+    expect(clientOptions?.device).toBe('webgpu')
+  })
+
+  it('starts the run on wasm when the stored speeds say that wasm is faster', async () => {
+    await updateSettings({ deviceSpeeds: { 'whisper-base': { wasm: 3, webgpu: 0.7 } } })
+    const { user, start } = await renderDialog()
+
+    await user.click(start)
+
+    expect(clientOptions?.device).toBe('wasm')
+    expect(screen.getByText('CPU')).toBeInTheDocument()
+  })
+
+  it('starts the run on wasm when no speed is stored for the speech model', async () => {
+    const { user, start } = await renderDialog()
+    await user.click(screen.getByRole('radio', { name: 'tiny 66 MB' }))
+
+    await user.click(start)
+
+    expect(clientOptions?.device).toBe('wasm')
+  })
+
+  it('stores the measured speed of the run for the speech model', async () => {
+    const { user, start } = await renderDialog()
+    await user.click(start)
+
+    await act(async () => clientOptions?.onSpeed?.('webgpu', 6.5))
+
+    await vi.waitFor(async () =>
+      expect((await loadSettings()).deviceSpeeds).toEqual({
+        'whisper-base': { wasm: 2, webgpu: 6.5 },
+      }),
+    )
+  })
+
+  it('stores the lowest WebGPU speed when the client moves from WebGPU to wasm', async () => {
+    const { user, start } = await renderDialog()
+    await user.click(start)
 
     act(() => clientOptions?.onDeviceChange?.('wasm' satisfies Device, 'failed'))
 
-    expect(
-      screen.getByText('WebGPU is not available. Transcription is slower on this browser.'),
-    ).toBeInTheDocument()
+    await vi.waitFor(async () =>
+      expect((await loadSettings()).deviceSpeeds).toEqual({
+        'whisper-base': { wasm: 2, webgpu: 0 },
+      }),
+    )
   })
 
   it('offers the full song as the only range when the editor has no time selection', async () => {
@@ -677,7 +726,8 @@ describe('TranscribeDialog', () => {
   })
 
   it('terminates the worker when the dialog closes', async () => {
-    const { view } = await renderDialog()
+    const { view, user, start } = await renderDialog()
+    await user.click(start)
 
     view.unmount()
 

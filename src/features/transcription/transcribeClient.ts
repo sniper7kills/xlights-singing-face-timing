@@ -1,4 +1,11 @@
-import type { Device, ErrorKind, FromWorkerMessage, ToWorkerMessage } from './protocol.ts'
+import {
+  CHUNK_LENGTH_S,
+  SPEECH_SAMPLE_RATE,
+  type Device,
+  type ErrorKind,
+  type FromWorkerMessage,
+  type ToWorkerMessage,
+} from './protocol.ts'
 import type { TimedWord } from './types.ts'
 
 declare global {
@@ -60,10 +67,15 @@ export type TranscribeHandlers = {
 
 /** The options of `createTranscribeClient`. */
 export type TranscribeClientOptions = {
-  /** The first device. `chooseDevice` gives the value. */
+  /** The first device. `pickDevice` gives the value. */
   device: Device
   /** Receives 'wasm' and the reason when the client moves the speech model from WebGPU to `wasm`. */
   onDeviceChange?: (device: Device, reason: DeviceChangeReason) => void
+  /**
+   * Receives the device and the speed of each run with one chunk of audio or more: the seconds of audio for each second of run.
+   * A shorter run pads its audio to one chunk, so its speed is too low.
+   */
+  onSpeed?: (device: Device, speed: number) => void
   /** Makes the worker. The default reads the fixture flag `__TRANSCRIBE_FIXTURE__`. */
   createWorker?: () => WorkerLike
 }
@@ -112,6 +124,9 @@ type LoadPending = {
 type RunPending = {
   type: 'run'
   runId: string
+  /** The `Date.now()` of the run start. */
+  startedAtMs: number
+  audioMs: number
   onProgress?: (doneMs: number) => void
   resolve: (words: TimedWord[]) => void
   reject: (error: TranscribeError) => void
@@ -132,7 +147,7 @@ function createDefaultWorker(): WorkerLike {
 
 /**
  * Returns a client that starts the transcribe worker when the first call needs it.
- * @param options The first device, the device change handler and the worker factory.
+ * @param options The first device, the device change and speed handlers, and the worker factory.
  */
 export function createTranscribeClient(options: TranscribeClientOptions): TranscribeClient {
   const createWorker = options.createWorker ?? createDefaultWorker
@@ -185,6 +200,12 @@ export function createTranscribeClient(options: TranscribeClientOptions): Transc
     }
   }
 
+  function reportSpeed(run: RunPending): void {
+    const runMs = Date.now() - run.startedAtMs
+    if (run.audioMs < CHUNK_LENGTH_S * 1000 || runMs <= 0) return
+    options.onSpeed?.(device, run.audioMs / runMs)
+  }
+
   function handleRunMessage(active: RunPending, message: FromWorkerMessage): void {
     if (message.type === 'download' || message.type === 'ready' || message.runId !== active.runId)
       return
@@ -194,6 +215,7 @@ export function createTranscribeClient(options: TranscribeClientOptions): Transc
     } else if (message.type === 'result') {
       stopWatchdog()
       pending = null
+      reportSpeed(active)
       active.resolve(message.words)
     } else {
       settleError(new TranscribeError(message.kind, message.detail))
@@ -251,7 +273,15 @@ export function createTranscribeClient(options: TranscribeClientOptions): Transc
       (resolve, reject) => {
         handlers.onStage?.('transcribing')
         armWatchdog()
-        return { type: 'run', runId, onProgress: handlers.onProgress, resolve, reject }
+        return {
+          type: 'run',
+          runId,
+          startedAtMs: Date.now(),
+          audioMs: (samples.length / SPEECH_SAMPLE_RATE) * 1000,
+          onProgress: handlers.onProgress,
+          resolve,
+          reject,
+        }
       },
       () => ({ type: 'transcribe', runId, samples, offsetMs }),
     )

@@ -118,7 +118,7 @@ describe('records', () => {
   it('stores the app settings under the settings key', async () => {
     const settings = {
       speechModelId: 'whisper-base',
-      device: 'wasm',
+      deviceSpeeds: { 'whisper-base': { wasm: 2.5 } },
       defaultFrameMs: 50,
       theme: 'dark',
       transcribeSource: 'browser',

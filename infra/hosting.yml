@@ -90,6 +90,16 @@ Resources:
           ReferrerPolicy:
             ReferrerPolicy: no-referrer
             Override: true
+        # The two headers make the page cross-origin isolated, so the speech model uses more than one CPU thread.
+        # Each cross-origin resource then needs CORS or Cross-Origin-Resource-Policy. See docs/adr/0006.
+        CustomHeadersConfig:
+          Items:
+            - Header: Cross-Origin-Opener-Policy
+              Value: same-origin
+              Override: true
+            - Header: Cross-Origin-Embedder-Policy
+              Value: require-corp
+              Override: true
 
   SiteDistribution:
     Type: AWS::CloudFront::Distribution
