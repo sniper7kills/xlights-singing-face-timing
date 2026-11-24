@@ -3,8 +3,12 @@ import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { saveExportOptions } from '../../store/db.ts'
 import { useSongStore } from '../../store/songStore.ts'
+import { downloadFiles } from './download.ts'
 import { ExportAction } from './ExportAction.tsx'
 import { makeContent, makeSungPhrase, makeVoice } from './exportFixtures.test-helpers.ts'
+
+// jsdom has no object URL support, so the tests check the files that reach the download.
+vi.mock('./download.ts', () => ({ downloadFiles: vi.fn() }))
 
 const content = makeContent(
   [makeVoice('v1', 'Lead Vocals', 0), makeVoice('v2', 'Santa', 1)],
@@ -12,10 +16,28 @@ const content = makeContent(
 )
 
 afterEach(() => {
+  vi.mocked(downloadFiles).mockClear()
   act(() => useSongStore.getState().closeSong())
 })
 
 describe('ExportAction', () => {
+  it('gives the files to the browser as downloads and keeps the dialog open', async () => {
+    const user = userEvent.setup()
+    useSongStore.setState({ current: content })
+    render(<ExportAction />)
+    await user.click(screen.getByRole('button', { name: 'Export' }))
+    await user.click(await screen.findByRole('radio', { name: 'One file for each timing track' }))
+
+    await user.click(screen.getByRole('button', { name: 'Download' }))
+
+    await vi.waitFor(() => expect(downloadFiles).toHaveBeenCalled())
+    expect(vi.mocked(downloadFiles).mock.calls[0]?.[0].map((file) => file.name)).toEqual([
+      'Carol - Lead Vocals.xtiming',
+      'Carol - Santa.xtiming',
+    ])
+    expect(screen.getByRole('dialog', { name: 'Export to xLights' })).toBeInTheDocument()
+  })
+
   it('shows nothing when no song is open', () => {
     const { container } = render(<ExportAction />)
 
@@ -65,7 +87,8 @@ describe('ExportAction', () => {
     await user.click(await screen.findByRole('radio', { name: 'One file for each timing track' }))
 
     await user.click(screen.getByRole('button', { name: 'Download' }))
-    await vi.waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+    await vi.waitFor(() => expect(screen.getByRole('status')).not.toBeEmptyDOMElement())
+    await user.click(screen.getByRole('button', { name: 'Close' }))
     await user.click(screen.getByRole('button', { name: 'Export' }))
 
     expect(

@@ -8,6 +8,8 @@ import type { SongContent } from '../../store/types.ts'
 import { useViewStore } from '../../store/viewStore.ts'
 import { ChecksList } from './ChecksList.tsx'
 import { FilePreview } from './FilePreview.tsx'
+import { ImportSteps } from './ImportSteps.tsx'
+import { PackagingGroup } from './PackagingGroup.tsx'
 
 const FOCUSABLE = 'button, input, summary, [tabindex="0"]'
 
@@ -19,7 +21,7 @@ type ExportDialogProps = {
   onClose: () => void
   /**
    * Receives the files of the export after the person selects "Download".
-   * The dialog stores the export options of the song before the call.
+   * The dialog stores the export options of the song before the call, and shows the done state after it.
    */
   onDownload: (files: ExportFile[]) => void
 }
@@ -47,15 +49,23 @@ function plural(n: number, word: string): string {
   return `${n} ${word}${n === 1 ? '' : 's'}`
 }
 
+function doneLine(trackCount: number, files: ExportFile[]): string {
+  const target = files.length === 1 && files[0] ? files[0].name : plural(files.length, 'file')
+  return `${plural(trackCount, 'timing track')} written to ${target}`
+}
+
 /**
  * Shows the export dialog: the voices, the grouping, the packaging, the options, the timing
- * track names, the checks and a preview of the file.
+ * track names, the checks, a preview of the file and the xLights import steps.
  * "Download" is disabled while an error finding exists or the export has no timing track.
+ * After a download the dialog stays open in the done state: a confirmation line and the import steps expanded.
  */
 export function ExportDialog({ content, initialOptions, onClose, onDownload }: ExportDialogProps) {
   const { song, voices, sections, marks } = content
   const [options, setOptions] = useState(initialOptions)
   const [storageMessage, setStorageMessage] = useState<string | null>(null)
+  const [done, setDone] = useState<string | null>(null)
+  const [stepsOpen, setStepsOpen] = useState(false)
   const dialogRef = useRef<HTMLDivElement>(null)
   const titleId = useId()
   const sectionHintId = useId()
@@ -82,6 +92,7 @@ export function ExportDialog({ content, initialOptions, onClose, onDownload }: E
   }, [])
 
   function change(update: Partial<ExportOptions>) {
+    setDone(null)
     setOptions((current) => ({ ...current, ...update }))
   }
 
@@ -115,6 +126,8 @@ export function ExportDialog({ content, initialOptions, onClose, onDownload }: E
       return
     }
     onDownload(files)
+    setDone(doneLine(tracks.length, files))
+    setStepsOpen(true)
   }
 
   function onKeyDown(event: KeyboardEvent<HTMLDivElement>) {
@@ -188,27 +201,11 @@ export function ExportDialog({ content, initialOptions, onClose, onDownload }: E
                 </small>
               )}
             </fieldset>
-            <fieldset className="export-group">
-              <legend>Files</legend>
-              <label className="export-option">
-                <input
-                  type="radio"
-                  name="packaging"
-                  checked={options.packaging === 'one-file'}
-                  onChange={() => change({ packaging: 'one-file' })}
-                />
-                One file with all timing tracks
-              </label>
-              <label className="export-option">
-                <input
-                  type="radio"
-                  name="packaging"
-                  checked={options.packaging === 'file-per-track'}
-                  onChange={() => change({ packaging: 'file-per-track' })}
-                />
-                One file for each timing track
-              </label>
-            </fieldset>
+            <PackagingGroup
+              packaging={options.packaging}
+              fileCount={files.length}
+              onChange={(packaging) => change({ packaging })}
+            />
             <fieldset className="export-group">
               <legend>Options</legend>
               <label className="export-option">
@@ -250,6 +247,7 @@ export function ExportDialog({ content, initialOptions, onClose, onDownload }: E
                 {firstFile && <FilePreview file={firstFile} />}
               </>
             )}
+            <ImportSteps frameMs={song.frameMs} open={stepsOpen} onToggle={setStepsOpen} />
           </div>
         </div>
         {storageMessage && (
@@ -262,6 +260,10 @@ export function ExportDialog({ content, initialOptions, onClose, onDownload }: E
             {plural(tracks.length, 'timing track')} · {plural(files.length, 'file')}
           </small>
           <span className="spacer" />
+          {/* The live region exists before the done line, so a screen reader announces the line. */}
+          <span className="export-done" role="status">
+            {done}
+          </span>
           <button type="button" className="button" onClick={onClose}>
             Close
           </button>

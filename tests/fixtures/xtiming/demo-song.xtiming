@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<timing name="Lead Vocals" subType="" SourceVersion="2024.01">
+   <EffectLayer>
+      <Effect label="Silent night, holy night" starttime="100" endtime="8950" />
+      <Effect label="All is calm, all is bright" starttime="9800" endtime="18700" />
+      <Effect label="Round yon virgin mother and child" starttime="19450" endtime="28750" />
+   </EffectLayer>
+   <EffectLayer>
+      <Effect label="Silent" starttime="100" endtime="2300" />
+      <Effect label="night" starttime="2300" endtime="4650" />
+      <Effect label="holy" starttime="4700" endtime="6700" />
+      <Effect label="night" starttime="6700" endtime="8950" />
+      <Effect label="All" starttime="9800" endtime="11250" />
+      <Effect label="is" starttime="11250" endtime="11950" />
+      <Effect label="calm" starttime="11950" endtime="14250" />
+      <Effect label="all" starttime="14300" endtime="15750" />
+      <Effect label="is" starttime="15750" endtime="16550" />
+      <Effect label="bright" starttime="16550" endtime="18700" />
+      <Effect label="Round" starttime="19450" endtime="20800" />
+      <Effect label="yon" starttime="20800" endtime="21600" />
+      <Effect label="virgin" starttime="21600" endtime="23950" />
+      <Effect label="mother" starttime="23950" endtime="25550" />
+      <Effect label="and" starttime="25550" endtime="25900" />
+      <Effect label="child" starttime="25900" endtime="28750" />
+   </EffectLayer>
+   <EffectLayer>
+      <Effect label="etc" starttime="100" endtime="300" />
+      <Effect label="AI" starttime="300" endtime="1000" />
+      <Effect label="L" starttime="1000" endtime="1400" />
+      <Effect label="AI" starttime="1400" endtime="2100" />
+      <Effect label="etc" starttime="2100" endtime="2300" />
+      <Effect label="etc" starttime="2300" endtime="2750" />
+      <Effect label="AI" starttime="2750" endtime="4200" />
+      <Effect label="etc" starttime="4200" endtime="4650" />
+      <Effect label="etc" starttime="4700" endtime="4900" />
+      <Effect label="O" starttime="4900" endtime="5600" />
+      <Effect label="L" starttime="5600" endtime="6050" />
+      <Effect label="E" starttime="6050" endtime="6700" />
+      <Effect label="etc" starttime="6700" endtime="7150" />
+      <Effect label="AI" starttime="7150" endtime="8500" />
+      <Effect label="etc" starttime="8500" endtime="8950" />
+      <Effect label="O" starttime="9800" endtime="10650" />
+      <Effect label="L" starttime="10650" endtime="11250" />
+      <Effect label="AI" starttime="11250" endtime="11800" />
+      <Effect label="etc" starttime="11800" endtime="11950" />
+      <Effect label="etc" starttime="11950" endtime="12400" />
+      <Effect label="AI" starttime="12400" endtime="13800" />
+      <Effect label="MBP" starttime="13800" endtime="14250" />
+      <Effect label="O" starttime="14300" endtime="15150" />
+      <Effect label="L" starttime="15150" endtime="15750" />
+      <Effect label="AI" starttime="15750" endtime="16350" />
+      <Effect label="etc" starttime="16350" endtime="16550" />
+      <Effect label="MBP" starttime="16550" endtime="16900" />
+      <Effect label="etc" starttime="16900" endtime="17250" />
+      <Effect label="AI" starttime="17250" endtime="18350" />
+      <Effect label="etc" starttime="18350" endtime="18700" />
+      <Effect label="etc" starttime="19450" endtime="19700" />
+      <Effect label="O" starttime="19700" endtime="20550" />
+      <Effect label="etc" starttime="20550" endtime="20800" />
+      <Effect label="etc" starttime="20800" endtime="20950" />
+      <Effect label="AI" starttime="20950" endtime="21450" />
+      <Effect label="etc" starttime="21450" endtime="21600" />
+      <Effect label="FV" starttime="21600" endtime="21850" />
+      <Effect label="E" starttime="21850" endtime="22650" />
+      <Effect label="etc" starttime="22650" endtime="22900" />
+      <Effect label="AI" starttime="22900" endtime="23700" />
+      <Effect label="etc" starttime="23700" endtime="23950" />
+      <Effect label="MBP" starttime="23950" endtime="24150" />
+      <Effect label="AI" starttime="24150" endtime="24750" />
+      <Effect label="etc" starttime="24750" endtime="24950" />
+      <Effect label="E" starttime="24950" endtime="25550" />
+      <Effect label="AI" starttime="25550" endtime="25800" />
+      <Effect label="etc" starttime="25800" endtime="25900" />
+      <Effect label="etc" starttime="25900" endtime="26300" />
+      <Effect label="AI" starttime="26300" endtime="27550" />
+      <Effect label="L" starttime="27550" endtime="28350" />
+      <Effect label="etc" starttime="28350" endtime="28750" />
+   </EffectLayer>
+</timing>
