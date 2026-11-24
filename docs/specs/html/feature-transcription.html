@@ -292,7 +292,7 @@ body.rv-open .layout { padding-right:21rem; }
 </li>
 <li>The person selects "Start".
 </li>
-<li>If marks exist in the target range, the app asks for confirmation.
+<li>If one mark or more overlaps the target range, the app asks for confirmation.
 </li>
 <li>The app downloads the speech model if the browser does not have it.
 </li>
@@ -457,7 +457,26 @@ body.rv-open .layout { padding-right:21rem; }
 </ul>
 <p>creates marks.</p>
 <ul>
-<li>A range run replaces only the marks that lie fully inside the range.
+<li>A range run replaces the marks that overlap the range:
+<ul>
+<li>A word that overlaps the range is removed with its phonemes.
+</li>
+<li>A phrase that crosses an edge of the range gets shorter and keeps its words
+</li>
+</ul>
+</li>
+</ul>
+<p>that are outside the range.</p>
+<ul>
+<li>A phrase that contains the range becomes two phrases, one on each side.
+<ul>
+<li>A phrase with no word left is removed.
+</li>
+<li>A phrase that changes takes the text of its kept words as its label.
+</li>
+<li>Marks outside the range do not change. The replace is one undo step.
+</li>
+</ul>
 </li>
 <li>The worker handles one run at a time. The "Transcribe" action is disabled during
 </li>

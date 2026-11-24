@@ -13,8 +13,10 @@ does not exist yet (issue #7). The person can transcribe a song with a speech mo
 in the browser, or create phrases from lyrics, and see the marks on three layers.
 The person can export `.xtiming` files from the export dialog. A transcribe run
 breaks down each word into phonemes with the dictionary, and the person manages a
-custom dictionary. The editor shows unknown words. The edit actions of the editor
-are next.
+custom dictionary. The editor shows unknown words. The person edits marks on the
+layers with the mouse: move, resize, label, phoneme label and add. The transcribe
+dialog shows each step, the elapsed time and the device. The shortcuts, the loop,
+the inspector and the voices are next.
 
 ## Design
 

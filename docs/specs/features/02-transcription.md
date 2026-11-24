@@ -93,7 +93,7 @@ sequenceDiagram
 2. The person selects a speech model.
 3. The person pastes lyrics, or leaves the field empty.
 4. The person selects "Start".
-5. If marks exist in the target range, the app asks for confirmation.
+5. If one mark or more overlaps the target range, the app asks for confirmation.
 6. The app downloads the speech model if the browser does not have it.
 7. The app transcribes the audio and shows progress.
 8. The app aligns, groups and breaks down the words.
@@ -190,7 +190,14 @@ disables "Start". The hint reads "Paste the lyrics to use Lyrics only."
   - A transcribed word with no lyrics match is discarded.
   - If fewer than 30% of the lyrics words match, the app shows a warning before it
     creates marks.
-- A range run replaces only the marks that lie fully inside the range.
+- A range run replaces the marks that overlap the range:
+  - A word that overlaps the range is removed with its phonemes.
+  - A phrase that crosses an edge of the range gets shorter and keeps its words
+    that are outside the range.
+  - A phrase that contains the range becomes two phrases, one on each side.
+  - A phrase with no word left is removed.
+  - A phrase that changes takes the text of its kept words as its label.
+  - Marks outside the range do not change. The replace is one undo step.
 - The worker handles one run at a time. The "Transcribe" action is disabled during
   a run.
 - The app transcribes in 30-second chunks with a 5-second stride.

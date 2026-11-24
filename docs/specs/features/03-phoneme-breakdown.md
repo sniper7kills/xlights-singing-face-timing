@@ -24,7 +24,7 @@ dictionary gets wrong for a song.
 
 ## Functional requirements
 
-- FR-phoneme-1 — The app loads the dictionary on the first break down of a visit.
+- FR-phoneme-1 — The app loads the dictionary on the first break down of a visit, or when the editor opens a song that has a word.
 - FR-phoneme-2 — The app looks up a word in the custom dictionary first.
 - FR-phoneme-3 — The app looks up a word in the dictionary when the custom
   dictionary does not have it.
@@ -299,7 +299,9 @@ loadDictionary(): Promise<Dictionary>    // later calls get the same promise
 
 ## Acceptance criteria
 
-- The dictionary request happens once for each visit, at the first break down.
+- The dictionary request happens once for each visit, at the first break down or
+  when the editor opens a song that has a word. A song with no marks causes no
+  request.
   (FR-phoneme-1)
 - With a custom entry for `HELLO`, `lookup('hello').source` is `custom`.
   (FR-phoneme-2, 3)

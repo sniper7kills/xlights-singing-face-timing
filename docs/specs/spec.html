@@ -194,6 +194,7 @@ body.rv-open .layout { padding-right:21rem; }
 <tr><td>dictionary</td><td>noun</td><td>The table that gives the CMU symbols for a word.</td><td>lexicon</td></tr>
 <tr><td>custom dictionary</td><td>noun</td><td>The table of words that the person adds or changes. It takes priority over the dictionary.</td><td>user library, overrides</td></tr>
 <tr><td>speech model</td><td>noun</td><td>A Whisper model file that the browser downloads and runs.</td><td>model, AI, engine</td></tr>
+<tr><td>device</td><td>noun</td><td>The part of the computer that runs the speech model: the graphics card (<code>webgpu</code>) or the CPU (<code>wasm</code>).</td><td>backend, processor, hardware</td></tr>
 <tr><td>transcribe</td><td>verb</td><td>To run the speech model on the audio file and get words with times.</td><td>recognise, sync, analyse</td></tr>
 <tr><td>align</td><td>verb</td><td>To match the transcribed words with lyrics that the person supplies.</td><td>reconcile, merge</td></tr>
 <tr><td>break down</td><td>verb</td><td>To convert a word into phonemes.</td><td>split, expand, decompose</td></tr>
@@ -904,7 +905,12 @@ body.rv-open .layout { padding-right:21rem; }
 <tr><td>FR-export-20</td><td>#46</td></tr>
 <tr><td>FR-export-21</td><td>#45</td></tr>
 <tr><td>FR-export-22</td><td>#45</td></tr>
-</table></div><nav class="pager">
+</table></div>
+<ul>
+<li>2026-11-24 — Batch gate of epic #26. A range run replaces the marks that overlap
+</li>
+</ul>
+<p>the range, not only the marks fully inside it (issues #97 and #98). The editor loads the dictionary when it opens a song that has a word. The acceptance criterion "A click on a mark shows its fields in the inspector" moved from issue #30 to issue #34.</p><nav class="pager">
 <span></span>
 <a href="html/feature-foundation.html">Feature: Foundation &rarr;</a>
 </nav>
