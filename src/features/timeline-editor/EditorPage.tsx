@@ -5,6 +5,7 @@ import { useAutosaveStore, useSaveState } from '../../store/autosave.ts'
 import { StorageFullError } from '../../store/db.ts'
 import { useSongStore } from '../../store/songStore.ts'
 import { selectedVoice, useViewStore } from '../../store/viewStore.ts'
+import { CustomDictionaryAction } from '../phoneme-breakdown/CustomDictionaryAction.tsx'
 import type { BreakDownFailure, TranscribeOutcome } from '../transcription/runTranscription.ts'
 import { TranscribeDialog } from '../transcription/TranscribeDialog.tsx'
 import { outcomeText } from '../transcription/transcribeDialogState.ts'
@@ -103,6 +104,7 @@ export function EditorPage({ songId }: EditorPageProps) {
             Transcribe
           </button>
         )}
+        <CustomDictionaryAction />
         <span className="save-state" role="status">
           {saveState === 'saved' ? 'Saved' : 'Saving'}
         </span>

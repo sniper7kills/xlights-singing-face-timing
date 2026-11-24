@@ -1,3 +1,4 @@
+import { CustomDictionaryAction } from '../features/phoneme-breakdown/CustomDictionaryAction.tsx'
 import { EditorPage } from '../features/timeline-editor/EditorPage.tsx'
 import { useDatabaseStatus } from './database.ts'
 import { useHashRoute } from './routes.ts'
@@ -18,6 +19,8 @@ export function App() {
           <small>.xtiming files for xLights</small>
         </h1>
         <span className="spacer" />
+        {/* The editor shows the same action in its top bar. */}
+        {route.name !== 'song' && databaseStatus === 'ready' && <CustomDictionaryAction />}
         <button
           type="button"
           className="button"
