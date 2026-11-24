@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Song library — mockup</title>
+<style>
+:root{
+  --bg:#0b0f1a; --panel:#121829; --panel2:#182036; --line:#263050; --ink:#f3ead7; --mute:#8d97b3;
+  --amber:#ffb238; --amber-ink:#1a1204; --red:#ff5a4d; --green:#53e08a; --blue:#4dd0ff;
+  --display:"Rockwell","Roboto Slab","DejaVu Serif",Georgia,serif;
+  --body:"Avenir Next","Segoe UI Variable","Trebuchet MS",Verdana,sans-serif;
+  --mono:ui-monospace,"JetBrains Mono","DejaVu Sans Mono",Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: light){
+  :root:not([data-theme="dark"]){--bg:#f4eee1;--panel:#fffaf0;--panel2:#f0e7d4;--line:#d9cdb3;--ink:#1c1a2b;--mute:#6b6a7c;--amber:#c2410c;--amber-ink:#fff8ec;--green:#15803d;--blue:#0369a1;--red:#b91c1c}
+}
+:root[data-theme="light"]{--bg:#f4eee1;--panel:#fffaf0;--panel2:#f0e7d4;--line:#d9cdb3;--ink:#1c1a2b;--mute:#6b6a7c;--amber:#c2410c;--amber-ink:#fff8ec;--green:#15803d;--blue:#0369a1;--red:#b91c1c}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 var(--body);min-height:100vh;
+  background-image:radial-gradient(900px 380px at 15% -5%,color-mix(in srgb,var(--amber) 14%,transparent),transparent 70%),
+                   radial-gradient(700px 300px at 95% 10%,color-mix(in srgb,var(--blue) 10%,transparent),transparent 70%)}
+button{font:inherit;color:inherit;cursor:pointer}
+:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
+.wire{height:26px;position:relative;overflow:hidden}
+.wire::before{content:"";position:absolute;left:-2%;right:-2%;top:-14px;height:26px;border-bottom:2px solid var(--line);border-radius:0 0 50% 50%}
+.wire i{position:absolute;top:8px;width:9px;height:13px;border-radius:50% 50% 50% 50%/60% 60% 40% 40%;animation:glow 2.4s ease-in-out infinite}
+@keyframes glow{50%{filter:brightness(.55)}}
+@media (prefers-reduced-motion:reduce){.wire i{animation:none}}
+header{display:flex;align-items:center;gap:14px;padding:6px 28px 18px}
+h1{font:700 26px/1.1 var(--display);margin:0;letter-spacing:.01em}
+h1 small{display:block;font:12px var(--mono);color:var(--mute);letter-spacing:.14em;text-transform:uppercase;margin-top:4px}
+.sp{flex:1}
+.btn{border:1px solid var(--line);background:var(--panel2);border-radius:8px;padding:8px 14px}
+.btn:hover{border-color:var(--amber)}
+.btn.primary{background:var(--amber);color:var(--amber-ink);border-color:var(--amber);font-weight:700}
+main{max-width:1080px;margin:0 auto;padding:0 28px 60px;display:grid;grid-template-columns:minmax(0,1.5fr) minmax(0,1fr);gap:24px}
+.drop{grid-column:1/-1;border:2px dashed var(--line);border-radius:18px;padding:34px 28px;display:grid;grid-template-columns:auto 1fr auto;gap:24px;align-items:center;
+  background:linear-gradient(135deg,var(--panel),transparent)}
+.drop:hover{border-color:var(--amber)}
+.drop h2{font:700 22px var(--display);margin:0 0 4px}
+.drop p{margin:0;color:var(--mute)}
+.note{width:74px;height:74px;border-radius:50%;display:grid;place-items:center;font-size:32px;background:var(--panel2);border:1px solid var(--line)}
+.msg{grid-column:1/-1;border:1px solid var(--red);color:var(--red);border-radius:10px;padding:10px 14px;font-size:14px;background:color-mix(in srgb,var(--red) 8%,transparent)}
+section h3,.card h3{font:700 11px var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--mute);margin:0 0 10px}
+.song{display:grid;grid-template-columns:1fr auto auto;gap:14px;align-items:center;padding:14px 16px;border:1px solid var(--line);border-radius:12px;background:var(--panel);margin-bottom:8px;width:100%;text-align:left}
+.song:hover{border-color:var(--amber);transform:translateX(3px);transition:transform .15s}
+.song b{font:600 16px var(--display)}
+.song small{display:block;color:var(--mute);font:12px var(--mono)}
+.tags{display:flex;gap:5px}
+.tag{font:700 10px var(--mono);padding:2px 7px;border-radius:999px;border:1px solid var(--line);color:var(--mute)}
+.tag.ok{color:var(--green);border-color:var(--green)}
+.tag.todo{color:var(--amber);border-color:var(--amber)}
+.dur{font:600 14px var(--mono)}
+.card{border:1px solid var(--line);border-radius:12px;background:var(--panel);padding:16px;margin-bottom:16px}
+.meter{height:8px;border-radius:4px;background:var(--panel2);overflow:hidden;margin:8px 0 6px}
+.meter i{display:block;height:100%;width:23%;background:var(--amber)}
+.card small{color:var(--mute);font:12px var(--mono)}
+ol.how{margin:0;padding:0;list-style:none;counter-reset:s}
+ol.how li{counter-increment:s;display:grid;grid-template-columns:28px 1fr;gap:10px;padding:8px 0;border-bottom:1px solid var(--line)}
+ol.how li:last-child{border:0}
+ol.how li::before{content:counter(s);font:700 13px var(--mono);width:26px;height:26px;border-radius:50%;display:grid;place-items:center;background:var(--panel2);color:var(--amber)}
+.state{font:11px var(--mono);color:var(--mute);margin:0 0 8px}
+.prog{height:6px;background:var(--panel2);border-radius:3px;overflow:hidden;margin-top:8px}.prog i{display:block;height:100%;width:62%;background:var(--amber)}
+@media (max-width:760px){main{grid-template-columns:1fr;padding:0 16px 40px}.drop{grid-template-columns:1fr;text-align:center;justify-items:center}header{padding:6px 16px 14px}}
+</style>
+</head>
+<body>
+<div class="wire" aria-hidden="true" id="wire"></div>
+<header data-region="header">
+  <h1>Singing Face Timing<small>.xtiming files for xLights</small></h1>
+  <span class="sp"></span>
+  <button class="btn">Custom dictionary</button>
+  <button class="btn" aria-label="Switch theme" id="theme">◐ Theme</button>
+</header>
+
+<main>
+  <div class="drop" data-region="drop-zone" tabindex="0" role="button" aria-label="Add a song">
+    <div class="note" aria-hidden="true">♪</div>
+    <div>
+      <h2>Drop an audio file to add a song</h2>
+      <p>MP3, WAV, OGG, FLAC, M4A or AAC · 200 MB and 15 minutes at most · The audio stays in this browser.</p>
+    </div>
+    <div style="display:grid;gap:8px">
+      <button class="btn primary">Add a song</button>
+      <button class="btn">Try the demo song</button>
+    </div>
+  </div>
+
+  <div class="msg" data-state="error" role="alert">This file type is not supported. Use MP3, WAV, OGG, FLAC, M4A or AAC. <span style="opacity:.7">(error state, shown for the review)</span></div>
+
+  <section data-region="song-list">
+    <h3>Your songs</h3>
+    <button class="song"><span><b>Jingle Bells (Sing-Along Mix)</b><small>Changed today 14:02 · 3 voices · 2 sections</small></span><span class="tags"><span class="tag ok">214 words</span><span class="tag todo">2 unknown</span></span><span class="dur">2:41</span></button>
+    <button class="song"><span><b>Carol of the Bells</b><small>Changed yesterday · 1 voice</small></span><span class="tags"><span class="tag ok">96 words</span></span><span class="dur">3:12</span></button>
+    <button class="song"><span><b>Monster Mash</b><small>Changed 2026-10-19 · 2 voices · 5 sections</small></span><span class="tags"><span class="tag ok">301 words</span><span class="tag todo">11 estimated</span></span><span class="dur">3:08</span></button>
+    <button class="song"><span><b>wizards-in-winter</b><small>Changed 2026-10-02 · 1 voice</small></span><span class="tags"><span class="tag">not transcribed</span></span><span class="dur">3:05</span></button>
+
+    <p class="state" style="margin-top:18px">Loading state of the drop zone:</p>
+    <div class="card" data-state="loading"><b style="font-family:var(--display)">Decoding little-drummer-boy.flac</b><div class="prog"><i></i></div></div>
+  </section>
+
+  <aside>
+    <div class="card" data-region="storage-meter">
+      <h3>Browser storage</h3>
+      <div class="meter"><i></i></div>
+      <small>118 MB used of 512 MB allowed · Persistent storage: granted</small>
+    </div>
+    <div class="card" data-region="how-it-works">
+      <h3>How it works</h3>
+      <ol class="how">
+        <li><span><b>Add a song.</b> The app draws the waveform.</span></li>
+        <li><span><b>Transcribe.</b> A speech model in your browser finds each word and its time. Paste the lyrics for better results.</span></li>
+        <li><span><b>Check.</b> Drag words into place. Watch the face preview sing.</span></li>
+        <li><span><b>Export.</b> Download an .xtiming file with one timing track for each voice.</span></li>
+        <li><span><b>Import in xLights.</b> Import Timing Track, then drop a Faces effect.</span></li>
+      </ol>
+    </div>
+  </aside>
+</main>
+<script>
+(function(){
+  var w=document.getElementById("wire"),c=["var(--red)","var(--green)","var(--amber)","var(--blue)"];
+  for(var i=0;i<28;i++){var b=document.createElement("i");b.style.left=(i*3.7+1)+"%";b.style.top=(8+Math.sin(i/27*Math.PI)*-6+6)+"px";b.style.background=c[i%4];b.style.boxShadow="0 0 10px "+c[i%4];b.style.animationDelay=(i%4*0.6)+"s";w.appendChild(b);}
+  document.getElementById("theme").addEventListener("click",function(){var r=document.documentElement,d=r.getAttribute("data-theme");
+    var sysDark=!window.matchMedia("(prefers-color-scheme: light)").matches;var cur=d||(sysDark?"dark":"light");r.setAttribute("data-theme",cur==="dark"?"light":"dark");});
+})();
+</script>
+</body>
+</html>

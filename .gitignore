@@ -1,0 +1,30 @@
+# Claude Code
+.claude/settings.local.json
+.claude/worktrees/
+.claude/agent-memory-local/
+CLAUDE.local.md
+.claude.local.md
+.issue-flow.local.json
+
+# Node
+node_modules/
+dist/
+coverage/
+*.tsbuildinfo
+
+# Test output
+playwright-report/
+test-results/
+.playwright-mcp/
+
+# Environment
+.env
+.env.*
+!.env.example
+
+# OS and editors
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp

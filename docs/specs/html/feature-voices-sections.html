@@ -1,0 +1,718 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>xLights Singing Face Timing Generator — Feature: Voices and sections</title>
+<style>
+:root { --bg:#ffffff; --fg:#1a1a24; --muted:#5a5a68; --line:#e3e3ea; --accent:#3452c8;
+        --card:#f6f6f9; --warn-bg:#fff7e8; --warn-line:#e8b34a; }
+@media (prefers-color-scheme: dark) {
+  :root { --bg:#14141b; --fg:#e8e8ee; --muted:#9a9aa8; --line:#2c2c38; --accent:#8ea6ff;
+          --card:#1c1c26; --warn-bg:#2a2318; --warn-line:#a87c2a; } }
+* { box-sizing:border-box; }
+body { margin:0; background:var(--bg); color:var(--fg);
+       font:16px/1.6 system-ui,-apple-system,sans-serif; }
+.layout { display:flex; min-height:100vh; }
+aside.site { width:17rem; flex:none; border-right:1px solid var(--line);
+             padding:1.2rem 1rem 3rem; position:sticky; top:0; height:100vh;
+             overflow-y:auto; background:var(--card); }
+aside.site h2 { font-size:.8rem; text-transform:uppercase; letter-spacing:.06em;
+                color:var(--muted); margin:1.2rem 0 .3rem; border:none; padding:0; }
+aside.site ul { list-style:none; margin:0; padding:0; }
+aside.site li { margin:.15rem 0; }
+aside.site a { text-decoration:none; color:var(--fg); font-size:.92rem;
+               display:block; padding:.15rem .5rem; border-radius:6px; }
+aside.site a:hover { background:var(--bg); }
+aside.site a.current { background:var(--accent); color:#fff; }
+aside.site a.sub { padding-left:1.3rem; font-size:.84rem; color:var(--muted); }
+aside.site .brand { font-weight:700; font-size:1.05rem; }
+main { max-width:60rem; margin:0 auto; padding:2rem 1.5rem 6rem; min-width:0; flex:1; }
+h1,h2,h3,h4 { line-height:1.25; }
+h1 { font-size:2rem; margin:.2rem 0; }
+h2 { border-bottom:1px solid var(--line); padding-bottom:.3rem; margin-top:2.5rem; }
+a { color:var(--accent); }
+code { background:var(--card); padding:.1em .35em; border-radius:4px; font-size:.9em; }
+pre.code { background:var(--card); border:1px solid var(--line); border-radius:8px;
+           padding:1rem; overflow-x:auto; }
+pre.code code { background:none; padding:0; }
+.table-wrap { overflow-x:auto; }
+table { border-collapse:collapse; margin:1rem 0; min-width:50%; }
+th,td { border:1px solid var(--line); padding:.4rem .7rem; text-align:left; }
+th { background:var(--card); }
+blockquote { border-left:3px solid var(--accent); margin:1rem 0; padding:.2rem 1rem;
+             color:var(--muted); }
+.meta { color:var(--muted); margin-bottom:2rem; }
+.badge { display:inline-block; padding:.1rem .6rem; border-radius:999px;
+         border:1px solid var(--accent); color:var(--accent); font-size:.85rem; }
+.diagram { background:var(--card); border:1px solid var(--line); border-radius:8px;
+           padding:1rem; margin:1rem 0; overflow-x:auto; }
+.diagram pre.mermaid { margin:0; }
+.diagram.raw::before { content:"diagram source (assets/mermaid.min.js not vendored)";
+                       display:block; color:var(--muted); font-size:.8rem;
+                       margin-bottom:.5rem; }
+.callout-h, .callout-h ~ p, .callout-h ~ ul { background:var(--warn-bg); }
+.callout-h { border-left:4px solid var(--warn-line); padding:.3rem .8rem; }
+.mockup { margin:1.5rem 0; }
+.mockup iframe { width:100%; height:32rem; border:1px solid var(--line);
+                 border-radius:8px; background:#fff; }
+nav.pager { display:flex; justify-content:space-between; margin-top:3rem;
+            border-top:1px solid var(--line); padding-top:1rem; }
+@media (max-width: 900px) {
+  .layout { display:block; }
+  aside.site { width:auto; height:auto; position:static; border-right:none;
+               border-bottom:1px solid var(--line); }
+}
+h1[id]:hover .rv-add, h2[id]:hover .rv-add, h3[id]:hover .rv-add,
+h4[id]:hover .rv-add { opacity:1; }
+.rv-add { opacity:0; margin-left:.5rem; font-size:.75rem; cursor:pointer;
+          border:1px solid var(--accent); color:var(--accent); background:none;
+          border-radius:6px; padding:0 .45rem; vertical-align:middle;
+          transition:opacity .15s; }
+.rv-comment { border:1px solid var(--warn-line); border-left-width:4px;
+              background:var(--warn-bg); border-radius:8px; padding:.6rem .9rem;
+              margin:.8rem 0; font-size:.92rem; }
+.rv-comment.rv-resolved { opacity:.6; border-left-color:var(--line); }
+.rv-comment .rv-head { display:flex; gap:.6rem; align-items:center;
+                       color:var(--muted); font-size:.8rem; margin-bottom:.3rem; }
+.rv-comment .rv-head button { font-size:.75rem; cursor:pointer; background:none;
+                              border:1px solid var(--line); border-radius:6px;
+                              color:var(--muted); padding:0 .4rem; }
+.rv-comment .rv-body { white-space:pre-wrap; }
+.rv-editor textarea { width:100%; min-height:5rem; background:var(--bg);
+                      color:var(--fg); border:1px solid var(--line);
+                      border-radius:6px; padding:.5rem; font:inherit; }
+.rv-editor .rv-actions { margin-top:.4rem; display:flex; gap:.5rem; }
+.rv-editor button { cursor:pointer; border-radius:6px; padding:.2rem .8rem;
+                    border:1px solid var(--accent); background:var(--accent);
+                    color:#fff; }
+.rv-editor button.rv-cancel { background:none; color:var(--accent); }
+#rv-toggle { position:fixed; right:1rem; bottom:1rem; z-index:60;
+             background:var(--accent); color:#fff; border:none; cursor:pointer;
+             border-radius:999px; padding:.5rem 1rem; font-size:.85rem;
+             box-shadow:0 2px 10px rgba(0,0,0,.2); }
+#rv-drawer { position:fixed; top:0; right:0; bottom:0; width:21rem; z-index:55;
+             background:var(--card); border-left:1px solid var(--line);
+             display:flex; flex-direction:column; transform:translateX(100%);
+             transition:transform .2s ease; box-shadow:-4px 0 16px rgba(0,0,0,.12); }
+body.rv-open #rv-drawer { transform:none; }
+body.rv-open .layout { padding-right:21rem; }
+#rv-drawer header { padding:.8rem 1rem .5rem; border-bottom:1px solid var(--line); }
+#rv-drawer header .rv-count { color:var(--muted); font-size:.8rem; }
+#rv-drawer .rv-compose { padding:.8rem 1rem; border-bottom:1px solid var(--line); }
+#rv-drawer .rv-compose label { display:block; font-size:.75rem;
+                               color:var(--muted); margin-bottom:.25rem; }
+#rv-drawer .rv-compose select { width:100%; margin-bottom:.4rem;
+             background:var(--bg); color:var(--fg); border:1px solid var(--line);
+             border-radius:6px; padding:.3rem; font:inherit; font-size:.85rem; }
+#rv-drawer .rv-compose textarea { width:100%; min-height:5.5rem;
+             background:var(--bg); color:var(--fg); border:1px solid var(--line);
+             border-radius:6px; padding:.5rem; font:inherit; font-size:.9rem; }
+#rv-drawer .rv-compose .rv-live { font-size:.72rem; color:var(--muted); }
+#rv-drawer .rv-list { flex:1; overflow-y:auto; padding:.6rem 1rem; }
+#rv-drawer .rv-item { border:1px solid var(--line); border-left:3px solid
+             var(--warn-line); border-radius:8px; padding:.45rem .6rem;
+             margin-bottom:.6rem; font-size:.82rem; cursor:pointer; }
+#rv-drawer .rv-item.rv-resolved { opacity:.55; border-left-color:var(--line); }
+#rv-drawer .rv-item .rv-where { color:var(--accent); font-size:.72rem; }
+#rv-drawer .rv-item .rv-meta { color:var(--muted); font-size:.72rem;
+                               display:flex; gap:.5rem; align-items:center; }
+#rv-drawer .rv-item .rv-meta button { font-size:.7rem; cursor:pointer;
+             background:none; border:1px solid var(--line); border-radius:5px;
+             color:var(--muted); padding:0 .35rem; }
+#rv-drawer .rv-item .rv-text { white-space:pre-wrap; margin:.15rem 0; }
+#rv-drawer footer { padding:.6rem 1rem; border-top:1px solid var(--line);
+                    display:flex; gap:.5rem; flex-wrap:wrap; }
+#rv-drawer footer button, #rv-drawer .rv-compose button {
+  cursor:pointer; border:1px solid var(--accent); background:none;
+  color:var(--accent); border-radius:6px; padding:.2rem .7rem; font-size:.8rem; }
+#rv-drawer .rv-compose button.rv-primary { background:var(--accent); color:#fff; }
+#rv-drawer .rv-otherpages { color:var(--muted); font-size:.75rem;
+                            margin:.4rem 0 0; }
+@media (max-width: 1200px) { body.rv-open .layout { padding-right:0; } }
+</style>
+</head>
+<body data-page="feature-voices-sections" data-rvkey="singing-face-timing">
+<div class="layout">
+<aside class="site"><a class="brand" href="../spec.html">xLights Singing Face Timing Generator</a>
+<h2>Spec</h2><ul>
+<li><a href="../spec.html">Overview &amp; index</a></li>
+</ul>
+<h2>Features</h2><ul>
+<li><a href="feature-foundation.html">Foundation</a></li>
+<li><a href="feature-audio-import.html">Audio import</a></li>
+<li><a href="feature-transcription.html">Transcription</a></li>
+<li><a href="feature-phoneme-breakdown.html">Phoneme breakdown</a></li>
+<li><a href="feature-timeline-editor.html">Timeline editor</a></li>
+<li><a class="current" href="feature-voices-sections.html">Voices and sections</a></li>
+<li><a href="feature-xtiming-export.html">xtiming export</a></li>
+</ul></aside>
+<main>
+<h1>Feature: Voices and sections</h1>
+<p class="meta">Epic 5: Voices and sections &nbsp; <span class="badge">planned</span></p>
+<h3 id="voices-sections-purpose">Purpose</h3>
+<p>A show often has several face models, and each one sings a different part. A voice holds the marks for one singer, and becomes one timing track in xLights. A section names a time range of the song, so the person can work on, and export, one part of the song at a time.</p>
+<h3 id="voices-sections-user-stories">User stories</h3>
+<ul>
+<li>As the person, I want one timing track for each singer, so that each face model
+</li>
+</ul>
+<p>sings only its own lines.</p>
+<ul>
+<li>As the person, I want to move a line from one singer to another, so that I can
+</li>
+</ul>
+<p>divide one transcript between faces.</p>
+<ul>
+<li>As the person, I want a line that all singers sing to be on every voice, so that
+</li>
+</ul>
+<p>all faces sing the chorus.</p>
+<ul>
+<li>As the person, I want to name the parts of the song, so that I can find, review
+</li>
+</ul>
+<p>and export them.</p>
+<h3 id="voices-sections-functional-requirements">Functional requirements</h3>
+<ul>
+<li>FR-voice-1 — The voice rail lists the voices of the song in their order.
+</li>
+<li>FR-voice-2 — The person adds a voice.
+</li>
+<li>FR-voice-3 — The person renames a voice.
+</li>
+<li>FR-voice-4 — The person changes the colour of a voice.
+</li>
+<li>FR-voice-5 — The person changes the order of the voices.
+</li>
+<li>FR-voice-6 — The person deletes a voice after a confirm dialog.
+</li>
+<li>FR-voice-7 — The person selects one voice to show on the layers.
+</li>
+<li>FR-voice-8 — The person moves the selected phrases to another voice.
+</li>
+<li>FR-voice-9 — The person copies the selected phrases to another voice.
+</li>
+<li>FR-voice-10 — A moved or copied phrase takes its words and their phonemes.
+</li>
+<li>FR-voice-11 — The stage shows the phrases of the other voices as thin bars in a
+</li>
+</ul>
+<p>"ghost" row under the phoneme layer.</p>
+<ul>
+<li>FR-voice-12 — The person mutes the face preview for a voice during play.
+</li>
+<li>FR-voice-13 — The face preview shows one face for each voice that is not muted,
+</li>
+</ul>
+<p>up to 4 faces.</p>
+<ul>
+<li>FR-voice-14 — The section band shows the sections of the song above the time
+</li>
+</ul>
+<p>ruler.</p>
+<ul>
+<li>FR-voice-15 — The person adds a section from the time selection.
+</li>
+<li>FR-voice-16 — The person renames a section.
+</li>
+<li>FR-voice-17 — The person drags an edge of a section.
+</li>
+<li>FR-voice-18 — The person deletes a section.
+</li>
+<li>FR-voice-19 — A click on a section selects its time range and scrolls to it.
+</li>
+<li>FR-voice-20 — The person adds sections from <code>[Name]</code> tags in pasted lyrics.
+</li>
+<li>FR-voice-21 — The person moves every phrase of a section to another voice with
+</li>
+</ul>
+<p>one action.</p>
+<h3 id="voices-sections-user-flows">User flows</h3>
+<h4 id="voices-sections-divide-one-transcript-between-two-singers">Divide one transcript between two singers</h4>
+<div class="diagram"><pre class="mermaid">flowchart TD
+  A[Song has one voice with all phrases] --&gt; B[Person adds a voice: Santa]
+  B --&gt; C[Person selects the phrases that Santa sings]
+  C --&gt; D{Does Lead Vocals also sing them?}
+  D -- no --&gt; E[Person selects Move to voice, Santa]
+  D -- yes --&gt; F[Person selects Copy to voice, Santa]
+  E --&gt; G{Target range on Santa is empty?}
+  F --&gt; G
+  G -- no --&gt; H[Confirm: replace the marks of Santa in that range]
+  H -- cancel --&gt; C
+  H -- confirm --&gt; I
+  G -- yes --&gt; I[Phrases, words and phonemes appear on Santa]
+  I --&gt; J[Ghost row of Lead Vocals shows the phrases of Santa]</pre></div>
+<ol>
+<li>The person adds a voice and names it.
+</li>
+<li>The person selects one or more phrases on the phrase layer.
+</li>
+<li>The person selects "Move to voice" or "Copy to voice" and the target voice.
+</li>
+<li>If the target voice has marks in the same time range, the app asks for
+</li>
+</ol>
+<p>confirmation.</p>
+<ol>
+<li>The app moves or copies the phrases with their words and phonemes.
+</li>
+</ol>
+<h4 id="voices-sections-make-sections">Make sections</h4>
+<div class="diagram"><pre class="mermaid">flowchart TD
+  A[Person drags a time selection on the waveform] --&gt; B[Person selects Add section]
+  B --&gt; C[Person types a name]
+  C --&gt; D{Overlaps a section?}
+  D -- yes --&gt; E[App trims the new section to the free range]
+  E -- free range under 1 second --&gt; F[Message: no room for a section here]
+  D -- no --&gt; G[Section shows in the section band]
+  E --&gt; G</pre></div>
+<ol>
+<li>The person drags a time selection.
+</li>
+<li>The person selects "Add section".
+</li>
+<li>The person types a name.
+</li>
+<li>The app trims the section if it overlaps another section.
+</li>
+<li>The section band shows the section.
+</li>
+</ol>
+<h3 id="voices-sections-screens-states">Screens &amp; states</h3>
+<p><strong>Voice rail</strong> (left region of the editor, see <a href="../mockups/02-editor.html">mockups/02-editor.html</a>, owned by <a href="feature-timeline-editor.html">04-timeline-editor.md</a>). Each voice row shows the colour chip, the name, the phrase count, a mute button for the face preview and a menu (rename, colour, move up, move down, delete).</p>
+<ul>
+<li>one voice: the row has no delete action.
+</li>
+<li>many voices: the selected voice has a highlighted row.
+</li>
+<li>12 voices: the "Add voice" button is disabled with the tooltip "A song has 12
+</li>
+</ul>
+<p>voices at most."</p>
+<p><strong>Section band</strong> (top of the stage).</p>
+<ul>
+<li>empty: a thin band with the hint "Drag on the waveform, then Add section".
+</li>
+<li>populated: one labelled block for each section.
+</li>
+</ul>
+<p><strong>Phrase menu.</strong> "Move to voice" and "Copy to voice" each open a list of the other voices and "New voice".</p>
+<h3 id="voices-sections-behaviour-rules">Behaviour rules</h3>
+<ul>
+<li>A song has 1 to 12 voices.
+</li>
+<li>A voice name is unique in the song, without regard to letter case. It is 1 to 60
+</li>
+</ul>
+<p>characters.</p>
+<ul>
+<li>A voice name does not contain <code>&lt;</code>, <code>&gt;</code>, <code>&amp;</code> or <code>"</code>. The file format can escape
+</li>
+</ul>
+<p>them, but the name shows in xLights menus and stays simple.</p>
+<ul>
+<li>A new voice gets the name "Voice N", where N is the lowest free number, and the
+</li>
+</ul>
+<p>next unused colour.</p>
+<ul>
+<li>Deleting a voice deletes its marks. It is one undo step.
+</li>
+<li>The person cannot delete the last voice.
+</li>
+<li>A copy makes new marks with new ids. The copies are independent after the copy.
+</li>
+<li>A copied or moved phrase keeps its <code>edited</code>, <code>estimated</code> and <code>unknown</code> states.
+</li>
+<li>"Transcribe" writes to the selected voice only.
+</li>
+<li>A section is 1 second long or more.
+</li>
+<li>Sections do not overlap. Sections can have gaps between them.
+</li>
+<li>A section name is unique in the song. A duplicate name gets a number, for example
+</li>
+</ul>
+<p>"Chorus 2".</p>
+<ul>
+<li>A phrase belongs to a section when the middle of the phrase is inside the
+</li>
+</ul>
+<p>section.</p>
+<ul>
+<li>Sections are shared by all voices of the song.
+</li>
+<li>Lyrics tags: a line that is only <code>[Name]</code> starts a section at the first phrase
+</li>
+</ul>
+<p>after it. The section ends where the next tag starts, or at the last phrase.</p>
+<ul>
+<li>Voice and section changes are undo steps.
+</li>
+</ul>
+<h3 id="voices-sections-data-touched">Data touched</h3>
+<ul>
+<li>Reads and writes <code>VOICE</code>, <code>SECTION</code> and <code>MARK</code>.
+</li>
+<li><code>VOICE</code> gains <code>previewMuted: bool</code>, stored with the song.
+</li>
+</ul>
+<h3 id="voices-sections-interfaces">Interfaces</h3>
+<p><strong>Store actions, <code>src/store/</code>:</strong></p>
+<pre class="code"><code>addVoice(songId, name?): Voice
+renameVoice(id, name)            // rejects a duplicate name
+setVoiceColor(id, color)
+reorderVoices(songId, orderedIds)
+deleteVoice(id)
+movePhrases(phraseIds, toVoiceId, mode: 'move' | 'copy', replace: boolean)
+addSection(songId, name, startMs, endMs): Section
+updateSection(id, patch)
+deleteSection(id)
+phrasesInSection(voiceId, sectionId): Mark[]</code></pre>
+<p>No external interface.</p>
+<h3 id="voices-sections-edge-cases-failures">Edge cases &amp; failures</h3>
+<div class="table-wrap"><table>
+<tr><th>Case</th><th>Result</th></tr>
+<tr><td>Duplicate voice name</td><td>Field error: "A voice with this name exists."</td></tr>
+<tr><td>Move to a voice with marks in the range</td><td>Confirm dialog: "Santa has 3 phrases in this range. Replace them?"</td></tr>
+<tr><td>Move every phrase off a voice</td><td>The voice stays, with no marks.</td></tr>
+<tr><td>Section edge dragged over another section</td><td>The edge stops at the other section.</td></tr>
+<tr><td>Section shorter than 1 second after a drag</td><td>The edge stops at 1 second.</td></tr>
+<tr><td>Delete a section</td><td>The marks stay. Only the section goes.</td></tr>
+<tr><td>A phrase spans two sections</td><td>It belongs to the section that holds its middle.</td></tr>
+<tr><td>Song has more than 4 unmuted voices</td><td>The face preview shows the first 4 in voice order and the note "+2 more".</td></tr>
+</table></div>
+<h3 id="voices-sections-acceptance-criteria">Acceptance criteria</h3>
+<ul>
+<li>The voice rail shows the voices in <code>order</code>. (FR-voice-1)
+</li>
+<li>"Add voice" adds "Voice 2" to a song with one voice. (FR-voice-2)
+</li>
+<li>A renamed voice shows the new name after a reload. (FR-voice-3)
+</li>
+<li>A changed colour shows on the rail and on the ghost row. (FR-voice-4)
+</li>
+<li>"Move up" on the second voice makes it the first. (FR-voice-5)
+</li>
+<li>A deleted voice is absent, and one undo restores it with its marks. (FR-voice-6)
+</li>
+<li>A click on a voice shows only its marks on the three layers. (FR-voice-7)
+</li>
+<li>After a move, the source voice does not have the phrases and the target voice
+</li>
+</ul>
+<p>has them at the same times. (FR-voice-8, 10)</p>
+<ul>
+<li>After a copy, both voices have the phrases, and an edit on one does not change
+</li>
+</ul>
+<p>the other. (FR-voice-9, 10)</p>
+<ul>
+<li>The ghost row shows a bar for each phrase of each other voice. (FR-voice-11)
+</li>
+<li>A muted voice has no face in the face preview. (FR-voice-12)
+</li>
+<li>A song with two unmuted voices shows two faces, each with its voice name.
+</li>
+</ul>
+<p>(FR-voice-13)</p>
+<ul>
+<li>The section band shows each section at its time range. (FR-voice-14)
+</li>
+<li>"Add section" on a time selection of 0:10 to 0:25 makes a section with those
+</li>
+</ul>
+<p>times. (FR-voice-15)</p>
+<ul>
+<li>A renamed section shows the new name. (FR-voice-16)
+</li>
+<li>A dragged section edge snaps to the frame size and stops at the adjacent
+</li>
+</ul>
+<p>section. (FR-voice-17)</p>
+<ul>
+<li>A deleted section leaves every mark unchanged. (FR-voice-18)
+</li>
+<li>A click on a section scrolls the stage to its start. (FR-voice-19)
+</li>
+<li>Lyrics with <code>[Verse 1]</code> and <code>[Chorus]</code> tags make two sections. (FR-voice-20)
+</li>
+<li>"Move section to voice" moves each phrase of the section. (FR-voice-21)
+</li>
+</ul>
+<h3 id="voices-sections-out-of-scope">Out of scope</h3>
+<ul>
+<li>Detecting singers automatically.
+</li>
+<li>Sections that differ for each voice.
+</li>
+<li>Nested sections.
+</li>
+<li>Separate audio files for each voice.
+</li>
+</ul>
+<h3 id="voices-sections-open-questions" class="callout-h">Open questions</h3>
+<p>None.</p><nav class="pager">
+<a href="feature-timeline-editor.html">&larr; Feature: Timeline editor</a>
+<a href="feature-xtiming-export.html">Feature: xtiming export &rarr;</a>
+</nav>
+</main>
+</div>
+<script src="../assets/mermaid.min.js"></script>
+<script>mermaid.initialize({startOnLoad:true,theme:matchMedia('(prefers-color-scheme: dark)').matches?'dark':'default'});</script>
+<script type="application/json" id="rv-embedded">[]</script>
+<script>
+(function(){
+  'use strict';
+  var PAGE = document.body.getAttribute('data-page');
+  // storage key carries the spec's slug: file:// pages can share one
+  // localStorage pool, and two specs must never share a comment store
+  var RVKEY = 'spec-review:' + (document.body.getAttribute('data-rvkey') || 'spec');
+  var EMBED = [];
+  var embedEl = document.getElementById('rv-embedded');
+  if (embedEl) { try { EMBED = JSON.parse(embedEl.textContent); } catch(e){} }
+  function loadLocal(){ try { return JSON.parse(localStorage.getItem(RVKEY)) || {comments:[], deleted:[]}; } catch(e){ return {comments:[], deleted:[]}; } }
+  function saveLocal(s){ try { localStorage.setItem(RVKEY, JSON.stringify(s)); } catch(e){} }
+  function cid(c){ return c.page + '|' + c.section + '|' + (c.date||'') + '|' + c.body.slice(0,24); }
+  function allComments(){
+    var s = loadLocal(), map = {};
+    EMBED.forEach(function(c){ map[cid(c)] = c; });
+    s.comments.forEach(function(c){ map[cid(c)] = c; });
+    s.deleted.forEach(function(id){ delete map[id]; });
+    return Object.keys(map).map(function(k){ return map[k]; });
+  }
+  function upsert(c){
+    var s = loadLocal(), id = cid(c);
+    s.comments = s.comments.filter(function(x){ return cid(x) !== id; });
+    s.comments.push(c);
+    s.deleted = s.deleted.filter(function(x){ return x !== id; });
+    saveLocal(s); refresh();
+  }
+  function remove(c){
+    var s = loadLocal(), id = cid(c);
+    s.comments = s.comments.filter(function(x){ return cid(x) !== id; });
+    if (EMBED.some(function(x){ return cid(x) === id; })) s.deleted.push(id);
+    saveLocal(s); refresh();
+  }
+  function today(){ return new Date().toISOString().slice(0,10); }
+  function exportMd(){
+    var lines = ['# Review comments', '',
+      '<!-- Exported from the spec review layer. Save this file as',
+      '     docs/specs/review-comments.md and re-run render-spec.py to embed',
+      '     every comment under its section for the next review round. -->', ''];
+    allComments().sort(function(a,b){
+      return (a.page+a.section).localeCompare(b.page+b.section);
+    }).forEach(function(c){
+      lines.push('## [' + c.page + '] ' + (c.section||''));
+      lines.push('status: ' + (c.status||'open'));
+      lines.push('date: ' + (c.date||today()));
+      lines.push(c.body); lines.push('');
+    });
+    var blob = new Blob([lines.join('\n')], {type:'text/markdown'});
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'review-comments.md';
+    a.click(); URL.revokeObjectURL(a.href);
+  }
+  function importMd(file){
+    var reader = new FileReader();
+    reader.onload = function(){
+      var text = String(reader.result);
+      var blocks = text.split(/^## /m).slice(1);
+      blocks.forEach(function(b){
+        var head = b.match(/^\[([^\]]+)\]\s*(\S*)/);
+        if (!head) return;
+        var status = (b.match(/^status:\s*(\S+)/m)||[])[1] || 'open';
+        var date = (b.match(/^date:\s*(\S+)/m)||[])[1] || today();
+        var body = b.replace(/^\[[^\]]*\]\s*\S*\s*\n/, '')
+                    .replace(/^status:.*\n?/m,'').replace(/^date:.*\n?/m,'').trim();
+        if (body) upsert({page:head[1], section:head[2]||'', status:status, date:date, body:body});
+      });
+      refresh();
+    };
+    reader.readAsText(file);
+  }
+  function commentBox(c){
+    var div = document.createElement('div');
+    div.className = 'rv-comment' + (c.status === 'resolved' ? ' rv-resolved' : '');
+    var head = document.createElement('div'); head.className = 'rv-head';
+    head.textContent = '💬 ' + (c.date||'') + ' · ' + (c.status||'open');
+    var tog = document.createElement('button');
+    tog.textContent = c.status === 'resolved' ? 'reopen' : 'resolve';
+    tog.onclick = function(){ remove(c); c = Object.assign({}, c, {status: c.status === 'resolved' ? 'open' : 'resolved'}); upsert(c); };
+    var del = document.createElement('button'); del.textContent = 'delete';
+    del.onclick = function(){ if (confirm('Delete this comment?')) remove(c); };
+    head.appendChild(tog); head.appendChild(del);
+    var body = document.createElement('div'); body.className = 'rv-body';
+    body.textContent = c.body;
+    div.appendChild(head); div.appendChild(body);
+    return div;
+  }
+  function editor(section, after){
+    var wrap = document.createElement('div');
+    wrap.className = 'rv-comment rv-editor';
+    var ta = document.createElement('textarea');
+    ta.placeholder = 'Comment on this section…';
+    var actions = document.createElement('div'); actions.className = 'rv-actions';
+    var save = document.createElement('button'); save.textContent = 'Save';
+    save.onclick = function(){
+      if (ta.value.trim()) upsert({page:PAGE, section:section, status:'open', date:today(), body:ta.value.trim()});
+      wrap.remove();
+    };
+    var cancel = document.createElement('button'); cancel.textContent = 'Cancel';
+    cancel.className = 'rv-cancel'; cancel.onclick = function(){ wrap.remove(); };
+    actions.appendChild(save); actions.appendChild(cancel);
+    wrap.appendChild(ta); wrap.appendChild(actions);
+    after.insertAdjacentElement('afterend', wrap);
+    ta.focus();
+  }
+  // --- headings, inline buttons ---
+  var mainH1 = document.querySelector('main h1');
+  if (mainH1 && !mainH1.id) { mainH1.id = 'page-title'; }
+  var headings = Array.prototype.slice.call(
+    document.querySelectorAll('main h1[id], main h2[id], main h3[id], main h4[id]'));
+  headings.forEach(function(h){
+    var b = document.createElement('button');
+    b.className = 'rv-add'; b.textContent = '💬 comment'; b.title = 'Comment on this section';
+    b.onclick = function(){ editor(h.id, h); };
+    h.appendChild(b);
+  });
+  function headingTitle(h){
+    var t = h.childNodes[0] ? h.childNodes[0].textContent : h.textContent;
+    return t.trim();
+  }
+  function titleFor(section){
+    var el = section && document.getElementById(section);
+    return el ? headingTitle(el) : (section || '(page)');
+  }
+
+  // --- drawer ---
+  var drawer = document.createElement('div');
+  drawer.id = 'rv-drawer';
+  drawer.innerHTML =
+    '<header><strong>Review</strong> <span class="rv-count"></span></header>' +
+    '<div class="rv-compose">' +
+    '<div class="rv-live">Commenting on the section in view:</div>' +
+    '<label for="rv-sec"></label><select id="rv-sec"></select>' +
+    '<textarea id="rv-text" placeholder="Type as you read… (Ctrl+Enter saves)"></textarea>' +
+    '<div style="margin-top:.4rem; display:flex; gap:.5rem;">' +
+    '<button class="rv-primary" id="rv-save">Save comment</button>' +
+    '<button id="rv-clear">Clear</button></div></div>' +
+    '<div class="rv-list"></div>' +
+    '<footer><button id="rv-export">Export .md</button>' +
+    '<button id="rv-import">Import</button>' +
+    '<span class="rv-otherpages"></span></footer>';
+  document.body.appendChild(drawer);
+  var toggle = document.createElement('button');
+  toggle.id = 'rv-toggle';
+  toggle.onclick = function(){
+    document.body.classList.toggle('rv-open');
+    try { localStorage.setItem(RVKEY + ':open', document.body.classList.contains('rv-open') ? '1' : ''); } catch(e){}
+  };
+  document.body.appendChild(toggle);
+  try { if (localStorage.getItem(RVKEY + ':open')) document.body.classList.add('rv-open'); } catch(e){}
+
+  var sel = drawer.querySelector('#rv-sec');
+  headings.forEach(function(h){
+    var opt = document.createElement('option');
+    opt.value = h.id; opt.textContent = headingTitle(h);
+    sel.appendChild(opt);
+  });
+  var followScroll = true;
+  sel.onchange = function(){ followScroll = false; };
+
+  // scroll spy: pick the last heading above the upper third of the viewport
+  function currentSection(){
+    var line = window.innerHeight * 0.33, best = headings[0];
+    for (var i = 0; i < headings.length; i++) {
+      if (headings[i].getBoundingClientRect().top <= line) best = headings[i];
+    }
+    return best ? best.id : '';
+  }
+  window.addEventListener('scroll', function(){
+    if (!followScroll) return;
+    var s = currentSection();
+    if (s && sel.value !== s) sel.value = s;
+  }, {passive:true});
+  // typing pins the target section so a stray scroll can't retarget the comment
+  drawer.querySelector('#rv-text').addEventListener('input', function(){
+    if (this.value.trim()) followScroll = false;
+    else followScroll = true;
+  });
+
+  function saveFromDrawer(){
+    var ta = drawer.querySelector('#rv-text');
+    if (!ta.value.trim()) return;
+    upsert({page:PAGE, section:sel.value, status:'open', date:today(), body:ta.value.trim()});
+    ta.value = ''; followScroll = true;
+  }
+  drawer.querySelector('#rv-save').onclick = saveFromDrawer;
+  drawer.querySelector('#rv-text').addEventListener('keydown', function(e){
+    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') saveFromDrawer();
+  });
+  drawer.querySelector('#rv-clear').onclick = function(){
+    drawer.querySelector('#rv-text').value = ''; followScroll = true;
+  };
+  drawer.querySelector('#rv-export').onclick = exportMd;
+  var fileIn = document.createElement('input');
+  fileIn.type = 'file'; fileIn.accept = '.md,text/markdown'; fileIn.style.display = 'none';
+  fileIn.onchange = function(){ if (fileIn.files[0]) importMd(fileIn.files[0]); };
+  drawer.appendChild(fileIn);
+  drawer.querySelector('#rv-import').onclick = function(){ fileIn.click(); };
+
+  function drawerItem(c){
+    var div = document.createElement('div');
+    div.className = 'rv-item' + (c.status === 'resolved' ? ' rv-resolved' : '');
+    var where = document.createElement('div'); where.className = 'rv-where';
+    where.textContent = titleFor(c.section);
+    var text = document.createElement('div'); text.className = 'rv-text';
+    text.textContent = c.body;
+    var meta = document.createElement('div'); meta.className = 'rv-meta';
+    meta.textContent = (c.date||'') + ' · ' + (c.status||'open');
+    var tog = document.createElement('button');
+    tog.textContent = c.status === 'resolved' ? 'reopen' : 'resolve';
+    tog.onclick = function(e){ e.stopPropagation(); remove(c);
+      upsert(Object.assign({}, c, {status: c.status === 'resolved' ? 'open' : 'resolved'})); };
+    var del = document.createElement('button'); del.textContent = 'delete';
+    del.onclick = function(e){ e.stopPropagation();
+      if (confirm('Delete this comment?')) remove(c); };
+    meta.appendChild(tog); meta.appendChild(del);
+    div.appendChild(where); div.appendChild(text); div.appendChild(meta);
+    div.onclick = function(){
+      var el = c.section && document.getElementById(c.section);
+      if (el) el.scrollIntoView({behavior:'smooth', block:'start'});
+    };
+    return div;
+  }
+
+  function refresh(){
+    document.querySelectorAll('.rv-comment:not(.rv-editor)').forEach(function(el){ el.remove(); });
+    var all = allComments();
+    var mine = all.filter(function(c){ return c.page === PAGE; });
+    mine.forEach(function(c){
+      var target = c.section && document.getElementById(c.section);
+      var anchor = target || mainH1 || document.body.querySelector('main') || document.body;
+      anchor.insertAdjacentElement('afterend', commentBox(c));
+    });
+    var open = all.filter(function(c){ return c.status !== 'resolved'; }).length;
+    toggle.textContent = '💬 Review (' + open + ')';
+    drawer.querySelector('.rv-count').textContent =
+      open + ' open / ' + all.length + ' total';
+    var list = drawer.querySelector('.rv-list');
+    list.innerHTML = '';
+    mine.slice().reverse().forEach(function(c){ list.appendChild(drawerItem(c)); });
+    var others = {};
+    all.forEach(function(c){ if (c.page !== PAGE) others[c.page] = (others[c.page]||0) + 1; });
+    var otherKeys = Object.keys(others);
+    drawer.querySelector('.rv-otherpages').textContent = otherKeys.length
+      ? 'Other pages: ' + otherKeys.map(function(k){ return k + ' (' + others[k] + ')'; }).join(', ')
+      : '';
+  }
+  refresh();
+  var s0 = currentSection();
+  if (s0) sel.value = s0;
+})();
+</script>
+</body>
+</html>

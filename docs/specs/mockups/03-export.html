@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Export dialog — mockup</title>
+<style>
+:root{
+  --bg:#0b0f1a; --panel:#121829; --panel2:#182036; --line:#263050; --ink:#f3ead7; --mute:#8d97b3;
+  --amber:#ffb238; --amber-ink:#1a1204; --red:#ff5a4d; --green:#53e08a; --blue:#4dd0ff;
+  --display:"Rockwell","Roboto Slab","DejaVu Serif",Georgia,serif;
+  --body:"Avenir Next","Segoe UI Variable","Trebuchet MS",Verdana,sans-serif;
+  --mono:ui-monospace,"JetBrains Mono","DejaVu Sans Mono",Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: light){
+  :root:not([data-theme="dark"]){--bg:#d9d0bd;--panel:#fffaf0;--panel2:#f0e7d4;--line:#d9cdb3;--ink:#1c1a2b;--mute:#6b6a7c;--amber:#c2410c;--amber-ink:#fff8ec;--green:#15803d;--blue:#0369a1;--red:#b91c1c}
+}
+:root[data-theme="light"]{--bg:#d9d0bd;--panel:#fffaf0;--panel2:#f0e7d4;--line:#d9cdb3;--ink:#1c1a2b;--mute:#6b6a7c;--amber:#c2410c;--amber-ink:#fff8ec;--green:#15803d;--blue:#0369a1;--red:#b91c1c}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.45 var(--body);min-height:100vh;display:grid;place-items:start center;padding:28px 16px}
+button,input{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
+.dialog{width:min(1040px,100%);background:var(--panel);border:1px solid var(--line);border-radius:16px;box-shadow:0 30px 80px rgba(0,0,0,.45);overflow:hidden}
+.head{display:flex;align-items:baseline;gap:12px;padding:18px 22px;border-bottom:1px solid var(--line)}
+.head h1{font:700 21px var(--display);margin:0}
+.head span{font:12px var(--mono);color:var(--mute)}
+.body{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.15fr)}
+.col{padding:18px 22px;min-width:0}
+.col + .col{border-left:1px solid var(--line);background:color-mix(in srgb,var(--bg) 45%,var(--panel))}
+h2{font:700 11px var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--mute);margin:0 0 8px}
+.grp{margin-bottom:20px}
+label.opt{display:grid;grid-template-columns:20px 1fr;gap:8px;align-items:start;padding:7px 9px;border:1px solid var(--line);border-radius:9px;margin-bottom:6px;background:var(--panel2)}
+label.opt small{display:block;color:var(--mute);font-size:12px}
+label.opt:has(input:checked){border-color:var(--amber)}
+input[type=checkbox],input[type=radio]{accent-color:var(--amber);margin-top:3px}
+.chip{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:6px}
+table{width:100%;border-collapse:collapse;font-size:13px}
+td{padding:4px 0;border-bottom:1px solid var(--line);vertical-align:middle}
+td input{width:100%;background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:4px 7px;font:12px var(--mono)}
+td.n{width:80px;text-align:right;font:11px var(--mono);color:var(--mute);padding-left:8px;white-space:nowrap}
+.find{display:grid;grid-template-columns:auto 1fr auto;gap:8px;align-items:center;width:100%;text-align:left;border:1px solid var(--line);background:var(--panel2);border-radius:8px;padding:6px 9px;margin-bottom:5px;font-size:13px}
+.find:hover{border-color:var(--amber)}
+.badge{font:700 10px var(--mono);border-radius:999px;padding:1px 7px;border:1px solid currentColor}
+.badge.w{color:var(--amber)}.badge.e{color:var(--red)}
+pre{margin:0;background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:12px;font:11.5px/1.5 var(--mono);overflow:auto;max-height:230px}
+pre .t{color:var(--blue)}pre .a{color:var(--amber)}pre .v{color:var(--green)}
+ol.steps{margin:0;padding-left:20px;font-size:13px}
+ol.steps li{margin-bottom:5px}
+ol.steps b{font-family:var(--display)}
+.foot{display:flex;gap:10px;align-items:center;padding:14px 22px;border-top:1px solid var(--line)}
+.foot .sp{flex:1}
+.foot small{font:12px var(--mono);color:var(--mute)}
+.btn{border:1px solid var(--line);background:var(--panel2);border-radius:8px;padding:8px 16px}
+.btn.primary{background:var(--amber);color:var(--amber-ink);border-color:var(--amber);font-weight:700}
+.done{color:var(--green);font:12px var(--mono)}
+@media (max-width:820px){.body{grid-template-columns:1fr}.col + .col{border-left:0;border-top:1px solid var(--line)}}
+</style>
+</head>
+<body>
+<div class="dialog" role="dialog" aria-labelledby="ttl">
+  <div class="head"><h1 id="ttl">Export to xLights</h1><span>Jingle Bells (Sing-Along Mix) · Frame size: 50 ms</span></div>
+  <div class="body">
+    <div class="col">
+      <div class="grp" data-region="voice-list">
+        <h2>Voices</h2>
+        <label class="opt"><input type="checkbox" checked><span><span class="chip" style="background:var(--amber)"></span>Lead Vocals<small>14 phrases · 142 words</small></span></label>
+        <label class="opt"><input type="checkbox" checked><span><span class="chip" style="background:var(--blue)"></span>Santa<small>4 phrases · 31 words</small></span></label>
+        <label class="opt"><input type="checkbox"><span><span class="chip" style="background:var(--green)"></span>Elf Choir<small>6 phrases · 41 words</small></span></label>
+      </div>
+      <div class="grp" data-region="grouping">
+        <h2>Timing tracks</h2>
+        <label class="opt"><input type="radio" name="g" checked><span>One timing track for each voice<small>Best when each face model sings the whole song.</small></span></label>
+        <label class="opt"><input type="radio" name="g"><span>One timing track for each voice and section<small>Best when you sequence one section at a time.</small></span></label>
+      </div>
+      <div class="grp" data-region="packaging">
+        <h2>Files</h2>
+        <label class="opt"><input type="radio" name="p" checked><span>One file with all timing tracks<small>One import in xLights.</small></span></label>
+        <label class="opt"><input type="radio" name="p"><span>One file for each timing track</span></label>
+      </div>
+      <div class="grp" data-region="options">
+        <h2>Options</h2>
+        <label class="opt"><input type="checkbox"><span>Write rest phonemes in gaps<small>Not needed. xLights closes the mouth in a gap.</small></span></label>
+      </div>
+    </div>
+
+    <div class="col">
+      <div class="grp" data-region="timing-track-list">
+        <h2>Timing track names in xLights</h2>
+        <table>
+          <tr><td><input value="Lead Vocals" aria-label="Timing track name 1"></td><td class="n">3 layers · 498</td></tr>
+          <tr><td><input value="Santa" aria-label="Timing track name 2"></td><td class="n">3 layers · 117</td></tr>
+        </table>
+      </div>
+      <div class="grp" data-region="checks">
+        <h2>Checks · 0 errors · 3 warnings</h2>
+        <button class="find"><span class="badge w">warning</span><span>“Rudolph” is an unknown word. Its phonemes are a guess.</span><span>0:18.700 →</span></button>
+        <button class="find"><span class="badge w">warning</span><span>“all” has an estimated time.</span><span>0:17.100 →</span></button>
+        <button class="find"><span class="badge w">warning</span><span>“the” has an estimated time.</span><span>0:17.500 →</span></button>
+      </div>
+      <div class="grp" data-region="file-preview">
+        <h2>Preview · Jingle Bells (Sing-Along Mix).xtiming</h2>
+<pre>&lt;?xml version="1.0" encoding="UTF-8"?&gt;
+<span class="t">&lt;timings&gt;</span>
+<span class="t">&lt;timing</span> <span class="a">name</span>=<span class="v">"Lead Vocals"</span> <span class="a">subType</span>=<span class="v">""</span> <span class="a">SourceVersion</span>=<span class="v">"2024.01"</span><span class="t">&gt;</span>
+   <span class="t">&lt;EffectLayer&gt;</span>
+      <span class="t">&lt;Effect</span> <span class="a">label</span>=<span class="v">"Dashing through the snow"</span> <span class="a">starttime</span>=<span class="v">"8200"</span> <span class="a">endtime</span>=<span class="v">"10300"</span> <span class="t">/&gt;</span>
+      <span class="t">&lt;Effect</span> <span class="a">label</span>=<span class="v">"In a one-horse open sleigh"</span> <span class="a">starttime</span>=<span class="v">"10600"</span> <span class="a">endtime</span>=<span class="v">"13000"</span> <span class="t">/&gt;</span>
+   <span class="t">&lt;/EffectLayer&gt;</span>
+   <span class="t">&lt;EffectLayer&gt;</span>
+      <span class="t">&lt;Effect</span> <span class="a">label</span>=<span class="v">"Dashing"</span> <span class="a">starttime</span>=<span class="v">"8200"</span> <span class="a">endtime</span>=<span class="v">"8800"</span> <span class="t">/&gt;</span>
+      <span class="t">&lt;Effect</span> <span class="a">label</span>=<span class="v">"through"</span> <span class="a">starttime</span>=<span class="v">"8800"</span> <span class="a">endtime</span>=<span class="v">"9200"</span> <span class="t">/&gt;</span>
+   <span class="t">&lt;/EffectLayer&gt;</span>
+   <span class="t">&lt;EffectLayer&gt;</span>
+      <span class="t">&lt;Effect</span> <span class="a">label</span>=<span class="v">"etc"</span> <span class="a">starttime</span>=<span class="v">"8200"</span> <span class="a">endtime</span>=<span class="v">"8250"</span> <span class="t">/&gt;</span>
+      <span class="t">&lt;Effect</span> <span class="a">label</span>=<span class="v">"AI"</span> <span class="a">starttime</span>=<span class="v">"8250"</span> <span class="a">endtime</span>=<span class="v">"8450"</span> <span class="t">/&gt;</span>
+   <span class="t">&lt;/EffectLayer&gt;</span>
+<span class="t">&lt;/timing&gt;</span>
+…</pre>
+      </div>
+      <div class="grp" data-region="import-steps" style="margin-bottom:0">
+        <h2>Next, in xLights</h2>
+        <ol class="steps">
+          <li>Open the sequence. Use the <b>same audio file</b>, so the times match.</li>
+          <li>Check that the sequence frame size is <b>50 ms</b>.</li>
+          <li>Right-click a timing row heading and select <b>Import Timing Track</b>.</li>
+          <li>Select the <b>.xtiming</b> file. xLights adds one timing track for each voice.</li>
+          <li>Drop a <b>Faces</b> effect on the row of the face model.</li>
+          <li>Under <b>Mouth Movements</b>, select the timing track for that face model.</li>
+          <li>Repeat steps 5 and 6 for each face model.</li>
+        </ol>
+      </div>
+    </div>
+  </div>
+  <div class="foot">
+    <small>2 timing tracks · 1 file · 615 marks</small>
+    <span class="sp"></span>
+    <span class="done" id="done" hidden>✓ 2 timing tracks written to Jingle Bells (Sing-Along Mix).xtiming</span>
+    <button class="btn">Close</button>
+    <button class="btn primary" id="dl">Download</button>
+  </div>
+</div>
+<script>
+document.getElementById("dl").addEventListener("click",function(){document.getElementById("done").hidden=false;});
+</script>
+</body>
+</html>

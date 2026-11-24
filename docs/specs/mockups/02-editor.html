@@ -1,0 +1,250 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Editor — mockup</title>
+<style>
+:root{
+  --bg:#0b0f1a; --panel:#121829; --panel2:#182036; --line:#263050; --ink:#f3ead7; --mute:#8d97b3;
+  --amber:#ffb238; --amber-ink:#1a1204; --wave:#3d4a78; --wave-hi:#ffb238; --ghost:#2a3558;
+  --p-AI:#ff5a4d; --p-E:#ffb238; --p-O:#4dd0ff; --p-U:#7c8cff; --p-WQ:#c77dff; --p-L:#53e08a;
+  --p-MBP:#ff7fc0; --p-FV:#ffe45c; --p-etc:#9aa6c7; --p-rest:#3a4466;
+  --display:"Rockwell","Roboto Slab","DejaVu Serif",Georgia,serif;
+  --body:"Avenir Next","Segoe UI Variable","Trebuchet MS",Verdana,sans-serif;
+  --mono:ui-monospace,"JetBrains Mono","DejaVu Sans Mono",Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: light){
+  :root:not([data-theme="dark"]){
+    --bg:#f4eee1; --panel:#fffaf0; --panel2:#f0e7d4; --line:#d9cdb3; --ink:#1c1a2b; --mute:#6b6a7c;
+    --amber:#c2410c; --amber-ink:#fff8ec; --wave:#b9ad92; --wave-hi:#c2410c; --ghost:#e3d8c0;
+    --p-etc:#7d8399; --p-rest:#cfc4aa; --p-FV:#d9a400;
+  }
+}
+:root[data-theme="light"]{
+  --bg:#f4eee1; --panel:#fffaf0; --panel2:#f0e7d4; --line:#d9cdb3; --ink:#1c1a2b; --mute:#6b6a7c;
+  --amber:#c2410c; --amber-ink:#fff8ec; --wave:#b9ad92; --wave-hi:#c2410c; --ghost:#e3d8c0;
+  --p-etc:#7d8399; --p-rest:#cfc4aa; --p-FV:#d9a400;
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.4 var(--body);
+  background-image:radial-gradient(1200px 400px at 70% -10%,color-mix(in srgb,var(--amber) 12%,transparent),transparent 70%)}
+button{font:inherit;color:inherit;cursor:pointer}
+.app{display:grid;grid-template-rows:52px 1fr 64px;grid-template-columns:200px minmax(0,1fr) 260px;height:100vh;min-height:620px}
+.top{grid-column:1/-1;display:flex;align-items:center;gap:14px;padding:0 16px;border-bottom:1px solid var(--line);background:var(--panel)}
+.brand{font:700 17px var(--display);letter-spacing:.02em;display:flex;align-items:center;gap:8px}
+.bulbs{display:flex;gap:3px}.bulbs i{width:7px;height:10px;border-radius:50% 50% 50% 50%/60% 60% 40% 40%;display:block}
+.song{font:600 15px var(--display)}
+.saved{font:12px var(--mono);color:var(--mute)}
+.sp{flex:1}
+.btn{border:1px solid var(--line);background:var(--panel2);border-radius:8px;padding:7px 12px}
+.btn:hover{border-color:var(--amber)}
+.btn.primary{background:var(--amber);color:var(--amber-ink);border-color:var(--amber);font-weight:700}
+.btn:focus-visible,.mark:focus-visible,.voice:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
+.rail{border-right:1px solid var(--line);background:var(--panel);padding:12px;overflow:auto}
+.rail h2,.insp h2{font:700 11px var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--mute);margin:4px 0 10px}
+.voice{display:grid;grid-template-columns:12px 1fr auto;gap:8px;align-items:center;width:100%;text-align:left;
+  padding:9px 8px;border-radius:8px;border:1px solid transparent;background:none;margin-bottom:4px}
+.voice[aria-pressed="true"]{background:var(--panel2);border-color:var(--line)}
+.chip{width:12px;height:12px;border-radius:50%}
+.voice small{color:var(--mute);font:11px var(--mono)}
+.add{width:100%;border:1px dashed var(--line);background:none;border-radius:8px;padding:8px;color:var(--mute);margin-top:6px}
+.stage{overflow-x:auto;overflow-y:hidden;position:relative;background:var(--bg)}
+.track{position:relative;width:2490px;height:100%;display:grid;grid-template-rows:26px 22px 120px 44px 44px 40px 22px 1fr}
+.row{position:relative;border-bottom:1px solid var(--line)}
+.row > .lab{position:sticky;left:0;z-index:3;display:inline-block;font:700 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;
+  color:var(--mute);background:var(--bg);padding:2px 6px;border-radius:0 0 6px 0}
+.sec{position:absolute;top:3px;bottom:3px;border-radius:5px;font:700 11px var(--mono);padding:2px 8px;color:var(--amber-ink);background:var(--amber);opacity:.9}
+.sec.alt{background:var(--p-O);color:#04202b}
+.ruler span{position:absolute;top:4px;font:10px var(--mono);color:var(--mute);border-left:1px solid var(--line);padding-left:4px;height:100%}
+svg.wave{position:absolute;inset:0;width:100%;height:100%}
+.mark{position:absolute;top:6px;bottom:6px;border-radius:6px;border:1px solid var(--line);background:var(--panel2);
+  overflow:hidden;white-space:nowrap;text-overflow:ellipsis;padding:0 7px;display:flex;align-items:center;font-size:13px}
+.mark.phrase{font:600 13px var(--display);background:color-mix(in srgb,var(--amber) 14%,var(--panel))}
+.mark.sel{border-color:var(--amber);box-shadow:0 0 0 2px color-mix(in srgb,var(--amber) 35%,transparent)}
+.mark.sel::before,.mark.sel::after{content:"";position:absolute;top:0;bottom:0;width:5px;background:var(--amber);cursor:ew-resize}
+.mark.sel::before{left:0}.mark.sel::after{right:0}
+.mark.est{border-style:dashed}
+.mark.unk{border-style:dotted;border-width:2px}
+.mark.ph{font:700 10px var(--mono);justify-content:center;padding:0;color:#0b0f1a;border:0;top:7px;bottom:7px}
+.ghostbar{position:absolute;top:7px;height:8px;border-radius:4px;opacity:.75}
+.cursor{position:absolute;top:0;bottom:0;width:2px;background:var(--amber);z-index:4;box-shadow:0 0 12px var(--amber);pointer-events:none}
+.cursor::before{content:"";position:absolute;top:0;left:-5px;border:6px solid transparent;border-top-color:var(--amber)}
+.insp{border-left:1px solid var(--line);background:var(--panel);padding:12px;overflow:auto}
+.face{aspect-ratio:1/1;background:radial-gradient(circle at 50% 40%,var(--panel2),var(--bg));border:1px solid var(--line);border-radius:14px;display:grid;place-items:center;margin-bottom:6px}
+.facecap{display:flex;justify-content:space-between;font:11px var(--mono);color:var(--mute);margin-bottom:14px}
+.facecap b{color:var(--amber);font-size:14px}
+dl{display:grid;grid-template-columns:64px 1fr;gap:6px 8px;margin:0 0 14px;font:12px var(--mono)}
+dt{color:var(--mute)}dd{margin:0}
+dd input{width:100%;background:var(--bg);border:1px solid var(--line);color:var(--ink);border-radius:6px;padding:4px 6px;font:12px var(--mono)}
+.legend{display:grid;grid-template-columns:repeat(5,1fr);gap:4px}
+.legend span{font:700 10px var(--mono);text-align:center;border-radius:4px;padding:3px 0;color:#0b0f1a}
+.bar{grid-column:1/-1;display:flex;align-items:center;gap:12px;padding:0 16px;border-top:1px solid var(--line);background:var(--panel)}
+.play{width:42px;height:42px;border-radius:50%;border:0;background:var(--amber);color:var(--amber-ink);font-size:16px}
+.time{font:600 20px var(--mono);min-width:120px}
+.seg{display:flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.seg button{border:0;background:none;padding:6px 10px;font:12px var(--mono)}
+.seg button[aria-pressed="true"]{background:var(--panel2);color:var(--amber)}
+.warn{border:1px dotted var(--amber);color:var(--amber);border-radius:999px;padding:5px 12px;font:12px var(--mono);background:none}
+.kbd{font:11px var(--mono);border:1px solid var(--line);border-bottom-width:2px;border-radius:4px;padding:1px 5px;color:var(--mute)}
+@media (max-width:1023px){
+  .app{display:block;height:auto}
+  .rail,.insp,.stage,.bar{display:none}
+  .narrow{display:block!important}
+}
+.narrow{display:none;padding:40px 20px;text-align:center;font:600 18px var(--display)}
+@media (prefers-reduced-motion:reduce){.cursor{box-shadow:none}}
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="top" data-region="top-bar">
+    <button class="btn" aria-label="Back to song library">←</button>
+    <div class="brand"><span class="bulbs" aria-hidden="true"><i style="background:var(--p-AI)"></i><i style="background:var(--p-L)"></i><i style="background:var(--p-E)"></i><i style="background:var(--p-O)"></i></span>Singing Face Timing</div>
+    <span class="song">Jingle Bells (Sing-Along Mix)</span>
+    <span class="saved">Saved</span>
+    <span class="sp"></span>
+    <button class="btn">Transcribe</button>
+    <button class="btn">Custom dictionary</button>
+    <button class="btn primary">Export</button>
+  </header>
+
+  <aside class="rail" data-region="voice-rail" aria-label="Voices">
+    <h2>Voices</h2>
+    <button class="voice" aria-pressed="true"><span class="chip" style="background:var(--p-E)"></span><span>Lead Vocals<br><small>14 phrases</small></span><span aria-label="Face preview on">◉</span></button>
+    <button class="voice" aria-pressed="false"><span class="chip" style="background:var(--p-O)"></span><span>Santa<br><small>4 phrases</small></span><span aria-label="Face preview on">◉</span></button>
+    <button class="voice" aria-pressed="false"><span class="chip" style="background:var(--p-L)"></span><span>Elf Choir<br><small>6 phrases</small></span><span aria-label="Face preview muted">○</span></button>
+    <button class="add">+ Add voice</button>
+    <h2 style="margin-top:22px">Sections</h2>
+    <button class="voice"><span class="chip" style="background:var(--amber);border-radius:3px"></span><span>Verse 1<br><small>0:08.000 – 0:13.400</small></span></button>
+    <button class="voice"><span class="chip" style="background:var(--p-O);border-radius:3px"></span><span>Chorus<br><small>0:13.400 – 0:20.000</small></span></button>
+  </aside>
+
+  <main class="stage" data-region="stage" id="stage">
+    <div class="track" id="track">
+      <div class="row" data-region="section-band"><span class="lab">Sections</span><div id="secs"></div></div>
+      <div class="row ruler" id="ruler"></div>
+      <div class="row" data-region="waveform"><svg class="wave" id="wave" preserveAspectRatio="none"></svg></div>
+      <div class="row" data-region="phrase-layer"><span class="lab">Phrases</span><div id="L0"></div></div>
+      <div class="row" data-region="word-layer"><span class="lab">Words</span><div id="L1"></div></div>
+      <div class="row" data-region="phoneme-layer"><span class="lab">Phonemes</span><div id="L2"></div></div>
+      <div class="row" data-region="ghost-row"><span class="lab">Other voices</span><div id="G"></div></div>
+      <div class="row" style="border:0"></div>
+      <div class="cursor" id="cursor"></div>
+    </div>
+  </main>
+
+  <aside class="insp" data-region="inspector">
+    <h2>Face preview</h2>
+    <div class="face">
+      <svg viewBox="0 0 120 120" width="78%" aria-label="Face preview">
+        <circle cx="60" cy="60" r="52" fill="none" stroke="var(--line)" stroke-width="2"/>
+        <g id="eyes" fill="var(--ink)"><ellipse cx="42" cy="48" rx="6" ry="8"/><ellipse cx="78" cy="48" rx="6" ry="8"/></g>
+        <path id="mouth" d="M40 82 Q60 86 80 82" fill="var(--p-AI)" stroke="var(--ink)" stroke-width="3" stroke-linejoin="round"/>
+      </svg>
+    </div>
+    <div class="facecap"><span>Lead Vocals</span><b id="phnow">rest</b></div>
+
+    <h2>Selected word</h2>
+    <dl>
+      <dt>Label</dt><dd><input value="bells" aria-label="Label"></dd>
+      <dt>Start</dt><dd><input value="0:14.050" aria-label="Start"></dd>
+      <dt>End</dt><dd><input value="0:14.850" aria-label="End"></dd>
+      <dt>Length</dt><dd>800 ms · 16 frames</dd>
+      <dt>Source</dt><dd>Dictionary · B EH1 L Z</dd>
+    </dl>
+    <h2>Phoneme labels</h2>
+    <div class="legend" id="legend"></div>
+    <p style="color:var(--mute);font-size:12px;margin-top:14px"><span class="kbd">L</span> loop · <span class="kbd">S</span> split · <span class="kbd">M</span> merge · <span class="kbd">?</span> all shortcuts</p>
+  </aside>
+
+  <footer class="bar" data-region="transport">
+    <button class="play" id="play" aria-label="Play or pause">▶</button>
+    <div class="time" id="time">0:13.400</div>
+    <div class="seg" aria-label="Play speed"><button aria-pressed="false">50%</button><button aria-pressed="false">75%</button><button aria-pressed="true">100%</button></div>
+    <button class="btn" aria-pressed="false">Loop</button>
+    <span class="sp"></span>
+    <button class="warn">2 unknown words</button>
+    <label style="font:12px var(--mono);color:var(--mute)">Zoom <input type="range" min="10" max="1000" value="200" aria-label="Zoom"></label>
+    <div class="seg" aria-label="Frame size"><button aria-pressed="false">25 ms</button><button aria-pressed="true">50 ms</button></div>
+    <button class="btn" aria-label="Undo">↶</button><button class="btn" aria-label="Redo">↷</button>
+  </footer>
+  <div class="narrow">The editor needs a window that is 1024 px wide or more.</div>
+</div>
+
+<script>
+(function(){
+  var PX=200, T0=8;                       // pixels per second, first second shown
+  var PAD=90;                             // room for the sticky layer names
+  var x=function(ms){return (ms/1000-T0)*PX+PAD;};
+  var MOUTH={
+    rest:"M40 82 Q60 86 80 82", MBP:"M42 82 Q60 80 78 82 Q60 84 42 82",
+    AI:"M40 76 Q60 70 80 76 Q60 104 40 76", E:"M38 78 Q60 74 82 78 Q60 94 38 78",
+    O:"M50 74 Q60 68 70 74 Q74 86 60 96 Q46 86 50 74", U:"M53 78 Q60 73 67 78 Q69 86 60 91 Q51 86 53 78",
+    WQ:"M52 80 Q60 76 68 80 Q60 88 52 80", L:"M42 76 Q60 72 78 76 Q60 96 42 76",
+    FV:"M42 80 Q60 76 78 80 Q60 88 42 80", etc:"M42 79 Q60 76 78 79 Q60 90 42 79"
+  };
+  var W={AI:3,E:3,O:3,U:3,WQ:2,L:2,MBP:1,FV:1,etc:1};
+  var phrases=[
+    {t:"Dashing through the snow",s:8200,e:10300,w:[["Dashing",8200,8800,["etc","AI","etc","AI","etc"]],["through",8800,9200,["etc","U"]],["the",9200,9400,["etc","AI"]],["snow",9400,10300,["etc","O"]]]},
+    {t:"In a one-horse open sleigh",s:10600,e:13000,w:[["In",10600,10800,["AI","etc"]],["a",10800,10950,["AI"]],["one-horse",10950,11700,["WQ","AI","etc","O","etc"]],["open",11700,12200,["O","MBP","AI","etc"]],["sleigh",12200,13000,["etc","L","E"]]]},
+    {t:"Jingle bells, jingle bells",s:13400,e:16300,w:[["Jingle",13400,14050,["etc","AI","etc","L"]],["bells",14050,14850,["MBP","E","L","etc"],"sel"],["jingle",15000,15600,["etc","AI","etc","L"]],["bells",15600,16300,["MBP","E","L","etc"]]]},
+    {t:"Jingle all the way, Rudolph",s:16600,e:19800,w:[["Jingle",16600,17100,["etc","AI","etc","L"]],["all",17100,17500,["O","L"],"est"],["the",17500,17700,["etc","AI"],"est"],["way",17700,18500,["WQ","E"]],["Rudolph",18700,19800,["etc","U","etc","O","L","FV"],"unk"]]}
+  ];
+  function el(tag,cls,style,txt){var d=document.createElement(tag);if(cls)d.className=cls;if(style)d.style.cssText=style;if(txt!=null)d.textContent=txt;return d;}
+  var L0=document.getElementById("L0"),L1=document.getElementById("L1"),L2=document.getElementById("L2");
+  var ph=[];
+  phrases.forEach(function(p){
+    L0.appendChild(el("div","mark phrase","left:"+x(p.s)+"px;width:"+(x(p.e)-x(p.s))+"px",p.t));
+    p.w.forEach(function(w){
+      var m=el("button","mark "+(w[4]||""),"left:"+x(w[1])+"px;width:"+(x(w[2])-x(w[1]))+"px",w[0]);
+      m.title=w[0]+(w[4]==="est"?" (estimated)":w[4]==="unk"?" (unknown word)":"");
+      L1.appendChild(m);
+      var tot=w[3].reduce(function(a,l){return a+W[l];},0),t=w[1];
+      w[3].forEach(function(l){var d=(w[2]-w[1])*W[l]/tot;ph.push([l,t,t+d]);
+        var b=el("div","mark ph","left:"+x(t)+"px;width:"+Math.max(x(t+d)-x(t)-1,6)+"px;background:var(--p-"+l+")",l);b.title=l;L2.appendChild(b);t+=d;});
+    });
+  });
+  var secs=document.getElementById("secs");
+  secs.appendChild(el("div","sec","left:"+x(8000)+"px;width:"+(x(13400)-x(8000)-3)+"px","Verse 1"));
+  secs.appendChild(el("div","sec alt","left:"+x(13400)+"px;width:"+(x(20000)-x(13400))+"px","Chorus"));
+  var G=document.getElementById("G");
+  [[13400,16300,"--p-O"],[16600,18500,"--p-O"],[13400,19800,"--p-L"]].forEach(function(g,i){
+    G.appendChild(el("div","ghostbar","left:"+x(g[0])+"px;width:"+(x(g[1])-x(g[0]))+"px;background:var("+g[2]+");top:"+(i===2?12:3)+"px;height:6px"));});
+  var ruler=document.getElementById("ruler");
+  for(var s=8;s<=20;s++){ruler.appendChild(el("span","","left:"+x(s*1000)+"px","0:"+(s<10?"0":"")+s));}
+  var wave=document.getElementById("wave"),ns="http://www.w3.org/2000/svg",N=600;
+  wave.setAttribute("viewBox","0 0 "+N+" 100");
+  for(var i=0;i<N;i++){
+    var ms=8000+i*12000/N,voc=ph.some(function(p){return ms>=p[1]&&ms<p[2];});
+    var h=(voc?34:8)+Math.abs(Math.sin(i*.9)*18)+Math.abs(Math.sin(i*.23)*14)+(i*7919%11);
+    var r=document.createElementNS(ns,"rect");r.setAttribute("x",i);r.setAttribute("y",50-h/2);r.setAttribute("width",.62);r.setAttribute("height",h);
+    r.setAttribute("fill",voc?"var(--wave-hi)":"var(--wave)");r.setAttribute("opacity",voc?.85:.9);wave.appendChild(r);
+  }
+  var lg=document.getElementById("legend");
+  ["AI","E","O","U","WQ","L","MBP","FV","etc","rest"].forEach(function(l){lg.appendChild(el("span","","background:var(--p-"+l+")",l));});
+
+  var cur=document.getElementById("cursor"),time=document.getElementById("time"),mouth=document.getElementById("mouth"),
+      now=document.getElementById("phnow"),eyes=document.getElementById("eyes"),stage=document.getElementById("stage"),
+      btn=document.getElementById("play"),t=8000,playing=false,last=0;
+  function show(){
+    cur.style.left=x(t)+"px";
+    var s=Math.floor(t/1000),m=Math.floor(t%1000);
+    time.textContent="0:"+(s<10?"0":"")+s+"."+("00"+m).slice(-3);
+    var p=ph.filter(function(q){return t>=q[1]&&t<q[2];})[0],l=p?p[0]:"rest";
+    mouth.setAttribute("d",MOUTH[l]);now.textContent=l;
+    eyes.style.transform=(l==="rest"&&Math.floor(t/90)%14===0)?"scaleY(.15)":"";eyes.style.transformOrigin="60px 48px";
+    if(playing){var cx=x(t)-stage.scrollLeft;if(cx>stage.clientWidth*.7||cx<0)stage.scrollLeft=x(t)-stage.clientWidth*.3;}
+  }
+  function tick(ts){if(!playing)return;if(last)t+=ts-last;last=ts;if(t>=20000){t=8000;}show();requestAnimationFrame(tick);}
+  btn.addEventListener("click",function(){playing=!playing;last=0;btn.textContent=playing?"❚❚":"▶";if(playing)requestAnimationFrame(tick);});
+  document.addEventListener("keydown",function(e){if(e.code==="Space"&&e.target.tagName!=="INPUT"){e.preventDefault();btn.click();}});
+  ruler.parentNode.addEventListener("click",function(e){var r=document.getElementById("track").getBoundingClientRect();t=Math.max(T0*1000,(e.clientX-r.left-PAD)/PX*1000+T0*1000);show();});
+  wave.style.left=PAD+"px";wave.style.width="calc(100% - "+PAD+"px)";
+  t=13400;stage.scrollLeft=x(12300)-PAD;
+  show();
+})();
+</script>
+</body>
+</html>

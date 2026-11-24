@@ -1,0 +1,52 @@
+---
+paths:
+  - "src/**/*.{ts,tsx}"
+  - "infra/**"
+  - "scripts/**"
+  - ".github/workflows/**"
+  - "docs/specs/**/*.md"
+---
+
+# External APIs — read the docs, never assume
+
+Before you write a call against any item below, confirm the operation name, the
+required parameters, the response shape, the error cases and the permissions from
+its documentation. Use the version that `package.json` pins. Cite the URL and the
+version in the PR body. If the documentation contradicts the spec, stop and ask.
+Do not reconcile by guess.
+
+| Item | Version pinned | Documentation |
+|---|---|---|
+| `@huggingface/transformers` | 4.3.x | https://huggingface.co/docs/transformers.js/api/pipelines , https://huggingface.co/docs/transformers.js/en/guides/webgpu , https://huggingface.co/docs/transformers.js/en/guides/dtypes |
+| Whisper speech model files | `onnx-community/whisper-{tiny,base,small}_timestamped` (candidates) | https://huggingface.co/onnx-community |
+| wavesurfer.js | 8.1.x | https://wavesurfer.xyz/docs/ |
+| CMU Pronouncing Dictionary | file `cmudict.dict` | https://github.com/cmusphinx/cmudict |
+| Web Audio `decodeAudioData` | browser | https://developer.mozilla.org/en-US/docs/Web/API/BaseAudioContext/decodeAudioData |
+| xLights `.xtiming` format | commit `99a289bf` | https://github.com/xLightsSequencer/xLights — `src-core/render/Element.cpp`, `src-ui-wx/sequencer/RowHeading.cpp`, `src-core/render/SequenceFile.cpp`, `src-core/effects/FacesEffect.cpp` |
+| xLights manual | current | https://manual.xlights.org/xlights/chapters/chapter-four-sequencer/singing-faces.md |
+| AWS CloudFormation (S3, CloudFront, IAM) | current | https://docs.aws.amazon.com/AWSCloudFormation/latest/TemplateReference/ |
+| AWS CLI | 2.x | `aws s3 sync help`, `aws cloudfront create-invalidation help` |
+| GitHub OIDC with AWS | current | https://docs.aws.amazon.com/IAM/latest/UserGuide/id_roles_create_for-idp_oidc.html |
+
+Not confirmed yet. Confirm each one before the code that depends on it:
+
+- Which speech model repositories return word times with
+  `return_timestamps: 'word'`.
+- The option name and the event shape for speech model download progress.
+- The sample rate that a `Float32Array` input to the speech model must have.
+- The entry format and the licence file of `cmudict.dict`.
+- The wavesurfer.js method and event names for zoom, scroll and time.
+- The output of the xLights `XmlSafe` function for `&`, `<`, `>`, `"` and `'`.
+- The CloudFormation properties of the bucket policy and the distribution, and the
+  IAM action names for the deploy role.
+
+Evidence format:
+
+```
+Verified against: https://huggingface.co/docs/transformers.js/api/pipelines (4.3.2, retrieved 2026-11-24)
+Verified against: `aws s3 sync help` (aws-cli/2.37.9)
+```
+
+Anything that creates, deletes or changes an AWS resource is confirmed with the
+user first. Read-only `list-*`, `get-*` and `describe-*` calls are the safe way to
+learn the shape of a real resource.
