@@ -8,6 +8,7 @@ import { commitMarkEdit, newMarkId } from './commitMarkEdit.ts'
  * The times snap to the frame size, and the mark is clamped to the empty range around `startMs`.
  * A new word gets a break down in the same step, when the dictionary is in memory.
  * A call that is not possible changes nothing and records no step.
+ * Returns the id of the new mark, so the editor can select it. Returns null when the call adds no mark.
  * @param voiceId The voice of the mark.
  * @param layer The layer of the mark.
  * @param startMs The start of the range. The empty range around this time receives the mark.
@@ -20,21 +21,21 @@ export function addMark(
   startMs: number,
   endMs: number,
   label: string,
-): void {
-  useSongStore
-    .getState()
-    .apply((content) =>
-      commitMarkEdit(
-        content,
-        previewAdd(
-          content.marks,
-          { voiceId, layer, startMs, endMs, label },
-          content.song.frameMs,
-          content.song.durationMs,
-          newMarkId,
-        ),
-      ),
+): string | null {
+  let addedId: string | null = null
+  useSongStore.getState().apply((content) => {
+    const edit = previewAdd(
+      content.marks,
+      { voiceId, layer, startMs, endMs, label },
+      content.song.frameMs,
+      content.song.durationMs,
+      newMarkId,
     )
+    // A new word also brings its phonemes, so the id comes from the mark on the asked layer.
+    addedId = edit.added?.find((mark) => mark.layer === layer)?.id ?? null
+    return commitMarkEdit(content, edit)
+  })
+  return addedId
 }
 
 /**

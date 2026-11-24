@@ -69,17 +69,10 @@ describe('replaceMarksInRange', () => {
     expect(ids()).toEqual(['new-phrase', 'new-word', 'other-phrase'])
   })
 
-  it('keeps the marks outside the range and the marks that cross its edge', () => {
+  it('keeps the marks outside the range and removes a crossing phrase with no word', () => {
     replaceMarksInRange(VOICE, { startMs: 0, endMs: 10_000 }, NEW_MARKS)
 
-    expect(ids()).toEqual([
-      'crossing-phrase',
-      'late-phrase',
-      'late-word',
-      'new-phrase',
-      'new-word',
-      'other-phrase',
-    ])
+    expect(ids()).toEqual(['late-phrase', 'late-word', 'new-phrase', 'new-word', 'other-phrase'])
     const late = useSongStore.getState().current?.marks.filter((m) => m.id.startsWith('late'))
     expect(late).toEqual(LATE)
   })
@@ -110,6 +103,43 @@ describe('replaceMarksInRange', () => {
     expect(useSongStore.getState().current?.marks).toEqual(after)
   })
 
+  it('leaves no overlap on a layer when a phrase, a word and a phoneme cross the start of the range', () => {
+    const crossing = [
+      mark('cross-phrase', 'phrase', 8000, 12_000),
+      mark('cross-word', 'word', 8000, 12_000, 'cross-phrase'),
+      mark('cross-phoneme', 'phoneme', 8000, 12_000, 'cross-word'),
+    ]
+    useSongStore.getState().apply((current) => ({ ...current, marks: [...EARLY, ...crossing] }))
+    const before = structuredClone(useSongStore.getState().current)
+    const run = [
+      mark('run-phrase', 'phrase', 10_000, 11_000),
+      mark('run-word', 'word', 10_000, 11_000, 'run-phrase'),
+      mark('run-phoneme', 'phoneme', 10_000, 11_000, 'run-word'),
+    ]
+
+    replaceMarksInRange(VOICE, { startMs: 10_000, endMs: 20_000 }, run)
+
+    const after = useSongStore.getState().current?.marks ?? []
+    for (const layer of ['phrase', 'word', 'phoneme'] as const) {
+      const onLayer = after
+        .filter((item) => item.voiceId === VOICE && item.layer === layer)
+        .toSorted((a, b) => a.startMs - b.startMs)
+      for (let index = 1; index < onLayer.length; index += 1)
+        expect(onLayer[index - 1]?.endMs).toBeLessThanOrEqual(onLayer[index]?.startMs ?? 0)
+    }
+    expect(ids()).toEqual([
+      'early-phoneme',
+      'early-phrase',
+      'early-word',
+      'run-phoneme',
+      'run-phrase',
+      'run-word',
+    ])
+
+    useSongStore.getState().undo()
+    expect(useSongStore.getState().current).toStrictEqual(before)
+  })
+
   it('records no undo step when the range has no mark and the run has no mark', () => {
     replaceMarksInRange(VOICE, { startMs: 15_000, endMs: 20_000 }, [])
 
@@ -122,8 +152,12 @@ describe('hasMarksInRange', () => {
     expect(hasMarksInRange(content, VOICE, { startMs: 11_000, endMs: 20_000 })).toBe(true)
   })
 
-  it('ignores a mark that crosses the edge of the range', () => {
-    expect(hasMarksInRange(content, VOICE, { startMs: 10_000, endMs: 11_500 })).toBe(false)
+  it('finds a mark that only crosses the edge of the range', () => {
+    expect(hasMarksInRange(content, VOICE, { startMs: 10_000, endMs: 11_500 })).toBe(true)
+  })
+
+  it('ignores a mark that only touches the edge of the range', () => {
+    expect(hasMarksInRange(content, VOICE, { startMs: 14_000, endMs: 20_000 })).toBe(false)
   })
 
   it('ignores the marks of another voice', () => {

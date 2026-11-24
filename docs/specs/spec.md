@@ -75,6 +75,7 @@ The user's request, verbatim:
 | dictionary | noun | The table that gives the CMU symbols for a word. | lexicon |
 | custom dictionary | noun | The table of words that the person adds or changes. It takes priority over the dictionary. | user library, overrides |
 | speech model | noun | A Whisper model file that the browser downloads and runs. | model, AI, engine |
+| device | noun | The part of the computer that runs the speech model: the graphics card (`webgpu`) or the CPU (`wasm`). | backend, processor, hardware |
 | transcribe | verb | To run the speech model on the audio file and get words with times. | recognise, sync, analyse |
 | align | verb | To match the transcribed words with lyrics that the person supplies. | reconcile, merge |
 | break down | verb | To convert a word into phonemes. | split, expand, decompose |
@@ -687,3 +688,8 @@ The spec has one editor epic. The tracker has two, because 30 requirements do no
 | FR-export-20 | #46 |
 | FR-export-21 | #45 |
 | FR-export-22 | #45 |
+- 2026-11-24 — Batch gate of epic #26. A range run replaces the marks that overlap
+  the range, not only the marks fully inside it (issues #97 and #98). The editor
+  loads the dictionary when it opens a song that has a word. The acceptance
+  criterion "A click on a mark shows its fields in the inspector" moved from issue
+  #30 to issue #34.

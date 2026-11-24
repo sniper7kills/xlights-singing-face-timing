@@ -146,7 +146,22 @@ States:
 Mark styles on the layers: phrases are wide bars with the full text. Words are
 bars with the word. Phonemes are short blocks with the phoneme label and one colour
 for each phoneme label. A label that does not fit is cut with an ellipsis, and the
-full label shows in a tooltip.
+full label shows in a tooltip. An "unknown" word has a dotted border. An
+"estimated" word has a dashed inner frame, and a screen reader gets the text
+"(estimated time)".
+
+Controls on the layers:
+
+- Label field: named "Phrase label" or "Word label". `Enter` saves, `Escape`
+  cancels.
+- Phoneme list: named "Phoneme label". It has the ten phoneme labels.
+- Confirm dialog for a phrase label that changes the words: "The app rebuilds the
+  words and phonemes of this phrase." with "Continue" and "Cancel".
+- "Break down again" in the transport, for the selected words. It is disabled
+  when every selected word is edited. Tooltip: "An edited word keeps its
+  phonemes."
+- `Shift`+click selects the marks from the anchor to the clicked mark on one
+  layer. A plain click sets the anchor.
 
 ## Behaviour rules
 

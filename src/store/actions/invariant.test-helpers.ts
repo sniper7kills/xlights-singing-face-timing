@@ -67,8 +67,14 @@ function generateWord(
   return [word, ...phonemes]
 }
 
-function generatePhrase(random: Random, voiceId: string, start: number, frames: number): Mark[] {
-  const id = `${voiceId}-p${start}`
+function generatePhrase(
+  random: Random,
+  voiceId: string,
+  start: number,
+  frames: number,
+  idPrefix = voiceId,
+): Mark[] {
+  const id = `${idPrefix}-p${start}`
   const marks: Mark[] = [
     {
       id,
@@ -88,6 +94,22 @@ function generatePhrase(random: Random, voiceId: string, start: number, frames: 
     marks.push(...generateWord(random, voiceId, id, at, length))
     at += length + between(random, 0, 2)
   }
+}
+
+/**
+ * Returns the marks of a random transcribe run: one phrase that fills the frames inside the range, with words and phonemes.
+ * Returns no mark when the range holds no full frame.
+ * @param idPrefix Makes the ids unique, because a round can run more than one range replace.
+ */
+export function generateRunMarks(
+  random: Random,
+  voiceId: string,
+  range: { startMs: number; endMs: number },
+  idPrefix: string,
+): Mark[] {
+  const first = Math.ceil(range.startMs / FRAME_MS)
+  const last = Math.floor(range.endMs / FRAME_MS)
+  return last > first ? generatePhrase(random, voiceId, first, last - first, idPrefix) : []
 }
 
 /** Returns a song with two voices. Each voice has phrases with gaps or shared edges, words and phonemes. */

@@ -365,7 +365,30 @@ body.rv-open .layout { padding-right:21rem; }
 </li>
 </ul>
 <p>is 1024 px wide or more."</p>
-<p>Mark styles on the layers: phrases are wide bars with the full text. Words are bars with the word. Phonemes are short blocks with the phoneme label and one colour for each phoneme label. A label that does not fit is cut with an ellipsis, and the full label shows in a tooltip.</p>
+<p>Mark styles on the layers: phrases are wide bars with the full text. Words are bars with the word. Phonemes are short blocks with the phoneme label and one colour for each phoneme label. A label that does not fit is cut with an ellipsis, and the full label shows in a tooltip. An "unknown" word has a dotted border. An "estimated" word has a dashed inner frame, and a screen reader gets the text "(estimated time)".</p>
+<p>Controls on the layers:</p>
+<ul>
+<li>Label field: named "Phrase label" or "Word label". <code>Enter</code> saves, <code>Escape</code>
+</li>
+</ul>
+<p>cancels.</p>
+<ul>
+<li>Phoneme list: named "Phoneme label". It has the ten phoneme labels.
+</li>
+<li>Confirm dialog for a phrase label that changes the words: "The app rebuilds the
+</li>
+</ul>
+<p>words and phonemes of this phrase." with "Continue" and "Cancel".</p>
+<ul>
+<li>"Break down again" in the transport, for the selected words. It is disabled
+</li>
+</ul>
+<p>when every selected word is edited. Tooltip: "An edited word keeps its phonemes."</p>
+<ul>
+<li><code>Shift</code>+click selects the marks from the anchor to the clicked mark on one
+</li>
+</ul>
+<p>layer. A plain click sets the anchor.</p>
 <h3 id="timeline-editor-behaviour-rules">Behaviour rules</h3>
 <ul>
 <li><strong>Shortcuts.</strong> <code>Space</code> play or pause. <code>L</code> loop the selection. <code>S</code> split at the

@@ -290,6 +290,21 @@ describe('runTranscription with the speech model', () => {
     expect(marks()).toContainEqual(outside)
   })
 
+  it('asks to replace when a mark only crosses the start of the range', async () => {
+    useSongStore.getState().closeSong()
+    await openSong([oldMark('crossing', 8000, 12_000)])
+    const run = handlers()
+
+    await runTranscription(
+      { ...modelRequest, range: { startMs: 10_000, endMs: 20_000 } },
+      fakeClient([{ text: 'holy', startMs: 12_000, endMs: 12_500 }]),
+      run,
+    )
+
+    expect(run.confirmReplace).toHaveBeenCalledOnce()
+    expect(labels('phrase')).toEqual(['holy'])
+  })
+
   it('does not ask to replace for a range with no mark inside it', async () => {
     useSongStore.getState().closeSong()
     await openSong([oldMark('outside', 1000, 2000)])
