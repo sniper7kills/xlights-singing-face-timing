@@ -505,6 +505,119 @@ button {
   border: 2px dotted var(--ink);
 }
 
+/* The inner dashed frame shows an estimated word without colour alone. It sits inside the border and the selection outline, so it combines with both. */
+.mark[data-estimated='true']::before {
+  content: '';
+  position: absolute;
+  inset: 4px;
+  border: 1px dashed var(--ink);
+  border-radius: 3px;
+  pointer-events: none;
+}
+
+.mark {
+  cursor: grab;
+  touch-action: none;
+}
+
+/* The focus ring is a shadow outside the mark, so a focused selected mark shows the ring and the selection outline. */
+.mark:focus-visible {
+  box-shadow:
+    0 0 0 2px var(--bg),
+    0 0 0 4px var(--ink);
+  z-index: 2;
+}
+
+.mark:focus-visible:not([aria-current='true']) {
+  outline: none;
+}
+
+/* The visible handle is 5 px wide, and the hit area is wider so that a person can take it. A short mark keeps a body between its handles. */
+.mark-handle {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: min(12px, 30%);
+  cursor: ew-resize;
+}
+
+.mark-handle::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 5px;
+  background: var(--amber);
+}
+
+.mark-handle[data-edge='start'] {
+  left: 0;
+}
+
+.mark-handle[data-edge='end'] {
+  right: 0;
+}
+
+.mark-handle[data-edge='start']::after {
+  left: 0;
+}
+
+.mark-handle[data-edge='end']::after {
+  right: 0;
+}
+
+.layer-body {
+  position: relative;
+}
+
+/* The label control floats over the marks, so it is wide enough to type in on a short mark. */
+.label-control {
+  position: absolute;
+  top: 0;
+  z-index: 3;
+}
+
+.label-editor {
+  width: 200px;
+  padding: 4px 8px;
+  border: 2px solid var(--amber);
+  border-radius: 6px;
+  background: var(--panel);
+  color: var(--ink);
+  font: 13px var(--body);
+}
+
+.phoneme-menu {
+  display: grid;
+  grid-template-columns: repeat(5, auto);
+  gap: 4px;
+  margin: 0;
+  padding: 6px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+  list-style: none;
+  box-shadow: 0 6px 20px rgb(0 0 0 / 35%);
+}
+
+.phoneme-option {
+  min-width: 40px;
+  padding: 4px 6px;
+  border: 2px solid transparent;
+  border-radius: 4px;
+  background: var(--p-etc);
+  color: var(--p-ink);
+  font: 700 12px var(--mono);
+  text-align: center;
+  cursor: pointer;
+}
+
+/* The active option has a border, so the list does not show it by colour alone. */
+.phoneme-option[aria-selected='true'] {
+  border-color: var(--ink);
+  outline: 2px solid var(--amber);
+}
+
 .mark-label {
   overflow: hidden;
   text-overflow: ellipsis;
@@ -529,44 +642,54 @@ button {
   font: 700 10px var(--mono);
 }
 
-.mark-phoneme[data-label='AI'] {
+.mark-phoneme[data-label='AI'],
+.phoneme-option[data-label='AI'] {
   background: var(--p-AI);
 }
 
-.mark-phoneme[data-label='E'] {
+.mark-phoneme[data-label='E'],
+.phoneme-option[data-label='E'] {
   background: var(--p-E);
 }
 
-.mark-phoneme[data-label='etc'] {
+.mark-phoneme[data-label='etc'],
+.phoneme-option[data-label='etc'] {
   background: var(--p-etc);
 }
 
-.mark-phoneme[data-label='FV'] {
+.mark-phoneme[data-label='FV'],
+.phoneme-option[data-label='FV'] {
   background: var(--p-FV);
 }
 
-.mark-phoneme[data-label='L'] {
+.mark-phoneme[data-label='L'],
+.phoneme-option[data-label='L'] {
   background: var(--p-L);
 }
 
-.mark-phoneme[data-label='MBP'] {
+.mark-phoneme[data-label='MBP'],
+.phoneme-option[data-label='MBP'] {
   background: var(--p-MBP);
 }
 
-.mark-phoneme[data-label='O'] {
+.mark-phoneme[data-label='O'],
+.phoneme-option[data-label='O'] {
   background: var(--p-O);
 }
 
-.mark-phoneme[data-label='rest'] {
+.mark-phoneme[data-label='rest'],
+.phoneme-option[data-label='rest'] {
   background: var(--p-rest);
   color: var(--p-rest-ink);
 }
 
-.mark-phoneme[data-label='U'] {
+.mark-phoneme[data-label='U'],
+.phoneme-option[data-label='U'] {
   background: var(--p-U);
 }
 
-.mark-phoneme[data-label='WQ'] {
+.mark-phoneme[data-label='WQ'],
+.phoneme-option[data-label='WQ'] {
   background: var(--p-WQ);
 }
 
@@ -808,6 +931,10 @@ button {
   border-radius: 12px;
   background: var(--panel);
   color: var(--ink);
+}
+
+.phrase-label-dialog p {
+  margin: 0;
 }
 
 .dialog h3 {

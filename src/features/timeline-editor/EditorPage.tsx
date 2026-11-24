@@ -5,7 +5,9 @@ import { StorageFullError } from '../../store/db.ts'
 import { readSavedView, saveView } from '../../store/savedView.ts'
 import { useSongStore } from '../../store/songStore.ts'
 import { selectedVoice, useViewStore } from '../../store/viewStore.ts'
+import { loadDictionaries } from '../../store/actions/breakDown.ts'
 import { AddWordAction } from '../phoneme-breakdown/AddWordAction.tsx'
+import { BreakDownAgainAction } from '../phoneme-breakdown/BreakDownAgainAction.tsx'
 import { BreakDownNotice } from '../phoneme-breakdown/BreakDownNotice.tsx'
 import { CustomDictionaryAction } from '../phoneme-breakdown/CustomDictionaryAction.tsx'
 import { UnknownWordCounter } from '../phoneme-breakdown/UnknownWordCounter.tsx'
@@ -15,6 +17,7 @@ import { outcomeText } from '../transcription/transcribeDialogState.ts'
 import { ExportAction } from '../xtiming-export/ExportAction.tsx'
 import { EditorToolbar } from './EditorToolbar.tsx'
 import { Layers } from './Layers.tsx'
+import { resetMarkUi } from './markUiStore.ts'
 import { Waveform } from './Waveform.tsx'
 import { ZoomControl } from './ZoomControl.tsx'
 
@@ -88,6 +91,10 @@ export function EditorPage({ songId }: EditorPageProps) {
     let active = true
     // Each song opens at the default view, or at the zoom and the scroll offset that the browser keeps for it.
     useViewStore.getState().resetView()
+    resetMarkUi()
+    // A drag or a label change breaks down a word only with the dictionary in memory, so the editor loads it now.
+    // A failure shows no message here: the next action that needs the dictionary requests it again and reports it.
+    void loadDictionaries().catch(() => undefined)
     const saved = readSavedView(songId)
     if (saved !== null) useViewStore.setState(saved)
     const stopSave = useViewStore.subscribe((view, previous) => {
@@ -158,6 +165,7 @@ export function EditorPage({ songId }: EditorPageProps) {
           <ZoomControl durationMs={song.durationMs} />
           <UnknownWordCounter />
           <AddWordAction />
+          <BreakDownAgainAction onFailure={setBreakDownFailure} />
         </EditorToolbar>
         {dialogOpen && voice !== undefined && (
           <TranscribeDialog

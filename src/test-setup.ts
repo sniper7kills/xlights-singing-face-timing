@@ -27,6 +27,11 @@ vi.stubGlobal(
   },
 )
 
+// jsdom has no pointer capture, and the mark drag captures the pointer on the mark.
+HTMLElement.prototype.setPointerCapture = () => undefined
+HTMLElement.prototype.releasePointerCapture = () => undefined
+HTMLElement.prototype.hasPointerCapture = () => false
+
 afterEach(async () => {
   cleanup()
   // Each test starts with no open connection and an empty database.
