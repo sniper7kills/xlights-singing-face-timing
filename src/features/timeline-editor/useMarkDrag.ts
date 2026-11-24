@@ -79,7 +79,14 @@ export function useMarkDrag(id: string) {
     useMarkUiStore.getState().showPreview(null)
   }
 
-  useEffect(() => end, [])
+  // The preview is one store value for all marks, so only the mark that owns an active drag clears it.
+  // A mark that scrolls out of view during the drag of another mark must leave the preview.
+  useEffect(
+    () => () => {
+      if (drag.current !== null) end()
+    },
+    [],
+  )
 
   function onPointerDown(event: PointerEvent<HTMLElement>) {
     if (event.button !== 0 || drag.current !== null) return
@@ -120,7 +127,9 @@ export function useMarkDrag(id: string) {
       return
     }
     commitDrag(id, current)
-    useViewStore.getState().selectMarks([id])
+    // An undo during the drag can remove the mark, and the selection holds only marks of the song.
+    if (findMark(useSongStore.getState().current?.marks ?? [], id))
+      useViewStore.getState().selectMarks([id])
   }
 
   return {

@@ -21,12 +21,23 @@ type MarkUiState = {
   preview: ReadonlyMap<string, Mark | null>
   open: OpenLabel | null
   pending: PendingLabel | null
-  /** The mark that takes the focus when it is drawn. A key can select a mark that is not drawn yet. */
+  /**
+   * The mark that takes the focus when it is drawn. A key can select a mark that is not drawn yet.
+   * A value from `layerFocusId` gives the focus to the track of a layer.
+   */
   focusId: string | null
   showPreview: (edit: MarkEdit | null) => void
   openLabel: (open: OpenLabel | null) => void
   setPending: (pending: PendingLabel | null) => void
   requestFocus: (id: string | null) => void
+}
+
+/**
+ * Returns the focus id of the track of one layer of one voice, for `requestFocus`.
+ * A cancelled add gives the focus back to the track, because no mark exists to take it.
+ */
+export function layerFocusId(voiceId: string, layer: Layer): string {
+  return `layer:${voiceId}:${layer}`
 }
 
 const NO_PREVIEW: ReadonlyMap<string, Mark | null> = new Map()
