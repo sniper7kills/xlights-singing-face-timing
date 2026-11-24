@@ -104,7 +104,7 @@ function stopIfCancelled(signal: AbortSignal): void {
 /**
  * Runs one transcription for the open song, writes the marks as one undo step, and returns the counts.
  * The same undo step holds the phonemes of each new word. If the break down fails, the words have no phonemes and the outcome reports it.
- * The run replaces the marks of the voice that lie fully inside the range. The marks outside it stay.
+ * The run replaces the marks of the voice in the range. See `replaceMarksInRange` for a mark that crosses an edge of the range.
  * @param request The run that the person started. Without a range, the range is the full song.
  * @param client The client that runs the speech model. A lyrics-only run does not call it.
  * @param handlers The progress functions, the cancel signal and the two confirm callbacks of the dialog.

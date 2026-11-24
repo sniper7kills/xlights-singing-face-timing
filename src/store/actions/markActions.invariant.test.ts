@@ -5,6 +5,7 @@ import {
   CALLS_PER_ROUND,
   DICTIONARY,
   DURATION_MS,
+  generateRunMarks,
   generateSong,
   LABELS,
   PHONEME_LABELS,
@@ -37,6 +38,7 @@ async function loadModules(withDictionary: boolean) {
     ...(await import('./addMark.ts')),
     ...(await import('./setMarkLabel.ts')),
     ...(await import('./setPhonemeLabel.ts')),
+    ...(await import('./replaceMarksInRange.ts')),
   }
 }
 
@@ -51,18 +53,28 @@ function randomLabel(random: Random, layer: Layer): string {
   return Array.from({ length: count }, () => pick(random, LABELS)).join(' ')
 }
 
+/** Replaces a random range of the voice of the mark with the marks of a random transcribe run. */
+function randomRangeReplace(random: Random, actions: Actions, mark: Mark, call: number): void {
+  const startMs = random() * DURATION_MS
+  const range = { startMs, endMs: Math.min(DURATION_MS, startMs + random() * 8000) }
+  actions.replaceMarksInRange(
+    mark.voiceId,
+    range,
+    generateRunMarks(random, mark.voiceId, range, `run${call}`),
+  )
+}
+
 /** Calls one random action on a random mark, with arguments that are legal, past a limit or not possible. */
-function randomAction(random: Random, actions: Actions, mark: Mark, other: Mark): void {
-  const choice = Math.floor(random() * 9)
+function randomAction(
+  random: Random,
+  actions: Actions,
+  mark: Mark,
+  other: Mark,
+  call: number,
+): void {
   const length = mark.endMs - mark.startMs
   const timeNear = () => mark.startMs - 200 + random() * (length + 400)
-  if (choice === 0) actions.moveMark(mark.id, (random() * 2 - 1) * 1500)
-  else if (choice === 1)
-    actions.resizeMark(mark.id, random() < 0.5 ? 'start' : 'end', random() * DURATION_MS)
-  else if (choice === 2) actions.splitMark(mark.id, timeNear())
-  else if (choice === 3) actions.mergeWithNext(mark.id)
-  else if (choice === 4) actions.deleteMarks([mark.id])
-  else if (choice === 5) {
+  const addRandomMark = () => {
     const layer = pick(random, LAYERS)
     const startMs = random() * DURATION_MS
     actions.addMark(
@@ -72,10 +84,24 @@ function randomAction(random: Random, actions: Actions, mark: Mark, other: Mark)
       startMs + random() * 2000,
       randomLabel(random, layer),
     )
-  } else if (choice === 6) actions.setMarkLabel(mark.id, randomLabel(random, mark.layer))
-  else if (choice === 7)
-    actions.setPhonemeLabel(mark.id, pick(random, ['AI', 'E', 'etc', 'MBP', 'O', 'rest'] as const))
-  else actions.deleteMarks([mark.id, other.id])
+  }
+  const choices = [
+    () => actions.moveMark(mark.id, (random() * 2 - 1) * 1500),
+    () => actions.resizeMark(mark.id, random() < 0.5 ? 'start' : 'end', random() * DURATION_MS),
+    () => actions.splitMark(mark.id, timeNear()),
+    () => actions.mergeWithNext(mark.id),
+    () => actions.deleteMarks([mark.id]),
+    addRandomMark,
+    () => actions.setMarkLabel(mark.id, randomLabel(random, mark.layer)),
+    () =>
+      actions.setPhonemeLabel(
+        mark.id,
+        pick(random, ['AI', 'E', 'etc', 'MBP', 'O', 'rest'] as const),
+      ),
+    () => actions.deleteMarks([mark.id, other.id]),
+    () => randomRangeReplace(random, actions, mark, call),
+  ]
+  pick(random, choices)()
 }
 
 describe.each([
@@ -96,7 +122,7 @@ describe.each([
       for (let call = 0; call < CALLS_PER_ROUND && steps() < STEPS_PER_ROUND; call += 1) {
         const marks = useSongStore.getState().current?.marks ?? []
         if (marks.length === 0) actions.addMark('lead', 'word', 1000, 2000, 'night')
-        else randomAction(random, actions, pick(random, marks), pick(random, marks))
+        else randomAction(random, actions, pick(random, marks), pick(random, marks), call)
         const current = useSongStore.getState().current
         if (current) expect(violations(current), `seed ${seed}, call ${call}`).toEqual([])
       }
