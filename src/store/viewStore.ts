@@ -7,14 +7,18 @@ export type ViewState = {
   scrollMs: number
   /** The play time, in milliseconds. */
   playTimeMs: number
+  /** The ids of the selected marks. */
+  selectedMarkIds: string[]
   setZoom: (pxPerSecond: number | null) => void
   setScroll: (scrollMs: number) => void
   setPlayTime: (playTimeMs: number) => void
-  /** Sets the default view: the full song in the width, at time 0. */
+  /** Replaces the selection with the marks that have the ids. */
+  selectMarks: (ids: string[]) => void
+  /** Sets the default view: the full song in the width, at time 0, with no selected mark. */
   resetView: () => void
 }
 
-const DEFAULT_VIEW = { pxPerSecond: null, scrollMs: 0, playTimeMs: 0 }
+const DEFAULT_VIEW = { pxPerSecond: null, scrollMs: 0, playTimeMs: 0, selectedMarkIds: [] }
 
 /**
  * The store of the editor view. It is separate from the song store, so a change of the
@@ -25,5 +29,6 @@ export const useViewStore = create<ViewState>()((set) => ({
   setZoom: (pxPerSecond) => set({ pxPerSecond }),
   setScroll: (scrollMs) => set({ scrollMs }),
   setPlayTime: (playTimeMs) => set({ playTimeMs }),
+  selectMarks: (ids) => set({ selectedMarkIds: ids }),
   resetView: () => set(DEFAULT_VIEW),
 }))
