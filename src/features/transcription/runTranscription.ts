@@ -132,6 +132,17 @@ export async function runTranscription(
 }
 
 /**
+ * Returns the message of a failed break down: the copy of the dictionary failure, else the copy for any other failure.
+ * The person never sees the raw text of an error.
+ * @param error The rejection of the break down.
+ */
+export function breakDownFailureMessage(error: unknown): string {
+  return error instanceof DictionaryLoadError
+    ? error.message
+    : 'The app could not break down the words. Select Retry.'
+}
+
+/**
  * Returns the marks of a run with the phonemes of each new word added.
  * A break down that fails must not lose the run, so the words then stay without phonemes and the failure names them.
  * The failure is a dictionary that does not load, or any other failure, for example a database that cannot read the custom dictionary.
@@ -148,13 +159,12 @@ async function breakDownRun(
       breakDownFailure: null,
     }
   } catch (error) {
-    const message =
-      error instanceof DictionaryLoadError
-        ? error.message
-        : 'The app could not break down the words. Select Retry.'
     return {
       written: marks,
-      breakDownFailure: { message, wordIds: words.map((word) => word.id) },
+      breakDownFailure: {
+        message: breakDownFailureMessage(error),
+        wordIds: words.map((word) => word.id),
+      },
     }
   }
 }

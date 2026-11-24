@@ -15,6 +15,7 @@ import {
   writeCustomDictionary,
 } from '../../lib/dictionary/customDictionaryFile.ts'
 import { toPhonemeLabels } from '../../lib/dictionary/toPhonemeLabels.ts'
+import { rebreakForEntries } from '../../store/actions/breakDown.ts'
 import {
   type CustomEntryInput,
   deleteCustomEntry,
@@ -69,6 +70,7 @@ function importReport(imported: number, skippedLines: readonly number[]): string
  * If that control is gone, the focus goes to the selected mark, else to the "Custom dictionary" button.
  * The dialog is a child of the document body, so it is outside the toolbar that can open it.
  * Each change goes through the custom entry store, which breaks down again the matching words of the open song.
+ * If the dictionary does not load after a change, the change stays saved, and "Retry" runs the break down again.
  */
 export function CustomDictionaryDialog({ initialWord, onClose }: CustomDictionaryDialogProps) {
   const titleId = useId()
@@ -79,6 +81,8 @@ export function CustomDictionaryDialog({ initialWord, onClose }: CustomDictionar
   const [editing, setEditing] = useState<CustomEntry | null>(null)
   const [report, setReport] = useState('')
   const [error, setError] = useState<string | null>(null)
+  // The words whose break down did not run because the dictionary did not load. "Retry" breaks them down.
+  const [retryWords, setRetryWords] = useState<readonly string[] | null>(null)
 
   // The render runs before the entry form takes the focus, so this is still the control that opened the dialog.
   const [opener] = useState(() =>
@@ -112,9 +116,14 @@ export function CustomDictionaryDialog({ initialWord, onClose }: CustomDictionar
     tabStops(dialog)[0]?.focus()
   }, [entries, editing])
 
-  /** Runs a write of the custom entry store. Resolves to true when the write saved its change. */
-  async function write(change: () => Promise<unknown>): Promise<boolean> {
+  /**
+   * Runs a write of the custom entry store. Resolves to true when the write saved its change.
+   * @param change The write.
+   * @param words The words of the changed entries, which "Retry" breaks down when the dictionary does not load.
+   */
+  async function write(change: () => Promise<unknown>, words: readonly string[]): Promise<boolean> {
     setError(null)
+    setRetryWords(null)
     try {
       await change()
       return true
@@ -122,6 +131,7 @@ export function CustomDictionaryDialog({ initialWord, onClose }: CustomDictionar
       // The store saves the change before it loads the dictionary, so only the break down did not run.
       if (failure instanceof DictionaryLoadError) {
         setError(failure.message)
+        setRetryWords(words)
         return true
       }
       setError(failure instanceof StorageFullError ? failure.message : STORAGE_FAILURE)
@@ -133,13 +143,13 @@ export function CustomDictionaryDialog({ initialWord, onClose }: CustomDictionar
 
   function save(entry: CustomEntryInput) {
     setReport('')
-    return write(() => putCustomEntry(entry))
+    return write(() => putCustomEntry(entry), [entry.word])
   }
 
   async function remove(word: string) {
     setReport('')
     if (editing?.word === word) setEditing(null)
-    await write(() => deleteCustomEntry(word))
+    await write(() => deleteCustomEntry(word), [word])
   }
 
   async function importFile(event: ChangeEvent<HTMLInputElement>) {
@@ -158,7 +168,11 @@ export function CustomDictionaryDialog({ initialWord, onClose }: CustomDictionar
     }
     const parsed = parseCustomDictionary(text)
     const saved =
-      parsed.entries.length === 0 || (await write(() => putCustomEntries(parsed.entries)))
+      parsed.entries.length === 0 ||
+      (await write(
+        () => putCustomEntries(parsed.entries),
+        parsed.entries.map((entry) => entry.word),
+      ))
     if (saved) setReport(importReport(parsed.entries.length, parsed.skippedLines))
   }
 
@@ -219,6 +233,18 @@ export function CustomDictionaryDialog({ initialWord, onClose }: CustomDictionar
         {error !== null && (
           <p className="message" role="alert">
             {error}
+            {retryWords !== null && (
+              <>
+                {' '}
+                <button
+                  type="button"
+                  className="button"
+                  onClick={() => void write(() => rebreakForEntries(retryWords), retryWords)}
+                >
+                  Retry
+                </button>
+              </>
+            )}
           </p>
         )}
         <p className="dialog-note" role="status">

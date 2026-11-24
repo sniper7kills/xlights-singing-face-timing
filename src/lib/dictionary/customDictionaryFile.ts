@@ -32,13 +32,23 @@ export function isEntryWord(word: string): boolean {
 }
 
 /**
+ * Returns true when a dictionary key has a letter or a digit.
+ * A key of apostrophes only, for example `'`, has neither.
+ * @param key The word after `normaliseWord`.
+ */
+export function hasLetterOrDigit(key: string): boolean {
+  return /[A-Z0-9]/.test(key)
+}
+
+/**
  * Returns the dictionary key of a custom entry word, or undefined when the word cannot be an entry.
+ * The key cannot be empty, apostrophes only, or digits only.
  * `lookup` never finds an empty key or a key of digits only, so an entry with such a key does nothing.
  * @param word The word as the person or a file wrote it.
  */
 export function entryKey(word: string): string | undefined {
   const key = normaliseWord(word)
-  return /^[0-9]*$/.test(key) ? undefined : key
+  return !hasLetterOrDigit(key) || /^[0-9]+$/.test(key) ? undefined : key
 }
 
 /**
@@ -50,7 +60,7 @@ export function entryKey(word: string): string | undefined {
  * - The parse changes lower case to upper case, so `rudolph  r uw1` gives `RUDOLPH  R UW1`.
  * - The parse normalises the word, so `RUDOLPH!` gives `RUDOLPH`.
  * - A line with a bad CMU symbol or other spaces is a bad line.
- * - A line is a bad line when its normalised word is empty, has only digits or has more than 40 characters.
+ * - A line is a bad line when its normalised word has no letter and no digit, has only digits, or has more than 40 characters.
  * - If two lines give the same word, the later line wins and the file has one entry for the word.
  *
  * @param text The text of the file. Lines end with LF or CR LF.

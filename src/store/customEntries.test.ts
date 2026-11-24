@@ -61,7 +61,7 @@ describe('custom entries', () => {
     expect(await api.customDictionary()).toEqual({ RUDOLPH: 'R UW1 D AA0 L F' })
   })
 
-  it.each(['12', '--', ''])(
+  it.each(['12', '--', '', "'"])(
     'rejects the word "%s" with CustomEntryWordError and saves nothing',
     async (word) => {
       await expect(api.putCustomEntry({ word, symbols: 'R UW1' })).rejects.toBeInstanceOf(
@@ -76,9 +76,10 @@ describe('custom entries', () => {
       { word: '12', symbols: 'T' },
       { word: 'zxqv', symbols: 'Z K S' },
       { word: '!?', symbols: 'T' },
+      { word: "'", symbols: 'T' },
     ])
 
-    expect(skipped).toEqual(['12', '!?'])
+    expect(skipped).toEqual(['12', '!?', "'"])
     expect((await api.listCustomEntries()).map((entry) => entry.word)).toEqual(['ZXQV'])
   })
 

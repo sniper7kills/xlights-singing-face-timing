@@ -68,11 +68,11 @@ describe('customDictionaryFile', () => {
   })
 
   it('skips a line whose word has no letter and reports its line number', () => {
-    const text = ['--  T', '12  T', 'ZXQV  Z'].join('\n')
+    const text = ['--  T', '12  T', "'  T", "''  T", 'ZXQV  Z'].join('\n')
 
     expect(parseCustomDictionary(text)).toEqual({
       entries: [{ word: 'ZXQV', symbols: 'Z' }],
-      skippedLines: [1, 2],
+      skippedLines: [1, 2, 3, 4],
     })
   })
 

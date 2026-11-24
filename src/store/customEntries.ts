@@ -52,7 +52,7 @@ async function refresh(words: readonly string[]): Promise<void> {
  * Saves one custom entry and breaks down again the matching unedited words of the open song.
  * The store normalises the word. An entry replaces the saved entry with the same normalised word.
  * @param entry The word, and its CMU symbols separated by one space.
- * Rejects with CustomEntryWordError when the normalised word is empty or has only digits. Nothing is saved then.
+ * Rejects with CustomEntryWordError when the normalised word has no letter and no digit, or has only digits. Nothing is saved then.
  * Rejects with StorageFullError when the browser storage is full.
  * Rejects with DictionaryLoadError when the dictionary file does not load. The entry is saved then.
  */
@@ -65,7 +65,7 @@ export async function putCustomEntry(entry: CustomEntryInput): Promise<void> {
  * Saves the custom entries in one transaction, and returns the words of the entries that it skips.
  * The save breaks down again the matching unedited words of the open song, as one undo step.
  * The store normalises each word, so every caller stores the key that `lookup` reads.
- * The save skips an entry whose normalised word is empty or has only digits.
+ * The save skips an entry whose normalised word has no letter and no digit, or has only digits.
  * An entry replaces the saved entry with the same normalised word. If two entries have the same normalised word, the later entry stays.
  * @param entries The words, and their CMU symbols separated by one space.
  * Rejects with StorageFullError when the browser storage is full. Nothing is saved then.
