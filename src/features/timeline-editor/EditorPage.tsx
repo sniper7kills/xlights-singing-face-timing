@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { LIBRARY_HASH } from '../../app/routes.ts'
+import { breakDownWords } from '../../store/actions/breakDown.ts'
 import { useAutosaveStore, useSaveState } from '../../store/autosave.ts'
 import { StorageFullError } from '../../store/db.ts'
 import { useSongStore } from '../../store/songStore.ts'
 import { selectedVoice, useViewStore } from '../../store/viewStore.ts'
-import type { TranscribeOutcome } from '../transcription/runTranscription.ts'
+import type { BreakDownFailure, TranscribeOutcome } from '../transcription/runTranscription.ts'
 import { TranscribeDialog } from '../transcription/TranscribeDialog.tsx'
 import { outcomeText } from '../transcription/transcribeDialogState.ts'
 import { Layers } from './Layers.tsx'
@@ -27,6 +28,7 @@ export function EditorPage({ songId }: EditorPageProps) {
   const [dialogOpen, setDialogOpen] = useState(false)
   const [running, setRunning] = useState(false)
   const [toast, setToast] = useState<string | null>(null)
+  const [breakDownFailure, setBreakDownFailure] = useState<BreakDownFailure | null>(null)
   const opener = useRef<HTMLElement | null>(null)
 
   const openTranscribeDialog = useCallback(() => {
@@ -42,6 +44,7 @@ export function EditorPage({ songId }: EditorPageProps) {
   const finishTranscribe = useCallback(
     (outcome: TranscribeOutcome) => {
       setToast(outcomeText(outcome))
+      setBreakDownFailure(outcome.breakDownFailure)
       closeTranscribeDialog()
     },
     [closeTranscribeDialog],
@@ -125,11 +128,41 @@ export function EditorPage({ songId }: EditorPageProps) {
           onDone={finishTranscribe}
         />
       )}
+      <BreakDownNotice failure={breakDownFailure} onChange={setBreakDownFailure} />
       {toast !== null && (
         <p className="toast" role="status">
           {toast}
         </p>
       )}
     </section>
+  )
+}
+
+type BreakDownNoticeProps = {
+  /** The failure to show. Null shows nothing. */
+  failure: BreakDownFailure | null
+  /** Receives null after a retry that breaks down the words, or the new failure. */
+  onChange: (failure: BreakDownFailure | null) => void
+}
+
+/** Shows a break down that did not run, with a "Retry" button that breaks down the same words. */
+function BreakDownNotice({ failure, onChange }: BreakDownNoticeProps) {
+  if (failure === null) return null
+  const retry = () =>
+    breakDownWords(failure.wordIds).then(
+      () => onChange(null),
+      (error: unknown) =>
+        onChange({
+          message: error instanceof Error ? error.message : failure.message,
+          wordIds: failure.wordIds,
+        }),
+    )
+  return (
+    <p className="message" role="alert">
+      {failure.message}{' '}
+      <button type="button" className="button" onClick={() => void retry()}>
+        Retry
+      </button>
+    </p>
   )
 }
