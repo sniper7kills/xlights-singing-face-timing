@@ -40,8 +40,8 @@ function layer(name: string) {
 }
 
 beforeEach(() => {
-  vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockReturnValue(WIDTH_PX)
   useViewStore.getState().resetView()
+  useViewStore.getState().setStageWidth(WIDTH_PX)
 })
 
 afterEach(() => {
@@ -106,6 +106,27 @@ describe('Layers', () => {
     expect(layer('Words').getAllByRole('listitem')).toHaveLength(100)
   })
 
+  it('draws only the marks in view of 3 000 marks at 1000 pixels for each second', () => {
+    // 1000 px at 1000 px for each second show 1000 ms: from 150 000 ms to 151 000 ms.
+    useViewStore.setState({ pxPerSecond: 1000, scrollMs: 150_000 })
+    const many = Array.from({ length: 3000 }, (_, index) =>
+      mark({
+        id: `w${index}`,
+        layer: 'word',
+        label: 'la',
+        startMs: index * 100,
+        endMs: index * 100 + 100,
+      }),
+    )
+    const content = songWith(many)
+
+    render(<Layers content={{ ...content, song: { ...content.song, durationMs: 300_000 } }} />)
+
+    const items = layer('Words').getAllByRole('listitem')
+    expect(items).toHaveLength(10)
+    expect(items[0]).toHaveStyle({ left: '0px', width: '100px' })
+  })
+
   it('shows the marks of the selected voice only', () => {
     const content = songWith(MARKS)
     const [voice] = content.voices
@@ -141,16 +162,6 @@ describe('Layers', () => {
     expect(phrase).toHaveAttribute('title', 'Silent night, holy night')
     expect(phrase).toHaveClass('mark-phrase')
     expect(within(phrase).getByText('Silent night, holy night')).toHaveClass('mark-label')
-  })
-
-  it('shows the time ruler at steps that keep the ticks apart', () => {
-    const { container } = render(
-      <Layers content={songWith(MARKS)} onTranscribe={() => undefined} />,
-    )
-
-    const ticks = [...container.querySelectorAll('.time-ruler .tick')]
-    expect(ticks.slice(0, 2).map((tick) => tick.textContent)).toEqual(['0:00.000', '0:02.000'])
-    expect(ticks[1]).toHaveStyle({ left: '100px' })
   })
 
   it('follows a change of the zoom', () => {

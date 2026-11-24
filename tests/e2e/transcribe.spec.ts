@@ -1,6 +1,6 @@
 import { expect, type Page, test } from '@playwright/test'
 
-// The fixture worker holds each step for 50 ms only, so a polling assertion can miss a state.
+// The fixture worker holds most steps for 50 ms only, so a polling assertion can miss a state.
 // The script records each text of the progress area when the DOM changes.
 // The E2E tests compile with no DOM types, so the script is a string.
 const INIT_SCRIPT = `
@@ -20,6 +20,12 @@ test.beforeEach(async ({ page }) => {
   await expect(page.getByRole('heading', { level: 2, name: 'silent-night' })).toBeVisible()
 })
 
+async function progressLog(page: Page): Promise<string[]> {
+  const log: unknown = await page.evaluate('globalThis.__progressLog')
+  if (!Array.isArray(log)) throw new Error('The progress log is missing.')
+  return log.filter((text): text is string => typeof text === 'string')
+}
+
 async function runAndExpectClose(page: Page) {
   const dialog = page.getByRole('dialog', { name: 'Transcribe' })
   await expect(dialog).toBeVisible()
@@ -29,13 +35,31 @@ async function runAndExpectClose(page: Page) {
   await dialog.getByRole('button', { name: 'Start' }).click()
 
   await expect(dialog).toBeHidden()
-  const log: unknown = await page.evaluate('globalThis.__progressLog')
-  if (!Array.isArray(log)) throw new Error('The progress log is missing.')
+  const log = await progressLog(page)
   expect(log).toContain('Downloading speech model, 50%')
-  expect(
-    log.some((text) => typeof text === 'string' && /^Transcribing, \d:\d\d of 0:28$/.test(text)),
-  ).toBe(true)
+  expect(log.some((text) => /^Transcribing, \d:\d\d of 0:28$/.test(text))).toBe(true)
 }
+
+test('shows the steps and an elapsed time that changes before the first progress', async ({
+  page,
+}) => {
+  await page.locator('.editor-top').getByRole('button', { name: 'Transcribe' }).click()
+  const dialog = page.getByRole('dialog', { name: 'Transcribe' })
+
+  await dialog.getByRole('button', { name: 'Start' }).click()
+
+  await expect(dialog.locator('.transcribe-device')).toHaveText(/^(Graphics card \(WebGPU\)|CPU)/)
+  await expect(dialog).toBeHidden()
+  const log = await progressLog(page)
+  const firstProgress = log.findIndex((text) => /^Transcribing, \d:\d\d of 0:28$/.test(text))
+  const before = log.slice(0, firstProgress)
+  expect(firstProgress).toBeGreaterThan(0)
+  expect(before.some((text) => /^(Preparing audio|Loading speech model), /.test(text))).toBe(true)
+  const elapsed = before.filter((text) => /^Transcribing, \d:\d\d elapsed$/.test(text))
+  expect(new Set(elapsed).size).toBeGreaterThanOrEqual(2)
+  const progress = log.filter((text) => /^Transcribing, \d:\d\d of 0:28$/.test(text))
+  expect(progress.length).toBeGreaterThanOrEqual(2)
+})
 
 test('runs a transcription from the "Transcribe" action of the top bar', async ({ page }) => {
   const action = page.locator('.editor-top').getByRole('button', { name: 'Transcribe' })

@@ -10,6 +10,11 @@ import type { TimedWord } from '../features/transcription/types.ts'
 
 const FIXTURE_TOTAL_BYTES = 1_000_000
 const STEP_DELAY_MS = 50
+// A real run shows each state for a while. The E2E tests must see the elapsed time change before the first progress.
+const MODEL_LOAD_DELAY_MS = 300
+const FIRST_PROGRESS_DELAY_MS = 1500
+// The real worker reports the audio time of each segment, a few seconds apart.
+const SEGMENT_MS = 5000
 
 type MarksFile = { marks: { layer: string; label: string; startMs: number; endMs: number }[] }
 
@@ -20,8 +25,8 @@ function post(message: FromWorkerMessage): void {
   self.postMessage(message)
 }
 
-function wait(): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, STEP_DELAY_MS))
+function wait(delayMs = STEP_DELAY_MS): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, delayMs))
 }
 
 async function load(speechModelId: string): Promise<void> {
@@ -38,6 +43,7 @@ async function load(speechModelId: string): Promise<void> {
     }
     await cache.put(key, new Response(''))
   }
+  await wait(MODEL_LOAD_DELAY_MS)
   post({ type: 'ready' })
 }
 
@@ -53,11 +59,18 @@ async function fixtureWords(offsetMs: number, durationMs: number): Promise<Timed
 
 async function transcribe(runId: string, samples: Float32Array, offsetMs: number): Promise<void> {
   const durationMs = (samples.length / SPEECH_SAMPLE_RATE) * 1000
+  await wait(FIRST_PROGRESS_DELAY_MS)
+  let reachedMs = 0
   for (let chunkIndex = 0; ; chunkIndex++) {
+    const chunkDoneMs = doneMsAfterChunk(chunkIndex, samples.length)
+    for (let doneMs = reachedMs + SEGMENT_MS; doneMs < chunkDoneMs; doneMs += SEGMENT_MS) {
+      post({ type: 'progress', runId, doneMs })
+      await wait()
+    }
+    post({ type: 'progress', runId, doneMs: chunkDoneMs })
+    reachedMs = chunkDoneMs
+    if (chunkDoneMs >= durationMs) break
     await wait()
-    const doneMs = doneMsAfterChunk(chunkIndex, samples.length)
-    post({ type: 'progress', runId, doneMs })
-    if (doneMs >= durationMs) break
   }
   post({ type: 'result', runId, words: await fixtureWords(offsetMs, durationMs) })
 }

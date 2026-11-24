@@ -136,6 +136,16 @@ describe('CustomDictionaryDialog', () => {
     expect(await listCustomEntries()).toEqual([])
   })
 
+  it('rejects a word that is only an apostrophe and saves nothing', async () => {
+    const { user } = await renderDialog()
+
+    await addBySymbols(user, "'", 'R UW1')
+
+    expect(await screen.findByText('Type a word with a letter or a digit.')).toBeInTheDocument()
+    expect(screen.getByLabelText('Word')).toHaveAttribute('aria-invalid', 'true')
+    expect(await listCustomEntries()).toEqual([])
+  })
+
   it('adds an entry with a "sounds like" spelling from the CMU symbols of the parts', async () => {
     const { user } = await renderDialog()
 
@@ -516,7 +526,8 @@ describe('CustomDictionaryDialog with an open song', () => {
     await waitFor(() => expect(labelsOf('free')).toEqual(['etc', 'U', 'etc', 'U']))
     expect(marks().find((mark) => mark.id === 'free')?.unknown).toBe(false)
 
-    await user.click(screen.getByRole('button', { name: 'Edit RUDOLPH' }))
+    // The break down ends before the dialog reads the entry list again.
+    await user.click(await screen.findByRole('button', { name: 'Edit RUDOLPH' }))
     await user.clear(screen.getByLabelText('CMU symbols'))
     await user.type(screen.getByLabelText('CMU symbols'), 'R UW1 D')
     await user.click(screen.getByRole('button', { name: 'Save entry' }))
@@ -526,6 +537,28 @@ describe('CustomDictionaryDialog with an open song', () => {
     await waitFor(() => expect(labelsOf('free')).toEqual(['etc', 'U', 'etc', 'AI', 'L', 'FV']))
 
     expect(marks().filter((mark) => mark.parentId === 'edited')).toEqual([HAND_PHONEME])
+  })
+
+  it('keeps a saved entry when the dictionary does not load, and breaks down the word on "Retry"', async () => {
+    await openSong()
+    vi.mocked(loadDictionary).mockRejectedValueOnce(new DictionaryLoadError())
+    const { user } = await renderDialog()
+
+    await addBySymbols(user, 'RUDOLPH', 'R UW1 D UW0')
+
+    const alert = await screen.findByText(
+      'The dictionary did not load. Check the connection and retry.',
+    )
+    await waitFor(() => expect(entryRows()).toEqual([['RUDOLPH', 'R UW1 D UW0', 'etc U etc U']]))
+    expect(labelsOf('free')).toEqual([])
+
+    await user.click(within(alert).getByRole('button', { name: 'Retry' }))
+
+    await waitFor(() => expect(labelsOf('free')).toEqual(['etc', 'U', 'etc', 'U']))
+    expect(
+      screen.queryByText('The dictionary did not load. Check the connection and retry.'),
+    ).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Retry' })).toBeNull()
   })
 
   it('makes a word of the layer known after an import of a line with punctuation in its word', async () => {

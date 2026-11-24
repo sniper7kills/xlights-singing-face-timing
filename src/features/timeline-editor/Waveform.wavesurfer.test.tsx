@@ -19,7 +19,7 @@ let destroy: ReturnType<typeof vi.fn>
 beforeEach(() => {
   // jsdom has no Web Audio. This decode passes, so a later failure comes from wavesurfer.js.
   vi.stubGlobal(
-    'AudioContext',
+    'OfflineAudioContext',
     class {
       decodeAudioData = () =>
         Promise.resolve({
@@ -27,7 +27,6 @@ beforeEach(() => {
           numberOfChannels: 1,
           getChannelData: () => new Float32Array([0, 0.5, -0.5]),
         })
-      close = () => Promise.resolve()
     },
   )
   destroy = vi.fn()
@@ -54,7 +53,7 @@ describe('Waveform with a wavesurfer.js load failure', () => {
       byteLength: audio.data.size,
     })
 
-    render(<Waveform songId={song.id} />)
+    render(<Waveform songId={song.id} durationMs={3000} />)
 
     expect(await screen.findByRole('alert')).toHaveTextContent(
       'This browser cannot decode this file. Convert it to MP3 or WAV and try again.',

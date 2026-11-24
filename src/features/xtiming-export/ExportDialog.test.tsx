@@ -277,7 +277,7 @@ describe('ExportDialog', () => {
 
   it('shows the voice of a finding in the layers with its mark selected', async () => {
     const user = userEvent.setup()
-    vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockReturnValue(1000)
+    useViewStore.getState().setStageWidth(1000)
     const santaMarks = makeSungPhrase('v2', 3000)
       .filter((mark) => mark.layer !== 'phoneme')
       .map((mark) => (mark.layer === 'word' ? { ...mark, label: 'Ho' } : mark))

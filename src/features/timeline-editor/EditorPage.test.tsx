@@ -1,14 +1,15 @@
-import { act, render, screen, within } from '@testing-library/react'
+import { act, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { LIBRARY_HASH } from '../../app/routes.ts'
-import { breakDownWords } from '../../store/actions/breakDown.ts'
+import { breakDownWords, loadDictionaries } from '../../store/actions/breakDown.ts'
 import { startAutosave, useAutosaveStore } from '../../store/autosave.ts'
 import * as db from '../../store/db.ts'
-import { loadSong, StorageFullError } from '../../store/db.ts'
+import { loadSong, saveSong, StorageFullError } from '../../store/db.ts'
 import { useSongStore } from '../../store/songStore.ts'
 import { useViewStore } from '../../store/viewStore.ts'
 import { storeNewSong } from '../audio-import/storeNewSong.ts'
+import { DictionaryLoadError } from '../phoneme-breakdown/loadDictionary.ts'
 import { runTranscription } from '../transcription/runTranscription.ts'
 import { EditorPage } from './EditorPage.tsx'
 import { createWaveformPlayer } from './waveformPlayer.ts'
@@ -17,6 +18,7 @@ vi.mock('./waveformPlayer.ts', () => ({ createWaveformPlayer: vi.fn() }))
 vi.mock('../../store/actions/breakDown.ts', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../../store/actions/breakDown.ts')>()),
   breakDownWords: vi.fn(),
+  loadDictionaries: vi.fn(),
 }))
 vi.mock('../transcription/runTranscription.ts', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../transcription/runTranscription.ts')>()),
@@ -30,7 +32,9 @@ const audio = {
 }
 
 beforeEach(() => {
+  localStorage.clear()
   vi.mocked(createWaveformPlayer).mockReturnValue(new Promise(() => undefined))
+  vi.mocked(loadDictionaries).mockRejectedValue(new DictionaryLoadError())
   useAutosaveStore.setState({ saveState: 'saved', error: null })
   useSongStore.getState().closeSong()
 })
@@ -54,6 +58,40 @@ function topBarTranscribe(): HTMLElement {
 }
 
 describe('EditorPage', () => {
+  it('loads the dictionary in the background when it opens a song with words and shows no message when the load fails', async () => {
+    const song = await storeNewSong({ name: 'carol', durationMs: 3000, audio })
+    const content = await loadSong(song.id)
+    if (content === undefined) throw new Error('The song is not in the database.')
+    const voiceId = content.voices[0]?.id ?? ''
+    await saveSong({
+      ...content,
+      marks: [
+        {
+          id: 'w1',
+          voiceId,
+          layer: 'word',
+          label: 'carol',
+          startMs: 0,
+          endMs: 500,
+          parentId: null,
+          edited: false,
+        },
+      ],
+    })
+
+    render(<EditorPage songId={song.id} />)
+    await screen.findByRole('heading', { level: 2, name: 'carol' })
+
+    await waitFor(() => expect(loadDictionaries).toHaveBeenCalledOnce())
+    expect(screen.queryByRole('alert')).toBeNull()
+  })
+
+  it('requests no dictionary when it opens a song with no words', async () => {
+    await renderEditor()
+
+    expect(loadDictionaries).not.toHaveBeenCalled()
+  })
+
   it('shows a link back to the song library and the song name in the top bar', async () => {
     await renderEditor()
 
@@ -129,7 +167,7 @@ describe('EditorPage', () => {
       breakDownFailure: { message, wordIds: ['word-1', 'word-2'] },
     })
     vi.mocked(breakDownWords)
-      .mockRejectedValueOnce(new Error(message))
+      .mockRejectedValueOnce(new DictionaryLoadError())
       .mockResolvedValueOnce(undefined)
     const user = userEvent.setup()
     await renderEditor()
@@ -147,6 +185,35 @@ describe('EditorPage', () => {
     await user.click(within(screen.getByRole('alert')).getByRole('button', { name: 'Retry' }))
     await vi.waitFor(() => expect(screen.queryByRole('alert')).toBeNull())
     expect(breakDownWords).toHaveBeenCalledTimes(2)
+  })
+
+  it('shows the copy of the feature file, not the raw error text, when "Retry" fails for another reason', async () => {
+    vi.mocked(runTranscription).mockResolvedValue({
+      wordCount: 2,
+      estimatedCount: 0,
+      breakDownFailure: {
+        message: 'The dictionary did not load. Check the connection and retry.',
+        wordIds: ['word-1', 'word-2'],
+      },
+    })
+    vi.mocked(breakDownWords).mockRejectedValueOnce(new Error('IndexedDB is locked'))
+    const user = userEvent.setup()
+    await renderEditor()
+    await user.click(topBarTranscribe())
+    const start = within(screen.getByRole('dialog')).getByRole('button', { name: 'Start' })
+    await vi.waitFor(() => expect(start).toBeEnabled())
+    await user.click(start)
+
+    await user.click(
+      within(await screen.findByRole('alert')).getByRole('button', { name: 'Retry' }),
+    )
+
+    await vi.waitFor(() =>
+      expect(screen.getByRole('alert')).toHaveTextContent(
+        'The app could not break down the words. Select Retry.',
+      ),
+    )
+    expect(screen.getByRole('alert')).not.toHaveTextContent('IndexedDB is locked')
   })
 
   it('shows no "Transcribe" action for a song with no voice', async () => {
@@ -324,5 +391,72 @@ describe('EditorPage', () => {
     await act(() => new Promise((resolve) => setTimeout(resolve, 20)))
 
     expect(window.location.hash).toBe('#/song/other')
+  })
+
+  it('shows the zoom slider in the editor tools under the stage', async () => {
+    await renderEditor()
+
+    const toolbar = screen.getByRole('toolbar', { name: 'Editor tools' })
+    expect(within(toolbar).getByRole('slider', { name: 'Zoom' })).toBeInTheDocument()
+    expect(
+      screen.getByRole('region', { name: 'Waveform' }).compareDocumentPosition(toolbar) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy()
+  })
+
+  it('opens a song at the zoom and the scroll offset that the browser keeps for it', async () => {
+    const song = await storeNewSong({ name: 'carol', durationMs: 3000, audio })
+    localStorage.setItem(`sft.view.${song.id}`, JSON.stringify({ pxPerSecond: 400, scrollMs: 900 }))
+
+    render(<EditorPage songId={song.id} />)
+    await screen.findByRole('heading', { level: 2, name: 'carol' })
+
+    expect(useViewStore.getState()).toMatchObject({ pxPerSecond: 400, scrollMs: 900 })
+  })
+
+  it('keeps a change of the zoom and the scroll offset for the song', async () => {
+    const { song } = await renderEditor()
+
+    act(() => {
+      useViewStore.getState().setZoom(250)
+      useViewStore.getState().setScroll(1200)
+    })
+
+    expect(JSON.parse(localStorage.getItem(`sft.view.${song.id}`) ?? 'null')).toEqual({
+      pxPerSecond: 250,
+      scrollMs: 1200,
+    })
+  })
+
+  it('shows the note for a window narrower than 1024 px and hides the editor', async () => {
+    const width = window.innerWidth
+    try {
+      await renderEditor()
+      expect(screen.getByText(/needs a window/)).not.toBeVisible()
+
+      act(() => {
+        window.innerWidth = 1023
+        window.dispatchEvent(new Event('resize'))
+      })
+
+      expect(
+        screen.getByText('The editor needs a window that is 1024 px wide or more.'),
+      ).toBeVisible()
+      expect(screen.queryByRole('region', { name: 'Waveform' })).toBeNull()
+    } finally {
+      window.innerWidth = width
+    }
+  })
+
+  it('passes the time selection to the transcribe dialog', async () => {
+    const user = userEvent.setup()
+    await renderEditor()
+    act(() => useViewStore.getState().setSelection({ startMs: 500, endMs: 1500 }))
+
+    await user.click(topBarTranscribe())
+
+    expect(
+      await screen.findByRole('radio', { name: 'The time selection 0:00.500 to 0:01.500' }),
+    ).toBeInTheDocument()
   })
 })

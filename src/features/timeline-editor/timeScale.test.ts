@@ -1,12 +1,23 @@
 import { describe, expect, it } from 'vitest'
 import {
+  clampZoom,
+  followCursor,
   inRange,
   makeTimeScale,
+  MAX_ZOOM,
+  MIN_ZOOM,
   msToPx,
   pxToMs,
+  rangeBetweenPx,
   rangeToPx,
   rulerTicks,
+  scrollByPx,
+  shownZoom,
+  timeAtPx,
   visibleRange,
+  wheelZoom,
+  zoomAt,
+  zoomStep,
 } from './timeScale.ts'
 
 const FULL_SONG = { widthPx: 1000, durationMs: 20_000, pxPerSecond: null, scrollMs: 0 }
@@ -29,6 +40,180 @@ describe('makeTimeScale', () => {
     expect(scale).toEqual({ pxPerMs: 0.2, scrollMs: 4000 })
     expect(msToPx(scale, 4000)).toBe(0)
     expect(msToPx(scale, 5000)).toBe(200)
+  })
+
+  it.each([10, 100, 1000])(
+    'puts a time at the same position at %i pixels for each second',
+    (zoom) => {
+      const scale = makeTimeScale({
+        ...FULL_SONG,
+        durationMs: 600_000,
+        pxPerSecond: zoom,
+        scrollMs: 500,
+      })
+
+      expect(msToPx(scale, 1500)).toBeCloseTo(zoom)
+    },
+  )
+
+  it('stops the scroll offset where the song end reaches the right edge', () => {
+    // 100 px for each second in 1000 px show 10 000 ms, so the offset stops at 10 000 ms.
+    expect(makeTimeScale({ ...FULL_SONG, pxPerSecond: 100, scrollMs: 18_000 }).scrollMs).toBe(
+      10_000,
+    )
+    expect(makeTimeScale({ ...FULL_SONG, pxPerSecond: 100, scrollMs: -50 }).scrollMs).toBe(0)
+  })
+
+  it('keeps the scroll offset at 0 for a song shorter than the width', () => {
+    expect(makeTimeScale({ ...FULL_SONG, pxPerSecond: 10, scrollMs: 4000 }).scrollMs).toBe(0)
+  })
+})
+
+describe('clampZoom and shownZoom', () => {
+  it('keeps the zoom from 10 to 1000 pixels for each second', () => {
+    expect([MIN_ZOOM, MAX_ZOOM]).toEqual([10, 1000])
+    expect(clampZoom(2)).toBe(10)
+    expect(clampZoom(5000)).toBe(1000)
+    expect(clampZoom(250)).toBe(250)
+  })
+
+  it('shows the zoom that fits the full song at the default zoom', () => {
+    // 1000 px for 20 000 ms is 50 px for each second.
+    expect(shownZoom(FULL_SONG)).toBe(50)
+    expect(shownZoom({ ...FULL_SONG, durationMs: 900_000 })).toBe(10)
+    expect(shownZoom({ ...FULL_SONG, pxPerSecond: 333.4 })).toBe(333)
+  })
+})
+
+describe('zoomAt', () => {
+  const view = { ...FULL_SONG, durationMs: 120_000, pxPerSecond: 100, scrollMs: 30_000 }
+
+  it.each([
+    [400, 250],
+    [25, 700],
+    [1000, 10],
+  ])(
+    'keeps the time under the pointer at %i pixels for each second, pointer at %i px',
+    (zoom, pointerPx) => {
+      const before = pxToMs(makeTimeScale(view), pointerPx)
+
+      const next = zoomAt(view, zoom, pointerPx)
+
+      expect(next.pxPerSecond).toBe(zoom)
+      expect(pxToMs(makeTimeScale({ ...view, ...next }), pointerPx)).toBeCloseTo(before)
+    },
+  )
+
+  it('stops the zoom at the limits of the slider', () => {
+    expect(zoomAt(view, 5, 0).pxPerSecond).toBe(10)
+    expect(zoomAt(view, 4000, 0).pxPerSecond).toBe(1000)
+  })
+
+  it('stops the scroll offset at the start of the song', () => {
+    expect(zoomAt({ ...view, scrollMs: 0 }, 50, 500)).toEqual({ pxPerSecond: 50, scrollMs: 0 })
+  })
+
+  it('starts from the zoom that fits the full song at the default zoom', () => {
+    // The full song of 20 000 ms in 1000 px is 50 px for each second, so 2000 ms is at 100 px.
+    const next = zoomAt(FULL_SONG, 200, 100)
+
+    expect(next).toEqual({ pxPerSecond: 200, scrollMs: 1500 })
+  })
+})
+
+describe('zoomStep', () => {
+  const view = { ...FULL_SONG, durationMs: 120_000, pxPerSecond: 100, scrollMs: 30_000 }
+
+  it('zooms in and out by a factor of 1.5 at the centre of the editor', () => {
+    const centreMs = pxToMs(makeTimeScale(view), 500)
+
+    const zoomedIn = zoomStep(view, 1)
+    const zoomedOut = zoomStep(view, -1)
+
+    expect(zoomedIn.pxPerSecond).toBe(150)
+    expect(zoomedOut.pxPerSecond).toBeCloseTo(66.667, 2)
+    expect(pxToMs(makeTimeScale({ ...view, ...zoomedIn }), 500)).toBeCloseTo(centreMs)
+  })
+
+  it('stops at 1000 pixels for each second', () => {
+    expect(zoomStep({ ...view, pxPerSecond: 900 }, 1).pxPerSecond).toBe(1000)
+  })
+})
+
+describe('wheelZoom', () => {
+  const view = { ...FULL_SONG, durationMs: 120_000, pxPerSecond: 100, scrollMs: 30_000 }
+
+  it('doubles the zoom for a wheel step of -300 px and keeps the time under the pointer', () => {
+    const before = pxToMs(makeTimeScale(view), 320)
+
+    const next = wheelZoom(view, -300, 320)
+
+    expect(next.pxPerSecond).toBeCloseTo(200)
+    expect(pxToMs(makeTimeScale({ ...view, ...next }), 320)).toBeCloseTo(before)
+  })
+
+  it('halves the zoom for a wheel step of 300 px', () => {
+    expect(wheelZoom(view, 300, 0).pxPerSecond).toBeCloseTo(50)
+  })
+})
+
+describe('scrollByPx', () => {
+  const view = { ...FULL_SONG, pxPerSecond: 100, scrollMs: 2000 }
+
+  it('moves the scroll offset by the time of the distance', () => {
+    expect(scrollByPx(view, 150)).toBe(3500)
+    expect(scrollByPx(view, -100)).toBe(1000)
+  })
+
+  it('stops at the start and at the end of the song', () => {
+    expect(scrollByPx(view, -1000)).toBe(0)
+    expect(scrollByPx(view, 5000)).toBe(10_000)
+  })
+
+  it('keeps the offset at 0 at the default zoom', () => {
+    expect(scrollByPx(FULL_SONG, 300)).toBe(0)
+  })
+})
+
+describe('followCursor', () => {
+  const view = { ...FULL_SONG, durationMs: 60_000, pxPerSecond: 100, scrollMs: 10_000 }
+
+  it('returns null while the play cursor is in view', () => {
+    expect(followCursor(view, 10_000)).toBeNull()
+    expect(followCursor(view, 19_990)).toBeNull()
+  })
+
+  it('moves the play cursor to the left edge when it reaches the right edge', () => {
+    expect(followCursor(view, 20_000)).toBe(20_000)
+  })
+
+  it('moves the view back to the play cursor when it is before the left edge', () => {
+    expect(followCursor(view, 4000)).toBe(4000)
+  })
+
+  it('stops at the end of the song', () => {
+    expect(followCursor(view, 55_000)).toBe(50_000)
+  })
+
+  it('returns null at the default zoom, because the full song is in view', () => {
+    expect(followCursor({ ...view, pxPerSecond: null }, 60_000)).toBeNull()
+  })
+})
+
+describe('timeAtPx and rangeBetweenPx', () => {
+  const scale = { pxPerMs: 0.1, scrollMs: 1000 }
+
+  it('gives the time at a position in whole milliseconds', () => {
+    expect(timeAtPx(scale, 25.04, 20_000)).toBe(1250)
+  })
+
+  it('keeps the time inside the song', () => {
+    expect(timeAtPx(scale, -500, 20_000)).toBe(0)
+    expect(timeAtPx(scale, 5000, 20_000)).toBe(20_000)
+  })
+
+  it('gives the range in time order for a drag to the left', () => {
+    expect(rangeBetweenPx(scale, 300, 100, 20_000)).toEqual({ startMs: 2000, endMs: 4000 })
   })
 })
 

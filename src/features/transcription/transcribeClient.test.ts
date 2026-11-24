@@ -1,6 +1,11 @@
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { FromWorkerMessage, ToWorkerMessage } from './protocol.ts'
-import { createTranscribeClient, TranscribeError, type WorkerLike } from './transcribeClient.ts'
+import {
+  createTranscribeClient,
+  TranscribeError,
+  WEBGPU_STALL_MS,
+  type WorkerLike,
+} from './transcribeClient.ts'
 
 /** A fake worker that records each message and lets the test send the replies. */
 class FakeWorker implements WorkerLike {
@@ -166,7 +171,7 @@ describe('createTranscribeClient', () => {
     })
     await vi.waitFor(() => expect(workers).toHaveLength(2))
     expect(workers[0]?.terminated).toBe(true)
-    expect(onDeviceChange).toHaveBeenCalledWith('wasm')
+    expect(onDeviceChange).toHaveBeenCalledExactlyOnceWith('wasm', 'failed')
     expect(client.device).toBe('wasm')
     expect(current().received).toEqual([
       { type: 'load', speechModelId: 'whisper-base', device: 'wasm' },
@@ -175,6 +180,20 @@ describe('createTranscribeClient', () => {
     await vi.waitFor(() => expect(current().received).toHaveLength(2))
     current().reply({ type: 'result', runId: current().lastRunId(), words })
     await expect(run).resolves.toEqual(words)
+  })
+
+  it('reports the start of the run, and the model load and the new start after a device change', async () => {
+    const { client, current } = await loaded('webgpu')
+    const onStage = vi.fn()
+    const run = client.transcribe(samples, 0, { onStage })
+    expect(onStage.mock.calls).toEqual([['transcribing']])
+    current().reply({ type: 'error', runId: current().lastRunId(), kind: 'device', detail: 'x' })
+    await vi.waitFor(() => expect(onStage.mock.calls).toEqual([['transcribing'], ['loading']]))
+    current().reply({ type: 'ready' })
+    await vi.waitFor(() => expect(onStage).toHaveBeenCalledTimes(3))
+    expect(onStage).toHaveBeenLastCalledWith('transcribing')
+    current().reply({ type: 'result', runId: current().lastRunId(), words })
+    await run
   })
 
   it('loads on wasm after a WebGPU load fails', async () => {
@@ -215,5 +234,78 @@ describe('createTranscribeClient', () => {
     worker.onerror?.({ message: 'script failed' } as ErrorEvent)
     await expect(load).rejects.toMatchObject({ kind: 'unknown', message: 'script failed' })
     expect(worker.terminated).toBe(true)
+  })
+
+  describe('watchdog', () => {
+    afterEach(() => {
+      vi.useRealTimers()
+    })
+
+    it('stops a WebGPU run with no progress for 45 seconds and runs again on wasm', async () => {
+      vi.useFakeTimers()
+      const { client, workers, current, onDeviceChange } = await loaded('webgpu')
+      const run = client.transcribe(samples, 0)
+      const first = current()
+
+      await vi.advanceTimersByTimeAsync(WEBGPU_STALL_MS)
+
+      expect(first.terminated).toBe(true)
+      expect(onDeviceChange).toHaveBeenCalledExactlyOnceWith('wasm', 'slow')
+      expect(client.device).toBe('wasm')
+      expect(workers).toHaveLength(2)
+      expect(current().received).toEqual([
+        { type: 'load', speechModelId: 'whisper-base', device: 'wasm' },
+      ])
+      current().reply({ type: 'ready' })
+      await vi.advanceTimersByTimeAsync(0)
+      const again = current().received.at(-1)
+      expect(again).toMatchObject({ type: 'transcribe', samples, offsetMs: 0 })
+      current().reply({ type: 'result', runId: current().lastRunId(), words })
+      await expect(run).resolves.toEqual(words)
+    })
+
+    it('waits 45 seconds again after each progress', async () => {
+      vi.useFakeTimers()
+      const { client, current, onDeviceChange } = await loaded('webgpu')
+      const onProgress = vi.fn()
+      const run = client.transcribe(samples, 0, { onProgress })
+
+      await vi.advanceTimersByTimeAsync(WEBGPU_STALL_MS - 1)
+      current().reply({ type: 'progress', runId: current().lastRunId(), doneMs: 4000 })
+      await vi.advanceTimersByTimeAsync(WEBGPU_STALL_MS - 1)
+
+      expect(onDeviceChange).not.toHaveBeenCalled()
+      expect(current().terminated).toBe(false)
+      current().reply({ type: 'result', runId: current().lastRunId(), words })
+      await expect(run).resolves.toEqual(words)
+    })
+
+    it('stops no wasm run', async () => {
+      vi.useFakeTimers()
+      const { client, current, onDeviceChange } = await loaded('wasm')
+      const run = client.transcribe(samples, 0)
+
+      await vi.advanceTimersByTimeAsync(WEBGPU_STALL_MS * 4)
+
+      expect(onDeviceChange).not.toHaveBeenCalled()
+      expect(current().terminated).toBe(false)
+      current().reply({ type: 'result', runId: current().lastRunId(), words })
+      await expect(run).resolves.toEqual(words)
+    })
+
+    it('stops the watchdog when the run ends, fails or is cancelled', async () => {
+      vi.useFakeTimers()
+      const { client, current, onDeviceChange } = await loaded('webgpu')
+      const done = client.transcribe(samples, 0)
+      current().reply({ type: 'result', runId: current().lastRunId(), words })
+      await done
+      const cancelled = client.transcribe(samples, 0)
+      client.cancel()
+      await expect(cancelled).rejects.toMatchObject({ kind: 'cancelled' })
+
+      await vi.advanceTimersByTimeAsync(WEBGPU_STALL_MS * 2)
+
+      expect(onDeviceChange).not.toHaveBeenCalled()
+    })
   })
 })

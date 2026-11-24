@@ -1,10 +1,13 @@
-import { loadDictionary } from '../../features/phoneme-breakdown/loadDictionary.ts'
+import {
+  loadDictionary,
+  loadedDictionary,
+} from '../../features/phoneme-breakdown/loadDictionary.ts'
 import { lookup } from '../../lib/dictionary/lookup.ts'
 import { normaliseWord } from '../../lib/dictionary/normaliseWord.ts'
 import { spread } from '../../lib/dictionary/spread.ts'
 import { toPhonemeLabels } from '../../lib/dictionary/toPhonemeLabels.ts'
 import type { Dictionary } from '../../lib/dictionary/types.ts'
-import { customDictionary } from '../customEntries.ts'
+import { customDictionary, loadedCustomDictionary } from '../customEntries.ts'
 import { useSongStore } from '../songStore.ts'
 import type { Mark, SongContent } from '../types.ts'
 
@@ -24,6 +27,16 @@ export type Dictionaries = {
 export async function loadDictionaries(): Promise<Dictionaries> {
   const [custom, cmu] = await Promise.all([customDictionary(), loadDictionary()])
   return { custom, cmu }
+}
+
+/**
+ * Returns the custom dictionary and the dictionary when both are in memory, or undefined when one is not loaded yet.
+ * A synchronous action, such as a move or a resize, breaks down a word only with this result.
+ */
+export function loadedDictionaries(): Dictionaries | undefined {
+  const custom = loadedCustomDictionary()
+  const cmu = loadedDictionary()
+  return custom && cmu ? { custom, cmu } : undefined
 }
 
 /**
@@ -96,7 +109,7 @@ async function applyToMarks(
 
 /**
  * Replaces the phonemes of the given words of the open song with a new break down, as one undo step.
- * TODO(#30): Add the "Break down again" control for the selected words.
+ * The "Break down again" button of the editor calls it with the selected words.
  * An edited word keeps its phonemes. An id of a mark that is not a word changes nothing.
  * @param wordIds The ids of the word marks.
  * Rejects with DictionaryLoadError when the dictionary file does not load. The words then keep their phonemes.

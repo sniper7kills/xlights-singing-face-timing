@@ -15,6 +15,7 @@ import {
   writeCustomDictionary,
 } from '../../lib/dictionary/customDictionaryFile.ts'
 import { toPhonemeLabels } from '../../lib/dictionary/toPhonemeLabels.ts'
+import { rebreakForEntries } from '../../store/actions/breakDown.ts'
 import {
   type CustomEntryInput,
   deleteCustomEntry,
@@ -32,6 +33,13 @@ const EXPORT_FILE_NAME = 'custom-dictionary.txt'
 const STORAGE_FAILURE = 'The app could not read or write the custom dictionary. Reload the page.'
 /** The count of skipped line numbers that the import report shows. */
 const SHOWN_SKIPPED_LINES = 10
+
+/** The message of a failed write. */
+type DialogError = {
+  text: string
+  /** The words whose break down did not run because the dictionary did not load. "Retry" breaks them down. */
+  retryWords?: readonly string[]
+}
 
 type CustomDictionaryDialogProps = {
   /**
@@ -69,6 +77,7 @@ function importReport(imported: number, skippedLines: readonly number[]): string
  * If that control is gone, the focus goes to the selected mark, else to the "Custom dictionary" button.
  * The dialog is a child of the document body, so it is outside the toolbar that can open it.
  * Each change goes through the custom entry store, which breaks down again the matching words of the open song.
+ * If the dictionary does not load after a change, the change stays saved, and "Retry" runs the break down again.
  */
 export function CustomDictionaryDialog({ initialWord, onClose }: CustomDictionaryDialogProps) {
   const titleId = useId()
@@ -78,7 +87,7 @@ export function CustomDictionaryDialog({ initialWord, onClose }: CustomDictionar
   const [search, setSearch] = useState('')
   const [editing, setEditing] = useState<CustomEntry | null>(null)
   const [report, setReport] = useState('')
-  const [error, setError] = useState<string | null>(null)
+  const [error, setError] = useState<DialogError | null>(null)
 
   // The render runs before the entry form takes the focus, so this is still the control that opened the dialog.
   const [opener] = useState(() =>
@@ -89,7 +98,7 @@ export function CustomDictionaryDialog({ initialWord, onClose }: CustomDictionar
     try {
       setEntries(await listCustomEntries())
     } catch {
-      setError(STORAGE_FAILURE)
+      setError({ text: STORAGE_FAILURE })
     }
   }, [])
 
@@ -112,8 +121,12 @@ export function CustomDictionaryDialog({ initialWord, onClose }: CustomDictionar
     tabStops(dialog)[0]?.focus()
   }, [entries, editing])
 
-  /** Runs a write of the custom entry store. Resolves to true when the write saved its change. */
-  async function write(change: () => Promise<unknown>): Promise<boolean> {
+  /**
+   * Runs a write of the custom entry store. Resolves to true when the write saved its change.
+   * @param change The write.
+   * @param words The words of the changed entries, which "Retry" breaks down when the dictionary does not load.
+   */
+  async function write(change: () => Promise<unknown>, words: readonly string[]): Promise<boolean> {
     setError(null)
     try {
       await change()
@@ -121,10 +134,10 @@ export function CustomDictionaryDialog({ initialWord, onClose }: CustomDictionar
     } catch (failure) {
       // The store saves the change before it loads the dictionary, so only the break down did not run.
       if (failure instanceof DictionaryLoadError) {
-        setError(failure.message)
+        setError({ text: failure.message, retryWords: words })
         return true
       }
-      setError(failure instanceof StorageFullError ? failure.message : STORAGE_FAILURE)
+      setError({ text: failure instanceof StorageFullError ? failure.message : STORAGE_FAILURE })
       return false
     } finally {
       await refresh()
@@ -133,13 +146,13 @@ export function CustomDictionaryDialog({ initialWord, onClose }: CustomDictionar
 
   function save(entry: CustomEntryInput) {
     setReport('')
-    return write(() => putCustomEntry(entry))
+    return write(() => putCustomEntry(entry), [entry.word])
   }
 
   async function remove(word: string) {
     setReport('')
     if (editing?.word === word) setEditing(null)
-    await write(() => deleteCustomEntry(word))
+    await write(() => deleteCustomEntry(word), [word])
   }
 
   async function importFile(event: ChangeEvent<HTMLInputElement>) {
@@ -153,12 +166,16 @@ export function CustomDictionaryDialog({ initialWord, onClose }: CustomDictionar
     try {
       text = await file.text()
     } catch {
-      setError(STORAGE_FAILURE)
+      setError({ text: STORAGE_FAILURE })
       return
     }
     const parsed = parseCustomDictionary(text)
     const saved =
-      parsed.entries.length === 0 || (await write(() => putCustomEntries(parsed.entries)))
+      parsed.entries.length === 0 ||
+      (await write(
+        () => putCustomEntries(parsed.entries),
+        parsed.entries.map((entry) => entry.word),
+      ))
     if (saved) setReport(importReport(parsed.entries.length, parsed.skippedLines))
   }
 
@@ -187,6 +204,7 @@ export function CustomDictionaryDialog({ initialWord, onClose }: CustomDictionar
     if (event.target === event.currentTarget) event.preventDefault()
   }
 
+  const retryWords = error?.retryWords
   return createPortal(
     <div className="modal-backdrop" onMouseDown={keepFocus}>
       <div
@@ -214,11 +232,23 @@ export function CustomDictionaryDialog({ initialWord, onClose }: CustomDictionar
           initialWord={initialWord}
           onSave={save}
           onCancel={() => setEditing(null)}
-          onStorageFailure={() => setError(STORAGE_FAILURE)}
+          onStorageFailure={() => setError({ text: STORAGE_FAILURE })}
         />
         {error !== null && (
           <p className="message" role="alert">
-            {error}
+            {error.text}
+            {retryWords !== undefined && (
+              <>
+                {' '}
+                <button
+                  type="button"
+                  className="button"
+                  onClick={() => void write(() => rebreakForEntries(retryWords), retryWords)}
+                >
+                  Retry
+                </button>
+              </>
+            )}
           </p>
         )}
         <p className="dialog-note" role="status">

@@ -1,6 +1,7 @@
 import { type FormEvent, useEffect, useId, useRef, useState } from 'react'
 import {
   entryKey,
+  hasLetterOrDigit,
   isEntryWord,
   MAX_WORD_LENGTH,
 } from '../../lib/dictionary/customDictionaryFile.ts'
@@ -44,7 +45,7 @@ function firstWord(editing: CustomEntry | null, initialWord: string | undefined)
 function wordError(typed: string): string | undefined {
   if (typed === '') return 'Type a word.'
   if (!isEntryWord(typed)) return `A word has 1 to ${MAX_WORD_LENGTH} characters and no spaces.`
-  if (normaliseWord(typed) === '') return 'Type a word with a letter or a digit.'
+  if (!hasLetterOrDigit(normaliseWord(typed))) return 'Type a word with a letter or a digit.'
   if (entryKey(typed) === undefined) return 'Type a word with a letter.'
   return undefined
 }

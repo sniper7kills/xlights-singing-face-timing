@@ -22,6 +22,8 @@ Do not reconcile by guess.
 | wavesurfer.js | 8.1.x | https://wavesurfer.xyz/docs/ |
 | CMU Pronouncing Dictionary | file `cmudict.dict` | https://github.com/cmusphinx/cmudict |
 | Web Audio `decodeAudioData` | browser | https://developer.mozilla.org/en-US/docs/Web/API/BaseAudioContext/decodeAudioData |
+| Web Audio `OfflineAudioContext` | browser | https://developer.mozilla.org/en-US/docs/Web/API/OfflineAudioContext/OfflineAudioContext , https://webaudio.github.io/web-audio-api/ |
+| Autoplay policy | browser | https://developer.mozilla.org/en-US/docs/Web/Media/Guides/Autoplay |
 | xLights `.xtiming` format | commit `99a289bf` | https://github.com/xLightsSequencer/xLights — `src-core/render/Element.cpp`, `src-ui-wx/sequencer/RowHeading.cpp`, `src-core/render/SequenceFile.cpp`, `src-core/effects/FacesEffect.cpp` |
 | xLights manual | current | https://manual.xlights.org/xlights/chapters/chapter-four-sequencer/singing-faces.md |
 | AWS CloudFormation (S3, CloudFront, IAM) | current | https://docs.aws.amazon.com/AWSCloudFormation/latest/TemplateReference/ |
@@ -30,7 +32,6 @@ Do not reconcile by guess.
 
 Not confirmed yet. Confirm each one before the code that depends on it:
 
-- The wavesurfer.js method and event names for zoom and scroll.
 - The output of the xLights `XmlSafe` function for `&`, `<`, `>`, `"` and `'`.
 
 Confirmed on 2026-11-24 for `cmudict.dict` at commit
@@ -68,6 +69,44 @@ Hugging Face Hub. Pull request #71 cites each source.
 - The cache check and the download total read the dtype key `model` for the
   Whisper encoder. The model load reads the key `encoder_model`. The app sets both.
 
+Confirmed on 2026-11-24 for `@huggingface/transformers` 4.3.2, from
+https://huggingface.co/docs/transformers.js/api/generation/streamers and the
+source in `node_modules/@huggingface/transformers/src/` (issue #91):
+
+- A streamer goes to the pipeline call as the generate option `streamer`. The
+  typed pipeline options accept a `TextStreamer` only, not a `BaseStreamer`.
+- `generate` calls `streamer.put(value)` with the prompt tokens first, then with
+  each new token as `[[id]]`. It calls `streamer.end()` at the end of each
+  generate pass.
+- With `return_timestamps: 'word'`, the pipeline also sets `return_timestamps:
+  true`, so Whisper writes timestamp tokens. Whisper then reads each 30-second
+  chunk with a seek loop (`_generate_with_seek`), and one chunk can take more than
+  one pass. The next pass starts at the first token of the last pair of adjacent
+  timestamp tokens.
+- A timestamp token id minus `tokenizer.timestamp_begin`, times 0.02 s, is a time
+  inside the 30-second window of the pass, not inside the run.
+- `WhisperTextStreamer` gives `on_chunk_start(time)` and `on_chunk_end(time)` for
+  timestamp tokens, `token_callback_function(tokens)` for each token, and
+  `on_finalize()` for each `end()`. Its start and end switch does not reset
+  between passes. `TextStreamer.put` decodes all text of the pass after each
+  token, and the default `callback_function` writes to the console.
+- A token callback gives a time only for a timestamp token. A text token gives no
+  time.
+
+Confirmed on 2026-11-24 for the browser Web Audio API (issue #91):
+
+- `new OfflineAudioContext(numberOfChannels, length, sampleRate)`. The channels
+  are 1 to 32, the length is more than 0 frames, the sample rate is 3000 to
+  768 000 Hz. A value out of range throws `NotSupportedError`.
+- `decodeAudioData` is a method of `BaseAudioContext`, so an
+  `OfflineAudioContext` has it. The decode resamples the audio to the sample rate
+  of the context. The result keeps the channels of the file.
+- `OfflineAudioContext` has no `close()` method.
+- The autoplay policy applies to an `AudioContext`. A browser can keep an
+  `AudioContext` from starting until the page has sticky activation. Firefox
+  controls this with `media.autoplay.block-webaudio`. The specification defines
+  "allowed to start" for `AudioContext` only.
+
 Confirmed on 2026-11-24: the CloudFormation properties in `infra/hosting.yml` and
 the IAM action names of the deploy role. Pull request #52 cites each page. The
 template passes `cfn-lint`. No stack exists yet, so AWS has not validated it.
@@ -78,6 +117,31 @@ duration?)`, `play()`, `pause()`, `isPlaying()`, `setOptions()`, `destroy()`, an
 events `timeupdate` (time in seconds), `play`, `pause` and `finish`. If
 `loadBlob` gets `channelData` and `duration`, wavesurfer.js does not decode the
 blob. The pull request of issue #12 cites the pages.
+
+Confirmed on 2026-11-24 for wavesurfer.js 8.1.1, from the typed API in
+`node_modules/wavesurfer.js/dist/wavesurfer.d.ts` and the code in
+`dist/wavesurfer.js` and `dist/renderer.js`. The pages
+https://wavesurfer.xyz/docs/methods , https://wavesurfer.xyz/docs/options and
+https://wavesurfer.xyz/docs/events show their text only after a script runs, so
+the typed API is the source.
+
+- Zoom: `zoom(minPxPerSec)` throws `No audio loaded` before a load. The option
+  `minPxPerSec` through `setOptions()` sets the same zoom and draws again.
+- Width: the waveform is `Math.ceil(duration * minPxPerSec)` pixels wide. With
+  `fillParent: true`, a waveform narrower than the container stretches to the
+  container width. The app sets `fillParent: false` for a set zoom.
+- Scroll: `setScroll(pixels)` and `getScroll()` set and read `scrollLeft` of the
+  scroll container. `setScrollTime(seconds)` also exists. The browser clamps
+  `scrollLeft` to the waveform width.
+- Events: `scroll` gives `(visibleStartTime, visibleEndTime, scrollLeft,
+  scrollRight)`. `zoom` gives `minPxPerSec`. `timeupdate` fires on each animation
+  frame during play.
+- A redraw keeps the cursor position in view, so it can change `scrollLeft`. The
+  app sets its scroll offset again on each `scroll` event.
+- Options: `interact: false` stops clicks and drags. `autoScroll: false` stops the
+  scroll during play. `cursorWidth: 0` hides the cursor. `hideScrollbar: true`
+  hides the scroll bar.
+- Seek: `setTime(seconds)`.
 
 Evidence format:
 

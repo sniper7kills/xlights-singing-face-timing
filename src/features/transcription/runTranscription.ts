@@ -10,7 +10,12 @@ import { buildMarks } from './buildMarks.ts'
 import { groupIntoPhrases, parseLyrics, spreadLyrics } from './phrases.ts'
 import { SPEECH_SAMPLE_RATE } from './protocol.ts'
 import { resampleForSpeech } from './resample.ts'
-import { type DownloadHandler, type TranscribeClient, TranscribeError } from './transcribeClient.ts'
+import {
+  type ClientStage,
+  type DownloadHandler,
+  type TranscribeClient,
+  TranscribeError,
+} from './transcribeClient.ts'
 import type { AlignedPhrase } from './types.ts'
 
 /** The source of the words: the speech model, or the lyrics alone with no speech model. */
@@ -47,12 +52,22 @@ export type BreakDownFailure = {
   wordIds: string[]
 }
 
+/**
+ * A step of a speech model run before its first progress:
+ * - `preparing`: the page decodes and resamples the audio.
+ * - `loading`: the worker loads the speech model. A download also sends download progress.
+ * - `transcribing`: the worker runs the speech model and has sent no progress yet.
+ */
+export type RunStage = 'preparing' | ClientStage
+
 /** The functions that the transcribe dialog supplies to one run. */
 export type TranscribeRunHandlers = {
   /** Aborts when the person selects "Cancel". The run then changes no mark. */
   signal: AbortSignal
   /** Receives the download progress of the speech model files. */
   onDownload: DownloadHandler
+  /** Receives each step of a speech model run before its first progress. A device change sends the steps again. */
+  onStage: (stage: RunStage) => void
   /** Receives the audio time that is complete, from the start of the run, and the audio time of the run. */
   onProgress: (doneMs: number, totalMs: number) => void
   /** Tells the dialog that the run aligns the lyrics and breaks down the words. */
@@ -89,7 +104,7 @@ function stopIfCancelled(signal: AbortSignal): void {
 /**
  * Runs one transcription for the open song, writes the marks as one undo step, and returns the counts.
  * The same undo step holds the phonemes of each new word. If the break down fails, the words have no phonemes and the outcome reports it.
- * The run replaces the marks of the voice that lie fully inside the range. The marks outside it stay.
+ * The run replaces the marks of the voice in the range. See `replaceMarksInRange` for a mark that crosses an edge of the range.
  * @param request The run that the person started. Without a range, the range is the full song.
  * @param client The client that runs the speech model. A lyrics-only run does not call it.
  * @param handlers The progress functions, the cancel signal and the two confirm callbacks of the dialog.
@@ -132,6 +147,17 @@ export async function runTranscription(
 }
 
 /**
+ * Returns the message of a failed break down: the copy of the dictionary failure, else the copy for any other failure.
+ * The person never sees the raw text of an error.
+ * @param error The rejection of the break down.
+ */
+export function breakDownFailureMessage(error: unknown): string {
+  return error instanceof DictionaryLoadError
+    ? error.message
+    : 'The app could not break down the words. Select Retry.'
+}
+
+/**
  * Returns the marks of a run with the phonemes of each new word added.
  * A break down that fails must not lose the run, so the words then stay without phonemes and the failure names them.
  * The failure is a dictionary that does not load, or any other failure, for example a database that cannot read the custom dictionary.
@@ -148,13 +174,12 @@ async function breakDownRun(
       breakDownFailure: null,
     }
   } catch (error) {
-    const message =
-      error instanceof DictionaryLoadError
-        ? error.message
-        : 'The app could not break down the words. Select Retry.'
     return {
       written: marks,
-      breakDownFailure: { message, wordIds: words.map((word) => word.id) },
+      breakDownFailure: {
+        message: breakDownFailureMessage(error),
+        wordIds: words.map((word) => word.id),
+      },
     }
   }
 }
@@ -175,20 +200,22 @@ async function findPhrases(
   if (request.mode === 'lyrics-only')
     return spreadLyrics(request.lyrics ?? '', range.startMs, range.endMs)
   const { signal } = handlers
+  handlers.onStage('preparing')
   const audio = await getAudioFile(songId)
   if (audio === undefined) throw new Error('The open song has no audio file.')
   const samples = await resampleForSpeech(audio.data, request.range)
   stopIfCancelled(signal)
 
+  handlers.onStage('loading')
   await client.load(request.speechModelId, handlers.onDownload)
   stopIfCancelled(signal)
 
   const totalMs = (samples.length / SPEECH_SAMPLE_RATE) * 1000
-  handlers.onProgress(0, totalMs)
   // The client adds the start of the range, so each word time is a song time.
   const words = await client.transcribe(samples, request.range?.startMs ?? 0, {
     onDownload: handlers.onDownload,
     onProgress: (doneMs) => handlers.onProgress(doneMs, totalMs),
+    onStage: handlers.onStage,
   })
   stopIfCancelled(signal)
   if (words.length === 0) throw new NoWordsError()

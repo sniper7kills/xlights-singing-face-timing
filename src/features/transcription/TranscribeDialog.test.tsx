@@ -1,6 +1,7 @@
 import { act, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import type { TimeRange } from '../../lib/time/timeRange.ts'
 import { loadSettings, updateSettings } from '../../store/settings.ts'
 import { chooseDevice } from './device.ts'
 import type { Device } from './protocol.ts'
@@ -56,6 +57,7 @@ beforeEach(() => {
 })
 
 afterEach(() => {
+  vi.useRealTimers()
   vi.clearAllMocks()
 })
 
@@ -65,7 +67,7 @@ function lastRun(): HeldRun {
   return run
 }
 
-async function renderDialog() {
+async function renderDialog(selection: TimeRange | null = null) {
   const onClose = vi.fn()
   const onDone = vi.fn()
   const onActiveChange = vi.fn()
@@ -74,6 +76,7 @@ async function renderDialog() {
     <TranscribeDialog
       voiceId="voice-1"
       durationMs={220_000}
+      selection={selection}
       onActiveChange={onActiveChange}
       onClose={onClose}
       onDone={onDone}
@@ -84,8 +87,24 @@ async function renderDialog() {
   return { onClose, onDone, onActiveChange, user, start, view }
 }
 
-function progress() {
-  return screen.getByRole('status')
+/** Returns the visible progress text. Its text changes each second, so it is not the live region. */
+function progress(): HTMLElement {
+  const element = document.querySelector<HTMLElement>('.transcribe-progress')
+  if (element === null) throw new Error('The dialog has no progress text.')
+  return element
+}
+
+/** Returns the live region of the progress area. */
+function announcement(): HTMLElement {
+  const region = document.querySelector<HTMLElement>('.dialog-progress [role="status"]')
+  if (region === null) throw new Error('The dialog has no live region.')
+  return region
+}
+
+/** Fakes only the clock and the one-second timer, so user-event and the IndexedDB stub keep real timeouts. */
+function fakeClock(startMs = 0) {
+  vi.useFakeTimers({ toFake: ['Date', 'setInterval', 'clearInterval'] })
+  vi.setSystemTime(startMs)
 }
 
 describe('TranscribeDialog', () => {
@@ -152,17 +171,60 @@ describe('TranscribeDialog', () => {
   it('updates the device note when the client moves from WebGPU to wasm', async () => {
     await renderDialog()
 
-    act(() => clientOptions?.onDeviceChange?.('wasm' satisfies Device))
+    act(() => clientOptions?.onDeviceChange?.('wasm' satisfies Device, 'failed'))
 
     expect(
       screen.getByText('WebGPU is not available. Transcription is slower on this browser.'),
     ).toBeInTheDocument()
   })
 
-  it('offers the full song as the range', async () => {
+  it('offers the full song as the only range when the editor has no time selection', async () => {
     await renderDialog()
 
     expect(screen.getByRole('radio', { name: 'Full song' })).toBeChecked()
+    expect(screen.getAllByRole('radio', { name: /song|selection/ })).toHaveLength(1)
+  })
+
+  it('offers the time selection with its times beside the full song', async () => {
+    await renderDialog({ startMs: 12_000, endMs: 27_500 })
+
+    expect(screen.getByRole('radio', { name: 'Full song' })).toBeChecked()
+    expect(
+      screen.getByRole('radio', { name: 'The time selection 0:12.000 to 0:27.500' }),
+    ).not.toBeChecked()
+  })
+
+  it('passes the time selection as the range of a lyrics-only run', async () => {
+    const { user, start } = await renderDialog({ startMs: 12_000, endMs: 27_500 })
+
+    await user.click(screen.getByRole('radio', { name: /^The time selection/ }))
+    await user.click(screen.getByRole('checkbox', { name: 'Lyrics only' }))
+    await user.type(screen.getByLabelText('Lyrics (optional)'), 'All is calm')
+    await user.click(start)
+
+    expect(lastRun().request).toMatchObject({
+      mode: 'lyrics-only',
+      range: { startMs: 12_000, endMs: 27_500 },
+    })
+  })
+
+  it('passes no range when the person goes back to the full song', async () => {
+    const { user, start } = await renderDialog({ startMs: 12_000, endMs: 27_500 })
+
+    await user.click(screen.getByRole('radio', { name: /^The time selection/ }))
+    await user.click(screen.getByRole('radio', { name: 'Full song' }))
+    await user.click(start)
+
+    expect(lastRun().request.range).toBeUndefined()
+  })
+
+  it('passes the time selection as the range of a speech model run', async () => {
+    const { user, start } = await renderDialog({ startMs: 0, endMs: 90_000 })
+
+    await user.click(screen.getByRole('radio', { name: /^The time selection/ }))
+    await user.click(start)
+
+    expect(lastRun().request).toMatchObject({ mode: 'model', range: { startMs: 0, endMs: 90_000 } })
   })
 
   it('starts a speech model run with the lyrics and shows the transcribe progress', async () => {
@@ -177,7 +239,7 @@ describe('TranscribeDialog', () => {
       mode: 'model',
       lyrics: 'Silent night',
     })
-    expect(progress()).toHaveTextContent('Transcribing, 0:00 of 3:40')
+    expect(progress()).toHaveTextContent('Preparing audio, 0:00 elapsed')
     expect(onActiveChange).toHaveBeenLastCalledWith(true)
     act(() => lastRun().handlers.onProgress(72_000, 220_000))
     expect(progress()).toHaveTextContent('Transcribing, 1:12 of 3:40')
@@ -198,6 +260,159 @@ describe('TranscribeDialog', () => {
       'Transcribing, 0:50 of 3:40',
       'Transcribing, 1:10 of 3:40',
     ])
+  })
+
+  it('shows "Preparing audio" and then "Loading speech model" with a bar with no value', async () => {
+    const { user, start } = await renderDialog()
+    await user.click(start)
+
+    expect(progress()).toHaveTextContent('Preparing audio, 0:00 elapsed')
+    act(() => lastRun().handlers.onStage('loading'))
+
+    expect(progress()).toHaveTextContent('Loading speech model, 0:00 elapsed')
+    expect(document.querySelector('progress')).not.toHaveAttribute('value')
+  })
+
+  it('shows the elapsed time each second until the first progress, then the audio time', async () => {
+    fakeClock()
+    const { user, start } = await renderDialog()
+    await user.click(start)
+    act(() => lastRun().handlers.onStage('transcribing'))
+    const texts: string[] = []
+
+    for (let second = 0; second < 3; second++) {
+      texts.push(progress().textContent ?? '')
+      act(() => vi.advanceTimersByTime(1000))
+    }
+    act(() => lastRun().handlers.onProgress(4000, 220_000))
+    act(() => vi.advanceTimersByTime(1000))
+
+    expect(texts).toEqual([
+      'Transcribing, 0:00 elapsed',
+      'Transcribing, 0:01 elapsed',
+      'Transcribing, 0:02 elapsed',
+    ])
+    expect(progress()).toHaveTextContent('Transcribing, 0:04 of 3:40')
+  })
+
+  it('counts the elapsed time from the "Start" click across the steps', async () => {
+    fakeClock()
+    const { user, start } = await renderDialog()
+    await user.click(start)
+
+    act(() => vi.advanceTimersByTime(2000))
+    expect(progress()).toHaveTextContent('Preparing audio, 0:02 elapsed')
+    act(() => lastRun().handlers.onStage('loading'))
+    act(() => vi.advanceTimersByTime(3000))
+
+    expect(progress()).toHaveTextContent('Loading speech model, 0:05 elapsed')
+  })
+
+  it('shows the current elapsed time at once after a download', async () => {
+    fakeClock()
+    const { user, start } = await renderDialog()
+    await user.click(start)
+    act(() => vi.advanceTimersByTime(1000))
+    act(() => lastRun().handlers.onDownload(500_000, 1_000_000))
+    act(() => vi.advanceTimersByTime(30_000))
+
+    act(() => lastRun().handlers.onStage('transcribing'))
+
+    expect(progress()).toHaveTextContent('Transcribing, 0:31 elapsed')
+  })
+
+  it('announces the name of each state, and not the elapsed time', async () => {
+    fakeClock()
+    const { user, start } = await renderDialog()
+    await user.click(start)
+    act(() => lastRun().handlers.onStage('transcribing'))
+
+    act(() => vi.advanceTimersByTime(5000))
+
+    expect(announcement()).toHaveTextContent(/^Transcribing$/)
+    act(() => lastRun().handlers.onStage('loading'))
+    expect(announcement()).toHaveTextContent(/^Loading speech model$/)
+  })
+
+  it('changes the progress text inside a chunk', async () => {
+    const { user, start } = await renderDialog()
+    await user.click(start)
+    const texts: string[] = []
+
+    for (const doneMs of [2_400, 6_100, 11_800]) {
+      act(() => lastRun().handlers.onProgress(doneMs, 220_000))
+      texts.push(progress().textContent ?? '')
+    }
+
+    expect(texts).toEqual([
+      'Transcribing, 0:02 of 3:40',
+      'Transcribing, 0:06 of 3:40',
+      'Transcribing, 0:11 of 3:40',
+    ])
+  })
+
+  it('shows the device during a run, and the speed after the first chunk', async () => {
+    fakeClock()
+    const { user, start } = await renderDialog()
+    await user.click(start)
+
+    expect(screen.getByText('Graphics card (WebGPU)')).toBeInTheDocument()
+    expect(screen.queryByText('Uses your graphics card (WebGPU)')).toBeNull()
+    act(() => lastRun().handlers.onStage('transcribing'))
+    vi.setSystemTime(10_000)
+    act(() => lastRun().handlers.onProgress(20_000, 220_000))
+    expect(screen.getByText('Graphics card (WebGPU)')).toBeInTheDocument()
+    vi.setSystemTime(15_000)
+    act(() => lastRun().handlers.onProgress(30_000, 220_000))
+
+    expect(
+      screen.getByText('Graphics card (WebGPU), about 2 times faster than the song'),
+    ).toBeInTheDocument()
+  })
+
+  it('shows the device note again when the run ends', async () => {
+    const { user, start } = await renderDialog()
+    await user.click(start)
+
+    await act(async () => lastRun().reject(new TranscribeError('unknown', 'crash')))
+
+    expect(screen.getByText('Uses your graphics card (WebGPU)')).toBeInTheDocument()
+  })
+
+  it('shows the device note and no device line for a lyrics-only run', async () => {
+    const { user, start } = await renderDialog()
+    await user.click(screen.getByRole('checkbox', { name: 'Lyrics only' }))
+    await user.type(screen.getByLabelText('Lyrics (optional)'), 'All is calm')
+
+    await user.click(start)
+
+    expect(screen.getByText('Uses your graphics card (WebGPU)')).toBeInTheDocument()
+    expect(screen.queryByText('Graphics card (WebGPU)')).toBeNull()
+  })
+
+  it('tells the person one time that the run continues on the CPU after the watchdog', async () => {
+    const { user, start } = await renderDialog()
+    await user.click(start)
+    act(() => lastRun().handlers.onStage('transcribing'))
+
+    act(() => clientOptions?.onDeviceChange?.('wasm', 'slow'))
+    act(() => lastRun().handlers.onStage('loading'))
+
+    expect(
+      screen.getAllByText('The graphics card was too slow. The run continues on the CPU.'),
+    ).toHaveLength(1)
+    expect(screen.getByText('CPU')).toBeInTheDocument()
+    expect(progress()).toHaveTextContent(/^Loading speech model, \d:\d\d elapsed$/)
+  })
+
+  it('shows no slow message when a WebGPU failure moves the run to the CPU', async () => {
+    const { user, start } = await renderDialog()
+    await user.click(start)
+
+    act(() => clientOptions?.onDeviceChange?.('wasm', 'failed'))
+
+    expect(screen.getByText('CPU')).toBeInTheDocument()
+    expect(screen.queryByText(/too slow/)).toBeNull()
   })
 
   it('shows the download percent with a bar', async () => {
@@ -313,7 +528,7 @@ describe('TranscribeDialog', () => {
     })
 
     expect(screen.getByRole('alert')).toHaveTextContent('The run replaces the marks of this voice.')
-    expect(progress()).toHaveTextContent('Transcribing, 0:00 of 3:40')
+    expect(progress()).toHaveTextContent('Preparing audio, 0:00 elapsed')
     await user.click(screen.getByRole('button', { name: 'Continue' }))
     await expect(answer).resolves.toBe(true)
     expect(screen.queryByRole('alert')).toBeNull()

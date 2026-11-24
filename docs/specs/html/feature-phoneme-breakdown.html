@@ -170,7 +170,7 @@ body.rv-open .layout { padding-right:21rem; }
 <p>later song uses it.</p>
 <h3 id="phoneme-breakdown-functional-requirements">Functional requirements</h3>
 <ul>
-<li>FR-phoneme-1 — The app loads the dictionary on the first break down of a visit.
+<li>FR-phoneme-1 — The app loads the dictionary on the first break down of a visit, or when the editor opens a song that has a word.
 </li>
 <li>FR-phoneme-2 — The app looks up a word in the custom dictionary first.
 </li>
@@ -548,10 +548,10 @@ validateSymbols(text: string): { ok: true } | { ok: false; bad: string }</code><
 </table></div>
 <h3 id="phoneme-breakdown-acceptance-criteria">Acceptance criteria</h3>
 <ul>
-<li>The dictionary request happens once for each visit, at the first break down.
+<li>The dictionary request happens once for each visit, at the first break down or
 </li>
 </ul>
-<p>(FR-phoneme-1)</p>
+<p>when the editor opens a song that has a word. A song with no marks causes no request. (FR-phoneme-1)</p>
 <ul>
 <li>With a custom entry for <code>HELLO</code>, <code>lookup('hello').source</code> is <code>custom</code>.
 </li>

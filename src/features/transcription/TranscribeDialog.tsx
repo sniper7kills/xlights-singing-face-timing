@@ -9,19 +9,28 @@ import {
   useState,
 } from 'react'
 import { keepFocusInside, tabStops } from '../../app/modalFocus.ts'
+import { formatTime } from '../../lib/time/formatTime.ts'
+import type { TimeRange } from '../../lib/time/timeRange.ts'
 import { DEFAULT_SETTINGS, loadSettings, updateSettings } from '../../store/settings.ts'
 import { chooseDevice } from './device.ts'
 import { parseLyrics } from './phrases.ts'
 import { type Device, SPEECH_MODELS } from './protocol.ts'
 import {
+  type RunStage,
   runTranscription,
+  type TranscribeMode,
   type TranscribeOutcome,
   type TranscribeRequest,
 } from './runTranscription.ts'
-import { createTranscribeClient, type TranscribeClient } from './transcribeClient.ts'
+import {
+  createTranscribeClient,
+  type DeviceChangeReason,
+  type TranscribeClient,
+} from './transcribeClient.ts'
 import {
   type DialogEvent,
   type DialogState,
+  deviceLine,
   downloadPercent,
   IDLE,
   isActive,
@@ -30,7 +39,11 @@ import {
   lowMatchMessage,
   progressText,
   progressValue,
+  type RunSpeed,
+  runSpeed,
   shownRunState,
+  SLOW_GPU_MESSAGE,
+  stateLabel,
   transcribeDialogReducer,
 } from './transcribeDialogState.ts'
 
@@ -42,8 +55,11 @@ const DEVICE_NOTE: Record<Device, string> = {
 type TranscribeDialogProps = {
   /** The voice that receives the marks. */
   voiceId: string
-  /** The duration of the song, for the first progress text. */
+  /** The duration of the song. */
+  // TODO(#91): Remove the prop after #30 merges. The progress text reads the audio time from the run since #91, and EditorPage.tsx belongs to #30.
   durationMs: number
+  /** The time selection of the editor. Without one, the dialog offers the full song only. */
+  selection: TimeRange | null
   /** Receives true when a run starts and false when it stops. */
   onActiveChange: (active: boolean) => void
   /** Closes the dialog for "Close" and Escape. */
@@ -58,7 +74,7 @@ type TranscribeDialogProps = {
  */
 export function TranscribeDialog({
   voiceId,
-  durationMs,
+  selection,
   onActiveChange,
   onClose,
   onDone,
@@ -68,10 +84,12 @@ export function TranscribeDialog({
   const [speechModelId, setSpeechModelId] = useState(DEFAULT_SETTINGS.speechModelId)
   const [lyrics, setLyrics] = useState('')
   const [lyricsOnly, setLyricsOnly] = useState(false)
+  const [range, setRange] = useState<TimeRange | undefined>(undefined)
   const dialogRef = useRef<HTMLDivElement>(null)
-  const run = useTranscribeRun(durationMs, onDone)
+  const run = useTranscribeRun(onDone)
   const { state } = run
   const active = isActive(state)
+  const meter = active ? run.meter : null
   // Lyrics with no word, such as one "[Chorus]" line, give no phrase, so they count as no lyrics.
   const hasLyrics = parseLyrics(lyrics).length > 0
   const needsLyrics = lyricsOnly && !hasLyrics
@@ -109,6 +127,7 @@ export function TranscribeDialog({
       speechModelId,
       mode: lyricsOnly ? 'lyrics-only' : 'model',
       lyrics: hasLyrics ? lyrics : undefined,
+      range,
     })
   }
 
@@ -159,7 +178,7 @@ export function TranscribeDialog({
               </label>
             ))}
           </fieldset>
-          {run.device !== null && <p className="dialog-note">{DEVICE_NOTE[run.device]}</p>}
+          <DeviceNote device={run.device} meter={meter} />
           <label className="dialog-field">
             Lyrics (optional)
             <textarea rows={5} value={lyrics} onChange={(event) => setLyrics(event.target.value)} />
@@ -174,14 +193,10 @@ export function TranscribeDialog({
           </label>
           <fieldset className="choice-group">
             <legend>Range</legend>
-            {/* TODO(#29): Offer the time selection as a range. */}
-            <label className="choice">
-              <input type="radio" name="range" value="full" checked readOnly />
-              Full song
-            </label>
+            <RangeChoices selection={selection} range={range} onChange={setRange} />
           </fieldset>
         </fieldset>
-        <ProgressArea state={state} />
+        <ProgressArea state={state} meter={meter} />
         <DialogMessage state={state} />
         {needsLyrics && state.status === 'idle' && (
           <p id={hintId} className="dialog-note">
@@ -207,25 +222,95 @@ export function TranscribeDialog({
   )
 }
 
+type RangeChoicesProps = {
+  selection: TimeRange | null
+  /** The chosen range. Undefined chooses the full song. */
+  range: TimeRange | undefined
+  onChange: (range: TimeRange | undefined) => void
+}
+
+/** Shows "Full song" and, when the editor has a time selection, "The time selection" with its times. */
+function RangeChoices({ selection, range, onChange }: RangeChoicesProps) {
+  return (
+    <>
+      <label className="choice">
+        <input
+          type="radio"
+          name="range"
+          value="full"
+          checked={range === undefined}
+          onChange={() => onChange(undefined)}
+        />
+        Full song
+      </label>
+      {selection !== null && (
+        <label className="choice">
+          <input
+            type="radio"
+            name="range"
+            value="selection"
+            checked={range !== undefined}
+            onChange={() => onChange(selection)}
+          />
+          The time selection{' '}
+          <span className="choice-size">
+            {formatTime(selection.startMs)} to {formatTime(selection.endMs)}
+          </span>
+        </label>
+      )}
+    </>
+  )
+}
+
 type TranscribeRun = ReturnType<typeof useTranscribeRun>
+
+/** The facts of the active run that the dialog shows beside its state. */
+type RunMeter = {
+  mode: TranscribeMode
+  /** The `Date.now()` of the "Start" click. */
+  startedAtMs: number
+  /** The `Date.now()` of the start of the run in the worker, or null before it. */
+  runAtMs: number | null
+  /** The speed after the first chunk, or null before it. */
+  speed: RunSpeed | null
+  /** True after the watchdog moved the run from WebGPU to `wasm`. */
+  slowDevice: boolean
+}
+
+/** Returns the meter after a step of the run. A new start of the run in the worker measures the speed again. */
+function meterAfterStage(meter: RunMeter | null, stage: RunStage): RunMeter | null {
+  if (meter === null || stage !== 'transcribing') return meter
+  return { ...meter, runAtMs: Date.now(), speed: null }
+}
+
+/** Returns the meter after a progress of the run, with the speed once the first chunk is complete. */
+function meterAfterProgress(meter: RunMeter | null, doneMs: number, totalMs: number) {
+  if (meter === null || meter.runAtMs === null) return meter
+  return { ...meter, speed: runSpeed(doneMs, totalMs, Date.now() - meter.runAtMs) ?? meter.speed }
+}
 
 /**
  * Returns the state of the transcribe run and the functions that start, answer and cancel it.
  * The hook owns one transcribe client for the life of the dialog.
  */
-function useTranscribeRun(durationMs: number, onDone: (outcome: TranscribeOutcome) => void) {
+function useTranscribeRun(onDone: (outcome: TranscribeOutcome) => void) {
   const [state, dispatch] = useReducer(transcribeDialogReducer, IDLE)
   const [device, setDevice] = useState<Device | null>(null)
+  const [meter, setMeter] = useState<RunMeter | null>(null)
   const clientRef = useRef<TranscribeClient | null>(null)
   const runRef = useRef<AbortController | null>(null)
   const answerRef = useRef<((value: boolean) => void) | null>(null)
 
   useEffect(() => {
     let mounted = true
+    const onDeviceChange = (next: Device, reason: DeviceChangeReason) => {
+      setDevice(next)
+      if (reason === 'slow') setMeter((current) => current && { ...current, slowDevice: true })
+    }
     void chooseDevice().then((first) => {
       if (!mounted) return
       setDevice(first)
-      clientRef.current = createTranscribeClient({ device: first, onDeviceChange: setDevice })
+      clientRef.current = createTranscribeClient({ device: first, onDeviceChange })
     })
     return () => {
       mounted = false
@@ -250,13 +335,29 @@ function useTranscribeRun(durationMs: number, onDone: (outcome: TranscribeOutcom
           answerRef.current = resolve
           send(event)
         })
-      send({ type: 'start', mode: request.mode, totalMs: durationMs })
+      setMeter({
+        mode: request.mode,
+        startedAtMs: Date.now(),
+        runAtMs: null,
+        speed: null,
+        slowDevice: false,
+      })
+      send({ type: 'start', mode: request.mode })
       try {
         const outcome = await runTranscription(request, client, {
           signal: controller.signal,
           onDownload: (loaded, total) =>
             send({ type: 'download', percent: downloadPercent(loaded, total) }),
-          onProgress: (doneMs, totalMs) => send({ type: 'progress', doneMs, totalMs }),
+          onStage: (stage) => {
+            if (controller.signal.aborted) return
+            setMeter((current) => meterAfterStage(current, stage))
+            send({ type: 'stage', stage })
+          },
+          onProgress: (doneMs, totalMs) => {
+            if (controller.signal.aborted) return
+            setMeter((current) => meterAfterProgress(current, doneMs, totalMs))
+            send({ type: 'progress', doneMs, totalMs })
+          },
           onFinishing: () => send({ type: 'finishing' }),
           confirmReplace: () => ask({ type: 'confirm-replace' }),
           confirmLowMatch: (ratio) => ask({ type: 'confirm-low-match', ratio }),
@@ -268,7 +369,7 @@ function useTranscribeRun(durationMs: number, onDone: (outcome: TranscribeOutcom
         send(isCancel(error) ? { type: 'cancelled' } : { type: 'failed', error })
       }
     },
-    [durationMs, onDone],
+    [onDone],
   )
 
   function answer(value: boolean) {
@@ -285,17 +386,64 @@ function useTranscribeRun(durationMs: number, onDone: (outcome: TranscribeOutcom
     dispatch({ type: 'cancelled' })
   }
 
-  return { state, device, start, answer, cancel }
+  return { state, device, meter, start, answer, cancel }
 }
 
-function ProgressArea({ state }: { state: DialogState }) {
+/** Returns `Date.now()`, updated each second while `ticking` is true. */
+function useNow(ticking: boolean): number {
+  const [now, setNow] = useState(() => Date.now())
+  useEffect(() => {
+    if (!ticking) return
+    const timer = setInterval(() => setNow(Date.now()), 1000)
+    return () => clearInterval(timer)
+  }, [ticking])
+  // A value from before the "Start" click gives a negative elapsed time, and `formatClock` shows it as 0:00.
+  return now
+}
+
+type DeviceNoteProps = {
+  device: Device | null
+  /** The meter of the active run, or null when no run is active. */
+  meter: RunMeter | null
+}
+
+/** Shows the device note when no run is active, and the device line during a speech model run. */
+function DeviceNote({ device, meter }: DeviceNoteProps) {
+  if (device === null) return null
+  if (meter === null || meter.mode !== 'model')
+    return <p className="dialog-note">{DEVICE_NOTE[device]}</p>
+  return <p className="dialog-note transcribe-device">{deviceLine(device, meter.speed)}</p>
+}
+
+type ProgressAreaProps = {
+  state: DialogState
+  /** The meter of the active run, or null when no run is active. */
+  meter: RunMeter | null
+}
+
+/**
+ * Shows the progress text and bar of the run, and the message after the watchdog.
+ * The text changes each second before the first progress, so the live region holds only the name of the state.
+ */
+function ProgressArea({ state, meter }: ProgressAreaProps) {
   const runState = shownRunState(state)
+  // The clock runs for the full run. A clock that starts again after the download shows an old elapsed time for up to one second.
+  const now = useNow(runState !== null)
+  const elapsedMs = now - (meter?.startedAtMs ?? now)
   return (
     <div className="dialog-progress">
-      <p className="transcribe-progress" role="status" aria-live="polite">
-        {runState === null ? '' : progressText(runState)}
+      <p className="transcribe-progress">
+        {runState === null ? '' : progressText(runState, elapsedMs)}
+      </p>
+      <p className="visually-hidden" role="status" aria-live="polite">
+        {runState === null ? '' : stateLabel(runState)}
       </p>
       {runState !== null && <progress aria-hidden="true" max={1} value={progressValue(runState)} />}
+      {meter?.slowDevice === true && (
+        <p className="dialog-note" role="status">
+          {SLOW_GPU_MESSAGE}
+        </p>
+      )}
     </div>
   )
 }

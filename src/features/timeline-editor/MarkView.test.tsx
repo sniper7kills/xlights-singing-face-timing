@@ -62,4 +62,34 @@ describe('MarkView', () => {
 
     expect(item).not.toHaveAttribute('data-unknown')
   })
+
+  it('marks an estimated word for the dashed frame and tells a screen reader that its time is estimated', () => {
+    const item = renderMark({ estimated: true })
+
+    expect(item).toHaveAttribute('data-estimated', 'true')
+    expect(item).not.toHaveAttribute('data-unknown')
+    expect(item).toHaveTextContent('Zxqv (estimated time)')
+  })
+
+  it('shows a selected word that is estimated and unknown with all three states', () => {
+    useViewStore.getState().selectMarks(['w1'])
+    const item = renderMark({ estimated: true, unknown: true })
+
+    expect(item).toHaveAttribute('data-estimated', 'true')
+    expect(item).toHaveAttribute('data-unknown', 'true')
+    expect(item).toHaveAttribute('aria-current', 'true')
+    expect(item).toHaveTextContent('Zxqv (estimated time) (unknown word)')
+  })
+
+  it('shows a word with no estimated time without the estimated state', () => {
+    const item = renderMark({ estimated: false })
+
+    expect(item).not.toHaveAttribute('data-estimated')
+  })
+
+  it('shows a phrase without the estimated state', () => {
+    const item = renderMark({ layer: 'phrase', estimated: true })
+
+    expect(item).not.toHaveAttribute('data-estimated')
+  })
 })
