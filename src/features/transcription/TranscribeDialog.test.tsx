@@ -670,7 +670,7 @@ describe('TranscribeDialog', () => {
     close.focus()
 
     await user.tab()
-    expect(screen.getByRole('radio', { name: 'base 139 MB' })).toHaveFocus()
+    expect(screen.getByRole('radio', { name: 'In this browser' })).toHaveFocus()
 
     await user.tab({ shift: true })
     expect(close).toHaveFocus()

@@ -29,6 +29,10 @@ Do not reconcile by guess.
 | AWS CloudFormation (S3, CloudFront, IAM) | current | https://docs.aws.amazon.com/AWSCloudFormation/latest/TemplateReference/ |
 | AWS CLI | 2.x | `aws s3 sync help`, `aws cloudfront create-invalidation help` |
 | GitHub OIDC with AWS | current | https://docs.aws.amazon.com/IAM/latest/UserGuide/id_roles_create_for-idp_oidc.html |
+| OpenAI transcription API | current | https://developers.openai.com/api/reference/resources/audio/subresources/transcriptions/methods/create , https://developers.openai.com/api/docs/guides/speech-to-text |
+| speaches (faster-whisper-server) | `master` branch | https://speaches.ai/configuration/ , https://speaches.ai/usage/speech-to-text/ , source `src/speaches/routers/stt.py`, `src/speaches/executors/whisper.py`, `src/speaches/main.py` |
+| Mixed content, CORS errors, `XMLHttpRequest.upload`, `fetch`, CSP `connect-src` | browser | https://developer.mozilla.org/en-US/docs/Web/Security/Mixed_content , https://developer.mozilla.org/en-US/docs/Web/HTTP/Guides/CORS/Errors , https://developer.mozilla.org/en-US/docs/Web/API/XMLHttpRequest/upload , https://developer.mozilla.org/en-US/docs/Web/API/Window/fetch , https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Content-Security-Policy/connect-src |
+| Chrome Local Network Access | Chrome 142 | https://developer.chrome.com/blog/local-network-access |
 
 Not confirmed yet. Confirm each one before the code that depends on it:
 
@@ -142,6 +146,54 @@ the typed API is the source.
   scroll during play. `cursorWidth: 0` hides the cursor. `hideScrollbar: true`
   hides the scroll bar.
 - Seek: `setTime(seconds)`.
+
+Confirmed on 2026-11-24 for the OpenAI transcription API, from the API reference
+and the speech-to-text guide above (issue #101):
+
+- `POST /audio/transcriptions`, `multipart/form-data`. `file` and `model` are
+  required. `language` (ISO-639-1, for example `en`), `prompt`, `response_format`
+  and `timestamp_granularities[]` are optional.
+- `response_format` is `json` (default), `text`, `srt`, `verbose_json`, `vtt` or
+  `diarized_json`. `timestamp_granularities[]` is `word` or `segment` (default
+  `segment`), and it needs `verbose_json`.
+- The guide states: "The `timestamp_granularities[]` parameter is only supported
+  for `whisper-1`." `gpt-4o-transcribe` and `gpt-4o-mini-transcribe` support `json`
+  only.
+- `verbose_json` has `text`, `language`, `duration`, `segments` and `words`. Each
+  item of `words` is `{ word, start, end }`, with `start` and `end` in seconds.
+- The file formats are flac, mp3, mp4, mpeg, mpga, m4a, ogg, wav and webm. The
+  guide states: "Files can be up to 25 MB." The API reference does not state the
+  limit, and neither source defines MB. The app uses 25 000 000 bytes.
+- The reference does not state CORS rules for a call from a browser.
+
+Confirmed on 2026-11-24 for speaches, from its configuration page and its source
+on the `master` branch (issue #101):
+
+- The form field `timestamp_granularities[]` is read with `form.getlist`.
+  `response_format` accepts `verbose_json`. `"word"` in the list sets
+  `word_timestamps`, and `words` holds `{ start, end, word }` for each word.
+- `ALLOW_ORIGINS` (a list, for example `'["*"]'`) adds `CORSMiddleware` with all
+  methods and all headers. Unset, the server sends no CORS headers.
+- `api_key` is unset by default. When it is set, each request needs the key.
+- The configuration page states no file size limit.
+
+Confirmed on 2026-11-24 for the browser, from MDN and the Chrome blog (issue #101):
+
+- Mixed content: a `fetch` from an `https` page to an `http` URL is blocked. "Local
+  resources are considered to be from secure origins", including
+  `http://127.0.0.1/` and `http://localhost/`.
+- CORS: "specifics about what went wrong with a CORS request are not available to
+  JavaScript code". The page cannot tell a CORS refusal from no connection.
+- `fetch` rejects with `AbortError` for an abort and `TypeError` for a network
+  error. It gives no upload progress.
+- `XMLHttpRequest.upload` sends `loadstart`, `progress`, `abort`, `error`, `load`,
+  `timeout` and `loadend`. Upload handlers must exist before `send()`, and they
+  make a cross-origin request send a preflight.
+- `connect-src` controls `fetch`, `XMLHttpRequest`, `WebSocket`, `EventSource` and
+  `sendBeacon`. A scheme source such as `https:` needs the colon. A host source can
+  have `*` as the port.
+- Chrome 142 asks the person for the permission before a public page calls a local
+  network address or a loopback address.
 
 Evidence format:
 

@@ -41,4 +41,21 @@ describe('updateSettings', () => {
       theme: 'light',
     })
   })
+
+  it('stores the remote endpoint and the last source choice', async () => {
+    const remoteEndpoint = { baseUrl: 'http://localhost:8000/v1', apiKey: 'sk-1', model: 'm' }
+    await updateSettings({ transcribeSource: 'remote', remoteEndpoint })
+
+    expect(await loadSettings()).toMatchObject({ transcribeSource: 'remote', remoteEndpoint })
+  })
+})
+
+describe('loadSettings of an earlier record', () => {
+  it('adds the default value of each field that the record does not have', async () => {
+    const earlier = { speechModelId: 'whisper-base', device: 'wasm', defaultFrameMs: 50 }
+    // A record from an earlier version of the app does not have the remote fields.
+    await putRecord('settings', { ...earlier, theme: 'light' } as typeof DEFAULT_SETTINGS)
+
+    expect(await loadSettings()).toEqual({ ...DEFAULT_SETTINGS, theme: 'light' })
+  })
 })
