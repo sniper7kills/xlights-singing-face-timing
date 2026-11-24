@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react'
 import { LIBRARY_HASH } from '../../app/routes.ts'
-import { breakDownWords } from '../../store/actions/breakDown.ts'
 import { useAutosaveStore, useSaveState } from '../../store/autosave.ts'
 import { StorageFullError } from '../../store/db.ts'
 import { readSavedView, saveView } from '../../store/savedView.ts'
 import { useSongStore } from '../../store/songStore.ts'
 import { selectedVoice, useViewStore } from '../../store/viewStore.ts'
 import { AddWordAction } from '../phoneme-breakdown/AddWordAction.tsx'
+import { BreakDownNotice } from '../phoneme-breakdown/BreakDownNotice.tsx'
 import { CustomDictionaryAction } from '../phoneme-breakdown/CustomDictionaryAction.tsx'
 import { UnknownWordCounter } from '../phoneme-breakdown/UnknownWordCounter.tsx'
 import type { BreakDownFailure, TranscribeOutcome } from '../transcription/runTranscription.ts'
@@ -177,34 +177,5 @@ export function EditorPage({ songId }: EditorPageProps) {
         )}
       </section>
     </>
-  )
-}
-
-type BreakDownNoticeProps = {
-  /** The failure to show. Null shows nothing. */
-  failure: BreakDownFailure | null
-  /** Receives null after a retry that breaks down the words, or the new failure. */
-  onChange: (failure: BreakDownFailure | null) => void
-}
-
-/** Shows a break down that did not run, with a "Retry" button that breaks down the same words. */
-function BreakDownNotice({ failure, onChange }: BreakDownNoticeProps) {
-  if (failure === null) return null
-  const retry = () =>
-    breakDownWords(failure.wordIds).then(
-      () => onChange(null),
-      (error: unknown) =>
-        onChange({
-          message: error instanceof Error ? error.message : failure.message,
-          wordIds: failure.wordIds,
-        }),
-    )
-  return (
-    <p className="message" role="alert">
-      {failure.message}{' '}
-      <button type="button" className="button" onClick={() => void retry()}>
-        Retry
-      </button>
-    </p>
   )
 }

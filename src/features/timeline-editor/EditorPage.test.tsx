@@ -9,6 +9,7 @@ import { loadSong, StorageFullError } from '../../store/db.ts'
 import { useSongStore } from '../../store/songStore.ts'
 import { useViewStore } from '../../store/viewStore.ts'
 import { storeNewSong } from '../audio-import/storeNewSong.ts'
+import { DictionaryLoadError } from '../phoneme-breakdown/loadDictionary.ts'
 import { runTranscription } from '../transcription/runTranscription.ts'
 import { EditorPage } from './EditorPage.tsx'
 import { createWaveformPlayer } from './waveformPlayer.ts'
@@ -130,7 +131,7 @@ describe('EditorPage', () => {
       breakDownFailure: { message, wordIds: ['word-1', 'word-2'] },
     })
     vi.mocked(breakDownWords)
-      .mockRejectedValueOnce(new Error(message))
+      .mockRejectedValueOnce(new DictionaryLoadError())
       .mockResolvedValueOnce(undefined)
     const user = userEvent.setup()
     await renderEditor()
@@ -148,6 +149,35 @@ describe('EditorPage', () => {
     await user.click(within(screen.getByRole('alert')).getByRole('button', { name: 'Retry' }))
     await vi.waitFor(() => expect(screen.queryByRole('alert')).toBeNull())
     expect(breakDownWords).toHaveBeenCalledTimes(2)
+  })
+
+  it('shows the copy of the feature file, not the raw error text, when "Retry" fails for another reason', async () => {
+    vi.mocked(runTranscription).mockResolvedValue({
+      wordCount: 2,
+      estimatedCount: 0,
+      breakDownFailure: {
+        message: 'The dictionary did not load. Check the connection and retry.',
+        wordIds: ['word-1', 'word-2'],
+      },
+    })
+    vi.mocked(breakDownWords).mockRejectedValueOnce(new Error('IndexedDB is locked'))
+    const user = userEvent.setup()
+    await renderEditor()
+    await user.click(topBarTranscribe())
+    const start = within(screen.getByRole('dialog')).getByRole('button', { name: 'Start' })
+    await vi.waitFor(() => expect(start).toBeEnabled())
+    await user.click(start)
+
+    await user.click(
+      within(await screen.findByRole('alert')).getByRole('button', { name: 'Retry' }),
+    )
+
+    await vi.waitFor(() =>
+      expect(screen.getByRole('alert')).toHaveTextContent(
+        'The app could not break down the words. Select Retry.',
+      ),
+    )
+    expect(screen.getByRole('alert')).not.toHaveTextContent('IndexedDB is locked')
   })
 
   it('shows no "Transcribe" action for a song with no voice', async () => {
