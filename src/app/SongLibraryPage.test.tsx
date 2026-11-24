@@ -1,6 +1,7 @@
 import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import marksFile from '../../public/demo/silent-night.marks.json?raw'
 import {
   removeStorageStub,
   stubStorage,
@@ -21,6 +22,8 @@ const NOTE = 'The browser can remove songs when disk space is low. Export your w
 afterEach(() => {
   removeStorageStub()
   useSongStore.getState().closeSong()
+  vi.unstubAllGlobals()
+  window.location.hash = ''
 })
 
 describe('SongLibraryPage', () => {
@@ -119,5 +122,43 @@ describe('SongLibraryPage', () => {
 
     await screen.findByRole('region', { name: 'Browser storage' })
     expect(screen.queryByRole('note')).not.toBeInTheDocument()
+  })
+
+  it('creates the demo song and opens the editor when the person selects the demo button', async () => {
+    const user = userEvent.setup()
+    vi.stubGlobal('fetch', (url: string) =>
+      Promise.resolve(new Response(url.endsWith('.json') ? marksFile : new Uint8Array([1]))),
+    )
+    render(<SongLibraryPage databaseStatus="ready" />)
+
+    await user.click(await screen.findByRole('button', { name: 'Try the demo song' }))
+
+    await vi.waitFor(() => expect(window.location.hash).toMatch(/^#\/song\/[0-9a-f-]+$/))
+    const [song] = await listSongs()
+    expect(window.location.hash).toBe(`#/song/${song?.id}`)
+  })
+
+  it('shows the load message and creates no song when a demo file does not load', async () => {
+    const user = userEvent.setup()
+    vi.stubGlobal('fetch', () => Promise.reject(new TypeError('Failed to fetch')))
+    render(<SongLibraryPage databaseStatus="ready" />)
+    const button = await screen.findByRole('button', { name: 'Try the demo song' })
+
+    await user.click(button)
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'The demo song did not load. Check the connection and try again.',
+    )
+    expect(button).toBeEnabled()
+    expect(await listSongs()).toEqual([])
+  })
+
+  it('shows no demo button when songs exist', async () => {
+    await storeNewSong({ name: 'carol', durationMs: 3000, audio })
+
+    render(<SongLibraryPage databaseStatus="ready" />)
+
+    await screen.findByRole('region', { name: 'Your songs' })
+    expect(screen.queryByRole('button', { name: 'Try the demo song' })).not.toBeInTheDocument()
   })
 })

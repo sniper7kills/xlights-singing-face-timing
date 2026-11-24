@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import { createDemoSong, DemoSongError } from '../features/audio-import/createDemoSong.ts'
 import { DropZone } from '../features/audio-import/DropZone.tsx'
 import { HowItWorks } from '../features/audio-import/HowItWorks.tsx'
 import { readStorageState, type StorageState } from '../features/audio-import/persistentStorage.ts'
@@ -39,6 +40,7 @@ function SongLibrary() {
   const [songs, setSongs] = useState<Song[] | null>(null)
   const [storage, setStorage] = useState<StorageState | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [demoLoading, setDemoLoading] = useState(false)
 
   const refresh = useCallback(async () => {
     const [saved, state] = await Promise.all([listSongs(), readStorageState()])
@@ -61,13 +63,38 @@ function SongLibrary() {
     await refresh()
   }
 
+  async function addDemoSong() {
+    setError(null)
+    setDemoLoading(true)
+    try {
+      const song = await createDemoSong()
+      window.location.assign(songHash(song.id))
+    } catch (failure) {
+      if (!(failure instanceof DemoSongError || failure instanceof StorageFullError)) throw failure
+      setError(failure.message)
+    } finally {
+      setDemoLoading(false)
+    }
+  }
+
   if (songs === null) return null
 
   const dropZone = (
     <DropZone
       compact={songs.length > 0}
       onSongCreated={(song) => window.location.assign(songHash(song.id))}
-    />
+    >
+      {songs.length === 0 && (
+        <button
+          type="button"
+          className="button"
+          disabled={demoLoading}
+          onClick={() => void addDemoSong()}
+        >
+          Try the demo song
+        </button>
+      )}
+    </DropZone>
   )
   const aside = (
     <aside className={songs.length > 0 ? 'library-aside' : 'library-aside library-wide'}>
