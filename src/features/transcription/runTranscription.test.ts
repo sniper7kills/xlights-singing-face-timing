@@ -268,6 +268,28 @@ describe('runTranscription with the speech model', () => {
     expect(run.confirmReplace).not.toHaveBeenCalled()
   })
 
+  it('keeps the last word of a full-song run inside the song', async () => {
+    useSongStore.getState().closeSong()
+    const song = await storeNewSong({
+      name: 'carol',
+      durationMs: 29_990,
+      audio,
+      voices: [{ id: VOICE, name: 'Lead Vocals', order: 0, color: '#e05d5d' }],
+    })
+    await useSongStore.getState().openSong(song.id)
+
+    await runTranscription(
+      modelRequest,
+      fakeClient([{ text: 'night', startMs: 29_400, endMs: 29_990 }]),
+      handlers(),
+    )
+
+    expect(marks().map((mark) => [mark.startMs, mark.endMs])).toEqual([
+      [29_400, 29_950],
+      [29_400, 29_950],
+    ])
+  })
+
   it('rejects with NoWordsError and writes no mark when the speech model returns no word', async () => {
     await expect(runTranscription(modelRequest, fakeClient([]), handlers())).rejects.toBeInstanceOf(
       NoWordsError,
@@ -366,6 +388,38 @@ describe('runTranscription with lyrics only', () => {
       [10_000, 15_000],
       [15_000, 20_000],
     ])
+  })
+
+  it('ends the last word at the last frame multiple inside a range that ends between two frames', async () => {
+    await runTranscription(
+      { ...lyricsOnly, range: { startMs: 10_000, endMs: 19_990 } },
+      fakeClient(),
+      handlers(),
+    )
+
+    const ends = marks().map((mark) => mark.endMs)
+    expect(Math.max(...ends)).toBe(19_950)
+  })
+
+  it('starts the first word at the first frame multiple inside a range that starts between two frames', async () => {
+    await runTranscription(
+      { ...lyricsOnly, range: { startMs: 10_010, endMs: 20_000 } },
+      fakeClient(),
+      handlers(),
+    )
+
+    const starts = marks().map((mark) => mark.startMs)
+    expect(Math.min(...starts)).toBe(10_050)
+  })
+
+  it('leaves exactly the marks of the second run after two runs over the same range', async () => {
+    const request = { ...lyricsOnly, range: { startMs: 10_010, endMs: 19_990 } }
+    await runTranscription(request, fakeClient(), handlers())
+
+    await runTranscription(request, fakeClient(), handlers())
+
+    expect(labels('phrase')).toEqual(['Silent night, holy night', 'All is calm'])
+    expect(labels('word')).toEqual(['Silent', 'night', 'holy', 'night', 'All', 'is', 'calm'])
   })
 
   it('asks to replace the marks that exist', async () => {

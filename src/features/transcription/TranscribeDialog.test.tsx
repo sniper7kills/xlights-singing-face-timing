@@ -373,6 +373,66 @@ describe('TranscribeDialog', () => {
     expect(onClose).not.toHaveBeenCalled()
   })
 
+  it('answers false to the replace question for Escape', async () => {
+    const { user, start, onClose } = await renderDialog()
+    await user.click(start)
+    let answer: Promise<boolean> = Promise.resolve(true)
+    act(() => {
+      answer = lastRun().handlers.confirmReplace()
+    })
+
+    await user.keyboard('{Escape}')
+
+    await expect(answer).resolves.toBe(false)
+    expect(screen.queryByRole('alert')).toBeNull()
+    expect(onClose).not.toHaveBeenCalled()
+  })
+
+  it('answers false to the low-match warning for Escape', async () => {
+    const { user, start, onClose } = await renderDialog()
+    await user.click(start)
+    let answer: Promise<boolean> = Promise.resolve(true)
+    act(() => {
+      answer = lastRun().handlers.confirmLowMatch(0.22)
+    })
+
+    await user.keyboard('{Escape}')
+
+    await expect(answer).resolves.toBe(false)
+    expect(onClose).not.toHaveBeenCalled()
+  })
+
+  it('keeps the focus inside the dialog for a click on the backdrop', async () => {
+    const { user } = await renderDialog()
+    const dialog = screen.getByRole('dialog', { name: 'Transcribe' })
+    const backdrop = dialog.parentElement
+    if (backdrop === null) throw new Error('The dialog has no backdrop.')
+
+    await user.click(backdrop)
+
+    expect(dialog).toContainElement(document.activeElement as HTMLElement)
+  })
+
+  it('starts a speech model run with no lyrics when the lyrics field holds no word', async () => {
+    const { user, start } = await renderDialog()
+    // user-event reads "[" as the start of a key name, so "[[" types one bracket.
+    await user.type(screen.getByLabelText('Lyrics (optional)'), '[[Chorus]')
+
+    await user.click(start)
+
+    expect(lastRun().request.lyrics).toBeUndefined()
+  })
+
+  it('keeps "Start" disabled for "Lyrics only" when the lyrics field holds no word', async () => {
+    const { user, start } = await renderDialog()
+    await user.type(screen.getByLabelText('Lyrics (optional)'), '[[Chorus]')
+
+    await user.click(screen.getByRole('checkbox', { name: 'Lyrics only' }))
+
+    expect(start).toBeDisabled()
+    expect(start).toHaveAccessibleDescription('Paste the lyrics to use Lyrics only.')
+  })
+
   it('moves the focus to "Cancel" when a run starts', async () => {
     const { user, start } = await renderDialog()
 

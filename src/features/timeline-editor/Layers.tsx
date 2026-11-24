@@ -6,8 +6,8 @@ import { TimeRuler } from './TimeRuler.tsx'
 import { inRange, makeTimeScale, visibleRange } from './timeScale.ts'
 
 export type LayersProps = {
-  /** Receives a click on the "Transcribe" button of the empty state. */
-  onTranscribe: () => void
+  /** Receives a click on the "Transcribe" button of the empty state. Without it, the empty state has no button. */
+  onTranscribe?: () => void
   /** The open song. */
   content: SongContent
 }
@@ -65,9 +65,11 @@ export function Layers({ onTranscribe, content }: LayersProps) {
       {empty ? (
         <div className="layers-empty">
           <p>No marks yet. Select Transcribe to find the words.</p>
-          <button type="button" className="button primary" onClick={onTranscribe}>
-            Transcribe
-          </button>
+          {onTranscribe !== undefined && (
+            <button type="button" className="button primary" onClick={onTranscribe}>
+              Transcribe
+            </button>
+          )}
         </div>
       ) : (
         ROWS.map(({ layer, name }) => (

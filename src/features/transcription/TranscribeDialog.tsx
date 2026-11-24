@@ -1,5 +1,6 @@
 import {
   type KeyboardEvent,
+  type MouseEvent,
   useCallback,
   useEffect,
   useId,
@@ -9,6 +10,7 @@ import {
 } from 'react'
 import { DEFAULT_SETTINGS, loadSettings, updateSettings } from '../../store/settings.ts'
 import { chooseDevice } from './device.ts'
+import { parseLyrics } from './phrases.ts'
 import { type Device, SPEECH_MODELS } from './protocol.ts'
 import {
   runTranscription,
@@ -71,7 +73,9 @@ export function TranscribeDialog({
   const run = useTranscribeRun(durationMs, onDone)
   const { state } = run
   const active = isActive(state)
-  const needsLyrics = lyricsOnly && lyrics.trim() === ''
+  // Lyrics with no word, such as one "[Chorus]" line, give no phrase, so they count as no lyrics.
+  const hasLyrics = parseLyrics(lyrics).length > 0
+  const needsLyrics = lyricsOnly && !hasLyrics
 
   useEffect(() => {
     let mounted = true
@@ -105,7 +109,7 @@ export function TranscribeDialog({
       voiceId,
       speechModelId,
       mode: lyricsOnly ? 'lyrics-only' : 'model',
-      lyrics: lyrics.trim() === '' ? undefined : lyrics,
+      lyrics: hasLyrics ? lyrics : undefined,
     })
   }
 
@@ -113,13 +117,24 @@ export function TranscribeDialog({
     if (event.key === 'Escape' && !active) {
       event.stopPropagation()
       onClose()
+    } else if (
+      event.key === 'Escape' &&
+      (state.status === 'confirm-replace' || state.status === 'low-match')
+    ) {
+      event.stopPropagation()
+      run.answer(false)
     } else if (event.key === 'Tab') {
       keepFocusInside(event)
     }
   }
 
+  function keepFocus(event: MouseEvent<HTMLDivElement>) {
+    // A press on the backdrop moves the focus to the page, and the space bar then toggles play.
+    if (event.target === event.currentTarget) event.preventDefault()
+  }
+
   return (
-    <div className="modal-backdrop">
+    <div className="modal-backdrop" onMouseDown={keepFocus}>
       <div
         ref={dialogRef}
         className="dialog transcribe-dialog"
@@ -160,7 +175,7 @@ export function TranscribeDialog({
           </label>
           <fieldset className="choice-group">
             <legend>Range</legend>
-            {/* TODO(#18): Offer the time selection when the editor has one. */}
+            {/* TODO(#29): Offer the time selection as a range. */}
             <label className="choice">
               <input type="radio" name="range" value="full" checked readOnly />
               Full song

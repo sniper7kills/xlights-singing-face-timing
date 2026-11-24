@@ -1,4 +1,5 @@
-import { snap } from '../../lib/time/snap.ts'
+import { fitWords } from '../../lib/time/fitWords.ts'
+import type { TimeRange } from '../../lib/time/timeRange.ts'
 import type { Mark } from '../../store/types.ts'
 import type { AlignedPhrase } from './types.ts'
 
@@ -19,36 +20,22 @@ export function wordLabel(text: string): string {
   return LETTER_OR_DIGIT.test(label) ? label : ''
 }
 
-type TimedLabel = { label: string; startMs: number; endMs: number; estimated: boolean }
-
-/**
- * Returns the words with times that are multiples of the frame size, one frame size long or more, with no overlap.
- * A word that overlaps the next word ends where the next word starts.
- * A word that is shorter than one frame size grows to one frame size, and the next word starts after it.
- */
-function fitWords(words: TimedLabel[], frameMs: number): TimedLabel[] {
-  const fitted: TimedLabel[] = []
-  let previousEndMs = Number.NEGATIVE_INFINITY
-  words.forEach((word, i) => {
-    const next = words[i + 1]
-    const startMs = Math.max(snap(word.startMs, frameMs), previousEndMs)
-    const nextStartMs = next === undefined ? Number.POSITIVE_INFINITY : snap(next.startMs, frameMs)
-    const endMs = Math.max(Math.min(snap(word.endMs, frameMs), nextStartMs), startMs + frameMs)
-    fitted.push({ ...word, startMs, endMs })
-    previousEndMs = endMs
-  })
-  return fitted
-}
-
 /**
  * Returns the phrase marks and the word marks of a transcribe run for one voice.
  * Each phrase mark comes before its word marks. Each mark has a new UUID.
  * A word with no letter or digit after the label rules gives no mark, and a phrase with no word gives no mark.
+ * A word that `fitWords` drops, because the range is too short, gives no mark.
  * @param phrases The phrases from `groupIntoPhrases`, `alignLyrics` or `spreadLyrics`, in time order.
  * @param voiceId The voice that receives the marks.
  * @param frameMs The frame size of the song. Every time of a mark is a multiple of it.
+ * @param range The target range of the run. Every mark lies fully inside it.
  */
-export function buildMarks(phrases: AlignedPhrase[], voiceId: string, frameMs: number): Mark[] {
+export function buildMarks(
+  phrases: AlignedPhrase[],
+  voiceId: string,
+  frameMs: number,
+  range: TimeRange,
+): Mark[] {
   const kept = phrases
     .map((phrase) => ({
       label: phrase.text.trim(),
@@ -60,6 +47,7 @@ export function buildMarks(phrases: AlignedPhrase[], voiceId: string, frameMs: n
   const fitted = fitWords(
     kept.flatMap((phrase) => phrase.words),
     frameMs,
+    range,
   )
 
   const marks: Mark[] = []
@@ -67,6 +55,7 @@ export function buildMarks(phrases: AlignedPhrase[], voiceId: string, frameMs: n
   for (const phrase of kept) {
     const words = fitted.slice(index, index + phrase.words.length)
     index += phrase.words.length
+    if (words.length === 0) continue
     const phraseId = crypto.randomUUID()
     marks.push({
       id: phraseId,

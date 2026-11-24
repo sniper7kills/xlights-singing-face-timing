@@ -175,6 +175,15 @@ describe('Layers', () => {
     expect(onTranscribe).toHaveBeenCalledOnce()
   })
 
+  it('shows the empty state with no Transcribe button when it gets no handler', () => {
+    render(<Layers content={songWith([])} />)
+
+    expect(
+      screen.getByText('No marks yet. Select Transcribe to find the words.'),
+    ).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Transcribe' })).toBeNull()
+  })
+
   it('shows the empty state for a voice with no marks when another voice has marks', () => {
     const content = songWith(MARKS.filter((item) => item.voiceId === 'voice-2'))
 

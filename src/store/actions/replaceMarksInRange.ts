@@ -1,10 +1,8 @@
+import type { TimeRange } from '../../lib/time/timeRange.ts'
 import { useSongStore } from '../songStore.ts'
 import type { Mark, SongContent } from '../types.ts'
 
-/** A part of the song, from `startMs` to `endMs`. */
-export type MarkRange = { startMs: number; endMs: number }
-
-function isFullyInside(mark: Mark, voiceId: string, range: MarkRange): boolean {
+function isFullyInside(mark: Mark, voiceId: string, range: TimeRange): boolean {
   return mark.voiceId === voiceId && mark.startMs >= range.startMs && mark.endMs <= range.endMs
 }
 
@@ -15,7 +13,7 @@ function isFullyInside(mark: Mark, voiceId: string, range: MarkRange): boolean {
  * @param voiceId The voice to read.
  * @param range The target range of the run.
  */
-export function hasMarksInRange(content: SongContent, voiceId: string, range: MarkRange): boolean {
+export function hasMarksInRange(content: SongContent, voiceId: string, range: TimeRange): boolean {
   return content.marks.some((mark) => isFullyInside(mark, voiceId, range))
 }
 
@@ -27,7 +25,7 @@ export function hasMarksInRange(content: SongContent, voiceId: string, range: Ma
 function replaceStep(
   content: SongContent,
   voiceId: string,
-  range: MarkRange,
+  range: TimeRange,
   newMarks: Mark[],
 ): SongContent {
   const removed = new Set(
@@ -54,6 +52,6 @@ function replaceStep(
  * @param range The target range. For a full-song run, the range is the full song.
  * @param newMarks The marks that the run creates, with their phrase, word and phoneme parents set.
  */
-export function replaceMarksInRange(voiceId: string, range: MarkRange, newMarks: Mark[]): void {
+export function replaceMarksInRange(voiceId: string, range: TimeRange, newMarks: Mark[]): void {
   useSongStore.getState().apply((content) => replaceStep(content, voiceId, range, newMarks))
 }

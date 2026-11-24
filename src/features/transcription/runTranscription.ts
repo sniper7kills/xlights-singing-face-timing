@@ -1,12 +1,12 @@
 import { hasMarksInRange, replaceMarksInRange } from '../../store/actions/replaceMarksInRange.ts'
+import type { TimeRange } from '../../lib/time/timeRange.ts'
 import { getAudioFile } from '../../store/db.ts'
 import { useSongStore } from '../../store/songStore.ts'
-import type { Mark, SongContent } from '../../store/types.ts'
 import { alignLyrics } from './alignLyrics.ts'
 import { buildMarks } from './buildMarks.ts'
 import { groupIntoPhrases, parseLyrics, spreadLyrics } from './phrases.ts'
 import { SPEECH_SAMPLE_RATE } from './protocol.ts'
-import { resampleForSpeech, type TimeRange } from './resample.ts'
+import { resampleForSpeech } from './resample.ts'
 import { type DownloadHandler, type TranscribeClient, TranscribeError } from './transcribeClient.ts'
 import type { AlignedPhrase } from './types.ts'
 
@@ -71,27 +71,6 @@ function stopIfCancelled(signal: AbortSignal): void {
     throw new TranscribeError('cancelled', 'The person cancelled the transcribe run.')
 }
 
-/** Returns the counts of the toast "214 words, 9 estimated" for the word marks of a run. */
-function countWords(marks: Mark[]): TranscribeOutcome {
-  const words = marks.filter((mark) => mark.layer === 'word')
-  return { wordCount: words.length, estimatedCount: words.filter((mark) => mark.estimated).length }
-}
-
-/**
- * Asks the person to replace the marks of the voice in the range, when the range has marks.
- * The feature file asks before the download, so a "Cancel" costs no download and no wait.
- * Rejects as cancelled when the person declines.
- */
-async function askToReplace(
-  content: SongContent,
-  voiceId: string,
-  range: TimeRange,
-  handlers: TranscribeRunHandlers,
-): Promise<void> {
-  if (hasMarksInRange(content, voiceId, range) && !(await handlers.confirmReplace()))
-    throw declined()
-}
-
 /**
  * Runs one transcription for the open song, writes the marks as one undo step, and returns the counts.
  * The run replaces the marks of the voice that lie fully inside the range. The marks outside it stay.
@@ -115,34 +94,38 @@ export async function runTranscription(
 
   if (request.mode === 'lyrics-only' && parseLyrics(request.lyrics ?? '').length === 0)
     throw new NoWordsError()
-  await askToReplace(content, request.voiceId, range, handlers)
+  // The feature file asks before the download, so a "Cancel" costs no download and no wait.
+  if (hasMarksInRange(content, request.voiceId, range) && !(await handlers.confirmReplace()))
+    throw declined()
   stopIfCancelled(signal)
 
-  const phrases =
-    request.mode === 'lyrics-only'
-      ? spreadLyrics(request.lyrics ?? '', range.startMs, range.endMs)
-      : await transcribePhrases(request, song.id, client, handlers)
+  const phrases = await findPhrases(request, range, song.id, client, handlers)
 
-  const marks = buildMarks(phrases, request.voiceId, song.frameMs)
-  const outcome = countWords(marks)
-  if (outcome.wordCount === 0) throw new NoWordsError()
+  const marks = buildMarks(phrases, request.voiceId, song.frameMs, range)
+  const words = marks.filter((mark) => mark.layer === 'word')
+  if (words.length === 0) throw new NoWordsError()
   // TODO(#23): Add the phonemes of the new words to `marks` here.
   // The write below then holds the break down in the same undo step.
   stopIfCancelled(signal)
   replaceMarksInRange(request.voiceId, range, marks)
-  return outcome
+  return { wordCount: words.length, estimatedCount: words.filter((mark) => mark.estimated).length }
 }
 
 /**
- * Returns the phrases of a speech model run: aligned with the lyrics when the person supplies them, else grouped.
+ * Returns the phrases of a run.
+ * A lyrics-only run spreads the lyrics over the range and calls no speech model.
+ * A speech model run aligns the words with the lyrics when the person supplies them, else it groups the words.
  * Rejects as for `runTranscription`, and as cancelled when the person declines the low-match warning.
  */
-async function transcribePhrases(
+async function findPhrases(
   request: TranscribeRequest,
+  range: TimeRange,
   songId: string,
   client: TranscribeClient,
   handlers: TranscribeRunHandlers,
 ): Promise<AlignedPhrase[]> {
+  if (request.mode === 'lyrics-only')
+    return spreadLyrics(request.lyrics ?? '', range.startMs, range.endMs)
   const { signal } = handlers
   const audio = await getAudioFile(songId)
   if (audio === undefined) throw new Error('The open song has no audio file.')

@@ -110,7 +110,11 @@ export function EditorPage({ songId }: EditorPageProps) {
         </p>
       )}
       <Waveform key={songId} songId={songId}>
-        <Layers content={content} onTranscribe={openTranscribeDialog} />
+        {/* The transcribe dialog needs a voice, so a song with no voice gets no button. */}
+        <Layers
+          content={content}
+          onTranscribe={voice === undefined ? undefined : openTranscribeDialog}
+        />
       </Waveform>
       {dialogOpen && voice !== undefined && (
         <TranscribeDialog

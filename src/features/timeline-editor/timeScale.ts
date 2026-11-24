@@ -1,6 +1,8 @@
 // The waveform and the layers share this scale, so a mark sits under its waveform peak.
 // The module holds no DOM and no React code, so the E2E tests can import it.
 
+import type { TimeRange } from '../../lib/time/timeRange.ts'
+
 /** The mapping between a time in the song and a horizontal position in the editor. */
 export type TimeScale = {
   /** The pixels for each millisecond. */
@@ -53,9 +55,6 @@ export function rangeToPx(scale: TimeScale, range: TimeRange): { leftPx: number;
     widthPx: (range.endMs - range.startMs) * scale.pxPerMs,
   }
 }
-
-/** A time range in milliseconds. The start is inclusive and the end is exclusive. */
-export type TimeRange = { startMs: number; endMs: number }
 
 /** Returns the time range that an editor of `widthPx` pixels shows. */
 export function visibleRange(scale: TimeScale, widthPx: number): TimeRange {

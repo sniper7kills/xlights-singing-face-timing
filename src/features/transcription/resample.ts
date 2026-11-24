@@ -1,8 +1,6 @@
+import type { TimeRange } from '../../lib/time/timeRange.ts'
 import { mixChannels } from '../timeline-editor/mixChannels.ts'
 import { SPEECH_SAMPLE_RATE } from './protocol.ts'
-
-/** A part of the song in milliseconds. */
-export type TimeRange = { startMs: number; endMs: number }
 
 /** The part of `AudioContext` that the resample reads. */
 type DecodeContext = {

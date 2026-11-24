@@ -116,6 +116,15 @@ describe('EditorPage', () => {
     expect(within(heading.parentElement ?? document.body).queryByRole('button')).toBeNull()
   })
 
+  it('shows no "Transcribe" button in the empty state of the layers for a song with no voice', async () => {
+    const song = await storeNewSong({ name: 'carol', durationMs: 3000, audio, voices: [] })
+    render(<EditorPage songId={song.id} />)
+    await screen.findByRole('heading', { level: 2, name: 'carol' })
+
+    const layers = screen.getByRole('region', { name: 'Layers' })
+    expect(within(layers).queryByRole('button', { name: 'Transcribe' })).toBeNull()
+  })
+
   it('opens the transcribe dialog from the empty state of the layers', async () => {
     const user = userEvent.setup()
     await renderEditor()
