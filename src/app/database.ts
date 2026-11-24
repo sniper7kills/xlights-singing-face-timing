@@ -27,7 +27,8 @@ export function openDatabase(): Promise<IDBDatabase> {
       database.onversionchange = () => database.close()
       resolve(database)
     }
-    request.onerror = () => reject(request.error ?? new Error('IndexedDB refused the open request.'))
+    request.onerror = () =>
+      reject(request.error ?? new Error('IndexedDB refused the open request.'))
   })
 }
 
