@@ -1,4 +1,4 @@
-import { type MouseEvent, useId } from 'react'
+import { type MouseEvent, useEffect, useId, useRef } from 'react'
 import { findMark } from '../../lib/marks/family.ts'
 import { addRangeAt } from '../../lib/marks/selection.ts'
 import type { TimeRange } from '../../lib/time/timeRange.ts'
@@ -8,7 +8,7 @@ import type { Layer, Mark } from '../../store/types.ts'
 import { useViewStore } from '../../store/viewStore.ts'
 import { LabelEditor } from './LabelEditor.tsx'
 import { choosePhoneme, closeLabel, saveLabel } from './markCommands.ts'
-import { type OpenLabel, useMarkUiStore } from './markUiStore.ts'
+import { layerFocusId, type OpenLabel, useMarkUiStore } from './markUiStore.ts'
 import { MarkView } from './MarkView.tsx'
 import { PhonemeLabelMenu } from './PhonemeLabelMenu.tsx'
 import { rangeToPx, type TimeScale, timeAtPx } from './timeScale.ts'
@@ -67,6 +67,14 @@ function controlInRow(
  */
 export function LayerRow({ name, layer, voiceId, marks, scale }: LayerRowProps) {
   const nameId = useId()
+  const track = useRef<HTMLUListElement>(null)
+  const focusTrack = useMarkUiStore((ui) => ui.focusId === layerFocusId(voiceId, layer))
+
+  useEffect(() => {
+    if (!focusTrack) return
+    track.current?.focus()
+    useMarkUiStore.getState().requestFocus(null)
+  }, [focusTrack])
   const selectedMarkIds = useViewStore((view) => view.selectedMarkIds)
   const open = controlInRow(
     useMarkUiStore((ui) => ui.open),
@@ -100,8 +108,11 @@ export function LayerRow({ name, layer, voiceId, marks, scale }: LayerRowProps) 
       </span>
       <div className="layer-body">
         <ul
+          ref={track}
           className="layer-track"
           aria-labelledby={nameId}
+          // A cancelled add gives the focus back to the track. The track is not a Tab stop.
+          tabIndex={-1}
           onClick={onEmptyClick}
           onDoubleClick={onEmptyDoubleClick}
         >

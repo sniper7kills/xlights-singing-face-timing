@@ -9,6 +9,16 @@ beforeEach(() => openTestSong())
 const added = () => marksOf().slice(testContent().marks.length)
 
 describe('addMark', () => {
+  it('returns the id of the new mark on the asked layer', () => {
+    const id = addMark(VOICE, 'word', 5200, 5800, 'calm')
+
+    expect(marksOf().find((item) => item.id === id)).toMatchObject({ layer: 'word', label: 'calm' })
+  })
+
+  it('returns null when the add is not possible', () => {
+    expect(addMark(VOICE, 'word', 1200, 1300, 'and')).toBeNull()
+  })
+
   it('adds a word in an empty range of a phrase, with phonemes, as one undo step', () => {
     addMark(VOICE, 'word', 2000, 2200, 'and')
 

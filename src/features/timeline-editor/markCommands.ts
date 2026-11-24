@@ -9,9 +9,11 @@ import { setMarkLabel, wordsWouldChange } from '../../store/actions/setMarkLabel
 import { setPhonemeLabel } from '../../store/actions/setPhonemeLabel.ts'
 import { useSongStore } from '../../store/songStore.ts'
 import { useViewStore } from '../../store/viewStore.ts'
-import { type LabelTarget, useMarkUiStore } from './markUiStore.ts'
+import { type LabelTarget, layerFocusId, useMarkUiStore } from './markUiStore.ts'
 import { followCursor } from './timeScale.ts'
 import { currentStageInput } from './useStageScale.ts'
+
+type AddTarget = Extract<LabelTarget, { kind: 'add' }>
 
 function songMarks() {
   return useSongStore.getState().current?.marks ?? []
@@ -19,21 +21,28 @@ function songMarks() {
 
 /**
  * Applies a click on a mark to the selection.
- * - With Shift, the selection becomes the marks from the last selected mark to the clicked mark on one layer.
+ * - With Shift, the selection becomes the marks from the anchor to the clicked mark on one layer, and the anchor stays.
+ *   The anchor is the mark of the last click without Shift.
  * - A click on the only selected phoneme opens the phoneme label list.
- * - Any other click selects only the clicked mark.
+ * - Any other click selects only the clicked mark, and the clicked mark becomes the anchor.
+ * A click on an id that is not in the song changes nothing.
  * @param id The clicked mark.
  * @param shiftKey True when the person holds Shift.
  */
 export function clickMark(id: string, shiftKey: boolean): void {
   const view = useViewStore.getState()
-  const anchorId = view.selectedMarkIds.at(-1)
-  if (shiftKey && anchorId !== undefined) {
-    view.selectMarks(marksBetween(songMarks(), anchorId, id))
+  const mark = findMark(songMarks(), id)
+  if (!mark) return
+  const anchorId = view.selectionAnchorId
+  if (shiftKey && anchorId !== null) {
+    const ids = marksBetween(songMarks(), anchorId, id)
+    // An anchor on another layer gives only the clicked mark, which then becomes the anchor.
+    if (ids.includes(anchorId)) view.extendSelection(ids)
+    else view.selectMarks(ids)
     return
   }
-  const only = view.selectedMarkIds.length === 1 && anchorId === id
-  if (only && findMark(songMarks(), id)?.layer === 'phoneme') {
+  const only = view.selectedMarkIds.length === 1 && view.selectedMarkIds[0] === id
+  if (only && mark.layer === 'phoneme') {
     useMarkUiStore.getState().openLabel({ control: 'menu', target: { kind: 'edit', id } })
     return
   }
@@ -55,18 +64,33 @@ export function editLabel(id: string): boolean {
 /**
  * Closes the open label control with no change.
  * @param target The mark or the range of the control.
- * @param refocus True gives the focus back to the mark. A control that loses the focus to another control passes false.
+ * @param refocus True gives the focus back to the mark, or to the layer track for an add.
+ * A control that loses the focus to another control passes false.
  */
 export function closeLabel(target: LabelTarget, refocus = true): void {
   useMarkUiStore.getState().openLabel(null)
-  if (refocus && target.kind === 'edit') useMarkUiStore.getState().requestFocus(target.id)
+  if (!refocus) return
+  useMarkUiStore
+    .getState()
+    .requestFocus(target.kind === 'edit' ? target.id : layerFocusId(target.voiceId, target.layer))
+}
+
+/**
+ * Adds the mark of an add target and selects it. The focus goes to the new mark when `refocus` is true.
+ * An add that is not possible keeps the focus request of `closeLabel` on the layer track.
+ */
+function addAndSelect(target: AddTarget, label: string, refocus: boolean): void {
+  const id = addMark(target.voiceId, target.layer, target.startMs, target.endMs, label)
+  if (id === null) return
+  useViewStore.getState().selectMarks([id])
+  if (refocus) useMarkUiStore.getState().requestFocus(id)
 }
 
 /**
  * Saves the text of the label text field.
  * - An empty text keeps the old label, or adds no mark.
  * - A phrase label that changes the words of the phrase waits for the confirm dialog.
- * - Any other text goes to `setMarkLabel` or to `addMark`.
+ * - Any other text goes to `setMarkLabel`, or to `addMark`, which selects the new mark.
  * @param target The mark or the range of the field.
  * @param text The text of the field.
  * @param refocus True gives the focus back to the mark. A field that loses the focus to another control passes false.
@@ -80,16 +104,14 @@ export function saveLabel(target: LabelTarget, text: string, refocus = true): vo
   }
   closeLabel(target, refocus)
   if (text.trim() === '') return
-  if (target.kind === 'add')
-    addMark(target.voiceId, target.layer, target.startMs, target.endMs, text)
+  if (target.kind === 'add') addAndSelect(target, text, refocus)
   else setMarkLabel(target.id, text)
 }
 
-/** Sets the phoneme label that the person chooses from the list, or adds a phoneme with it. */
+/** Sets the phoneme label that the person chooses from the list, or adds a phoneme with it and selects the phoneme. */
 export function choosePhoneme(target: LabelTarget, label: PhonemeLabel): void {
   closeLabel(target)
-  if (target.kind === 'add')
-    addMark(target.voiceId, target.layer, target.startMs, target.endMs, label)
+  if (target.kind === 'add') addAndSelect(target, label, true)
   else setPhonemeLabel(target.id, label)
 }
 

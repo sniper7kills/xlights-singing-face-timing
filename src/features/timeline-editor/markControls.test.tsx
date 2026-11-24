@@ -1,4 +1,5 @@
-import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { act, fireEvent, render, renderHook, screen, waitFor, within } from '@testing-library/react'
+import type { PointerEvent } from 'react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { PHONEME_LABELS } from '../../lib/dictionary/cmuSymbols.ts'
@@ -8,7 +9,8 @@ import { useSongStore } from '../../store/songStore.ts'
 import type { Mark } from '../../store/types.ts'
 import { useViewStore } from '../../store/viewStore.ts'
 import { Layers } from './Layers.tsx'
-import { resetMarkUi } from './markUiStore.ts'
+import { resetMarkUi, useMarkUiStore } from './markUiStore.ts'
+import { useMarkDrag } from './useMarkDrag.ts'
 
 // A song of 20 000 ms in a stage of 1000 px, so 1 px is 20 ms. The frame size is 50 ms.
 const WIDTH_PX = 1000
@@ -49,6 +51,32 @@ function renderLayers() {
 
 function stored(id: string): Mark | undefined {
   return useSongStore.getState().current?.marks.find((item) => item.id === id)
+}
+
+/** Removes the mark from the open song with no undo step, as a change from outside the layers. */
+function removeFromSong(id: string) {
+  act(() =>
+    useSongStore.setState((state) => ({
+      current: state.current && {
+        ...state.current,
+        marks: state.current.marks.filter((item) => item.id !== id),
+      },
+    })),
+  )
+}
+
+/** Returns a pointer event for the handlers of `useMarkDrag`, with no element under the pointer. */
+function pointer(clientX: number) {
+  const element = document.createElement('li')
+  element.setPointerCapture = () => {}
+  return {
+    button: 0,
+    pointerId: 1,
+    clientX,
+    shiftKey: false,
+    target: element,
+    currentTarget: element,
+  } as unknown as PointerEvent<HTMLElement>
 }
 
 function undoSteps(): number {
@@ -107,6 +135,19 @@ describe('mark selection', () => {
     await user.keyboard('{/Shift}')
 
     expect(useViewStore.getState().selectedMarkIds).toEqual(['w1', 'w2', 'w3'])
+  })
+
+  it('keeps the anchor of the first click for each later Shift+click', async () => {
+    const user = userEvent.setup()
+    renderLayers()
+
+    await user.click(markItem('Phonemes', 'AI'))
+    await user.keyboard('{Shift>}')
+    await user.click(layer('Phonemes').getAllByText('etc')[1] as HTMLElement)
+    await user.click(layer('Phonemes').getAllByText('etc')[0] as HTMLElement)
+    await user.keyboard('{/Shift}')
+
+    expect(useViewStore.getState().selectedMarkIds).toEqual(['f1', 'f2'])
   })
 
   it('clears the selection with a click in an empty range of a layer', async () => {
@@ -217,6 +258,47 @@ describe('mark drag', () => {
 
     expect(item).toHaveStyle({ left: '500px' })
     expect(undoSteps()).toBe(0)
+  })
+})
+
+describe('drag hook', () => {
+  it('keeps the preview of an active drag when another mark unmounts', () => {
+    const dragged = renderHook(() => useMarkDrag('w1'))
+    const other = renderHook(() => useMarkDrag('w3'))
+
+    act(() => {
+      dragged.result.current.onPointerDown(pointer(150))
+      dragged.result.current.onPointerMove(pointer(130))
+    })
+    expect(useMarkUiStore.getState().preview.size).toBeGreaterThan(0)
+    other.unmount()
+
+    expect(useMarkUiStore.getState().preview.size).toBeGreaterThan(0)
+    dragged.unmount()
+    expect(useMarkUiStore.getState().preview.size).toBe(0)
+  })
+
+  it('selects no mark after a drag when the song no longer has the mark', () => {
+    const dragged = renderHook(() => useMarkDrag('w1'))
+
+    act(() => {
+      dragged.result.current.onPointerDown(pointer(150))
+      dragged.result.current.onPointerMove(pointer(130))
+    })
+    removeFromSong('w1')
+    act(() => dragged.result.current.onPointerUp(pointer(130)))
+
+    expect(useViewStore.getState().selectedMarkIds).toEqual([])
+  })
+
+  it('selects no mark after a click when the song no longer has the mark', () => {
+    const clicked = renderHook(() => useMarkDrag('w1'))
+
+    act(() => clicked.result.current.onPointerDown(pointer(150)))
+    removeFromSong('w1')
+    act(() => clicked.result.current.onPointerUp(pointer(150)))
+
+    expect(useViewStore.getState().selectedMarkIds).toEqual([])
   })
 })
 
@@ -418,6 +500,19 @@ describe('add by double-click', () => {
       .current?.marks.find((item) => item.layer === 'word' && item.label === 'gloria')
     expect(added).toMatchObject({ startMs: 9000, endMs: 9500 })
     expect(undoSteps()).toBe(1)
+    expect(useViewStore.getState().selectedMarkIds).toEqual([added?.id])
+    await waitFor(() => expect(markItem('Words', 'gloria')).toHaveFocus())
+  })
+
+  it('gives the focus back to the layer after a cancelled add', async () => {
+    const user = userEvent.setup()
+    renderLayers()
+
+    fireEvent.doubleClick(screen.getByRole('list', { name: 'Words' }), { clientX: 450 })
+    await user.keyboard('{Escape}')
+
+    await waitFor(() => expect(screen.getByRole('list', { name: 'Words' })).toHaveFocus())
+    expect(useViewStore.getState().selectedMarkIds).toEqual([])
   })
 
   it('adds a phoneme in a word with the label that the person chooses', async () => {
@@ -432,6 +527,8 @@ describe('add by double-click', () => {
       .getState()
       .current?.marks.find((item) => item.layer === 'phoneme' && item.parentId === 'w3')
     expect(added).toMatchObject({ label: 'O', startMs: 10_500, endMs: 11_000 })
+    expect(useViewStore.getState().selectedMarkIds).toEqual([added?.id])
+    await waitFor(() => expect(markItem('Phonemes', 'O')).toHaveFocus())
   })
 
   it('opens no control where the add is not possible', () => {
