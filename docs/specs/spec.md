@@ -1,7 +1,7 @@
 ---
 name: xLights Singing Face Timing Generator
 slug: singing-face-timing
-repo: null
+repo: sniper7kills/xlights-singing-face-timing
 status: approved
 spec_version: 2
 created: 2026-11-24
