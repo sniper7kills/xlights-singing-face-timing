@@ -1,7 +1,32 @@
+import { PHONEME_LABELS, type PhonemeLabel } from '../lib/dictionary/cmuSymbols.ts'
 import type { SongStoreState } from './songStore.ts'
 import type { Mark } from './types.ts'
 
 const NO_MARKS: Mark[] = []
+
+/**
+ * Returns the label of the phoneme of one voice at a time, for the face preview.
+ * A phoneme covers its start time and ends before its end time, so two adjacent phonemes never both match.
+ * @param marks The marks of the open song.
+ * @param voiceId The voice to read. Undefined is for a song with no voice.
+ * @param timeMs The time, usually the play time.
+ * Returns null when no phoneme of the voice is at the time, or when its label is not one of the ten phoneme labels.
+ * The face preview shows the closed mouth for null, the same as xLights for a gap.
+ */
+export function phonemeLabelAt(
+  marks: readonly Mark[],
+  voiceId: string | undefined,
+  timeMs: number,
+): PhonemeLabel | null {
+  const phoneme = marks.find(
+    (mark) =>
+      mark.layer === 'phoneme' &&
+      mark.voiceId === voiceId &&
+      mark.startMs <= timeMs &&
+      timeMs < mark.endMs,
+  )
+  return PHONEME_LABELS.find((label) => label === phoneme?.label) ?? null
+}
 
 /**
  * Returns a song store selector that gives the unknown words of one voice, in time order.

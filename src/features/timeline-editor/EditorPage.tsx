@@ -16,6 +16,7 @@ import { TranscribeDialog } from '../transcription/TranscribeDialog.tsx'
 import { outcomeText } from '../transcription/transcribeDialogState.ts'
 import { ExportAction } from '../xtiming-export/ExportAction.tsx'
 import { EditorToolbar } from './EditorToolbar.tsx'
+import { Inspector } from './Inspector.tsx'
 import { Layers } from './Layers.tsx'
 import { resetMarkUi } from './markUiStore.ts'
 import { Waveform } from './Waveform.tsx'
@@ -170,6 +171,7 @@ export function EditorPage({ songId }: EditorPageProps) {
             onTranscribe={voice === undefined ? undefined : openTranscribeDialog}
           />
         </Waveform>
+        <Inspector />
         <EditorToolbar>
           <ZoomControl durationMs={song.durationMs} />
           <UnknownWordCounter />
