@@ -2,8 +2,8 @@
 id: audio-import
 feature: Audio import
 epic: "Epic 1: Song and waveform"
-status: issued
-issues: [8, 9, 10, 11, 12, 13]
+status: built
+issues: [8, 9, 10, 11, 12, 13, 58]
 mockups: [mockups/01-song-library.html]
 ---
 
@@ -114,13 +114,20 @@ Regions: header, drop zone, song list, storage meter, "How it works" strip.
 - The song list sorts by the date of the last change, newest first.
 - A song name is 1 to 80 characters. The app trims spaces at both ends.
 - Two songs can have the same name.
-- The app decides the file type from the extension first. If the browser reports a
-  MIME type that does not start with `audio/`, the app rejects the file.
+- The app decides the file type from the extension first. The app accepts a file
+  with an accepted extension only if the browser reports one of these MIME types:
+  - a type that starts with `audio/`
+  - `video/ogg`
+  - `application/ogg`
+  - an empty type
+
+  The app rejects a file with a different MIME type.
 - The app keeps stereo audio for play. The waveform shows one mixed channel.
 - The space bar toggles play when no text field has focus.
 - The app does not start play automatically.
 - Deleting a song deletes its audio file, voices, sections and marks.
 - The demo song is a normal song. The person can edit and delete it.
+- 200 MB means 200 × 1024 × 1024 bytes.
 
 ## Data touched
 
@@ -139,21 +146,56 @@ Verified against:
 https://developer.mozilla.org/en-US/docs/Web/API/BaseAudioContext/decodeAudioData
 (retrieved 2026-11-24).
 
-**wavesurfer.js 8.1.1.** `WaveSurfer.create({ container, waveColor, progressColor,
-url })` creates the waveform. The docs state that large clips can fail to decode
-because of memory limits. The limits in FR-audio-5 and FR-audio-6 reduce that risk.
-The engineer reads the wavesurfer.js API reference for the zoom, scroll and time
-events before use. Those names are not verified in this spec.
-Verified against: https://wavesurfer.xyz/docs/ (retrieved 2026-11-24).
+**wavesurfer.js 8.1.1.** The app decodes the stored audio file one time with
+`decodeAudioData` and mixes the channels into one channel of peaks.
+`WaveSurfer.create({ container, height, waveColor, progressColor, cursorColor })`
+creates the waveform without audio. `loadBlob(blob, peaks, duration)` then loads the
+stored bytes. With the peaks and the duration, wavesurfer.js does not decode the
+blob, and play uses all channels of the file. The app uses `play()`, `pause()`,
+`isPlaying()`, `setOptions()` and `destroy()`. The app listens to the events
+`timeupdate` (time in seconds), `play`, `pause` and `finish`. The docs state that
+large clips can fail to decode because of memory limits. The limits in FR-audio-5
+and FR-audio-6 reduce that risk. The names for zoom and scroll are not verified in
+this spec. The engineer reads the wavesurfer.js API reference before use.
+Verified against: https://wavesurfer.xyz/docs/ (retrieved 2026-11-24) and
+`node_modules/wavesurfer.js/dist/wavesurfer.d.ts` (8.1.1).
 
 **Module contract, `src/features/audio-import/`:**
 
 ```ts
-createSongFromFile(file: File): Promise<Song>   // rejects with ImportError
-type ImportError =
+type ImportFailure =
   | { kind: 'type' } | { kind: 'size'; bytes: number }
   | { kind: 'decode' } | { kind: 'duration'; ms: number }
   | { kind: 'storage' }
+
+// `message` is the text that the person sees.
+class ImportError extends Error { readonly failure: ImportFailure }
+
+// Returns the duration in seconds. Rejects if the browser cannot decode the bytes.
+type DecodeAudio = (bytes: ArrayBuffer) => Promise<number>
+
+// Returns the duration in milliseconds. Rejects with ImportError.
+checkAudioFile(file: File, decode?: DecodeAudio): Promise<number>
+
+// Rejects with ImportError.
+createSongFromFile(file: File, decode?: DecodeAudio): Promise<Song>
+
+type NewSong = {
+  name: string
+  durationMs: number
+  audio: { data: Blob; fileName: string; mimeType: string }
+  voices?: Omit<Voice, 'songId'>[]
+  marks?: Mark[]
+}
+
+// Rejects with StorageFullError.
+storeNewSong(newSong: NewSong): Promise<Song>
+
+// `message` is the text that the person sees.
+class DemoSongError extends Error {}
+
+// Rejects with DemoSongError or StorageFullError.
+createDemoSong(): Promise<Song>
 ```
 
 ## Edge cases & failures
@@ -165,6 +207,8 @@ type ImportError =
 | Browser cannot decode | "This browser cannot decode this file. Convert it to MP3 or WAV and try again." |
 | Duration above 15 minutes | "This song is longer than 15 minutes." |
 | Storage full | "Browser storage is full. Delete a song and try again." |
+| The demo song files do not load | "The demo song did not load. Check the connection and retry." |
+| The app cannot read the audio from browser storage | "The app could not read the audio from browser storage. Reload the page." |
 | Persistent storage refused | A note beside the storage meter: "The browser can remove songs when disk space is low. Export your work." |
 | Several files dropped | The app takes the first audio file and shows "Only one file was added." |
 | Reload during decode | The song does not exist. The library shows no partial song. |

@@ -6,9 +6,10 @@ breaks down each word into xLights phonemes, and exports an `.xtiming` file with
 three layers (phrases, words, phonemes) for each voice. The xLights Faces effect
 reads the phoneme layer. No audio leaves the browser.
 
-Current state: the foundation exists. It has the app shell, the check commands,
-the CI workflow, the demo song, the hosting template and the deploy workflow. The
-hosting stack does not exist yet (issue #7). Features start with Epic 1.
+Current state: the foundation and the song library exist. The person can create a
+song from an audio file, see the song list, rename a song, delete a song and try
+the demo song. The editor shows the waveform and plays the audio. The hosting stack
+does not exist yet (issue #7). Transcription is next.
 
 ## Design
 

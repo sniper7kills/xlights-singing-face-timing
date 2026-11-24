@@ -149,7 +149,7 @@ body.rv-open .layout { padding-right:21rem; }
 </ul></aside>
 <main>
 <h1>Feature: Audio import</h1>
-<p class="meta">Epic 1: Song and waveform &nbsp; <span class="badge">issued</span></p>
+<p class="meta">Epic 1: Song and waveform &nbsp; <span class="badge">built</span></p>
 <h3 id="audio-import-purpose">Purpose</h3>
 <p>The person gives the app an audio file. The app makes a song from it, shows the waveform, plays the audio and keeps the song in the browser for later visits.</p>
 <h3 id="audio-import-user-stories">User stories</h3>
@@ -307,10 +307,23 @@ body.rv-open .layout { padding-right:21rem; }
 </li>
 <li>Two songs can have the same name.
 </li>
-<li>The app decides the file type from the extension first. If the browser reports a
+<li>The app decides the file type from the extension first. The app accepts a file
 </li>
 </ul>
-<p>MIME type that does not start with <code>audio/</code>, the app rejects the file.</p>
+<p>with an accepted extension only if the browser reports one of these MIME types:</p>
+<ul>
+<li>a type that starts with <code>audio/</code>
+<ul>
+<li><code>video/ogg</code>
+</li>
+<li><code>application/ogg</code>
+</li>
+<li>an empty type
+</li>
+</ul>
+</li>
+</ul>
+<p>The app rejects a file with a different MIME type.</p>
 <ul>
 <li>The app keeps stereo audio for play. The waveform shows one mixed channel.
 </li>
@@ -321,6 +334,8 @@ body.rv-open .layout { padding-right:21rem; }
 <li>Deleting a song deletes its audio file, voices, sections and marks.
 </li>
 <li>The demo song is a normal song. The person can edit and delete it.
+</li>
+<li>200 MB means 200 × 1024 × 1024 bytes.
 </li>
 </ul>
 <h3 id="audio-import-data-touched">Data touched</h3>
@@ -337,13 +352,41 @@ body.rv-open .layout { padding-right:21rem; }
 </ul>
 <h3 id="audio-import-interfaces">Interfaces</h3>
 <p><strong>Web Audio.</strong> <code>BaseAudioContext.decodeAudioData(arrayBuffer)</code> returns a Promise that fulfils with an <code>AudioBuffer</code>. The decoded audio has the sample rate of the <code>AudioContext</code>. The page does not list the supported formats, so the app treats a rejected Promise as "this browser cannot decode this file". Verified against: https://developer.mozilla.org/en-US/docs/Web/API/BaseAudioContext/decodeAudioData (retrieved 2026-11-24).</p>
-<p><strong>wavesurfer.js 8.1.1.</strong> <code>WaveSurfer.create({ container, waveColor, progressColor, url })</code> creates the waveform. The docs state that large clips can fail to decode because of memory limits. The limits in FR-audio-5 and FR-audio-6 reduce that risk. The engineer reads the wavesurfer.js API reference for the zoom, scroll and time events before use. Those names are not verified in this spec. Verified against: https://wavesurfer.xyz/docs/ (retrieved 2026-11-24).</p>
+<p><strong>wavesurfer.js 8.1.1.</strong> The app decodes the stored audio file one time with <code>decodeAudioData</code> and mixes the channels into one channel of peaks. <code>WaveSurfer.create({ container, height, waveColor, progressColor, cursorColor })</code> creates the waveform without audio. <code>loadBlob(blob, peaks, duration)</code> then loads the stored bytes. With the peaks and the duration, wavesurfer.js does not decode the blob, and play uses all channels of the file. The app uses <code>play()</code>, <code>pause()</code>, <code>isPlaying()</code>, <code>setOptions()</code> and <code>destroy()</code>. The app listens to the events <code>timeupdate</code> (time in seconds), <code>play</code>, <code>pause</code> and <code>finish</code>. The docs state that large clips can fail to decode because of memory limits. The limits in FR-audio-5 and FR-audio-6 reduce that risk. The names for zoom and scroll are not verified in this spec. The engineer reads the wavesurfer.js API reference before use. Verified against: https://wavesurfer.xyz/docs/ (retrieved 2026-11-24) and <code>node_modules/wavesurfer.js/dist/wavesurfer.d.ts</code> (8.1.1).</p>
 <p><strong>Module contract, <code>src/features/audio-import/</code>:</strong></p>
-<pre class="code"><code>createSongFromFile(file: File): Promise&lt;Song&gt;   // rejects with ImportError
-type ImportError =
+<pre class="code"><code>type ImportFailure =
   | { kind: 'type' } | { kind: 'size'; bytes: number }
   | { kind: 'decode' } | { kind: 'duration'; ms: number }
-  | { kind: 'storage' }</code></pre>
+  | { kind: 'storage' }
+
+// `message` is the text that the person sees.
+class ImportError extends Error { readonly failure: ImportFailure }
+
+// Returns the duration in seconds. Rejects if the browser cannot decode the bytes.
+type DecodeAudio = (bytes: ArrayBuffer) =&gt; Promise&lt;number&gt;
+
+// Returns the duration in milliseconds. Rejects with ImportError.
+checkAudioFile(file: File, decode?: DecodeAudio): Promise&lt;number&gt;
+
+// Rejects with ImportError.
+createSongFromFile(file: File, decode?: DecodeAudio): Promise&lt;Song&gt;
+
+type NewSong = {
+  name: string
+  durationMs: number
+  audio: { data: Blob; fileName: string; mimeType: string }
+  voices?: Omit&lt;Voice, 'songId'&gt;[]
+  marks?: Mark[]
+}
+
+// Rejects with StorageFullError.
+storeNewSong(newSong: NewSong): Promise&lt;Song&gt;
+
+// `message` is the text that the person sees.
+class DemoSongError extends Error {}
+
+// Rejects with DemoSongError or StorageFullError.
+createDemoSong(): Promise&lt;Song&gt;</code></pre>
 <h3 id="audio-import-edge-cases-failures">Edge cases &amp; failures</h3>
 <div class="table-wrap"><table>
 <tr><th>Case</th><th>What the person sees</th></tr>
@@ -352,6 +395,8 @@ type ImportError =
 <tr><td>Browser cannot decode</td><td>"This browser cannot decode this file. Convert it to MP3 or WAV and try again."</td></tr>
 <tr><td>Duration above 15 minutes</td><td>"This song is longer than 15 minutes."</td></tr>
 <tr><td>Storage full</td><td>"Browser storage is full. Delete a song and try again."</td></tr>
+<tr><td>The demo song files do not load</td><td>"The demo song did not load. Check the connection and retry."</td></tr>
+<tr><td>The app cannot read the audio from browser storage</td><td>"The app could not read the audio from browser storage. Reload the page."</td></tr>
 <tr><td>Persistent storage refused</td><td>A note beside the storage meter: "The browser can remove songs when disk space is low. Export your work."</td></tr>
 <tr><td>Several files dropped</td><td>The app takes the first audio file and shows "Only one file was added."</td></tr>
 <tr><td>Reload during decode</td><td>The song does not exist. The library shows no partial song.</td></tr>

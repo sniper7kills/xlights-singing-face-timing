@@ -482,6 +482,12 @@ None of these blocks approval. Each one names the epic that settles it.
   which waits for the user's AWS account and approval. The project compiles with
   TypeScript 7 and lints with the TypeScript 6 API (`docs/adr/0003`). The
   distribution redirects HTTP to HTTPS.
+- 2026-11-24 — The MIME type rule for audio files changed: `video/ogg`,
+  `application/ogg` and an empty type are accepted (issue #58).
+- 2026-11-24 — Epic 1 batch. The size limit of 200 MB means 200 × 1024 × 1024
+  bytes. The demo song has the name "Silent Night". The editor saves a pending
+  change when the person leaves it and when the page is hidden. Issue #58 joined
+  the batch of epic #8.
 
 ## Issue map
 
@@ -492,7 +498,7 @@ The spec has one editor epic. The tracker has two, because 30 requirements do no
 | Epic | Epic issue | Sub-issues |
 |---|---|---|
 | Foundation | #1 | #2, #3, #4, #5, #6, #7 |
-| Song and waveform | #8 | #9, #10, #11, #12, #13 |
+| Song and waveform | #8 | #9, #10, #11, #12, #13, #58 |
 | Transcription | #14 | #15, #16, #17, #18, #19 |
 | Phoneme breakdown | #20 | #21, #22, #23, #24, #25 |
 | Editor — edit marks | #26 | #27, #28, #29, #30 |
