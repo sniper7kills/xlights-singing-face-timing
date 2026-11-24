@@ -9,8 +9,20 @@ declare global {
   var __TRANSCRIBE_FIXTURE__: boolean | undefined
 }
 
-/** The cause of a rejected client call. */
-export type TranscribeErrorKind = ErrorKind | 'cancelled' | 'busy'
+/** The cause of a rejected client call. `stalled` is a WebGPU run that the watchdog stopped. */
+export type TranscribeErrorKind = ErrorKind | 'cancelled' | 'busy' | 'stalled'
+
+/**
+ * The time in milliseconds that a WebGPU run can go with no progress before the client stops it and continues on `wasm`.
+ * A slow graphics card can run slower than the CPU and give no sign of work.
+ */
+export const WEBGPU_STALL_MS = 45_000
+
+/** The cause of a device change: the WebGPU call failed, or the WebGPU run made no progress. */
+export type DeviceChangeReason = 'failed' | 'slow'
+
+/** A step of a transcribe run before its first progress that the client reports. */
+export type ClientStage = 'loading' | 'transcribing'
 
 /** A client call failed. `kind` tells the dialog which message to show. */
 export class TranscribeError extends Error {
@@ -39,14 +51,19 @@ export type TranscribeHandlers = {
   onDownload?: DownloadHandler
   /** Receives the audio time that is complete, from the first sample of the run. */
   onProgress?: (doneMs: number) => void
+  /**
+   * Receives 'transcribing' when the worker starts the run, and 'loading' when the client loads the speech model again on `wasm`.
+   * The run starts again from its first sample after a device change.
+   */
+  onStage?: (stage: ClientStage) => void
 }
 
 /** The options of `createTranscribeClient`. */
 export type TranscribeClientOptions = {
   /** The first device. `chooseDevice` gives the value. */
   device: Device
-  /** Receives 'wasm' when the client moves the speech model from WebGPU to `wasm` after a failure. */
-  onDeviceChange?: (device: Device) => void
+  /** Receives 'wasm' and the reason when the client moves the speech model from WebGPU to `wasm`. */
+  onDeviceChange?: (device: Device, reason: DeviceChangeReason) => void
   /** Makes the worker. The default reads the fixture flag `__TRANSCRIBE_FIXTURE__`. */
   createWorker?: () => WorkerLike
 }
@@ -65,7 +82,7 @@ export type TranscribeClient = {
   load(speechModelId: string, onDownload?: DownloadHandler): Promise<void>
   /**
    * Transcribes the samples with the loaded speech model and returns the words with song times.
-   * If the run fails on WebGPU, the client loads the speech model on `wasm` and runs once more.
+   * If the run fails on WebGPU, or makes no progress for `WEBGPU_STALL_MS`, the client loads the speech model on `wasm` and runs once more.
    * @param samples One channel at `SPEECH_SAMPLE_RATE`. `resampleForSpeech` gives the value.
    * @param offsetMs The song time of the first sample.
    * @param handlers The functions that receive the progress.
@@ -125,6 +142,23 @@ export function createTranscribeClient(options: TranscribeClientOptions): Transc
   let lastModelId: string | null = null
   let pending: Pending | null = null
   let runCount = 0
+  let watchdog: ReturnType<typeof setTimeout> | null = null
+
+  function stopWatchdog(): void {
+    if (watchdog !== null) clearTimeout(watchdog)
+    watchdog = null
+  }
+
+  /** Starts the wait for the next progress of a WebGPU run again. A `wasm` run has no watchdog. */
+  function armWatchdog(): void {
+    stopWatchdog()
+    if (device !== 'webgpu') return
+    watchdog = setTimeout(() => {
+      watchdog = null
+      reset()
+      settleError(new TranscribeError('stalled', 'The WebGPU run made no progress.'))
+    }, WEBGPU_STALL_MS)
+  }
 
   function reset(): void {
     worker?.terminate()
@@ -133,6 +167,7 @@ export function createTranscribeClient(options: TranscribeClientOptions): Transc
   }
 
   function settleError(error: TranscribeError): void {
+    stopWatchdog()
     const active = pending
     pending = null
     active?.reject(error)
@@ -154,8 +189,10 @@ export function createTranscribeClient(options: TranscribeClientOptions): Transc
     if (message.type === 'download' || message.type === 'ready' || message.runId !== active.runId)
       return
     if (message.type === 'progress') {
+      armWatchdog()
       active.onProgress?.(message.doneMs)
     } else if (message.type === 'result') {
+      stopWatchdog()
       pending = null
       active.resolve(message.words)
     } else {
@@ -211,24 +248,22 @@ export function createTranscribeClient(options: TranscribeClientOptions): Transc
     runCount += 1
     const runId = `run-${runCount}`
     return start<TimedWord[]>(
-      (resolve, reject) => ({
-        type: 'run',
-        runId,
-        onProgress: handlers.onProgress,
-        resolve,
-        reject,
-      }),
+      (resolve, reject) => {
+        handlers.onStage?.('transcribing')
+        armWatchdog()
+        return { type: 'run', runId, onProgress: handlers.onProgress, resolve, reject }
+      },
       () => ({ type: 'transcribe', runId, samples, offsetMs }),
     )
   }
 
-  /** Returns true and moves to `wasm` when the error is the first WebGPU failure. */
+  /** Returns true and moves to `wasm` when the error is the first WebGPU failure or stall. */
   function moveToWasm(error: unknown): boolean {
-    if (!(error instanceof TranscribeError) || error.kind !== 'device' || device !== 'webgpu')
-      return false
+    if (!(error instanceof TranscribeError) || device !== 'webgpu') return false
+    if (error.kind !== 'device' && error.kind !== 'stalled') return false
     reset()
     device = 'wasm'
-    options.onDeviceChange?.('wasm')
+    options.onDeviceChange?.('wasm', error.kind === 'stalled' ? 'slow' : 'failed')
     return true
   }
 
@@ -250,6 +285,7 @@ export function createTranscribeClient(options: TranscribeClientOptions): Transc
       } catch (error) {
         const modelId = lastModelId
         if (modelId === null || !moveToWasm(error)) throw error
+        handlers.onStage?.('loading')
         await loadOnce(modelId, handlers.onDownload)
         return runOnce(samples, offsetMs, handlers)
       }

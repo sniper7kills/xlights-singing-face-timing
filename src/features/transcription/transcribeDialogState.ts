@@ -1,10 +1,22 @@
 import { formatClock } from '../../lib/time/formatClock.ts'
-import { NoWordsError, type TranscribeMode, type TranscribeOutcome } from './runTranscription.ts'
+import { CHUNK_LENGTH_S, type Device } from './protocol.ts'
+import {
+  NoWordsError,
+  type RunStage,
+  type TranscribeMode,
+  type TranscribeOutcome,
+} from './runTranscription.ts'
 import { TranscribeError } from './transcribeClient.ts'
 
-/** A state in which a transcribe run is active and the dialog shows its progress. */
+/**
+ * A state in which a transcribe run is active and the dialog shows its progress.
+ * `started` is a speech model run that has sent no progress yet.
+ */
 export type RunState =
+  | { status: 'preparing' }
+  | { status: 'loading' }
   | { status: 'downloading'; percent: number }
+  | { status: 'started' }
   | { status: 'transcribing'; doneMs: number; totalMs: number }
   | { status: 'finishing' }
 
@@ -19,7 +31,8 @@ export type DialogState =
 
 /** A change that the dialog or the transcribe run sends to the dialog state. */
 export type DialogEvent =
-  | { type: 'start'; mode: TranscribeMode; totalMs: number }
+  | { type: 'start'; mode: TranscribeMode }
+  | { type: 'stage'; stage: RunStage }
   | { type: 'download'; percent: number }
   | { type: 'progress'; doneMs: number; totalMs: number }
   | { type: 'finishing' }
@@ -84,16 +97,83 @@ export function lowMatchMessage(ratio: number): string {
   return `Only ${wholePercent(ratio)}% of the lyrics matched the audio. Check that the lyrics belong to this song.`
 }
 
-/** Returns the text of the progress area for a run state. */
-export function progressText(state: RunState): string {
+/** The text of each run state without its numbers. The live region reads it, so a screen reader hears each state one time. */
+const STATE_LABEL: Record<RunState['status'], string> = {
+  preparing: 'Preparing audio',
+  loading: 'Loading speech model',
+  downloading: 'Downloading speech model',
+  started: 'Transcribing',
+  transcribing: 'Transcribing',
+  finishing: 'Aligning lyrics and breaking down words',
+}
+
+/** Returns the text that the live region announces for a run state. */
+export function stateLabel(state: RunState): string {
+  return STATE_LABEL[state.status]
+}
+
+/** Returns true when the run state has no progress value and the dialog shows the elapsed time. */
+export function showsElapsed(state: RunState): boolean {
+  return state.status === 'preparing' || state.status === 'loading' || state.status === 'started'
+}
+
+/**
+ * Returns the text of the progress area for a run state, for example "Transcribing, 1:12 of 3:40".
+ * @param elapsedMs The time from the "Start" click. A state with no progress value shows it, for example "Transcribing, 0:12 elapsed".
+ */
+export function progressText(state: RunState, elapsedMs: number): string {
+  if (showsElapsed(state)) return `${STATE_LABEL[state.status]}, ${formatClock(elapsedMs)} elapsed`
   switch (state.status) {
     case 'downloading':
       return `Downloading speech model, ${state.percent}%`
     case 'transcribing':
       return `Transcribing, ${formatClock(state.doneMs)} of ${formatClock(state.totalMs)}`
-    case 'finishing':
-      return 'Aligning lyrics and breaking down words'
+    default:
+      return STATE_LABEL[state.status]
   }
+}
+
+/** The name of each device in the device line of a run. */
+export const DEVICE_LABEL: Record<Device, string> = {
+  webgpu: 'Graphics card (WebGPU)',
+  wasm: 'CPU',
+}
+
+/** The message after the watchdog moves a WebGPU run to `wasm`. */
+export const SLOW_GPU_MESSAGE = 'The graphics card was too slow. The run continues on the CPU.'
+
+/** The audio time and the run time of a speech model run, both in milliseconds. */
+export type RunSpeed = { audioMs: number; runMs: number }
+
+/**
+ * Returns the speed of a run after its first chunk, or null before the end of the first chunk.
+ * @param doneMs The audio time that is complete.
+ * @param totalMs The audio time of the run. A run shorter than one chunk has its speed at the end.
+ * @param runMs The time from the start of the run in the worker to this progress.
+ */
+export function runSpeed(doneMs: number, totalMs: number, runMs: number): RunSpeed | null {
+  const firstChunkMs = Math.min(CHUNK_LENGTH_S * 1000, totalMs)
+  return doneMs >= firstChunkMs && runMs > 0 ? { audioMs: doneMs, runMs } : null
+}
+
+/**
+ * Returns the speed in plain words, for example "about 2 times faster than the song".
+ * The ratio is the seconds of audio for each second of the run, rounded to a whole number.
+ */
+export function speedText({ audioMs, runMs }: RunSpeed): string {
+  const ratio = audioMs / runMs
+  const times = Math.round(ratio >= 1 ? ratio : 1 / ratio)
+  if (times <= 1) return 'about as fast as the song'
+  return `about ${times} times ${ratio >= 1 ? 'faster' : 'slower'} than the song`
+}
+
+/**
+ * Returns the device line of a run, for example "CPU, about 2 times faster than the song".
+ * @param device The device that runs the speech model now.
+ * @param speed The speed after the first chunk, or null before it.
+ */
+export function deviceLine(device: Device, speed: RunSpeed | null): string {
+  return speed === null ? DEVICE_LABEL[device] : `${DEVICE_LABEL[device]}, ${speedText(speed)}`
 }
 
 /** Returns the value of the progress bar from 0 to 1, or undefined for a bar with no value. */
@@ -116,9 +196,7 @@ export function isActive(state: DialogState): boolean {
 export function transcribeDialogReducer(state: DialogState, event: DialogEvent): DialogState {
   if (event.type === 'start') {
     // A lyrics-only run uses no speech model, so its first step is the align step.
-    return event.mode === 'model'
-      ? { status: 'transcribing', doneMs: 0, totalMs: event.totalMs }
-      : { status: 'finishing' }
+    return event.mode === 'model' ? { status: 'preparing' } : { status: 'finishing' }
   }
   if (!isActive(state)) return state
   return event.type === 'answer' ||
@@ -131,12 +209,22 @@ export function transcribeDialogReducer(state: DialogState, event: DialogEvent):
 
 type RunEvent = Extract<
   DialogEvent,
-  { type: 'download' | 'progress' | 'finishing' | 'confirm-replace' | 'confirm-low-match' }
+  {
+    type: 'stage' | 'download' | 'progress' | 'finishing' | 'confirm-replace' | 'confirm-low-match'
+  }
 >
+
+const STAGE_STATE: Record<RunStage, RunState> = {
+  preparing: { status: 'preparing' },
+  loading: { status: 'loading' },
+  transcribing: { status: 'started' },
+}
 type EndEvent = Extract<DialogEvent, { type: 'answer' | 'cancelled' | 'failed' | 'done' }>
 
 function runStep(state: DialogState, event: RunEvent): DialogState {
   switch (event.type) {
+    case 'stage':
+      return STAGE_STATE[event.stage]
     case 'download':
       return { status: 'downloading', percent: event.percent }
     case 'progress':
@@ -165,11 +253,7 @@ function endStep(state: DialogState, event: EndEvent): DialogState {
 
 /** Returns true when the state shows the progress of a run. */
 export function isRunState(state: DialogState): state is RunState {
-  return (
-    state.status === 'downloading' ||
-    state.status === 'transcribing' ||
-    state.status === 'finishing'
-  )
+  return state.status in STATE_LABEL
 }
 
 /**

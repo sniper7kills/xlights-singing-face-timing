@@ -133,6 +133,76 @@ export function doneMsAfterChunk(chunkIndex: number, sampleCount: number): numbe
   return Math.min(endS * 1000, (sampleCount / SPEECH_SAMPLE_RATE) * 1000)
 }
 
+/** The time between two timestamp tokens of Whisper, in seconds. */
+const TIMESTAMP_STEP_S = 0.02
+
+/** Follows the timestamp tokens of one run and gives the audio time that the speech model reached. */
+export type RunClock = {
+  /**
+   * Returns the new audio time in milliseconds from the first sample of the run, or null when the time does not move forward.
+   * @param tokens The tokens of one `put` call of the streamer. A generated token comes alone.
+   */
+  token(tokens: readonly bigint[]): number | null
+  /** Records the end of one generate pass of the chunk. */
+  passEnd(): void
+  /** Returns the audio time after the chunk, as `doneMsAfterChunk`, and moves to the next chunk. */
+  chunkEnd(): number
+}
+
+/**
+ * Returns a clock for one run.
+ * A timestamp token gives a time inside the 30-second window of the current generate pass.
+ * Whisper can read one chunk in more than one pass. The next pass starts at the end of the last complete segment,
+ * which is the first token of the last pair of adjacent timestamp tokens.
+ * Source: `_generate_with_seek` in `@huggingface/transformers` 4.3.2, `src/models/whisper/modeling_whisper.js`.
+ * @param sampleCount The number of samples of the run.
+ * @param timestampBegin The id of the first timestamp token, `WhisperTextStreamer.timestamp_begin`.
+ */
+export function createRunClock(sampleCount: number, timestampBegin: number): RunClock {
+  const stepS = CHUNK_LENGTH_S - 2 * STRIDE_LENGTH_S
+  let chunkIndex = 0
+  let seekS = 0
+  let reachedMs = 0
+  let previousS: number | null = null
+  let lastPairS: number | null = null
+
+  function timeOf(tokens: readonly bigint[]): number | null {
+    const offset = tokens.length === 1 ? Number(tokens[0]) - timestampBegin : -1
+    return offset >= 0 ? offset * TIMESTAMP_STEP_S : null
+  }
+
+  function forgetPass(): void {
+    previousS = null
+    lastPairS = null
+  }
+
+  return {
+    token(tokens) {
+      const timeS = timeOf(tokens)
+      if (previousS !== null && timeS !== null) lastPairS = previousS
+      previousS = timeS
+      if (timeS === null) return null
+      const ms = Math.round((chunkIndex * stepS + seekS + timeS) * 1000)
+      const capped = Math.min(ms, doneMsAfterChunk(chunkIndex, sampleCount))
+      if (capped <= reachedMs) return null
+      reachedMs = capped
+      return capped
+    },
+    passEnd() {
+      if (lastPairS !== null) seekS += lastPairS
+      forgetPass()
+    },
+    chunkEnd() {
+      const doneMs = doneMsAfterChunk(chunkIndex, sampleCount)
+      chunkIndex += 1
+      seekS = 0
+      forgetPass()
+      reachedMs = Math.max(reachedMs, doneMs)
+      return doneMs
+    },
+  }
+}
+
 const NETWORK_PATTERN =
   /failed to fetch|networkerror|network error|load failed|could not locate file|unable to get model file/i
 const MEMORY_PATTERN =

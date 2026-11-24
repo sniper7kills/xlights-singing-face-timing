@@ -55,6 +55,7 @@ function fakeClient(words: TimedWord[] = WORDS): TranscribeClient {
       onDownload?.(500_000, 1_000_000)
     }),
     transcribe: vi.fn(async (_samples, _offsetMs, handlers) => {
+      handlers?.onStage?.('transcribing')
       handlers?.onProgress?.(20_000)
       return words
     }),
@@ -67,6 +68,7 @@ function handlers(controller = new AbortController()): TranscribeRunHandlers {
   return {
     signal: controller.signal,
     onDownload: vi.fn(),
+    onStage: vi.fn(),
     onProgress: vi.fn(),
     onFinishing: vi.fn(),
     confirmReplace: vi.fn(async () => true),
@@ -124,9 +126,35 @@ describe('runTranscription with the speech model', () => {
     expect(outcome).toEqual({ wordCount: 2, estimatedCount: 0, breakDownFailure: null })
     expect(client.load).toHaveBeenCalledWith('whisper-base', run.onDownload)
     expect(run.onDownload).toHaveBeenCalledWith(500_000, 1_000_000)
-    expect(run.onProgress).toHaveBeenNthCalledWith(1, 0, 30_000)
-    expect(run.onProgress).toHaveBeenNthCalledWith(2, 20_000, 30_000)
+    expect(run.onProgress).toHaveBeenCalledExactlyOnceWith(20_000, 30_000)
     expect(run.onFinishing).toHaveBeenCalledOnce()
+  })
+
+  it('reports the steps before the first progress in order, and sends no progress of 0', async () => {
+    const steps: string[] = []
+    const client = fakeClient()
+    vi.mocked(client.load).mockImplementation(async () => {
+      steps.push('load')
+    })
+    const run = handlers()
+    vi.mocked(run.onStage).mockImplementation((stage) => steps.push(stage))
+    vi.mocked(resampleForSpeech).mockImplementation(async () => {
+      steps.push('resample')
+      return new Float32Array(30 * SPEECH_SAMPLE_RATE)
+    })
+
+    await runTranscription(modelRequest, client, run)
+
+    expect(steps).toEqual(['preparing', 'resample', 'loading', 'load', 'transcribing'])
+    expect(run.onProgress).not.toHaveBeenCalledWith(0, expect.any(Number))
+  })
+
+  it('reports no step for a lyrics-only run', async () => {
+    const run = handlers()
+
+    await runTranscription(lyricsOnly, fakeClient(), run)
+
+    expect(run.onStage).not.toHaveBeenCalled()
   })
 
   it('writes the grouped phrase and the words with clean labels when no lyrics are supplied', async () => {

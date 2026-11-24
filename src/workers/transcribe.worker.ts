@@ -1,5 +1,6 @@
 import {
   ModelRegistry,
+  WhisperTextStreamer,
   env,
   pipeline,
   type AutomaticSpeechRecognitionPipeline,
@@ -12,7 +13,7 @@ import {
   SPEECH_MODEL_DTYPE,
   SPEECH_MODELS,
   STRIDE_LENGTH_S,
-  doneMsAfterChunk,
+  createRunClock,
   errorKind,
   wordsFromChunks,
   type Device,
@@ -65,17 +66,29 @@ async function load(speechModelId: string, device: Device): Promise<void> {
 
 async function transcribe(runId: string, samples: Float32Array, offsetMs: number): Promise<void> {
   if (transcriber === null) throw new Error('No speech model is loaded.')
-  let chunkIndex = 0
-  onChunkEnd = () => {
-    post({ type: 'progress', runId, doneMs: doneMsAfterChunk(chunkIndex, samples.length) })
-    chunkIndex += 1
-  }
+  const postDone = (doneMs: number) => post({ type: 'progress', runId, doneMs })
+  // The library types the tokenizer as `PreTrainedTokenizer`. A Whisper pipeline has a `WhisperTokenizer`.
+  const tokenizer = transcriber.tokenizer as ConstructorParameters<typeof WhisperTextStreamer>[0]
+  const clock = createRunClock(samples.length, tokenizer.timestamp_begin)
+  // The timestamp tokens give the audio time inside a chunk, so the progress moves before the chunk ends.
+  const streamer = new WhisperTextStreamer(tokenizer, {
+    skip_prompt: true,
+    // The default callback writes each piece of text to the console.
+    callback_function: () => undefined,
+    token_callback_function: (tokens) => {
+      const doneMs = clock.token(tokens)
+      if (doneMs !== null) postDone(doneMs)
+    },
+    on_finalize: () => clock.passEnd(),
+  })
+  onChunkEnd = () => postDone(clock.chunkEnd())
   const output = await transcriber(samples, {
     return_timestamps: 'word',
     chunk_length_s: CHUNK_LENGTH_S,
     stride_length_s: STRIDE_LENGTH_S,
     language: 'english',
     task: 'transcribe',
+    streamer,
   }).finally(() => {
     onChunkEnd = null
   })
