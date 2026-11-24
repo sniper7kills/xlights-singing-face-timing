@@ -5,8 +5,9 @@ import { requestPersistentStorageForFirstSong } from './persistentStorage.ts'
 /** The name of the one voice in a new song. */
 export const DEFAULT_VOICE_NAME = 'Lead Vocals'
 
+/** The colour of the one voice in a new song. */
 // The spec has no list of the 8 preset colours yet. This is the colour of "Lead Vocals" in the editor mockup.
-const DEFAULT_VOICE_COLOR = '#ffb238'
+export const DEFAULT_VOICE_COLOR = '#ffb238'
 
 const DEFAULT_FRAME_MS = 50
 
