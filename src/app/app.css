@@ -288,6 +288,13 @@ button {
   color: var(--mute);
 }
 
+.editor-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
 .waveform-region {
   display: grid;
   gap: 12px;
@@ -428,6 +435,11 @@ button {
   outline: 2px solid var(--amber);
   outline-offset: -2px;
   z-index: 1;
+}
+
+/* The dotted border shows an unknown word without colour alone. The selection outline sits inside it, so a selected unknown word shows both. */
+.mark[data-unknown='true'] {
+  border: 2px dotted var(--ink);
 }
 
 .mark-label {

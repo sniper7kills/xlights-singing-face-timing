@@ -224,6 +224,44 @@ describe('EditorPage', () => {
     )
   })
 
+  it('shows the unknown-word counter and "Add to custom dictionary" in the toolbar under the waveform region', async () => {
+    const user = userEvent.setup()
+    await renderEditor()
+    const content = useSongStore.getState().current
+    if (content === null) throw new Error('The editor has no open song.')
+    const voiceId = content.voices[0]?.id ?? ''
+    act(() =>
+      useSongStore.setState({
+        current: {
+          ...content,
+          marks: [
+            {
+              id: 'zxqv',
+              voiceId,
+              layer: 'word',
+              label: 'Zxqv',
+              startMs: 500,
+              endMs: 1000,
+              parentId: null,
+              edited: false,
+              unknown: true,
+            },
+          ],
+        },
+      }),
+    )
+
+    const toolbar = screen.getByRole('toolbar', { name: 'Editor tools' })
+    expect(toolbar).toHaveClass('editor-toolbar')
+    expect(
+      screen.getByRole('region', { name: 'Waveform' }).compareDocumentPosition(toolbar) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy()
+    await user.click(within(toolbar).getByRole('button', { name: '1 unknown word' }))
+    expect(useViewStore.getState().selectedMarkIds).toEqual(['zxqv'])
+    expect(within(toolbar).getByRole('button', { name: 'Add to custom dictionary' })).toBeVisible()
+  })
+
   it('opens the song at the default view and at time 0', async () => {
     useViewStore.setState({ pxPerSecond: 300, scrollMs: 5000, playTimeMs: 7000 })
 
