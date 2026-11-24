@@ -109,7 +109,7 @@ async function applyToMarks(
 
 /**
  * Replaces the phonemes of the given words of the open song with a new break down, as one undo step.
- * TODO(#30): Add the "Break down again" control for the selected words.
+ * The "Break down again" button of the editor calls it with the selected words.
  * An edited word keeps its phonemes. An id of a mark that is not a word changes nothing.
  * @param wordIds The ids of the word marks.
  * Rejects with DictionaryLoadError when the dictionary file does not load. The words then keep their phonemes.

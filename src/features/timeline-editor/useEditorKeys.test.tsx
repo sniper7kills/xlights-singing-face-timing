@@ -43,6 +43,33 @@ describe('useEditorKeys', () => {
     expect(event.defaultPrevented).toBe(true)
   })
 
+  it('gives a key to the browser and to the next registration when a function returns false', () => {
+    const declined = vi.fn(() => false)
+    const next = vi.fn()
+    render(
+      <>
+        <Keys keys={{ Tab: declined }} />
+        <Keys keys={{ Tab: next }} />
+      </>,
+    )
+
+    const event = new KeyboardEvent('keydown', { key: 'Tab', cancelable: true })
+    window.dispatchEvent(event)
+
+    expect(declined).toHaveBeenCalledOnce()
+    expect(next).toHaveBeenCalledOnce()
+    expect(event.defaultPrevented).toBe(true)
+  })
+
+  it('leaves a key to the browser when every function returns false', () => {
+    render(<Keys keys={{ Tab: () => false }} />)
+
+    const event = new KeyboardEvent('keydown', { key: 'Tab', cancelable: true })
+    window.dispatchEvent(event)
+
+    expect(event.defaultPrevented).toBe(false)
+  })
+
   it('leaves a key that no component registers to the browser', () => {
     render(<Keys keys={{ '+': vi.fn() }} />)
 

@@ -7,8 +7,10 @@ import { useEffect, useLayoutEffect, useRef } from 'react'
  * `Ctrl+` also stands for `Cmd` on macOS.
  * A single character has no `Shift+` prefix, because the character already shows the Shift key:
  * `+` and `?` need Shift on most keyboards, and `Ctrl+Shift+Z` is `Ctrl+Z`.
+ * A function that returns `false` does not take the key: the browser action and the next registration get it.
+ * For example, `Tab` on a mark selects the next mark, and `Tab` on a button goes to the next control.
  */
-export type EditorKeyMap = Readonly<Record<string, (event: KeyboardEvent) => void>>
+export type EditorKeyMap = Readonly<Record<string, (event: KeyboardEvent) => boolean | void>>
 
 // A focused text field uses these keys for its text, so the editor must not take them.
 const TEXT_CONTROLS =
@@ -50,10 +52,9 @@ function dispatch(event: KeyboardEvent) {
   const name = keyName(event)
   for (const keys of registered) {
     const run = keys.current[name]
-    if (run === undefined) continue
+    if (run === undefined || run(event) === false) continue
     // The browser has its own action for some keys, for example `-` with Ctrl or Tab.
     event.preventDefault()
-    run(event)
     return
   }
 }
