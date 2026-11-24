@@ -1,7 +1,7 @@
 import { hasMarksInRange, replaceMarksInRange } from '../../store/actions/replaceMarksInRange.ts'
 import { getAudioFile } from '../../store/db.ts'
 import { useSongStore } from '../../store/songStore.ts'
-import type { Mark } from '../../store/types.ts'
+import type { Mark, SongContent } from '../../store/types.ts'
 import { alignLyrics } from './alignLyrics.ts'
 import { buildMarks } from './buildMarks.ts'
 import { groupIntoPhrases, parseLyrics, spreadLyrics } from './phrases.ts'
@@ -78,6 +78,21 @@ function countWords(marks: Mark[]): TranscribeOutcome {
 }
 
 /**
+ * Asks the person to replace the marks of the voice in the range, when the range has marks.
+ * The feature file asks before the download, so a "Cancel" costs no download and no wait.
+ * Rejects as cancelled when the person declines.
+ */
+async function askToReplace(
+  content: SongContent,
+  voiceId: string,
+  range: TimeRange,
+  handlers: TranscribeRunHandlers,
+): Promise<void> {
+  if (hasMarksInRange(content, voiceId, range) && !(await handlers.confirmReplace()))
+    throw declined()
+}
+
+/**
  * Runs one transcription for the open song, writes the marks as one undo step, and returns the counts.
  * The run replaces the marks of the voice that lie fully inside the range. The marks outside it stay.
  * @param request The run that the person started. Without a range, the range is the full song.
@@ -100,9 +115,7 @@ export async function runTranscription(
 
   if (request.mode === 'lyrics-only' && parseLyrics(request.lyrics ?? '').length === 0)
     throw new NoWordsError()
-  // The feature file asks before the download, so a "Cancel" costs no download and no wait.
-  if (hasMarksInRange(content, request.voiceId, range) && !(await handlers.confirmReplace()))
-    throw declined()
+  await askToReplace(content, request.voiceId, range, handlers)
   stopIfCancelled(signal)
 
   const phrases =
@@ -113,7 +126,8 @@ export async function runTranscription(
   const marks = buildMarks(phrases, request.voiceId, song.frameMs)
   const outcome = countWords(marks)
   if (outcome.wordCount === 0) throw new NoWordsError()
-  // TODO(#23): Add the phonemes of each new word to `marks` here, so that the write below holds the break down in the same undo step.
+  // TODO(#23): Add the phonemes of the new words to `marks` here.
+  // The write below then holds the break down in the same undo step.
   stopIfCancelled(signal)
   replaceMarksInRange(request.voiceId, range, marks)
   return outcome
