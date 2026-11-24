@@ -1,7 +1,7 @@
 # Demo song
 
 This folder holds the demo song and its expected marks. The E2E tests and the
-"Try the demo song" button use these files.
+"Try the demo song" button will use these files. Issue #13 adds the button.
 
 | File | Content |
 |---|---|

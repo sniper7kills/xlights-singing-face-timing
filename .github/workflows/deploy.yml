@@ -67,32 +67,31 @@ jobs:
           aws-region: us-east-1
 
       # The file names in dist/assets/ hold a content hash, so a browser can keep each file for one year.
-      # This pass does not delete, so a browser with the old index.html can still get the old files.
+      # No upload step deletes, so the old index.html and its hashed files stay usable during the deploy.
       - name: Upload the hashed files
         run: >-
           aws s3 sync dist/assets/ "s3://$SITE_BUCKET/assets/"
           --cache-control "public, max-age=31536000, immutable"
 
       # These file names hold no hash, so the browser checks each one again on every load.
-      # The exclude filter also stops --delete from removing the files of the previous pass.
+      # The exclude filter keeps the hashed files out of this pass, because they need a different cache-control value.
       - name: Upload index.html and the other files
         run: >-
           aws s3 sync dist/ "s3://$SITE_BUCKET/"
-          --delete
           --exclude "assets/*"
           --cache-control "no-cache"
 
-      # The new index.html is in the bucket now, so no current page refers to the old hashed files.
-      # The cache-control value applies if sync uploads a file again.
-      - name: Delete the old hashed files
-        run: >-
-          aws s3 sync dist/assets/ "s3://$SITE_BUCKET/assets/"
-          --delete
-          --cache-control "public, max-age=31536000, immutable"
-
-      # GitHub Actions skips this step if a sync step fails, so production keeps the old version.
+      # GitHub Actions skips this step if an upload step fails. The bucket then still holds every old file.
       - name: Invalidate the CloudFront cache
         run: >-
           aws cloudfront create-invalidation
           --distribution-id "$CLOUDFRONT_DISTRIBUTION_ID"
           --paths "/*"
+
+      # This step comes last, so CloudFront gets the invalidation request before a file that the old index.html uses goes away.
+      # A failure here leaves a correct site with unused files, and the next deploy removes them.
+      # The upload steps put every file of dist/ in the bucket, so this pass uploads nothing and needs no cache-control value.
+      - name: Delete the files that are not in dist/
+        run: >-
+          aws s3 sync dist/ "s3://$SITE_BUCKET/"
+          --delete

@@ -6,8 +6,9 @@ breaks down each word into xLights phonemes, and exports an `.xtiming` file with
 three layers (phrases, words, phonemes) for each voice. The xLights Faces effect
 reads the phoneme layer. No audio leaves the browser.
 
-Current state: the spec is approved. No application code exists yet. Epic 0
-(Foundation) creates the scaffold.
+Current state: the foundation exists. It has the app shell, the check commands,
+the CI workflow, the demo song, the hosting template and the deploy workflow. The
+hosting stack does not exist yet (issue #7). Features start with Epic 1.
 
 ## Design
 
@@ -79,6 +80,8 @@ Unit tests sit beside the source file as `<name>.test.ts`.
 - Prose, issue bodies and code comments use Simplified Technical English. See
   `.claude/rules/ste.md`.
 - Commit messages: imperative mood, one subject line of 72 characters or fewer.
+- Do not rename the `@typescript/native` npm alias. It decides that `tsc` is
+  TypeScript 7. See `docs/adr/0003-typescript-7-compiler-with-typescript-6-lint-api.md`.
 
 ## When to file an issue
 

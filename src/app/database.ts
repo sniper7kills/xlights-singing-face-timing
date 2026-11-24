@@ -42,8 +42,13 @@ export function useDatabaseStatus(): DatabaseStatus {
     let database: IDBDatabase | undefined
     openDatabase().then(
       (opened) => {
+        if (!active) {
+          // The cleanup ran before the open request ended, so no later code closes this connection.
+          opened.close()
+          return
+        }
         database = opened
-        if (active) setStatus('ready')
+        setStatus('ready')
       },
       () => {
         if (active) setStatus('unavailable')

@@ -5,7 +5,8 @@ import { useTheme } from './theme.ts'
 
 export function App() {
   const { theme, toggleTheme } = useTheme()
-  const route = useHashRoute()
+  // The call keeps hash routing active: an unknown hash goes back to the song library.
+  useHashRoute()
   const databaseStatus = useDatabaseStatus()
   const nextTheme = theme === 'dark' ? 'light' : 'dark'
 
@@ -20,14 +21,14 @@ export function App() {
         <button
           type="button"
           className="button"
-          aria-label={`Switch to the ${nextTheme} theme`}
+          aria-label={`Theme: switch to ${nextTheme}`}
           onClick={toggleTheme}
         >
           <span aria-hidden="true">◐</span> Theme
         </button>
       </header>
       <main className="main">
-        {route.name === 'library' && <SongLibraryPage databaseStatus={databaseStatus} />}
+        <SongLibraryPage databaseStatus={databaseStatus} />
       </main>
     </>
   )
