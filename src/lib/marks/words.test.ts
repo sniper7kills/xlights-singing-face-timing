@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { PHONEME_LABELS } from '../dictionary/cmuSymbols.ts'
 import { counterIds } from './editRules.test-helpers.ts'
 import { FRAME_MS, mark } from './fixtures.test-helpers.ts'
-import { divideLabel, guessPhonemes, withoutUnknown } from './words.ts'
+import { divideLabel, guessPhonemes } from './words.ts'
 
 describe('divideLabel', () => {
   it('divides the label at the character position nearest to the fraction', () => {
@@ -45,13 +45,5 @@ describe('guessPhonemes', () => {
     const word = mark('w', { label: '...', startMs: 0, endMs: 50 })
 
     expect(guessPhonemes(word, FRAME_MS, counterIds())).toHaveLength(1)
-  })
-})
-
-describe('withoutUnknown', () => {
-  it('removes the unknown state and keeps the other fields', () => {
-    const word = mark('w', { unknown: true })
-
-    expect(withoutUnknown(word)).toEqual(mark('w', {}))
   })
 })

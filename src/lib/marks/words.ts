@@ -46,13 +46,3 @@ export function divideLabel(label: string, fraction: number): [string, string] {
   const at = clamp(Math.round(characters.length * fraction), 1, characters.length - 1)
   return [characters.slice(0, at).join('').trim(), characters.slice(at).join('').trim()]
 }
-
-/**
- * Returns the word with no `unknown` state.
- * A word with a new label has no break down yet, so its old `unknown` state is not true any more.
- */
-export function withoutUnknown(word: Mark): Mark {
-  const result = { ...word }
-  delete result.unknown
-  return result
-}

@@ -7,7 +7,7 @@ import { childrenOf, findMark } from './family.ts'
 import { noEdit, type MarkEdit } from './markEdit.ts'
 import { parentWordEdited } from './moveRules.ts'
 import { phonemesAfterResize } from './phonemes.ts'
-import { guessPhonemes, withoutUnknown, type NewId } from './words.ts'
+import { guessPhonemes, type NewId } from './words.ts'
 
 /** Returns the words of a phrase label: the parts between spaces that hold a letter or a digit. */
 function labelWords(label: string): string[] {
@@ -60,7 +60,9 @@ function relabelWord(
   frameMs: number,
   newId: NewId,
 ): MarkEdit {
-  const relabelled = { ...withoutUnknown(word), label, edited: false }
+  const relabelled = { ...word, label, edited: false }
+  // A word with a new label has no break down yet, so its old `unknown` state is not true any more.
+  delete relabelled.unknown
   return {
     changed: [relabelled],
     removedIds: childrenOf(marks, word.id).map((phoneme) => phoneme.id),
