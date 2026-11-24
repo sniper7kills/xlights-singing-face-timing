@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { TimeRange } from '../../lib/time/timeRange.ts'
 import { loadSettings, updateSettings } from '../../store/settings.ts'
-import { hasWebGpu } from './device.ts'
+import { hasWebGpu, RETRY_FAILED_DEVICE_MS } from './device.ts'
 import type { Device } from './protocol.ts'
 import {
   NoWordsError,
@@ -20,6 +20,10 @@ import {
   TranscribeError,
 } from './transcribeClient.ts'
 
+vi.mock('../../store/settings.ts', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../store/settings.ts')>()
+  return { ...actual, loadSettings: vi.fn(actual.loadSettings) }
+})
 vi.mock('./device.ts', async (importOriginal) => ({
   ...(await importOriginal<typeof import('./device.ts')>()),
   hasWebGpu: vi.fn(),
@@ -222,9 +226,51 @@ describe('TranscribeDialog', () => {
 
     await vi.waitFor(async () =>
       expect((await loadSettings()).deviceSpeeds).toEqual({
-        'whisper-base': { wasm: 2, webgpu: 0 },
+        'whisper-base': { wasm: 2, webgpu: 0, failedAtMs: { webgpu: expect.any(Number) } },
       }),
     )
+  })
+
+  it('starts the run on WebGPU again 7 days after a WebGPU failure', async () => {
+    const failedAtMs = { webgpu: Date.now() - RETRY_FAILED_DEVICE_MS - 1000 }
+    await updateSettings({ deviceSpeeds: { 'whisper-base': { wasm: 2, webgpu: 0, failedAtMs } } })
+    const { user, start } = await renderDialog()
+
+    await user.click(start)
+
+    expect(clientOptions?.device).toBe('webgpu')
+  })
+
+  it('stores the current time for a WebGPU failure of an earlier record and starts on wasm', async () => {
+    await updateSettings({ deviceSpeeds: { 'whisper-base': { wasm: 2, webgpu: 0 } } })
+    const { user, start } = await renderDialog()
+
+    await user.click(start)
+
+    expect(clientOptions?.device).toBe('wasm')
+    await vi.waitFor(async () =>
+      expect((await loadSettings()).deviceSpeeds).toEqual({
+        'whisper-base': { wasm: 2, webgpu: 0, failedAtMs: { webgpu: expect.any(Number) } },
+      }),
+    )
+  })
+
+  it('keeps the browser source when the settings read fails', async () => {
+    const failure = new Error('read failed')
+    vi.mocked(loadSettings).mockRejectedValueOnce(failure).mockRejectedValueOnce(failure)
+    const unhandled = vi.fn()
+    process.on('unhandledRejection', unhandled)
+    try {
+      await renderDialog()
+      // Node reports an unhandled rejection after the next macrotask.
+      await new Promise((resolve) => setTimeout(resolve, 0))
+
+      expect(unhandled).not.toHaveBeenCalled()
+      expect(screen.getByRole('radio', { name: 'In this browser' })).toBeChecked()
+      expect(screen.getByRole('radio', { name: 'base 139 MB' })).toBeChecked()
+    } finally {
+      process.off('unhandledRejection', unhandled)
+    }
   })
 
   it('offers the full song as the only range when the editor has no time selection', async () => {

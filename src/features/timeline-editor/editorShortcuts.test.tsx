@@ -213,6 +213,40 @@ describe('Delete', () => {
   })
 })
 
+describe('a focused form control', () => {
+  /** Adds an input of the type to the page and focuses it. */
+  function focusInput(type: string) {
+    const input = document.body.appendChild(document.createElement('input'))
+    input.type = type
+    input.focus()
+    return input
+  }
+
+  it.each(['range', 'checkbox', 'radio'])(
+    'leaves S, M and Delete to a focused %s input',
+    (type) => {
+      select('w1')
+      act(() => useViewStore.getState().setPlayTime(3000))
+      const input = focusInput(type)
+      try {
+        expect(press('s', {}, input)).toBe(false)
+        expect(press('m', {}, input)).toBe(false)
+        expect(press('Delete', {}, input)).toBe(false)
+        expect(marks()).toEqual(MARKS)
+      } finally {
+        input.remove()
+      }
+    },
+  )
+
+  it('deletes the selected mark with the focus on a button, because Delete does not press a button', () => {
+    select('w3')
+
+    expect(press('Delete', {}, screen.getByRole('button', { name: 'Undo' }))).toBe(true)
+    expect(stored('w3')).toBeUndefined()
+  })
+})
+
 describe('nudge', () => {
   it('moves the selected mark by one frame size with Left and Right', () => {
     select('w3')
@@ -459,6 +493,20 @@ describe('Space', () => {
       expect(player.play).not.toHaveBeenCalled()
     } finally {
       dialog.remove()
+      detachPlayer(player)
+    }
+  })
+
+  it('pauses the player when the browser refuses the play', async () => {
+    const player = fakePlayer()
+    vi.mocked(player.play).mockRejectedValueOnce(new DOMException('refused', 'NotAllowedError'))
+    attachPlayer(player)
+    try {
+      expect(press(' ')).toBe(true)
+
+      await waitFor(() => expect(player.pause).toHaveBeenCalledOnce())
+      expect(player.isPlaying()).toBe(false)
+    } finally {
       detachPlayer(player)
     }
   })

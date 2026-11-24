@@ -1,6 +1,11 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { getRecord, putRecord, SETTINGS_KEY } from './db.ts'
 import { DEFAULT_SETTINGS, loadSettings, updateSettings } from './settings.ts'
+
+vi.mock('./db.ts', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('./db.ts')>()
+  return { ...actual, putRecord: vi.fn(actual.putRecord) }
+})
 
 describe('loadSettings', () => {
   it('returns the default settings when the app has stored none', async () => {
@@ -48,6 +53,32 @@ describe('updateSettings', () => {
       defaultFrameMs: 25,
       theme: 'light',
     })
+  })
+
+  it('keeps both changes of two writes that start together', async () => {
+    const remoteEndpoint = { baseUrl: 'http://localhost:8000/v1', apiKey: '', model: 'm' }
+
+    await Promise.all([
+      updateSettings({ deviceSpeeds: { 'whisper-base': { wasm: 2 } } }),
+      updateSettings({ remoteEndpoint }),
+    ])
+
+    expect(await loadSettings()).toMatchObject({
+      deviceSpeeds: { 'whisper-base': { wasm: 2 } },
+      remoteEndpoint,
+    })
+  })
+
+  it('writes the next change after a write that fails', async () => {
+    const full = new Error('storage full')
+    vi.mocked(putRecord).mockRejectedValueOnce(full)
+
+    const failed = updateSettings({ theme: 'light' })
+    const next = updateSettings({ speechModelId: 'whisper-tiny' })
+
+    await expect(failed).rejects.toBe(full)
+    await next
+    expect((await loadSettings()).speechModelId).toBe('whisper-tiny')
   })
 
   it('stores the remote endpoint and the last source choice', async () => {
