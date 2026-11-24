@@ -11,3 +11,7 @@ docs/specs/mockups/
 .claude/
 .issue-flow.json
 package-lock.json
+
+# The dictionary build script writes these files from the vendored source.
+vendor/
+public/dict/
