@@ -358,7 +358,7 @@ describe('createTranscribeClient', () => {
       const wasm = await timedRun('wasm', 20_000)
       const webgpu = await timedRun('webgpu', 80_000)
 
-      expect(pickDevice(true, { ...wasm, ...webgpu })).toBe('wasm')
+      expect(pickDevice(true, { ...wasm, ...webgpu }, Date.now())).toBe('wasm')
     })
 
     it('selects webgpu when the fake WebGPU run takes less time than the fake wasm run', async () => {
@@ -366,7 +366,7 @@ describe('createTranscribeClient', () => {
       const wasm = await timedRun('wasm', 20_000)
       const webgpu = await timedRun('webgpu', 5_000)
 
-      expect(pickDevice(true, { ...wasm, ...webgpu })).toBe('webgpu')
+      expect(pickDevice(true, { ...wasm, ...webgpu }, Date.now())).toBe('webgpu')
     })
   })
 })

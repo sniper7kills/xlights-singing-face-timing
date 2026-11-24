@@ -35,6 +35,7 @@ describe('parseBaseUrl', () => {
 
   it('returns invalid for text that is not a URL', () => {
     expect(parseBaseUrl('localhost:8000 v1')).toEqual({ ok: false, reason: 'invalid' })
+    expect(parseBaseUrl('example.com/v1')).toEqual({ ok: false, reason: 'invalid' })
   })
 
   it('returns invalid for a scheme other than http or https', () => {
@@ -44,6 +45,35 @@ describe('parseBaseUrl', () => {
   it('returns invalid for a URL with a query or a fragment', () => {
     expect(parseBaseUrl('https://example.com/v1?key=1')).toEqual({ ok: false, reason: 'invalid' })
     expect(parseBaseUrl('https://example.com/v1#top')).toEqual({ ok: false, reason: 'invalid' })
+  })
+
+  it('returns invalid for a URL with a bare ? or a bare #', () => {
+    expect(parseBaseUrl('https://h/v1?')).toEqual({ ok: false, reason: 'invalid' })
+    expect(parseBaseUrl('https://h/v1#')).toEqual({ ok: false, reason: 'invalid' })
+    expect(parseBaseUrl('https://h/v1/?')).toEqual({ ok: false, reason: 'invalid' })
+  })
+
+  it('returns invalid for a javascript: or a data: URL', () => {
+    expect(parseBaseUrl('javascript:alert(1)')).toEqual({ ok: false, reason: 'invalid' })
+    expect(parseBaseUrl('data:text/plain,v1')).toEqual({ ok: false, reason: 'invalid' })
+  })
+
+  it('returns credentials for a URL with a user name only', () => {
+    expect(parseBaseUrl('https://user@example.com/v1')).toEqual({
+      ok: false,
+      reason: 'credentials',
+    })
+  })
+
+  it('stores the origin and the path with the port, and no default port', () => {
+    expect(parseBaseUrl('\thttps://API.Example.com:8443/v1/\n')).toEqual({
+      ok: true,
+      baseUrl: 'https://api.example.com:8443/v1',
+    })
+    expect(parseBaseUrl('https://api.example.com:443/v1')).toEqual({
+      ok: true,
+      baseUrl: 'https://api.example.com/v1',
+    })
   })
 
   it('returns credentials for a URL with a user name and a password', () => {

@@ -18,8 +18,9 @@ custom dictionary. The editor shows unknown words. The person edits marks on the
 layers with the mouse: move, resize, label, phoneme label and add. The transcribe
 dialog shows each step, the elapsed time and the device. The person can transcribe
 with a remote endpoint that is compatible with the OpenAI transcription API in
-place of the speech model in the browser. The shortcuts, the loop,
-the inspector and the voices are next.
+place of the speech model in the browser. The editor has
+shortcuts, undo and redo, loop play, play speed, the frame size control, the
+inspector and the face preview. The voices and the sections are next.
 
 ## Design
 

@@ -677,7 +677,7 @@ body.rv-open .layout { padding-right:21rem; }
 <li><strong>Cross-origin isolation.</strong> Multi-thread WASM needs the
 </li>
 </ol>
-<p><code>Cross-Origin-Opener-Policy</code> and <code>Cross-Origin-Embedder-Policy</code> headers. Those headers can block model downloads from another origin. Epic 0 sets no such header. The response headers policy can add them later. Epic 2 tests the <code>wasm</code> device speed and decides.</p>
+<p><code>Cross-Origin-Opener-Policy</code> and <code>Cross-Origin-Embedder-Policy</code> headers. Those headers can block model downloads from another origin. Decided in issue #93: the app sends <code>Cross-Origin-Opener-Policy: same-origin</code> and <code>Cross-Origin-Embedder-Policy: require-corp</code>, and the <code>wasm</code> device uses 2 threads. The base speech model was 1.44 to 1.58 times faster in the measurement. Each cross-origin resource now needs CORS or <code>Cross-Origin-Resource-Policy</code> (ADR 0006).</p>
 <ol>
 <li><strong>CMU dictionary format and size.</strong> The repository
 </li>
@@ -928,7 +928,12 @@ body.rv-open .layout { padding-right:21rem; }
 <li>2026-11-24 — Batch gate of epic #26. A range run replaces the marks that overlap
 </li>
 </ul>
-<p>the range, not only the marks fully inside it (issues #97 and #98). The editor loads the dictionary when it opens a song that has a word. The acceptance criterion "A click on a mark shows its fields in the inspector" moved from issue #30 to issue #34.</p><nav class="pager">
+<p>the range, not only the marks fully inside it (issues #97 and #98). The editor loads the dictionary when it opens a song that has a word. The acceptance criterion "A click on a mark shows its fields in the inspector" moved from issue #30 to issue #34.</p>
+<ul>
+<li>2026-11-24 — Batch gate of epic #31. The app selects the device from measured
+</li>
+</ul>
+<p>speeds and uses 2 threads on the <code>wasm</code> device (issue #93, ADR 0006). The maintainer said that transcription in the browser was "Just very slow".</p><nav class="pager">
 <span></span>
 <a href="html/feature-foundation.html">Feature: Foundation &rarr;</a>
 </nav>

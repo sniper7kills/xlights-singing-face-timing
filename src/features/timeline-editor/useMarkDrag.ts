@@ -77,6 +77,7 @@ export function useMarkDrag(id: string) {
     stopKeys.current?.()
     stopKeys.current = null
     useMarkUiStore.getState().showPreview(null)
+    useMarkUiStore.getState().setDragging(false)
   }
 
   // The preview is one store value for all marks, so only the mark that owns an active drag clears it.
@@ -98,6 +99,7 @@ export function useMarkDrag(id: string) {
       moved: false,
       deltaMs: 0,
     }
+    useMarkUiStore.getState().setDragging(true)
     const onKey = (key: KeyboardEvent) => {
       if (key.key !== 'Escape') return
       // The key ends the drag only, so the editor keys must not also close a control or clear the selection.

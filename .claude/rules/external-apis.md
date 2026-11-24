@@ -203,6 +203,20 @@ the typed API is the source.
   hides the scroll bar.
 - Seek: `setTime(seconds)`.
 
+Confirmed on 2026-11-24 for wavesurfer.js 8.1.1, from the typed API in
+`node_modules/wavesurfer.js/dist/wavesurfer.d.ts` and the code in
+`dist/wavesurfer.js` and `dist/player.js` (issue #33):
+
+- Play speed: `setPlaybackRate(rate, preservePitch?)`. It sets `playbackRate` of
+  the media element. If `preservePitch` is given, it also sets `preservesPitch`.
+  The comment in the code states that most browsers keep the pitch by default.
+- `play(start?, end?)` pauses at `end` and does not repeat, so the app makes the
+  loop itself: at each `timeupdate` past the end, it calls `setTime(start)`.
+- `setTime(seconds)` does not pause play. It emits `timeupdate` with the new time.
+- At the end of the audio, the media element sends `pause` and then `ended`
+  (https://html.spec.whatwg.org/multipage/media.html#reaches-the-end). wavesurfer.js
+  emits `pause` on the media `pause` event and `finish` on the media `ended` event.
+
 Confirmed on 2026-11-24 for the OpenAI transcription API, from the API reference
 and the speech-to-text guide above (issue #101):
 

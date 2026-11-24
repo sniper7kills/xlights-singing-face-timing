@@ -3,6 +3,7 @@ import { LIBRARY_HASH } from '../../app/routes.ts'
 import { useAutosaveStore, useSaveState } from '../../store/autosave.ts'
 import { StorageFullError } from '../../store/db.ts'
 import { readSavedView, saveView } from '../../store/savedView.ts'
+import { keepSelectionInSong } from '../../store/selectionSync.ts'
 import { useSongStore } from '../../store/songStore.ts'
 import { selectedVoice, useViewStore } from '../../store/viewStore.ts'
 import { loadDictionaries } from '../../store/actions/breakDown.ts'
@@ -16,8 +17,12 @@ import { TranscribeDialog } from '../transcription/TranscribeDialog.tsx'
 import { outcomeText } from '../transcription/transcribeDialogState.ts'
 import { ExportAction } from '../xtiming-export/ExportAction.tsx'
 import { EditorToolbar } from './EditorToolbar.tsx'
+import { Inspector } from './Inspector.tsx'
 import { Layers } from './Layers.tsx'
 import { resetMarkUi } from './markUiStore.ts'
+import { ShortcutList } from './ShortcutList.tsx'
+import { TransportControls } from './TransportControls.tsx'
+import { UndoRedoButtons } from './UndoRedoButtons.tsx'
 import { Waveform } from './Waveform.tsx'
 import { ZoomControl } from './ZoomControl.tsx'
 
@@ -98,6 +103,8 @@ export function EditorPage({ songId }: EditorPageProps) {
     opener.current = null
   }, [dialogOpen])
 
+  useEffect(keepSelectionInSong, [])
+
   useEffect(() => {
     let active = true
     // Each song opens at the default view, or at the zoom and the scroll offset that the browser keeps for it.
@@ -170,8 +177,11 @@ export function EditorPage({ songId }: EditorPageProps) {
             onTranscribe={voice === undefined ? undefined : openTranscribeDialog}
           />
         </Waveform>
+        <Inspector />
         <EditorToolbar>
+          <TransportControls />
           <ZoomControl durationMs={song.durationMs} />
+          <UndoRedoButtons />
           <UnknownWordCounter />
           <AddWordAction />
           <BreakDownAgainAction onFailure={setBreakDownFailure} />
@@ -186,6 +196,7 @@ export function EditorPage({ songId }: EditorPageProps) {
             onDone={finishTranscribe}
           />
         )}
+        <ShortcutList />
         <BreakDownNotice failure={breakDownFailure} onChange={setBreakDownFailure} />
         {toast !== null && (
           <p className="toast" role="status">

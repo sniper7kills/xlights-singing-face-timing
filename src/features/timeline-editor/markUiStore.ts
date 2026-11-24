@@ -26,10 +26,13 @@ type MarkUiState = {
    * A value from `layerFocusId` gives the focus to the track of a layer.
    */
   focusId: string | null
+  /** True from the press on a mark to the end of its drag or click. The edit shortcuts do not act during a drag. */
+  dragging: boolean
   showPreview: (edit: MarkEdit | null) => void
   openLabel: (open: OpenLabel | null) => void
   setPending: (pending: PendingLabel | null) => void
   requestFocus: (id: string | null) => void
+  setDragging: (dragging: boolean) => void
 }
 
 /**
@@ -51,6 +54,7 @@ export const useMarkUiStore = create<MarkUiState>()((set) => ({
   open: null,
   pending: null,
   focusId: null,
+  dragging: false,
   showPreview: (edit) =>
     set({
       preview:
@@ -64,9 +68,16 @@ export const useMarkUiStore = create<MarkUiState>()((set) => ({
   openLabel: (open) => set({ open }),
   setPending: (pending) => set({ pending }),
   requestFocus: (focusId) => set({ focusId }),
+  setDragging: (dragging) => set({ dragging }),
 }))
 
 /** Closes each control and clears the preview. The editor calls it when it opens a song. */
 export function resetMarkUi(): void {
-  useMarkUiStore.setState({ preview: NO_PREVIEW, open: null, pending: null, focusId: null })
+  useMarkUiStore.setState({
+    preview: NO_PREVIEW,
+    open: null,
+    pending: null,
+    focusId: null,
+    dragging: false,
+  })
 }
