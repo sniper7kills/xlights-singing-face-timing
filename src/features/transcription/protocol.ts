@@ -136,7 +136,7 @@ export function doneMsAfterChunk(chunkIndex: number, sampleCount: number): numbe
 const NETWORK_PATTERN =
   /failed to fetch|networkerror|network error|load failed|could not locate file|unable to get model file/i
 const MEMORY_PATTERN =
-  /out of memory|memory access out of bounds|array buffer allocation|bad_alloc|oom/i
+  /out of memory|memory access out of bounds|array buffer allocation|bad_alloc|\boom\b/i
 
 /**
  * Returns the kind of a failure in the worker.

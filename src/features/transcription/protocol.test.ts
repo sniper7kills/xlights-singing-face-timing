@@ -74,6 +74,7 @@ describe('errorKind', () => {
 
   it('maps any other wasm failure to unknown', () => {
     expect(errorKind(new Error('Unknown speech model: x'), 'wasm')).toBe('unknown')
+    expect(errorKind(new Error('No room in the zoom table'), 'wasm')).toBe('unknown')
   })
 })
 
