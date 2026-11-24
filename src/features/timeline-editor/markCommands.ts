@@ -63,10 +63,14 @@ export function editLabel(id: string): boolean {
   return true
 }
 
-/** Closes the open label control with no change. The focus goes back to the mark. */
-export function closeLabel(target: LabelTarget): void {
+/**
+ * Closes the open label control with no change.
+ * @param target The mark or the range of the control.
+ * @param refocus True gives the focus back to the mark. A control that loses the focus to another control passes false.
+ */
+export function closeLabel(target: LabelTarget, refocus = true): void {
   useMarkUiStore.getState().openLabel(null)
-  if (target.kind === 'edit') useMarkUiStore.getState().requestFocus(target.id)
+  if (refocus && target.kind === 'edit') useMarkUiStore.getState().requestFocus(target.id)
 }
 
 /**
@@ -74,15 +78,18 @@ export function closeLabel(target: LabelTarget): void {
  * - An empty text keeps the old label, or adds no mark.
  * - A phrase label that changes the words of the phrase waits for the confirm dialog.
  * - Any other text goes to `setMarkLabel` or to `addMark`.
+ * @param target The mark or the range of the field.
+ * @param text The text of the field.
+ * @param refocus True gives the focus back to the mark. A field that loses the focus to another control passes false.
  */
-export function saveLabel(target: LabelTarget, text: string): void {
+export function saveLabel(target: LabelTarget, text: string, refocus = true): void {
   if (target.kind === 'edit' && wordsWouldChange(target.id, text)) {
     // The dialog takes the focus, so the mark must not take it back.
     useMarkUiStore.getState().openLabel(null)
     useMarkUiStore.getState().setPending({ id: target.id, label: text })
     return
   }
-  closeLabel(target)
+  closeLabel(target, refocus)
   if (text.trim() === '') return
   if (target.kind === 'add')
     addMark(target.voiceId, target.layer, target.startMs, target.endMs, text)

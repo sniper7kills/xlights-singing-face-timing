@@ -272,6 +272,19 @@ describe('label editor', () => {
     expect(stored('w1')?.label).toBe('silents')
   })
 
+  it('saves the label and leaves the focus on the next mark that the person clicks', async () => {
+    const user = userEvent.setup()
+    renderLayers()
+
+    await user.dblClick(markItem('Words', 'silent'))
+    await user.keyboard('{End}s')
+    await user.click(markItem('Words', 'night'))
+
+    expect(stored('w1')?.label).toBe('silents')
+    expect(useViewStore.getState().selectedMarkIds).toEqual(['w2'])
+    await waitFor(() => expect(markItem('Words', 'night')).toHaveFocus())
+  })
+
   it('changes a phrase label with the same words and shows no confirm dialog', async () => {
     const user = userEvent.setup()
     renderLayers()

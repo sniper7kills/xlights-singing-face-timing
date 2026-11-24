@@ -118,14 +118,14 @@ export function LayerRow({ name, layer, voiceId, marks, scale }: LayerRowProps) 
               <LabelEditor
                 initial={open.label ?? ''}
                 name={FIELD_NAMES[layer]}
-                onSave={(text) => saveLabel(open.target, text)}
+                onSave={(text, refocus) => saveLabel(open.target, text, refocus)}
                 onCancel={() => closeLabel(open.target)}
               />
             ) : (
               <PhonemeLabelMenu
                 current={open.label}
                 onChoose={(label) => choosePhoneme(open.target, label)}
-                onClose={() => closeLabel(open.target)}
+                onClose={(refocus) => closeLabel(open.target, refocus)}
               />
             )}
           </div>

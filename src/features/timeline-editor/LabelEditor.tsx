@@ -5,8 +5,11 @@ type LabelEditorProps = {
   initial: string
   /** The accessible name of the field. */
   name: string
-  /** Receives the text after `Enter` or when the field loses the focus. */
-  onSave: (text: string) => void
+  /**
+   * Receives the text after `Enter` or when the field loses the focus.
+   * `refocus` is false when the focus goes to another control, so the mark must not take it back.
+   */
+  onSave: (text: string, refocus: boolean) => void
   /** Receives `Escape`. */
   onCancel: () => void
 }
@@ -28,7 +31,7 @@ export function LabelEditor({ initial, name, onSave, onCancel }: LabelEditorProp
     if (event.key === 'Enter') {
       event.preventDefault()
       const text = event.currentTarget.value
-      finish(() => onSave(text))
+      finish(() => onSave(text, true))
     } else if (event.key === 'Escape') {
       event.preventDefault()
       finish(onCancel)
@@ -46,7 +49,8 @@ export function LabelEditor({ initial, name, onSave, onCancel }: LabelEditorProp
       onKeyDown={onKeyDown}
       onBlur={(event) => {
         const text = event.currentTarget.value
-        finish(() => onSave(text))
+        const refocus = event.relatedTarget === null
+        finish(() => onSave(text, refocus))
       }}
     />
   )

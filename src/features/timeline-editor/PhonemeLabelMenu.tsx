@@ -6,8 +6,11 @@ type PhonemeLabelMenuProps = {
   current: string | undefined
   /** Receives the label that the person chooses. */
   onChoose: (label: PhonemeLabel) => void
-  /** Receives `Escape`, or a focus that leaves the list. */
-  onClose: () => void
+  /**
+   * Receives `Escape`, or a focus that leaves the list.
+   * `refocus` is false when the focus goes to another control, so the mark must not take it back.
+   */
+  onClose: (refocus: boolean) => void
 }
 
 const LAST = PHONEME_LABELS.length - 1
@@ -42,7 +45,7 @@ export function PhonemeLabelMenu({ current, onChoose, onClose }: PhonemeLabelMen
     const label = PHONEME_LABELS[active]
     if (move) setActive(move())
     else if ((event.key === 'Enter' || event.key === ' ') && label) onChoose(label)
-    else if (event.key === 'Escape') onClose()
+    else if (event.key === 'Escape') onClose(true)
     else return
     // The editor keys must not also act on a key that the list uses.
     event.preventDefault()
@@ -57,7 +60,7 @@ export function PhonemeLabelMenu({ current, onChoose, onClose }: PhonemeLabelMen
       ref={list}
       tabIndex={0}
       onKeyDown={onKeyDown}
-      onBlur={onClose}
+      onBlur={(event) => onClose(event.relatedTarget === null)}
     >
       {PHONEME_LABELS.map((label, index) => (
         <li
