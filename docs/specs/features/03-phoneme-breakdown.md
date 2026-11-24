@@ -3,7 +3,7 @@ id: phoneme-breakdown
 feature: Phoneme breakdown
 epic: "Epic 3: Phoneme breakdown"
 status: issued
-issues: [20, 21, 22, 23, 24, 25]
+issues: [20, 21, 22, 23, 24, 25, 27, 30]
 mockups: []
 ---
 
@@ -114,6 +114,45 @@ import and export buttons, a reference table of CMU symbols with example words.
   delete buttons.
 - error: field errors under the form.
 
+Messages and labels. The dialog, the entry form, the counter and the layer show
+these strings:
+
+- Dialog title: "Custom dictionary". Search field: "Search".
+- Search with no result: "No custom word matches the search."
+- Entry list: the caption "Custom words", and the column headings "Word", "CMU
+  symbols" and "Phoneme labels". Each row has the buttons "Edit" and "Delete".
+- Dialog buttons: "Import", "Export" and "Close".
+- Import report, no bad line: "1 entry imported." or "3 entries imported."
+- Import report, one bad line: "3 entries imported. 1 line skipped (line 3)."
+- Import report, 2 to 10 bad lines: "1 entry imported. 2 lines skipped (lines 3,
+  7)."
+- Import report, more than 10 bad lines: "3 entries imported. 14 lines skipped
+  (lines 2, 5, 9, 11, 12, 15, 16, 20, 21, 22 and 4 more)."
+- Entry form titles: "Add a word" and "Edit RUDOLPH". Submit buttons: "Add entry"
+  and "Save entry". An edit also has "Cancel".
+- Entry form fields: "Word", "CMU symbols" and "Sounds like".
+- Entry type: the group "Entry type" with the choices "Symbols" and "Sounds like
+  spelling".
+- Hint of "CMU symbols": "Put one space between the symbols, for example R UW1 D
+  AA0 L F. The app changes lower case to upper case."
+- Hint of "Sounds like": "Type known words with a space between them, for example
+  ROO DOLF."
+- Empty word: "Type a word."
+- Word with a space, or with more than 40 characters: "A word has 1 to 40
+  characters and no spaces."
+- Word with no letter and no digit: "Type a word with a letter or a digit."
+- Word with digits only: "Type a word with a letter."
+- Empty CMU symbols: "Type the CMU symbols."
+- Empty "sounds like" spelling: "Type a \"sounds like\" spelling."
+- Beside the message for a dictionary that does not load: the button "Retry".
+- Reference table: the title "CMU symbols", and the column headings "Symbol",
+  "Example word", "Stress digit" and "Phoneme label". The stress digit column shows
+  "0, 1 or 2" or "None".
+- Counter: "1 unknown word" or "N unknown words", for example "3 unknown words".
+- Hidden text after the counter selects a word: "Selected Zxqv."
+- Hidden text of an unknown word on the layer: "(unknown word)".
+- Editor toolbar, with one unknown word selected: "Add to custom dictionary".
+
 **Editor, phoneme layer.** A word that is unknown has a dotted outline. The counter
 "3 unknown words" shows in the editor toolbar and is absent at zero.
 
@@ -168,6 +207,11 @@ the word in proportion to its weight:
   automatic break down skips that word.
 - When an edited word moves, its phonemes move by the same amount. When an edited
   word changes length, its phonemes scale in proportion and snap.
+- The app normalises the word of a custom entry before it stores the entry.
+- A change of a custom entry is not an undo step, because custom entries belong to
+  the browser. The break down that follows it is one undo step of the open song. An
+  undo restores the earlier phonemes, and the custom entry stays.
+- A song that is not open keeps its phonemes until its next break down.
 - Custom dictionary file format: one entry for each line, the word, two spaces,
   then the CMU symbols separated by one space. Lines that start with `;;;` are
   comments.
@@ -248,6 +292,10 @@ loadDictionary(): Promise<Dictionary>    // later calls get the same promise
 | Import file has a bad line | The app imports the good lines and reports "2 lines skipped" with the line numbers. |
 | Import has a word that exists | The imported entry replaces the old entry. |
 | Label with only punctuation, for example `-` | The word gets one `etc` phoneme and is unknown. |
+| The app cannot read or write the custom dictionary | "The app could not read or write the custom dictionary. Reload the page." |
+| The break down fails for a reason other than the dictionary file | "The app could not break down the words. Select Retry." The words stay without phonemes. |
+| An import line has a word with no letter, or with digits only | The app skips the line and reports its number. |
+| Two import lines give the same word | The later line wins. The file counts as one entry. |
 
 ## Acceptance criteria
 

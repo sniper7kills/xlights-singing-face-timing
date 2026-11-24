@@ -72,7 +72,9 @@ export function isCancel(error: unknown): boolean {
 }
 
 /** Returns the text of the toast after a run, for example "214 words, 9 estimated". */
-export function outcomeText(outcome: TranscribeOutcome): string {
+export function outcomeText(
+  outcome: Pick<TranscribeOutcome, 'wordCount' | 'estimatedCount'>,
+): string {
   const words = outcome.wordCount === 1 ? 'word' : 'words'
   return `${outcome.wordCount} ${words}, ${outcome.estimatedCount} estimated`
 }

@@ -8,6 +8,7 @@ import {
   useRef,
   useState,
 } from 'react'
+import { keepFocusInside, tabStops } from '../../app/modalFocus.ts'
 import { DEFAULT_SETTINGS, loadSettings, updateSettings } from '../../store/settings.ts'
 import { chooseDevice } from './device.ts'
 import { parseLyrics } from './phrases.ts'
@@ -37,8 +38,6 @@ const DEVICE_NOTE: Record<Device, string> = {
   webgpu: 'Uses your graphics card (WebGPU)',
   wasm: 'WebGPU is not available. Transcription is slower on this browser.',
 }
-
-const FOCUSABLE = 'button, input, textarea, select, [tabindex]:not([tabindex="-1"])'
 
 type TranscribeDialogProps = {
   /** The voice that receives the marks. */
@@ -287,29 +286,6 @@ function useTranscribeRun(durationMs: number, onDone: (outcome: TranscribeOutcom
   }
 
   return { state, device, start, answer, cancel }
-}
-
-/** Returns the controls that Tab visits, in order. Tab visits only the checked radio of a group. */
-function tabStops(container: HTMLElement): HTMLElement[] {
-  return Array.from(container.querySelectorAll<HTMLElement>(FOCUSABLE)).filter(
-    (element) =>
-      !element.matches(':disabled') &&
-      !(element instanceof HTMLInputElement && element.type === 'radio' && !element.checked),
-  )
-}
-
-function keepFocusInside(event: KeyboardEvent<HTMLDivElement>) {
-  const controls = tabStops(event.currentTarget)
-  const first = controls[0]
-  const last = controls[controls.length - 1]
-  if (first === undefined || last === undefined) return
-  if (event.shiftKey && document.activeElement === first) {
-    event.preventDefault()
-    last.focus()
-  } else if (!event.shiftKey && document.activeElement === last) {
-    event.preventDefault()
-    first.focus()
-  }
 }
 
 function ProgressArea({ state }: { state: DialogState }) {

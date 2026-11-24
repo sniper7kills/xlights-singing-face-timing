@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import type { Layer, Song, Voice } from '../../store/types.ts'
-import { buildTracks, type SourceMark } from './buildTracks.ts'
+import type { Layer, Mark, Song, Voice } from '../../store/types.ts'
+import { buildTracks } from './buildTracks.ts'
 import { checkTracks } from './checkTracks.ts'
 import type { ExportMark, ExportOptions, ExportTrack } from './types.ts'
 
@@ -26,7 +26,7 @@ function makeMark(
   endMs: number,
   parentId: string | null = null,
   voiceId = 'lead',
-): SourceMark {
+): Mark {
   return { id, voiceId, layer, label, startMs, endMs, parentId, edited: false }
 }
 
@@ -42,7 +42,7 @@ function options(overrides: Partial<ExportOptions> = {}): ExportOptions {
 }
 
 /** One phrase with the words "Jingle" and "bells", each with two phonemes. Every check passes. */
-function cleanMarks(): SourceMark[] {
+function cleanMarks(): Mark[] {
   return [
     makeMark('p1', 'phrase', 'Jingle bells', 12350, 13900),
     makeMark('w1', 'word', 'Jingle', 12350, 13000, 'p1'),
@@ -54,7 +54,7 @@ function cleanMarks(): SourceMark[] {
   ]
 }
 
-function exportMark(source: SourceMark, extra: Partial<ExportMark> = {}): ExportMark {
+function exportMark(source: Mark, extra: Partial<ExportMark> = {}): ExportMark {
   const mark: ExportMark = {
     label: source.label,
     startMs: source.startMs,
@@ -69,13 +69,13 @@ function exportMark(source: SourceMark, extra: Partial<ExportMark> = {}): Export
 }
 
 /** Builds one timing track from the marks by hand, so a test can give a bad output. */
-function trackOf(marks: SourceMark[], name = 'Lead Vocals', voiceId = 'lead'): ExportTrack {
+function trackOf(marks: Mark[], name = 'Lead Vocals', voiceId = 'lead'): ExportTrack {
   const layer = (kind: Layer) =>
     marks.filter((mark) => mark.layer === kind).map((m) => exportMark(m))
   return { name, key: voiceId, voiceId, layers: [layer('phrase'), layer('word'), layer('phoneme')] }
 }
 
-function check(tracks: ExportTrack[], marks: SourceMark[], opts: ExportOptions = options()) {
+function check(tracks: ExportTrack[], marks: Mark[], opts: ExportOptions = options()) {
   return checkTracks(tracks, song, voices, marks, opts)
 }
 
@@ -168,7 +168,7 @@ describe('checkTracks', () => {
   describe('phoneme labels', () => {
     it('gives an error for a phoneme label that is not one of the ten labels', () => {
       const marks = cleanMarks()
-      marks[3] = { ...marks[3], label: 'ai' } as SourceMark
+      marks[3] = { ...marks[3], label: 'ai' } as Mark
 
       expect(check([trackOf(marks)], marks)).toEqual([
         {
@@ -298,7 +298,7 @@ describe('checkTracks', () => {
     })
 
     it('gives a warning for an unknown word', () => {
-      const marks: SourceMark[] = cleanMarks().map((mark) =>
+      const marks: Mark[] = cleanMarks().map((mark) =>
         mark.id === 'w2' ? { ...mark, label: 'Rudolph', unknown: true } : mark,
       )
 
@@ -314,7 +314,7 @@ describe('checkTracks', () => {
     })
 
     it('gives a warning for an estimated word', () => {
-      const marks: SourceMark[] = cleanMarks().map((mark) =>
+      const marks: Mark[] = cleanMarks().map((mark) =>
         mark.id === 'w1' ? { ...mark, label: 'all', estimated: true } : mark,
       )
 
@@ -340,7 +340,7 @@ describe('checkTracks', () => {
   })
 
   it('gives exactly three warnings for a song with an unknown word, an estimated word and a word with no phoneme', () => {
-    const marks: SourceMark[] = [
+    const marks: Mark[] = [
       makeMark('p1', 'phrase', 'Rudolph the red', 17000, 19500),
       { ...makeMark('w1', 'word', 'Rudolph', 17000, 18000, 'p1'), unknown: true },
       { ...makeMark('w2', 'word', 'the', 18000, 18500, 'p1'), estimated: true },

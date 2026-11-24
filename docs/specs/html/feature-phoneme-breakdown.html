@@ -303,6 +303,86 @@ body.rv-open .layout { padding-right:21rem; }
 <li>error: field errors under the form.
 </li>
 </ul>
+<p>Messages and labels. The dialog, the entry form, the counter and the layer show these strings:</p>
+<ul>
+<li>Dialog title: "Custom dictionary". Search field: "Search".
+</li>
+<li>Search with no result: "No custom word matches the search."
+</li>
+<li>Entry list: the caption "Custom words", and the column headings "Word", "CMU
+</li>
+</ul>
+<p>symbols" and "Phoneme labels". Each row has the buttons "Edit" and "Delete".</p>
+<ul>
+<li>Dialog buttons: "Import", "Export" and "Close".
+</li>
+<li>Import report, no bad line: "1 entry imported." or "3 entries imported."
+</li>
+<li>Import report, one bad line: "3 entries imported. 1 line skipped (line 3)."
+</li>
+<li>Import report, 2 to 10 bad lines: "1 entry imported. 2 lines skipped (lines 3,
+</li>
+</ul>
+<p>7)."</p>
+<ul>
+<li>Import report, more than 10 bad lines: "3 entries imported. 14 lines skipped
+</li>
+</ul>
+<p>(lines 2, 5, 9, 11, 12, 15, 16, 20, 21, 22 and 4 more)."</p>
+<ul>
+<li>Entry form titles: "Add a word" and "Edit RUDOLPH". Submit buttons: "Add entry"
+</li>
+</ul>
+<p>and "Save entry". An edit also has "Cancel".</p>
+<ul>
+<li>Entry form fields: "Word", "CMU symbols" and "Sounds like".
+</li>
+<li>Entry type: the group "Entry type" with the choices "Symbols" and "Sounds like
+</li>
+</ul>
+<p>spelling".</p>
+<ul>
+<li>Hint of "CMU symbols": "Put one space between the symbols, for example R UW1 D
+</li>
+</ul>
+<p>AA0 L F. The app changes lower case to upper case."</p>
+<ul>
+<li>Hint of "Sounds like": "Type known words with a space between them, for example
+</li>
+</ul>
+<p>ROO DOLF."</p>
+<ul>
+<li>Empty word: "Type a word."
+</li>
+<li>Word with a space, or with more than 40 characters: "A word has 1 to 40
+</li>
+</ul>
+<p>characters and no spaces."</p>
+<ul>
+<li>Word with no letter and no digit: "Type a word with a letter or a digit."
+</li>
+<li>Word with digits only: "Type a word with a letter."
+</li>
+<li>Empty CMU symbols: "Type the CMU symbols."
+</li>
+<li>Empty "sounds like" spelling: "Type a \"sounds like\" spelling."
+</li>
+<li>Beside the message for a dictionary that does not load: the button "Retry".
+</li>
+<li>Reference table: the title "CMU symbols", and the column headings "Symbol",
+</li>
+</ul>
+<p>"Example word", "Stress digit" and "Phoneme label". The stress digit column shows "0, 1 or 2" or "None".</p>
+<ul>
+<li>Counter: "1 unknown word" or "N unknown words", for example "3 unknown words".
+</li>
+<li>Hidden text after the counter selects a word: "Selected Zxqv."
+</li>
+<li>Hidden text of an unknown word on the layer: "(unknown word)".
+</li>
+<li>Editor toolbar, with one unknown word selected: "Add to custom dictionary".
+</li>
+</ul>
 <p><strong>Editor, phoneme layer.</strong> A word that is unknown has a dotted outline. The counter "3 unknown words" shows in the editor toolbar and is absent at zero.</p>
 <h3 id="phoneme-breakdown-behaviour-rules">Behaviour rules</h3>
 <p><strong>Mapping table.</strong> CMU symbols carry a stress digit (<code>0</code>, <code>1</code>, <code>2</code>) on vowels. The app ignores the digit.</p>
@@ -375,6 +455,15 @@ body.rv-open .layout { padding-right:21rem; }
 </ul>
 <p>word changes length, its phonemes scale in proportion and snap.</p>
 <ul>
+<li>The app normalises the word of a custom entry before it stores the entry.
+</li>
+<li>A change of a custom entry is not an undo step, because custom entries belong to
+</li>
+</ul>
+<p>the browser. The break down that follows it is one undo step of the open song. An undo restores the earlier phonemes, and the custom entry stays.</p>
+<ul>
+<li>A song that is not open keeps its phonemes until its next break down.
+</li>
 <li>Custom dictionary file format: one entry for each line, the word, two spaces,
 </li>
 </ul>
@@ -452,6 +541,10 @@ validateSymbols(text: string): { ok: true } | { ok: false; bad: string }</code><
 <tr><td>Import file has a bad line</td><td>The app imports the good lines and reports "2 lines skipped" with the line numbers.</td></tr>
 <tr><td>Import has a word that exists</td><td>The imported entry replaces the old entry.</td></tr>
 <tr><td>Label with only punctuation, for example <code>-</code></td><td>The word gets one <code>etc</code> phoneme and is unknown.</td></tr>
+<tr><td>The app cannot read or write the custom dictionary</td><td>"The app could not read or write the custom dictionary. Reload the page."</td></tr>
+<tr><td>The break down fails for a reason other than the dictionary file</td><td>"The app could not break down the words. Select Retry." The words stay without phonemes.</td></tr>
+<tr><td>An import line has a word with no letter, or with digits only</td><td>The app skips the line and reports its number.</td></tr>
+<tr><td>Two import lines give the same word</td><td>The later line wins. The file counts as one entry.</td></tr>
 </table></div>
 <h3 id="phoneme-breakdown-acceptance-criteria">Acceptance criteria</h3>
 <ul>

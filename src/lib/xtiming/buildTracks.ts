@@ -4,12 +4,6 @@ import { defaultTrackName, trackKey, UNSECTIONED } from './names.ts'
 import type { ExportMark, ExportOptions, ExportTrack } from './types.ts'
 
 /**
- * A stored mark, with the word state that the phoneme breakdown adds.
- * The state is optional until that feature adds it to `Mark`.
- */
-export type SourceMark = Mark & { unknown?: boolean }
-
-/**
  * Returns the timing tracks to export, with every time snapped to the frame size of the song.
  *
  * The rules:
@@ -40,7 +34,7 @@ export function buildTracks(
   song: Song,
   voices: readonly Voice[],
   sections: readonly Section[],
-  marks: readonly SourceMark[],
+  marks: readonly Mark[],
   options: ExportOptions,
 ): ExportTrack[] {
   const selected = voices
@@ -86,8 +80,8 @@ function makeTrack(
   voice: Voice,
   sectionId: string | null,
   sectionName: string | null,
-  phrases: readonly SourceMark[],
-  marks: readonly SourceMark[],
+  phrases: readonly Mark[],
+  marks: readonly Mark[],
   options: ExportOptions,
 ): ExportTrack {
   const key = trackKey(voice.id, sectionId)
@@ -118,7 +112,7 @@ function makeTrack(
   }
 }
 
-function snapLayer(marks: readonly SourceMark[], frameMs: number, isWord: boolean): ExportMark[] {
+function snapLayer(marks: readonly Mark[], frameMs: number, isWord: boolean): ExportMark[] {
   const sorted = [...marks].sort((a, b) => a.startMs - b.startMs)
   const layer: ExportMark[] = []
   // xLights has no time before the start of the song, so the first mark starts at 0 or later.

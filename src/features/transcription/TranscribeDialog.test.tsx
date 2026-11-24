@@ -232,9 +232,15 @@ describe('TranscribeDialog', () => {
     const { user, start, onClose, onDone } = await renderDialog()
     await user.click(start)
 
-    await act(async () => lastRun().resolve({ wordCount: 16, estimatedCount: 0 }))
+    await act(async () =>
+      lastRun().resolve({ wordCount: 16, estimatedCount: 0, breakDownFailure: null }),
+    )
 
-    expect(onDone).toHaveBeenCalledExactlyOnceWith({ wordCount: 16, estimatedCount: 0 })
+    expect(onDone).toHaveBeenCalledExactlyOnceWith({
+      wordCount: 16,
+      estimatedCount: 0,
+      breakDownFailure: null,
+    })
     expect(onClose).not.toHaveBeenCalled()
   })
 
@@ -261,7 +267,9 @@ describe('TranscribeDialog', () => {
     await user.click(screen.getByRole('button', { name: 'Cancel' }))
 
     act(() => cancelled.handlers.onProgress(10_000, 220_000))
-    await act(async () => cancelled.resolve({ wordCount: 1, estimatedCount: 0 }))
+    await act(async () =>
+      cancelled.resolve({ wordCount: 1, estimatedCount: 0, breakDownFailure: null }),
+    )
 
     expect(progress()).toHaveTextContent('')
     expect(screen.getByRole('button', { name: 'Start' })).toBeInTheDocument()

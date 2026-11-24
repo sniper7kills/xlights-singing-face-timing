@@ -70,3 +70,26 @@ test('selects the mark of a finding on the layer after a click on the finding', 
   await expect(word).toHaveCSS('outline-style', 'solid')
   await expect(word).toHaveCSS('outline-width', '2px')
 })
+
+test('shows no "has no phoneme" warning for the words of a transcribe run', async ({ page }) => {
+  await page.addInitScript(() => {
+    Object.assign(globalThis, { __TRANSCRIBE_FIXTURE__: true })
+  })
+  await page.goto('/')
+  await page.getByLabel('Audio file').setInputFiles('public/demo/silent-night.ogg')
+  const top = page.locator('.editor-top')
+  await top.getByRole('button', { name: 'Transcribe' }).click()
+  const transcribeDialog = page.getByRole('dialog', { name: 'Transcribe' })
+  await transcribeDialog.getByRole('button', { name: 'Start' }).click()
+  await expect(page.getByText('16 words, 0 estimated')).toBeVisible()
+  await expect(
+    page.getByRole('list', { name: 'Phonemes' }).getByRole('listitem').first(),
+  ).toBeVisible()
+
+  await top.getByRole('button', { name: 'Export' }).click()
+
+  const dialog = page.getByRole('dialog', { name: 'Export to xLights' })
+  await expect(dialog.getByText(/^Checks · 0 errors · /)).toBeVisible()
+  await expect(dialog.getByText(/has no phoneme\.$/)).toHaveCount(0)
+  expect(await dialog.getByLabel('File preview').textContent()).toContain('<Effect label="')
+})

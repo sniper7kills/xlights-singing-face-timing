@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import type { FrameMs, Layer, Section, Song, Voice } from '../../store/types.ts'
-import { buildTracks, type SourceMark } from './buildTracks.ts'
+import type { FrameMs, Layer, Mark, Section, Song, Voice } from '../../store/types.ts'
+import { buildTracks } from './buildTracks.ts'
 import type { ExportMark, ExportOptions } from './types.ts'
 import { writeXtiming } from './writeXtiming.ts'
 
@@ -31,7 +31,7 @@ function makeMark(
   startMs: number,
   endMs: number,
   parentId: string | null = null,
-): SourceMark {
+): Mark {
   return { id, voiceId, layer, label, startMs, endMs, parentId, edited: false }
 }
 
@@ -56,8 +56,8 @@ const sections = [
 ]
 
 /** One phrase with one word and two phonemes, in each of the three sections, for each voice. */
-function marksInEverySection(): SourceMark[] {
-  const marks: SourceMark[] = []
+function marksInEverySection(): Mark[] {
+  const marks: Mark[] = []
   for (const voiceId of ['lead', 'harmony']) {
     for (const base of [1000, 11000, 21000]) {
       const p = `${voiceId}-p${base}`
@@ -403,7 +403,7 @@ describe('buildTracks, times', () => {
 
 describe('buildTracks, mark states', () => {
   it('carries the unknown and estimated states of a word', () => {
-    const marks: SourceMark[] = [
+    const marks: Mark[] = [
       makeMark('p', 'lead', 'phrase', 'Zxqv', 1000, 2000),
       { ...makeMark('w', 'lead', 'word', 'Zxqv', 1000, 2000, 'p'), unknown: true, estimated: true },
     ]

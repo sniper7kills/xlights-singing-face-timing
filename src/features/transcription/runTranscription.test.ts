@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useSongStore } from '../../store/songStore.ts'
 import type { Mark } from '../../store/types.ts'
 import { storeNewSong } from '../audio-import/storeNewSong.ts'
+import { DictionaryLoadError, loadDictionary } from '../phoneme-breakdown/loadDictionary.ts'
 import { SPEECH_SAMPLE_RATE } from './protocol.ts'
 import { resampleForSpeech } from './resample.ts'
 import {
@@ -14,6 +15,12 @@ import { type TranscribeClient, TranscribeError } from './transcribeClient.ts'
 import type { TimedWord } from './types.ts'
 
 vi.mock('./resample.ts', () => ({ resampleForSpeech: vi.fn() }))
+vi.mock('../phoneme-breakdown/loadDictionary.ts', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../phoneme-breakdown/loadDictionary.ts')>()),
+  loadDictionary: vi.fn(),
+}))
+
+const DICTIONARY = { SILENT: 'S AY1 L AH0 N T', NIGHT: 'N AY1 T' }
 
 const audio = {
   data: new Blob([new Uint8Array([1])], { type: 'audio/ogg' }),
@@ -99,6 +106,7 @@ async function openSong(existing: Mark[] = []) {
 beforeEach(async () => {
   // 30 seconds of audio at the speech model sample rate.
   vi.mocked(resampleForSpeech).mockResolvedValue(new Float32Array(30 * SPEECH_SAMPLE_RATE))
+  vi.mocked(loadDictionary).mockResolvedValue(DICTIONARY)
   await openSong()
 })
 
@@ -113,7 +121,7 @@ describe('runTranscription with the speech model', () => {
 
     const outcome = await runTranscription(modelRequest, client, run)
 
-    expect(outcome).toEqual({ wordCount: 2, estimatedCount: 0 })
+    expect(outcome).toEqual({ wordCount: 2, estimatedCount: 0, breakDownFailure: null })
     expect(client.load).toHaveBeenCalledWith('whisper-base', run.onDownload)
     expect(run.onDownload).toHaveBeenCalledWith(500_000, 1_000_000)
     expect(run.onProgress).toHaveBeenNthCalledWith(1, 0, 30_000)
@@ -152,7 +160,7 @@ describe('runTranscription with the speech model', () => {
 
     expect(labels('phrase')).toEqual(['SILENT night, holy night'])
     expect(labels('word')).toEqual(['SILENT', 'night', 'holy', 'night'])
-    expect(outcome).toEqual({ wordCount: 4, estimatedCount: 2 })
+    expect(outcome).toEqual({ wordCount: 4, estimatedCount: 2, breakDownFailure: null })
     expect(run.confirmLowMatch).not.toHaveBeenCalled()
   })
 
@@ -284,7 +292,8 @@ describe('runTranscription with the speech model', () => {
       handlers(),
     )
 
-    expect(marks().map((mark) => [mark.startMs, mark.endMs])).toEqual([
+    const wordAndPhrase = marks().filter((mark) => mark.layer !== 'phoneme')
+    expect(wordAndPhrase.map((mark) => [mark.startMs, mark.endMs])).toEqual([
       [29_400, 29_950],
       [29_400, 29_950],
     ])
@@ -357,13 +366,65 @@ describe('runTranscription with the speech model', () => {
   })
 })
 
+describe('runTranscription and the break down', () => {
+  it('writes the phonemes of each new word in the same undo step as the words', async () => {
+    useSongStore.getState().closeSong()
+    await openSong([oldMark('old-phrase', 5000, 6000)])
+
+    await runTranscription(modelRequest, fakeClient(), handlers())
+
+    const words = marks().filter((mark) => mark.layer === 'word')
+    for (const word of words) {
+      const phonemes = marks().filter((mark) => mark.parentId === word.id)
+      expect(phonemes.length).toBeGreaterThan(0)
+      expect(phonemes.every((mark) => mark.layer === 'phoneme')).toBe(true)
+      expect(phonemes[0]?.startMs).toBe(word.startMs)
+      expect(phonemes.at(-1)?.endMs).toBe(word.endMs)
+      expect(word.unknown).toBe(false)
+    }
+    expect(labels('phoneme')).toEqual(['etc', 'AI', 'L', 'AI', 'etc', 'etc', 'AI', 'etc'])
+    expect(useSongStore.getState().history.past).toHaveLength(1)
+
+    useSongStore.getState().undo()
+    expect(marks()).toEqual([oldMark('old-phrase', 5000, 6000)])
+  })
+
+  it('writes the words without phonemes and reports the failure when the dictionary does not load', async () => {
+    vi.mocked(loadDictionary).mockRejectedValue(new DictionaryLoadError())
+
+    const outcome = await runTranscription(modelRequest, fakeClient(), handlers())
+
+    const words = marks().filter((mark) => mark.layer === 'word')
+    expect(words.map((word) => word.label)).toEqual(['Silent', 'night'])
+    expect(labels('phoneme')).toEqual([])
+    expect(outcome.breakDownFailure).toEqual({
+      message: 'The dictionary did not load. Check the connection and retry.',
+      wordIds: words.map((word) => word.id),
+    })
+  })
+
+  it('writes the words without phonemes and reports the failure when the break down fails for a reason other than the file', async () => {
+    vi.mocked(loadDictionary).mockRejectedValue(new TypeError('broken'))
+
+    const outcome = await runTranscription(modelRequest, fakeClient(), handlers())
+
+    const words = marks().filter((mark) => mark.layer === 'word')
+    expect(words.map((word) => word.label)).toEqual(['Silent', 'night'])
+    expect(labels('phoneme')).toEqual([])
+    expect(outcome.breakDownFailure).toEqual({
+      message: 'The app could not break down the words. Select Retry.',
+      wordIds: words.map((word) => word.id),
+    })
+  })
+})
+
 describe('runTranscription with lyrics only', () => {
   it('spreads the lyrics over the full song and makes no client call', async () => {
     const client = fakeClient()
 
     const outcome = await runTranscription(lyricsOnly, client, handlers())
 
-    expect(outcome).toEqual({ wordCount: 7, estimatedCount: 7 })
+    expect(outcome).toEqual({ wordCount: 7, estimatedCount: 7, breakDownFailure: null })
     expect(labels('phrase')).toEqual(['Silent night, holy night', 'All is calm'])
     expect(labels('word')).toEqual(['Silent', 'night', 'holy', 'night', 'All', 'is', 'calm'])
     const phrases = marks().filter((mark) => mark.layer === 'phrase')

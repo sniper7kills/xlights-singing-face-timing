@@ -3,7 +3,7 @@ id: transcription
 feature: Transcription
 epic: "Epic 2: Transcription"
 status: issued
-issues: [14, 15, 16, 17, 18, 23, 77]
+issues: [14, 15, 16, 17, 18, 23, 77, 29, 30]
 mockups: []
 ---
 

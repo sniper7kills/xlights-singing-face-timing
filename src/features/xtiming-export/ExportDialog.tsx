@@ -1,4 +1,5 @@
 import { useEffect, useId, useMemo, useRef, useState, type KeyboardEvent } from 'react'
+import { keepFocusInside } from '../../app/modalFocus.ts'
 import { buildTracks } from '../../lib/xtiming/buildTracks.ts'
 import { checkTracks } from '../../lib/xtiming/checkTracks.ts'
 import { exportFiles, type ExportFile } from '../../lib/xtiming/exportFiles.ts'
@@ -13,8 +14,6 @@ import { ImportSteps } from './ImportSteps.tsx'
 import { PackagingGroup } from './PackagingGroup.tsx'
 import { plural } from './plural.ts'
 
-const FOCUSABLE = 'button, input, summary, [tabindex="0"]'
-
 type ExportDialogProps = {
   /** The open song with its voices, sections and marks. */
   content: SongContent
@@ -26,25 +25,6 @@ type ExportDialogProps = {
    * The dialog stores the export options of the song before the call, and shows the done state after it.
    */
   onDownload: (files: ExportFile[]) => void
-}
-
-// The dialog is modal, so the Tab key cycles through the controls of the dialog only.
-function keepFocusInside(event: KeyboardEvent<HTMLDivElement>): void {
-  const dialog = event.currentTarget
-  const controls = [...dialog.querySelectorAll<HTMLElement>(FOCUSABLE)].filter(
-    (control) => !control.matches(':disabled'),
-  )
-  const first = controls[0]
-  const last = controls[controls.length - 1]
-  if (!first || !last) return
-  const active = document.activeElement
-  if (event.shiftKey && (active === first || active === dialog)) {
-    event.preventDefault()
-    last.focus()
-  } else if (!event.shiftKey && active === last) {
-    event.preventDefault()
-    first.focus()
-  }
 }
 
 function doneLine(trackCount: number, files: ExportFile[]): string {
