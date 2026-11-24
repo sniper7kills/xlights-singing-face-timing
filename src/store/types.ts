@@ -56,6 +56,11 @@ export type Mark = {
   parentId: string | null
   /** True after the person changes the mark by hand. */
   edited: boolean
+  /**
+   * True when no word of the speech model gave the time of this word.
+   * A transcribe run sets it on each word. Phrases, phonemes and marks from before the field have no value.
+   */
+  estimated?: boolean
 }
 
 export type CustomEntry = {

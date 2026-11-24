@@ -17,8 +17,8 @@ Do not reconcile by guess.
 
 | Item | Version pinned | Documentation |
 |---|---|---|
-| `@huggingface/transformers` | 4.3.x | https://huggingface.co/docs/transformers.js/api/pipelines , https://huggingface.co/docs/transformers.js/en/guides/webgpu , https://huggingface.co/docs/transformers.js/en/guides/dtypes |
-| Whisper speech model files | `onnx-community/whisper-{tiny,base,small}_timestamped` (candidates) | https://huggingface.co/onnx-community |
+| `@huggingface/transformers` | 4.3.2 | https://huggingface.co/docs/transformers.js/api/pipelines , https://huggingface.co/docs/transformers.js/en/guides/webgpu , https://huggingface.co/docs/transformers.js/en/guides/dtypes |
+| Whisper speech model files | `onnx-community/whisper-{tiny,base,small}_timestamped` | https://huggingface.co/onnx-community |
 | wavesurfer.js | 8.1.x | https://wavesurfer.xyz/docs/ |
 | CMU Pronouncing Dictionary | file `cmudict.dict` | https://github.com/cmusphinx/cmudict |
 | Web Audio `decodeAudioData` | browser | https://developer.mozilla.org/en-US/docs/Web/API/BaseAudioContext/decodeAudioData |
@@ -30,13 +30,29 @@ Do not reconcile by guess.
 
 Not confirmed yet. Confirm each one before the code that depends on it:
 
-- Which speech model repositories return word times with
-  `return_timestamps: 'word'`.
-- The option name and the event shape for speech model download progress.
-- The sample rate that a `Float32Array` input to the speech model must have.
 - The entry format and the licence file of `cmudict.dict`.
 - The wavesurfer.js method and event names for zoom and scroll.
 - The output of the xLights `XmlSafe` function for `&`, `<`, `>`, `"` and `'`.
+
+Confirmed on 2026-11-24 for `@huggingface/transformers` 4.3.2, from the typed API
+in `node_modules/@huggingface/transformers/types/` and the model files on the
+Hugging Face Hub. Pull request #71 cites each source.
+
+- Word times: `onnx-community/whisper-{tiny,base,small}_timestamped` each have
+  `alignment_heads` in `generation_config.json`. A real run of tiny and base
+  returned word times in headless Chromium on `wasm`.
+- Download progress: the `pipeline` option `progress_callback`. The event
+  `{ status: 'progress_total', loaded, total, progress, files }` gives the bytes of
+  all files. The library sends progress events for cached files too.
+- Sample rate: 16 000 Hz. Each `preprocessor_config.json` sets `sampling_rate`.
+  The pipeline does not resample a `Float32Array`.
+- Stop: the typed API has no abort signal. The app terminates the worker.
+- The library loads the ONNX runtime WASM file from `cdn.jsdelivr.net` by
+  default. The worker sets `env.backends.onnx.wasm.wasmPaths` to a file that the
+  app serves.
+- The model files redirect from `huggingface.co` to `us.aws.cdn.hf.co`.
+- The cache check and the download total read the dtype key `model` for the
+  Whisper encoder. The model load reads the key `encoder_model`. The app sets both.
 
 Confirmed on 2026-11-24: the CloudFormation properties in `infra/hosting.yml` and
 the IAM action names of the deploy role. Pull request #52 cites each page. The

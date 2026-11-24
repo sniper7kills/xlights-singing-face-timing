@@ -3,7 +3,7 @@ id: transcription
 feature: Transcription
 epic: "Epic 2: Transcription"
 status: issued
-issues: [14, 15, 16, 17, 18, 23]
+issues: [14, 15, 16, 17, 18, 23, 77]
 mockups: []
 ---
 
@@ -133,11 +133,15 @@ range selector (full song or the time selection), progress area, buttons.
 - downloading: "Downloading speech model, 42%" with a bar. "Cancel" enabled.
 - transcribing: "Transcribing, 1:12 of 3:40" with a bar. "Cancel" enabled.
 - finishing: "Aligning lyrics and breaking down words".
+- confirm: "The run replaces the marks of this voice." with "Continue" and "Cancel".
 - error: the message, with "Retry" and "Close".
 - done: the dialog closes. A toast shows "214 words, 9 estimated".
 
 The device note reads "Uses your graphics card (WebGPU)" or "WebGPU is not
 available. Transcription is slower on this browser."
+
+If the person selects "Lyrics only" and the lyrics field has no word, the app
+disables "Start". The hint reads "Paste the lyrics to use Lyrics only."
 
 ## Behaviour rules
 
@@ -173,7 +177,9 @@ available. Transcription is slower on this browser."
 
 ## Data touched
 
-- Reads `AUDIO_FILE`. Reads and writes `APP_SETTINGS.speechModelId` and `device`.
+- Reads `AUDIO_FILE`. Reads and writes `APP_SETTINGS.speechModelId`.
+- The app does not store the device. The app derives the device from the browser on
+  each visit.
 - Writes `MARK` on the phrase, word and phoneme layers of the selected voice.
 - Adds the field `estimated: bool` to `MARK`. The field is false after the person
   moves the mark.
@@ -195,37 +201,66 @@ https://huggingface.co/docs/transformers.js/en/guides/dtypes (retrieved 2026-11-
 - Audio input types: `string | URL | Float32Array | Float64Array`.
 - Result: `{ text, chunks: [{ text, timestamp: [start, end] }] }`, times in seconds.
 
-Not confirmed, to be settled first in Epic 2 (see spec.md, Risks 2, 3, 4):
+Confirmed on 2026-11-24 for version 4.3.2. Pull request #71 cites each source.
 
-- which model repositories return word times; candidates are
-  `onnx-community/whisper-tiny_timestamped`, `onnx-community/whisper-base_timestamped`
-  and `onnx-community/whisper-small_timestamped`,
-- the option name and event shape for download progress,
-- the sample rate that a `Float32Array` input must have,
-- how to stop a run; the fallback is to terminate the worker.
+- **Model repositories.** The app uses `onnx-community/whisper-tiny_timestamped`,
+  `onnx-community/whisper-base_timestamped` and
+  `onnx-community/whisper-small_timestamped`. Each repository has `alignment_heads`
+  in `generation_config.json`, and the library needs them for
+  `return_timestamps: 'word'`. Source:
+  https://huggingface.co/onnx-community/whisper-base_timestamped/resolve/main/generation_config.json
+  (the same path for tiny and small).
+- **dtype.** `{ encoder_model: 'fp32', decoder_model_merged: 'q8' }`. The app also
+  sets the key `model: 'fp32'`, because the cache check of the library reads that
+  key. Source: https://huggingface.co/docs/transformers.js/en/guides/dtypes
+- **Download sizes.** tiny 66 MB, base 139 MB, small 512 MB, for that dtype
+  (1 MB = 1 000 000 bytes). Source:
+  `https://huggingface.co/api/models/onnx-community/whisper-*_timestamped/tree/main/onnx`
+- **Download progress.** The `pipeline` option is `progress_callback`. The event
+  `{ status: 'progress_total', name, progress, loaded, total, files }` gives the
+  bytes of all files. Source:
+  https://huggingface.co/docs/transformers.js/api/pipelines and
+  `node_modules/@huggingface/transformers/types/utils/core.d.ts` (`ProgressInfo`).
+- **Input sample rate.** A `Float32Array` input must be at 16 kHz. The
+  `preprocessor_config.json` of each repository sets `"sampling_rate": 16000`, and
+  the library does not resample a `Float32Array`. Source:
+  https://huggingface.co/onnx-community/whisper-base_timestamped/resolve/main/preprocessor_config.json
+- **Stop a run.** The library has no stop operation for a pipeline call. The client
+  terminates the worker. Source:
+  `node_modules/@huggingface/transformers/types/pipelines/automatic-speech-recognition.d.ts`
 
 **Worker message contract, `src/workers/transcribe.worker.ts`:**
 
+The types are in `src/features/transcription/protocol.ts`.
+
 ```ts
-// to worker
-{ type: 'load'; speechModelId: string; device: 'webgpu' | 'wasm' }
+type Device = 'webgpu' | 'wasm'
+type ErrorKind = 'download' | 'device' | 'memory' | 'unknown'
+// to worker (ToWorkerMessage)
+{ type: 'load'; speechModelId: string; device: Device }
 { type: 'transcribe'; runId: string; samples: Float32Array; offsetMs: number }
-{ type: 'cancel'; runId: string }
-// from worker
+// from worker (FromWorkerMessage)
 { type: 'download'; loadedBytes: number; totalBytes: number }
 { type: 'ready' }
 { type: 'progress'; runId: string; doneMs: number }
-{ type: 'result'; runId: string; words: { text: string; startMs: number; endMs: number }[] }
-{ type: 'error'; runId?: string; kind: 'download' | 'device' | 'memory' | 'unknown'; detail: string }
+{ type: 'result'; runId: string; words: TimedWord[] }
+{ type: 'error'; runId?: string; kind: ErrorKind; detail: string }
 ```
+
+`TimedWord` is `{ text: string; startMs: number; endMs: number }`. The client stops a
+run by terminating the worker, and the next run loads the speech model again from
+the browser cache.
 
 **Pure functions, `src/features/transcription/`:**
 
 ```ts
-alignLyrics(transcribed: TimedWord[], lyrics: string): AlignedPhrase[]
+alignLyrics(transcribed: TimedWord[], lyrics: string): AlignResult
 groupIntoPhrases(words: TimedWord[]): AlignedPhrase[]
 spreadLyrics(lyrics: string, startMs: number, endMs: number): AlignedPhrase[]
 ```
+
+`AlignResult` is `{ phrases: AlignedPhrase[]; matchRatio: number }`. `matchRatio` is
+from 0 to 1.
 
 ## Edge cases & failures
 
@@ -234,6 +269,7 @@ spreadLyrics(lyrics: string, startMs: number, endMs: number): AlignedPhrase[]
 | Network fails during the download | "The speech model did not download. Check the connection and retry." |
 | WebGPU run fails | No message. The app retries on `wasm` and updates the device note. |
 | Out of memory | "This browser ran out of memory. Select a smaller speech model." |
+| The run fails on both devices | "The transcription failed. Select a smaller speech model and retry." |
 | No words returned | "No words were found. Paste the lyrics and use Lyrics only." |
 | Match below 30% | "Only 22% of the lyrics matched the audio. Check that the lyrics belong to this song." with "Continue" and "Cancel". |
 | Person closes the tab during a run | No marks change. The next visit shows the old marks. |
@@ -254,8 +290,8 @@ spreadLyrics(lyrics: string, startMs: number, endMs: number): AlignedPhrase[]
 - "Cancel" stops the run within 2 seconds and no mark changes. (FR-transcribe-10)
 - The worker receives a `Float32Array` whose length is duration in seconds times
   16 000, within 1%. (FR-transcribe-11)
-- The demo song yields the fixture words within 150 ms of the fixture times with
-  the base speech model. This is a recorded manual check. (FR-transcribe-12)
+- Each word that the speech model returns with a start time and an end time
+  becomes one word on the word layer. (FR-transcribe-12)
 - `groupIntoPhrases` returns a new phrase after a 700 ms gap. (FR-transcribe-13)
 - `alignLyrics` returns the lyrics spelling for each matched word.
   (FR-transcribe-14)
@@ -280,5 +316,4 @@ spreadLyrics(lyrics: string, startMs: number, endMs: number): AlignedPhrase[]
 
 ## Open questions
 
-None for the user. The four items under [Interfaces](#interfaces) are engineering
-checks.
+None.
