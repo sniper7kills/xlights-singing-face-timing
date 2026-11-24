@@ -38,7 +38,8 @@ export type WaveformPlayer = {
  * @param audio The bytes of the audio file.
  * @param colors The colours of the waveform.
  * @param listeners The functions that receive the play time and the play state.
- * Rejects with ImportError of the kind 'decode' if the browser cannot decode the audio.
+ * Rejects with ImportError of the kind 'decode' if the browser cannot decode the audio,
+ * or if wavesurfer.js cannot load the audio after the decode.
  * Rejects with a different error if the browser cannot read the bytes of `audio`.
  */
 export async function createWaveformPlayer(
@@ -78,9 +79,10 @@ export async function createWaveformPlayer(
   try {
     // With peaks and a duration, wavesurfer.js skips its own decode and plays the blob.
     await waveSurfer.loadBlob(audio, [mixChannels(channels)], decoded.duration)
-  } catch (error) {
+  } catch {
     waveSurfer.destroy()
-    throw error
+    // The bytes came from storage already, so a load failure here is a media failure of the browser.
+    throw new ImportError({ kind: 'decode' })
   }
 
   return {

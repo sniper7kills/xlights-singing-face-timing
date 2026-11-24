@@ -4,10 +4,10 @@ import { defaultTrackName, trackKey, UNSECTIONED } from './names.ts'
 import type { ExportMark, ExportOptions, ExportTrack } from './types.ts'
 
 /**
- * A stored mark, with the word states that the transcription and the phoneme breakdown add.
- * The states are optional until those features add them to `Mark`.
+ * A stored mark, with the word state that the phoneme breakdown adds.
+ * The state is optional until that feature adds it to `Mark`.
  */
-export type SourceMark = Mark & { unknown?: boolean; estimated?: boolean }
+export type SourceMark = Mark & { unknown?: boolean }
 
 /**
  * Returns the timing tracks to export, with every time snapped to the frame size of the song.

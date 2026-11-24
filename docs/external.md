@@ -45,7 +45,6 @@ These values come from the outputs of the hosting stack.
 
 | Name | Meaning |
 |---|---|
-| `VITE_MODEL_HOST` | Base URL for speech model files. Optional. |
 | `VITE_APP_VERSION` | Version text for the `SourceVersion` attribute. Optional. |
 
 ## Third-party sources

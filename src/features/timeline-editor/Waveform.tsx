@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { type ReactNode, useCallback, useEffect, useRef, useState } from 'react'
 import { formatTime } from '../../lib/time/formatTime.ts'
 import { getAudioFile, putRecord, StorageFullError } from '../../store/db.ts'
 import { useViewStore } from '../../store/viewStore.ts'
@@ -13,10 +13,16 @@ type WaveformState = 'loading' | 'ready' | 'missing' | 'error'
 
 type WaveformProps = {
   songId: string
+  /** The layers. They show between the waveform and the transport, also without audio. */
+  children?: ReactNode
 }
 
+const STORAGE_READ_MESSAGE =
+  'The app could not read the audio from browser storage. Reload the page.'
+
 // A focused control uses the space bar itself, so a toggle here would apply the key two times.
-const CONTROL_SELECTOR = 'input, textarea, select, button, a[href], [contenteditable]'
+const CONTROL_SELECTOR =
+  'input, textarea, select, button, a[href], [contenteditable], [role=dialog]'
 
 function readColors(element: HTMLElement): WaveformColors {
   // wavesurfer.js draws on a canvas, so it needs the colour values and not the CSS variables.
@@ -28,10 +34,10 @@ function readColors(element: HTMLElement): WaveformColors {
 }
 
 /**
- * Shows the waveform region of the editor: the waveform of the song, a play button and
- * the play time. If the song has no audio file, it asks the person for the file again.
+ * Shows the waveform region of the editor: the waveform of the song, the children, a play
+ * button and the play time. If the song has no audio file, it asks the person for the file again.
  */
-export function Waveform({ songId }: WaveformProps) {
+export function Waveform({ songId, children }: WaveformProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const playerRef = useRef<WaveformPlayer | null>(null)
@@ -71,11 +77,7 @@ export function Waveform({ songId }: WaveformProps) {
 
     load(container).catch((error: unknown) => {
       if (cancelled) return
-      setLoadMessage(
-        error instanceof ImportError
-          ? error.message
-          : 'The app could not read the audio from browser storage. Reload the page.',
-      )
+      setLoadMessage(error instanceof ImportError ? error.message : STORAGE_READ_MESSAGE)
       setState('error')
     })
     return () => {
@@ -131,8 +133,11 @@ export function Waveform({ songId }: WaveformProps) {
         byteLength: file.size,
       })
     } catch (error) {
-      if (!(error instanceof ImportError || error instanceof StorageFullError)) throw error
-      setFileMessage(error.message)
+      setFileMessage(
+        error instanceof ImportError || error instanceof StorageFullError
+          ? error.message
+          : STORAGE_READ_MESSAGE,
+      )
       return
     }
     setFileMessage(null)
@@ -179,6 +184,7 @@ export function Waveform({ songId }: WaveformProps) {
           </div>
         )}
       </div>
+      {children}
       <div className="transport">
         <button
           type="button"

@@ -147,6 +147,22 @@ describe('Waveform', () => {
     }
   })
 
+  it('starts no play for the space bar inside a dialog', async () => {
+    const user = userEvent.setup()
+    await renderReadyWaveform()
+    const dialog = document.body.appendChild(document.createElement('div'))
+    dialog.setAttribute('role', 'dialog')
+    dialog.tabIndex = -1
+    try {
+      dialog.focus()
+      await user.keyboard(' ')
+
+      expect(players[0]?.play).not.toHaveBeenCalled()
+    } finally {
+      dialog.remove()
+    }
+  })
+
   it('shows the play time as m:ss.mmm', async () => {
     await renderReadyWaveform()
 
@@ -289,6 +305,37 @@ describe('Waveform', () => {
         ),
       ).toBeInTheDocument()
       expect(await getAudioFile(song.id)).toBeUndefined()
+      expect(screen.getByRole('button', { name: 'Load the audio file' })).toBeEnabled()
+    })
+
+    it('shows the storage message when the storage fails for a reason other than a full disk', async () => {
+      const user = userEvent.setup()
+      const song = await renderMissingAudio()
+      vi.spyOn(db, 'putRecord').mockRejectedValue(new Error('IndexedDB stopped the transaction.'))
+      const file = new File([new Uint8Array([4, 5])], 'carol.ogg', { type: 'audio/ogg' })
+
+      await user.upload(screen.getByLabelText('Audio file'), file)
+
+      expect(
+        await screen.findByText(
+          'The app could not read the audio from browser storage. Reload the page.',
+        ),
+      ).toBeInTheDocument()
+      expect(await getAudioFile(song.id)).toBeUndefined()
+      expect(screen.getByRole('button', { name: 'Load the audio file' })).toBeEnabled()
+    })
+
+    it('shows the full-storage message when the disk is full', async () => {
+      const user = userEvent.setup()
+      await renderMissingAudio()
+      vi.spyOn(db, 'putRecord').mockRejectedValue(new db.StorageFullError())
+      const file = new File([new Uint8Array([4, 5])], 'carol.ogg', { type: 'audio/ogg' })
+
+      await user.upload(screen.getByLabelText('Audio file'), file)
+
+      expect(
+        await screen.findByText('Browser storage is full. Delete a song and try again.'),
+      ).toBeInTheDocument()
       expect(screen.getByRole('button', { name: 'Load the audio file' })).toBeEnabled()
     })
   })
