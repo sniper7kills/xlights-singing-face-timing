@@ -1,0 +1,13 @@
+# The spec renderer generates these files.
+docs/specs/html/
+docs/specs/spec.html
+docs/specs/assets/
+docs/specs/mockups/
+
+# Prose follows the STE rule, and its line breaks are deliberate.
+*.md
+
+# Tools outside the app write these files.
+.claude/
+.issue-flow.json
+package-lock.json
