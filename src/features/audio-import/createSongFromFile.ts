@@ -68,7 +68,12 @@ function extensionOf(fileName: string): string {
 /** Returns true if the app accepts the file as an audio file, from its extension and its MIME type. */
 export function isAcceptedAudioFile(file: File): boolean {
   // An empty type means that the browser does not know the type, so the extension decides.
-  const typeAllowed = file.type === '' || file.type.startsWith('audio/')
+  // Some systems report an .ogg audio file as `video/ogg` or `application/ogg`.
+  const typeAllowed =
+    file.type === '' ||
+    file.type.startsWith('audio/') ||
+    file.type === 'video/ogg' ||
+    file.type === 'application/ogg'
   return typeAllowed && ACCEPTED_EXTENSIONS.includes(extensionOf(file.name))
 }
 

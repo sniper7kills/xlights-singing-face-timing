@@ -79,6 +79,24 @@ describe('createSongFromFile', () => {
     expect(error.kind).toBe('type')
   })
 
+  it('rejects an .mp3 file with the MIME type text/plain with the file-type message', async () => {
+    const decode = vi.fn(decodes(1))
+    const error = await rejectionOf(
+      createSongFromFile(audioFile('carol.mp3', 'text/plain'), decode),
+    )
+
+    expect(error.failure).toEqual({ kind: 'type' })
+    expect(error.message).toBe(
+      'This file type is not supported. Use MP3, WAV, OGG, FLAC, M4A or AAC.',
+    )
+    expect(decode).not.toHaveBeenCalled()
+  })
+
+  it('creates a song from an .ogg file with the MIME type video/ogg', async () => {
+    const song = await createSongFromFile(audioFile('carol.ogg', 'video/ogg'), decodes(3))
+    expect(song.name).toBe('carol')
+  })
+
   it('rejects a 201 MB file with the size message and creates no song', async () => {
     const bytes = 201 * 1024 * 1024
     const error = await rejectionOf(
@@ -162,6 +180,22 @@ describe('isAcceptedAudioFile', () => {
 
   it('accepts an accepted extension when the browser reports no MIME type', () => {
     expect(isAcceptedAudioFile(audioFile('a.flac', ''))).toBe(true)
+  })
+
+  it('accepts an .ogg file with the MIME type video/ogg', () => {
+    expect(isAcceptedAudioFile(audioFile('carol.ogg', 'video/ogg'))).toBe(true)
+  })
+
+  it('accepts an .ogg file with the MIME type application/ogg', () => {
+    expect(isAcceptedAudioFile(audioFile('carol.ogg', 'application/ogg'))).toBe(true)
+  })
+
+  it('accepts an .mp3 file with an empty MIME type', () => {
+    expect(isAcceptedAudioFile(audioFile('carol.mp3', ''))).toBe(true)
+  })
+
+  it('rejects a .txt file with the MIME type audio/mpeg', () => {
+    expect(isAcceptedAudioFile(audioFile('lyrics.txt', 'audio/mpeg'))).toBe(false)
   })
 
   it.each(['a.txt', 'a.mp4', 'mp3', '.mp3'])('rejects %s', (name) => {

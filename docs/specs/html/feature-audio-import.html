@@ -307,10 +307,23 @@ body.rv-open .layout { padding-right:21rem; }
 </li>
 <li>Two songs can have the same name.
 </li>
-<li>The app decides the file type from the extension first. If the browser reports a
+<li>The app decides the file type from the extension first. The app accepts a file
 </li>
 </ul>
-<p>MIME type that does not start with <code>audio/</code>, the app rejects the file.</p>
+<p>with an accepted extension only if the browser reports one of these MIME types:</p>
+<ul>
+<li>a type that starts with <code>audio/</code>
+<ul>
+<li><code>video/ogg</code>
+</li>
+<li><code>application/ogg</code>
+</li>
+<li>an empty type
+</li>
+</ul>
+</li>
+</ul>
+<p>The app rejects a file with a different MIME type.</p>
 <ul>
 <li>The app keeps stereo audio for play. The waveform shows one mixed channel.
 </li>

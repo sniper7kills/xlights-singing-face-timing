@@ -114,8 +114,14 @@ Regions: header, drop zone, song list, storage meter, "How it works" strip.
 - The song list sorts by the date of the last change, newest first.
 - A song name is 1 to 80 characters. The app trims spaces at both ends.
 - Two songs can have the same name.
-- The app decides the file type from the extension first. If the browser reports a
-  MIME type that does not start with `audio/`, the app rejects the file.
+- The app decides the file type from the extension first. The app accepts a file
+  with an accepted extension only if the browser reports one of these MIME types:
+  - a type that starts with `audio/`
+  - `video/ogg`
+  - `application/ogg`
+  - an empty type
+
+  The app rejects a file with a different MIME type.
 - The app keeps stereo audio for play. The waveform shows one mixed channel.
 - The space bar toggles play when no text field has focus.
 - The app does not start play automatically.
