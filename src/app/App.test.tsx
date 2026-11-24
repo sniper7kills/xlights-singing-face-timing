@@ -49,12 +49,11 @@ describe('App', () => {
   it('opens the editor of the new song after the person adds an audio file', async () => {
     const user = userEvent.setup()
     // jsdom has no Web Audio, so the stub decodes each file as 3 seconds of audio.
-    const original: unknown = Reflect.get(globalThis, 'AudioContext')
+    const original: unknown = Reflect.get(globalThis, 'OfflineAudioContext')
     vi.stubGlobal(
-      'AudioContext',
+      'OfflineAudioContext',
       class {
         decodeAudioData = () => Promise.resolve({ duration: 3 })
-        close = () => Promise.resolve()
       },
     )
     try {
@@ -66,7 +65,7 @@ describe('App', () => {
       expect(await screen.findByRole('heading', { level: 2, name: 'carol' })).toBeInTheDocument()
       expect(window.location.hash).toMatch(/^#\/song\/[0-9a-f-]+$/)
     } finally {
-      vi.stubGlobal('AudioContext', original)
+      vi.stubGlobal('OfflineAudioContext', original)
       window.location.hash = ''
     }
   })

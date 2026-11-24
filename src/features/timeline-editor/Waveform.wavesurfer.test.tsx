@@ -19,7 +19,7 @@ let destroy: ReturnType<typeof vi.fn>
 beforeEach(() => {
   // jsdom has no Web Audio. This decode passes, so a later failure comes from wavesurfer.js.
   vi.stubGlobal(
-    'AudioContext',
+    'OfflineAudioContext',
     class {
       decodeAudioData = () =>
         Promise.resolve({
@@ -27,7 +27,6 @@ beforeEach(() => {
           numberOfChannels: 1,
           getChannelData: () => new Float32Array([0, 0.5, -0.5]),
         })
-      close = () => Promise.resolve()
     },
   )
   destroy = vi.fn()

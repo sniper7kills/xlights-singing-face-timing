@@ -18,7 +18,7 @@ let fake: {
 beforeEach(() => {
   // jsdom has no Web Audio.
   vi.stubGlobal(
-    'AudioContext',
+    'OfflineAudioContext',
     class {
       decodeAudioData = () =>
         Promise.resolve({
@@ -26,7 +26,6 @@ beforeEach(() => {
           numberOfChannels: 1,
           getChannelData: () => new Float32Array([0, 0.5]),
         })
-      close = () => Promise.resolve()
     },
   )
   handlers = new Map()
@@ -65,6 +64,32 @@ describe('createWaveformPlayer', () => {
         hideScrollbar: true,
       }),
     )
+  })
+
+  it('decodes the peaks in an 8 kHz offline context and makes no live audio context', async () => {
+    const created: unknown[][] = []
+    const live = vi.fn()
+    vi.stubGlobal('AudioContext', live)
+    vi.stubGlobal(
+      'OfflineAudioContext',
+      class {
+        constructor(...args: unknown[]) {
+          created.push(args)
+        }
+        decodeAudioData = () =>
+          Promise.resolve({
+            duration: 30,
+            numberOfChannels: 1,
+            getChannelData: () => new Float32Array([0, 0.5]),
+          })
+      },
+    )
+
+    await createPlayer()
+
+    expect(created).toEqual([[1, 1, 8000]])
+    expect(live).not.toHaveBeenCalled()
+    expect(fake.loadBlob).toHaveBeenCalledWith(expect.any(Blob), [new Float32Array([0, 0.5])], 30)
   })
 
   it('sets the zoom once and the scroll offset in pixels for each view', async () => {
