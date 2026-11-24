@@ -1,4 +1,4 @@
-import { type KeyboardEvent, useId, useState } from 'react'
+import { type KeyboardEvent, useEffect, useId, useRef, useState } from 'react'
 import { PHONEME_LABELS, type PhonemeLabel } from '../../lib/dictionary/cmuSymbols.ts'
 
 type PhonemeLabelMenuProps = {
@@ -18,6 +18,10 @@ const LAST = PHONEME_LABELS.length - 1
  */
 export function PhonemeLabelMenu({ current, onChoose, onClose }: PhonemeLabelMenuProps) {
   const id = useId()
+  const list = useRef<HTMLUListElement>(null)
+  // React moves the focus for `autoFocus` only on a form control, so the list takes the focus here.
+  // The list opens from a click or a key, so the person chooses at once.
+  useEffect(() => list.current?.focus(), [])
   const [active, setActive] = useState(() =>
     Math.max(
       0,
@@ -50,9 +54,8 @@ export function PhonemeLabelMenu({ current, onChoose, onClose }: PhonemeLabelMen
       role="listbox"
       aria-label="Phoneme label"
       aria-activedescendant={`${id}-${active}`}
+      ref={list}
       tabIndex={0}
-      // The list opens from a click or a key, so the person chooses at once.
-      autoFocus
       onKeyDown={onKeyDown}
       onBlur={onClose}
     >

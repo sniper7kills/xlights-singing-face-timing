@@ -2,7 +2,7 @@ import { act, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { LIBRARY_HASH } from '../../app/routes.ts'
-import { breakDownWords } from '../../store/actions/breakDown.ts'
+import { breakDownWords, loadDictionaries } from '../../store/actions/breakDown.ts'
 import { startAutosave, useAutosaveStore } from '../../store/autosave.ts'
 import * as db from '../../store/db.ts'
 import { loadSong, StorageFullError } from '../../store/db.ts'
@@ -18,6 +18,7 @@ vi.mock('./waveformPlayer.ts', () => ({ createWaveformPlayer: vi.fn() }))
 vi.mock('../../store/actions/breakDown.ts', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../../store/actions/breakDown.ts')>()),
   breakDownWords: vi.fn(),
+  loadDictionaries: vi.fn(),
 }))
 vi.mock('../transcription/runTranscription.ts', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../transcription/runTranscription.ts')>()),
@@ -33,6 +34,7 @@ const audio = {
 beforeEach(() => {
   localStorage.clear()
   vi.mocked(createWaveformPlayer).mockReturnValue(new Promise(() => undefined))
+  vi.mocked(loadDictionaries).mockRejectedValue(new DictionaryLoadError())
   useAutosaveStore.setState({ saveState: 'saved', error: null })
   useSongStore.getState().closeSong()
 })
@@ -56,6 +58,13 @@ function topBarTranscribe(): HTMLElement {
 }
 
 describe('EditorPage', () => {
+  it('loads the dictionary in the background when it opens a song and shows no message when the load fails', async () => {
+    await renderEditor()
+
+    expect(loadDictionaries).toHaveBeenCalledOnce()
+    expect(screen.queryByRole('alert')).toBeNull()
+  })
+
   it('shows a link back to the song library and the song name in the top bar', async () => {
     await renderEditor()
 
