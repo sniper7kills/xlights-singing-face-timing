@@ -14,8 +14,13 @@ function handled(mark: Mark): Mark {
   return mark.layer === 'phoneme' ? { ...result, edited: true } : result
 }
 
-// A phoneme edit by hand sets `edited` on its word, so a later break down keeps the phonemes of the person.
-function parentWordEdited(marks: readonly Mark[], mark: Mark): Mark[] {
+/**
+ * Returns the word of a phoneme with `edited` set, or an empty list when the mark is no phoneme or its word is already edited.
+ * A phoneme edit by hand sets `edited` on its word, so a later break down keeps the phonemes of the person.
+ * @param marks The marks of the song.
+ * @param mark The mark that the person changes.
+ */
+export function parentWordEdited(marks: readonly Mark[], mark: Mark): Mark[] {
   if (mark.layer !== 'phoneme' || mark.parentId === null) return []
   const word = findMark(marks, mark.parentId)
   return word && !word.edited ? [{ ...word, edited: true }] : []
