@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<timing name="Lead Vocals" subType="" SourceVersion="2024.01">
+   <EffectLayer>
+      <Effect label="Jingle bells" starttime="12350" endtime="13900" />
+   </EffectLayer>
+   <EffectLayer>
+      <Effect label="Jingle" starttime="12350" endtime="13000" />
+      <Effect label="bells" starttime="13000" endtime="13900" />
+   </EffectLayer>
+   <EffectLayer>
+      <Effect label="etc" starttime="12350" endtime="12450" />
+      <Effect label="AI" starttime="12450" endtime="12700" />
+   </EffectLayer>
+</timing>
