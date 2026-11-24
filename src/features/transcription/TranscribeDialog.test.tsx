@@ -258,11 +258,19 @@ describe('TranscribeDialog', () => {
   it('keeps the browser source when the settings read fails', async () => {
     const failure = new Error('read failed')
     vi.mocked(loadSettings).mockRejectedValueOnce(failure).mockRejectedValueOnce(failure)
+    const unhandled = vi.fn()
+    process.on('unhandledRejection', unhandled)
+    try {
+      await renderDialog()
+      // Node reports an unhandled rejection after the next macrotask.
+      await new Promise((resolve) => setTimeout(resolve, 0))
 
-    await renderDialog()
-
-    expect(screen.getByRole('radio', { name: 'In this browser' })).toBeChecked()
-    expect(screen.getByRole('radio', { name: 'base 139 MB' })).toBeChecked()
+      expect(unhandled).not.toHaveBeenCalled()
+      expect(screen.getByRole('radio', { name: 'In this browser' })).toBeChecked()
+      expect(screen.getByRole('radio', { name: 'base 139 MB' })).toBeChecked()
+    } finally {
+      process.off('unhandledRejection', unhandled)
+    }
   })
 
   it('offers the full song as the only range when the editor has no time selection', async () => {

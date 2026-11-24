@@ -501,12 +501,14 @@ describe('Space', () => {
     const player = fakePlayer()
     vi.mocked(player.play).mockRejectedValueOnce(new DOMException('refused', 'NotAllowedError'))
     attachPlayer(player)
+    try {
+      expect(press(' ')).toBe(true)
 
-    expect(press(' ')).toBe(true)
-
-    await waitFor(() => expect(player.pause).toHaveBeenCalledOnce())
-    expect(player.isPlaying()).toBe(false)
-    detachPlayer(player)
+      await waitFor(() => expect(player.pause).toHaveBeenCalledOnce())
+      expect(player.isPlaying()).toBe(false)
+    } finally {
+      detachPlayer(player)
+    }
   })
 
   it('leaves the space bar to the browser while the audio is not ready', () => {
