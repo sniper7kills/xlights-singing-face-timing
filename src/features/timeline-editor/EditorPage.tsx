@@ -18,6 +18,7 @@ import { ExportAction } from '../xtiming-export/ExportAction.tsx'
 import { EditorToolbar } from './EditorToolbar.tsx'
 import { Layers } from './Layers.tsx'
 import { resetMarkUi } from './markUiStore.ts'
+import { TransportControls } from './TransportControls.tsx'
 import { Waveform } from './Waveform.tsx'
 import { ZoomControl } from './ZoomControl.tsx'
 
@@ -171,6 +172,7 @@ export function EditorPage({ songId }: EditorPageProps) {
           />
         </Waveform>
         <EditorToolbar>
+          <TransportControls />
           <ZoomControl durationMs={song.durationMs} />
           <UnknownWordCounter />
           <AddWordAction />

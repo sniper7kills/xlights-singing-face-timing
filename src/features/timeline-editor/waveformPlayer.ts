@@ -1,7 +1,9 @@
 import WaveSurfer from 'wavesurfer.js'
 import { ImportError } from '../audio-import/createSongFromFile.ts'
 import { decodeAudio } from '../audio-import/decodeAudio.ts'
+import type { TimeRange } from '../../lib/time/timeRange.ts'
 import { mixChannels } from './mixChannels.ts'
+import { attachPlayer, detachPlayer, type PlayRate, setLooping } from './playerStore.ts'
 
 // wavesurfer.js decodes for the waveform at this rate by default. Play uses the original file.
 const WAVEFORM_SAMPLE_RATE = 8000
@@ -22,9 +24,18 @@ export type WaveformListeners = {
 
 /** The waveform and the audio play of one song. The component tests replace this module. */
 export type WaveformPlayer = {
-  /** Starts play. Rejects if the browser refuses to play the audio. */
+  /** Starts play at the play time and ends a loop. Rejects if the browser refuses to play the audio. */
   play: () => Promise<void>
+  /** Pauses play and ends a loop. */
   pause: () => void
+  /**
+   * Plays `range` again and again until a call of `play`, `pause` or `seek`.
+   * At the end of the range, play goes back to its start. A loop that plays already changes to the new range.
+   * Rejects, and ends the loop, if the browser refuses to play the audio.
+   */
+  loop: (range: TimeRange) => Promise<void>
+  /** Sets the play speed and keeps the pitch of the audio. */
+  setPlayRate: (rate: PlayRate) => void
   isPlaying: () => boolean
   setColors: (colors: WaveformColors) => void
   /**
@@ -33,9 +44,9 @@ export type WaveformPlayer = {
    * @param scrollMs The time at the left edge, in milliseconds. The editor clamps it to the song.
    */
   setView: (pxPerSecond: number | null, scrollMs: number) => void
-  /** Moves the play time to `ms`. The player sends the new time to `onTime`. */
+  /** Moves the play time to `ms` and ends a loop. The player sends the new time to `onTime`. */
   seek: (ms: number) => void
-  /** Stops play and removes the waveform from its container. */
+  /** Stops play, ends a loop and removes the waveform from its container. */
   destroy: () => void
 }
 
@@ -44,6 +55,7 @@ export type WaveformPlayer = {
  * The waveform shows one mixed channel. Play keeps all channels of the file.
  * The waveform fills the width of the container until `setView` sets a zoom.
  * The player draws no cursor, takes no click and does not scroll by itself: the editor owns those.
+ * The player adds itself to the player store when it is ready, and removes itself on `destroy`.
  * @param container The element that holds the waveform.
  * @param audio The bytes of the audio file.
  * @param colors The colours of the waveform.
@@ -90,10 +102,28 @@ export async function createWaveformPlayer(
   waveSurfer.on('scroll', (_start, _end, scrollLeft) => {
     if (Math.abs(scrollLeft - view.scrollPx) >= 1) waveSurfer.setScroll(view.scrollPx)
   })
-  waveSurfer.on('timeupdate', (seconds) => listeners.onTime(Math.round(seconds * 1000)))
+  let loopRange: TimeRange | null = null
+  const endLoop = () => {
+    loopRange = null
+    setLooping(false)
+  }
+  const toLoopStart = (range: TimeRange) => waveSurfer.setTime(range.startMs / 1000)
+  waveSurfer.on('timeupdate', (seconds) => {
+    const ms = Math.round(seconds * 1000)
+    // timeupdate comes on each animation frame, so the loop can pass its end by up to one frame of audio.
+    if (loopRange !== null && ms >= loopRange.endMs) toLoopStart(loopRange)
+    else listeners.onTime(ms)
+  })
   waveSurfer.on('play', () => listeners.onPlayChange(true))
   waveSurfer.on('pause', () => listeners.onPlayChange(false))
-  waveSurfer.on('finish', () => listeners.onPlayChange(false))
+  waveSurfer.on('finish', () => {
+    listeners.onPlayChange(false)
+    // A loop that ends at the song end gets no timeupdate past its end, because the audio stops there.
+    if (loopRange !== null) {
+      toLoopStart(loopRange)
+      void waveSurfer.play()
+    }
+  })
 
   try {
     // With peaks and a duration, wavesurfer.js skips its own decode and plays the blob.
@@ -104,9 +134,28 @@ export async function createWaveformPlayer(
     throw new ImportError({ kind: 'decode' })
   }
 
-  return {
-    play: () => waveSurfer.play(),
-    pause: () => waveSurfer.pause(),
+  const player: WaveformPlayer = {
+    play: () => {
+      endLoop()
+      return waveSurfer.play()
+    },
+    pause: () => {
+      endLoop()
+      waveSurfer.pause()
+    },
+    loop: async (range) => {
+      loopRange = range
+      setLooping(true)
+      toLoopStart(range)
+      try {
+        await waveSurfer.play()
+      } catch (error) {
+        endLoop()
+        throw error
+      }
+    },
+    // The browser keeps the pitch by default. The app sets it, so a browser with a different default keeps it too.
+    setPlayRate: (rate) => waveSurfer.setPlaybackRate(rate, true),
     isPlaying: () => waveSurfer.isPlaying(),
     setColors: ({ wave, progress }) =>
       waveSurfer.setOptions({ waveColor: wave, progressColor: progress, cursorColor: progress }),
@@ -120,7 +169,16 @@ export async function createWaveformPlayer(
       }
       waveSurfer.setScroll(view.scrollPx)
     },
-    seek: (ms) => waveSurfer.setTime(ms / 1000),
-    destroy: () => waveSurfer.destroy(),
+    seek: (ms) => {
+      endLoop()
+      waveSurfer.setTime(ms / 1000)
+    },
+    destroy: () => {
+      detachPlayer(player)
+      loopRange = null
+      waveSurfer.destroy()
+    },
   }
+  attachPlayer(player)
+  return player
 }
