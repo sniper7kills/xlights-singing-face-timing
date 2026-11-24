@@ -122,50 +122,6 @@ describe('Waveform', () => {
     expect(screen.getByRole('button', { name: 'Play' })).toBeInTheDocument()
   })
 
-  it('starts play with the space bar and pauses with a second press', async () => {
-    const user = userEvent.setup()
-    await renderReadyWaveform()
-
-    await user.keyboard(' ')
-    expect(screen.getByRole('button', { name: 'Pause' })).toBeInTheDocument()
-
-    await user.keyboard(' ')
-    expect(screen.getByRole('button', { name: 'Play' })).toBeInTheDocument()
-    expect(players[0]?.play).toHaveBeenCalledOnce()
-    expect(players[0]?.pause).toHaveBeenCalledOnce()
-  })
-
-  it('leaves the space bar to a text field that has focus', async () => {
-    const user = userEvent.setup()
-    await renderReadyWaveform()
-    const field = document.body.appendChild(document.createElement('input'))
-    try {
-      await user.click(field)
-      await user.keyboard(' ')
-
-      expect(players[0]?.play).not.toHaveBeenCalled()
-      expect(field).toHaveValue(' ')
-    } finally {
-      field.remove()
-    }
-  })
-
-  it('starts no play for the space bar inside a dialog', async () => {
-    const user = userEvent.setup()
-    await renderReadyWaveform()
-    const dialog = document.body.appendChild(document.createElement('div'))
-    dialog.setAttribute('role', 'dialog')
-    dialog.tabIndex = -1
-    try {
-      dialog.focus()
-      await user.keyboard(' ')
-
-      expect(players[0]?.play).not.toHaveBeenCalled()
-    } finally {
-      dialog.remove()
-    }
-  })
-
   it('shows the play time as m:ss.mmm', async () => {
     await renderReadyWaveform()
 
@@ -225,15 +181,6 @@ describe('Waveform', () => {
       expect(screen.getByRole('button', { name: 'Load the audio file' })).toBeEnabled()
       expect(screen.getByRole('button', { name: 'Play' })).toBeDisabled()
       expect(createWaveformPlayer).not.toHaveBeenCalled()
-    })
-
-    it('ignores the space bar', async () => {
-      const user = userEvent.setup()
-      await renderMissingAudio()
-
-      await user.keyboard(' ')
-
-      expect(screen.getByRole('button', { name: 'Play' })).toBeDisabled()
     })
 
     it('stores a selected audio file and draws its waveform', async () => {

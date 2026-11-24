@@ -518,6 +518,11 @@ button {
   gap: 12px;
 }
 
+.undo-redo {
+  display: flex;
+  gap: 6px;
+}
+
 .button[aria-pressed='true'] {
   border-color: var(--amber);
   color: var(--amber);
@@ -1563,4 +1568,27 @@ button.finding:hover {
   background: var(--panel2);
   box-shadow: 0 4px 16px rgb(0 0 0 / 35%);
   transform: translateX(-50%);
+}
+
+/* Two columns: the keys, then what they do. */
+.shortcut-list dl {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 8px 16px;
+  margin: 0;
+}
+
+.shortcut-list dl > div {
+  display: contents;
+}
+
+.shortcut-list dd {
+  margin: 0;
+}
+
+.shortcut-list kbd {
+  padding: 1px 6px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  font: 12px var(--mono);
 }
