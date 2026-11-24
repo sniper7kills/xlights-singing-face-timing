@@ -38,8 +38,14 @@ These values come from the outputs of the hosting stack.
 
 ## Test data
 
-- Demo song: `public/demo/`. TODO(Epic 0) — record the source and the licence of
-  the audio clip.
+- Demo song: `public/demo/silent-night.ogg`, with its marks in
+  `public/demo/silent-night.marks.json`. The clip is the opening of "Silent
+  Night" by the United States Army Chorus, 2010.
+  - Page: https://commons.wikimedia.org/wiki/File:Silent_Night_(choral).ogg
+  - Licence: public domain in the United States, as a work of the U.S. federal
+    government. The maintainer accepted the United States-only status.
+  - `public/demo/README.md` quotes the licence statement and records how the clip
+    and the marks were made.
 
 ## Manual checks
 
