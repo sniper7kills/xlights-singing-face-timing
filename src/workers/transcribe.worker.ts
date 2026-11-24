@@ -1,0 +1,110 @@
+import {
+  ModelRegistry,
+  env,
+  pipeline,
+  type AutomaticSpeechRecognitionPipeline,
+  type ProgressInfo,
+} from '@huggingface/transformers'
+// The library fetches the ONNX runtime from cdn.jsdelivr.net by default, and the CSP blocks that host.
+import ortWasmUrl from 'onnxruntime-web/ort-wasm-simd-threaded.asyncify.wasm?url'
+import {
+  CHUNK_LENGTH_S,
+  SPEECH_MODEL_DTYPE,
+  SPEECH_MODELS,
+  STRIDE_LENGTH_S,
+  doneMsAfterChunk,
+  errorKind,
+  wordsFromChunks,
+  type Device,
+  type FromWorkerMessage,
+  type ToWorkerMessage,
+  type WordChunk,
+} from '../features/transcription/protocol.ts'
+
+const TASK = 'automatic-speech-recognition'
+
+const onnxWasm = env.backends.onnx.wasm
+if (onnxWasm) onnxWasm.wasmPaths = { wasm: ortWasmUrl }
+
+let transcriber: AutomaticSpeechRecognitionPipeline | null = null
+let loadedDevice: Device = 'wasm'
+let busy = false
+let onChunkEnd: (() => void) | null = null
+
+function post(message: FromWorkerMessage): void {
+  self.postMessage(message)
+}
+
+async function load(speechModelId: string, device: Device): Promise<void> {
+  const model = SPEECH_MODELS.find((candidate) => candidate.id === speechModelId)
+  if (model === undefined) throw new Error(`Unknown speech model: ${speechModelId}`)
+  await transcriber?.dispose()
+  transcriber = null
+  const options = { device, dtype: SPEECH_MODEL_DTYPE }
+  // The library reports progress for cached files too, and a cached speech model shows no download state.
+  const cached = await ModelRegistry.is_pipeline_cached(TASK, model.repo, options).catch(
+    () => false,
+  )
+  transcriber = await pipeline(TASK, model.repo, {
+    ...options,
+    progress_callback: (info: ProgressInfo) => {
+      if (cached || info.status !== 'progress_total') return
+      post({ type: 'download', loadedBytes: info.loaded, totalBytes: info.total })
+    },
+  })
+  const speechModel = transcriber.model
+  const generate = speechModel.generate.bind(speechModel)
+  // The pipeline calls `model.generate` once for each chunk, and the library has no progress event for a run.
+  speechModel.generate = async (...args) => {
+    const output = await generate(...args)
+    onChunkEnd?.()
+    return output
+  }
+  loadedDevice = device
+}
+
+async function transcribe(runId: string, samples: Float32Array, offsetMs: number): Promise<void> {
+  if (transcriber === null) throw new Error('No speech model is loaded.')
+  let chunkIndex = 0
+  onChunkEnd = () => {
+    post({ type: 'progress', runId, doneMs: doneMsAfterChunk(chunkIndex, samples.length) })
+    chunkIndex += 1
+  }
+  const output = await transcriber(samples, {
+    return_timestamps: 'word',
+    chunk_length_s: CHUNK_LENGTH_S,
+    stride_length_s: STRIDE_LENGTH_S,
+    language: 'english',
+    task: 'transcribe',
+  }).finally(() => {
+    onChunkEnd = null
+  })
+  // The typed API declares `[number, number]`, but the last word of the audio can have a `null` end.
+  const chunks: readonly WordChunk[] = output.chunks ?? []
+  post({ type: 'result', runId, words: wordsFromChunks(chunks, offsetMs) })
+}
+
+self.addEventListener('message', (event: MessageEvent<ToWorkerMessage>) => {
+  const message = event.data
+  if (message.type === 'load') {
+    load(message.speechModelId, message.device).then(
+      () => post({ type: 'ready' }),
+      (error: unknown) =>
+        post({ type: 'error', kind: errorKind(error, message.device), detail: String(error) }),
+    )
+    return
+  }
+  const { runId } = message
+  if (busy) {
+    post({ type: 'error', runId, kind: 'unknown', detail: 'A transcribe run is already active.' })
+    return
+  }
+  busy = true
+  transcribe(runId, message.samples, message.offsetMs)
+    .catch((error: unknown) =>
+      post({ type: 'error', runId, kind: errorKind(error, loadedDevice), detail: String(error) }),
+    )
+    .finally(() => {
+      busy = false
+    })
+})
