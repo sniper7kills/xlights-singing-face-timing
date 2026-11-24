@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import { SPEECH_MODELS, doneMsAfterChunk, errorKind, wordsFromChunks } from './protocol.ts'
+import {
+  SPEECH_MODELS,
+  createRunClock,
+  doneMsAfterChunk,
+  errorKind,
+  wordsFromChunks,
+} from './protocol.ts'
 
 describe('wordsFromChunks', () => {
   it('returns each word with song times in milliseconds', () => {
@@ -82,5 +88,66 @@ describe('SPEECH_MODELS', () => {
   it('lists tiny, base and small with a size in MB', () => {
     expect(SPEECH_MODELS.map((model) => model.label)).toEqual(['tiny', 'base', 'small'])
     for (const model of SPEECH_MODELS) expect(model.downloadMb).toBeGreaterThan(0)
+  })
+})
+
+describe('createRunClock', () => {
+  // The first timestamp token of Whisper is <|0.00|>. Each next id adds 20 ms.
+  const BEGIN = 50_364
+  const at = (seconds: number) => [BigInt(BEGIN + Math.round(seconds / 0.02))]
+  const text = [123n]
+  const minuteOfSamples = 60 * 16_000
+
+  it('gives the audio time of each timestamp token that moves forward', () => {
+    const clock = createRunClock(minuteOfSamples, BEGIN)
+
+    expect(clock.token(at(0))).toBeNull()
+    expect(clock.token(text)).toBeNull()
+    expect(clock.token(at(2.4))).toBe(2400)
+    expect(clock.token(at(2.4))).toBeNull()
+    expect(clock.token(text)).toBeNull()
+    expect(clock.token(at(5))).toBe(5000)
+  })
+
+  it('ignores the prompt tokens of a pass', () => {
+    const clock = createRunClock(minuteOfSamples, BEGIN)
+
+    expect(clock.token([50_258n, 50_259n, 50_360n])).toBeNull()
+  })
+
+  it('starts the next pass of a chunk at the end of the last complete segment', () => {
+    const clock = createRunClock(minuteOfSamples, BEGIN)
+    for (const tokens of [at(0), text, at(8), at(8), text, at(14), at(14), text])
+      clock.token(tokens)
+    clock.passEnd()
+
+    expect(clock.token(at(0))).toBeNull()
+    expect(clock.token(text)).toBeNull()
+    expect(clock.token(at(3))).toBe(17_000)
+  })
+
+  it('keeps the seek of a pass with no complete segment', () => {
+    const clock = createRunClock(minuteOfSamples, BEGIN)
+    clock.token(at(0))
+    clock.token(text)
+    clock.passEnd()
+
+    expect(clock.token(at(4))).toBe(4000)
+  })
+
+  it('adds the start of each chunk, 20 seconds apart, and never goes back', () => {
+    const clock = createRunClock(minuteOfSamples, BEGIN)
+    clock.token(at(12))
+
+    expect(clock.chunkEnd()).toBe(30_000)
+    expect(clock.token(at(6))).toBeNull()
+    expect(clock.token(at(12))).toBe(32_000)
+    expect(clock.chunkEnd()).toBe(50_000)
+  })
+
+  it('stops at the end of the chunk and at the end of the samples', () => {
+    const clock = createRunClock(10 * 16_000, BEGIN)
+
+    expect(clock.token(at(29.98))).toBe(10_000)
   })
 })

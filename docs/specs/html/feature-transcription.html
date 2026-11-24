@@ -308,7 +308,7 @@ body.rv-open .layout { padding-right:21rem; }
   A[Start] --&gt; B{Model download ok?}
   B -- no --&gt; E1[Message: download failed, Retry button]
   B -- yes --&gt; C{WebGPU run ok?}
-  C -- no --&gt; D[App retries once on the wasm device]
+  C -- no, or no progress for 45 s --&gt; D[App retries once on the wasm device]
   D -- fails --&gt; E2[Message: transcribe failed, offer smaller speech model]
   C -- yes --&gt; F{Words returned?}
   D -- ok --&gt; F
@@ -335,10 +335,28 @@ body.rv-open .layout { padding-right:21rem; }
 <ul>
 <li>idle: selectors enabled, "Start" enabled.
 </li>
+<li>preparing: "Preparing audio, 0:02 elapsed" with a bar that has no end. The app
+</li>
+</ul>
+<p>decodes the audio and converts it to 16 kHz mono. "Cancel" enabled.</p>
+<ul>
+<li>loading: "Loading speech model, 0:05 elapsed" with a bar that has no end. The
+</li>
+</ul>
+<p>worker loads a speech model from the browser cache. "Cancel" enabled.</p>
+<ul>
 <li>downloading: "Downloading speech model, 42%" with a bar. "Cancel" enabled.
 </li>
-<li>transcribing: "Transcribing, 1:12 of 3:40" with a bar. "Cancel" enabled.
+<li>started: "Transcribing, 0:12 elapsed" with a bar that has no end, until the first
 </li>
+</ul>
+<p>progress of the run. "Cancel" enabled.</p>
+<ul>
+<li>transcribing: "Transcribing, 1:12 of 3:40" with a bar. "Cancel" enabled. The
+</li>
+</ul>
+<p>audio time changes at the end of each sung segment, a few seconds apart, and not only at the end of each 30-second chunk.</p>
+<ul>
 <li>finishing: "Aligning lyrics and breaking down words".
 </li>
 <li>confirm: "The run replaces the marks of this voice." with "Continue" and "Cancel".
@@ -349,6 +367,31 @@ body.rv-open .layout { padding-right:21rem; }
 </li>
 </ul>
 <p>The device note reads "Uses your graphics card (WebGPU)" or "WebGPU is not available. Transcription is slower on this browser."</p>
+<ul>
+<li>The elapsed time counts from the "Start" click and changes each second. The
+</li>
+</ul>
+<p>progress text of the preparing, loading and started states shows it.</p>
+<ul>
+<li>The live region announces the name of each state one time, for example
+</li>
+</ul>
+<p>"Transcribing". It does not announce the elapsed time or the audio time.</p>
+<ul>
+<li>During a speech model run, the device line replaces the device note. It reads
+</li>
+</ul>
+<p>"Graphics card (WebGPU)" or "CPU".</p>
+<ul>
+<li>After the first chunk, the device line adds the speed: the seconds of audio for
+</li>
+</ul>
+<p>each second of the run, rounded. For example "CPU, about 2 times faster than the song", "CPU, about 3 times slower than the song" or "CPU, about as fast as the song".</p>
+<ul>
+<li>If the app moves a slow WebGPU run to the CPU, the dialog shows "The graphics
+</li>
+</ul>
+<p>card was too slow. The run continues on the CPU." one time.</p>
 <p>If the person selects "Lyrics only" and the lyrics field has no word, the app disables "Start". The hint reads "Paste the lyrics to use Lyrics only."</p>
 <h3 id="transcription-behaviour-rules">Behaviour rules</h3>
 <ul>
@@ -498,6 +541,16 @@ body.rv-open .layout { padding-right:21rem; }
 </li>
 </ul>
 <p>terminates the worker. Source: <code>node_modules/@huggingface/transformers/types/pipelines/automatic-speech-recognition.d.ts</code></p>
+<ul>
+<li><strong>Progress inside a chunk.</strong> The pipeline call accepts the generate option
+</li>
+</ul>
+<p><code>streamer</code>. The typed pipeline options accept a <code>TextStreamer</code>. <code>generate</code> calls <code>streamer.put(tokens)</code> for the prompt and for each new token, and <code>streamer.end()</code> at the end of each generate pass. With word times, Whisper writes timestamp tokens. A timestamp token id minus <code>timestamp_begin</code> of the tokenizer, times 0.02 s, gives a time inside the 30-second window of the pass. Whisper can read one chunk in more than one pass, and the next pass starts at the end of the last complete segment. The worker extends <code>TextStreamer</code> with its own <code>put</code> and <code>end</code>, so it decodes no text. Sources: https://huggingface.co/docs/transformers.js/api/generation/streamers and, in <code>node_modules/@huggingface/transformers/src/</code>, <code>generation/streamers.js</code>, <code>models/whisper/modeling_whisper.js</code> (<code>_generate_with_seek</code>) and <code>pipelines/automatic-speech-recognition.js</code> (<code>_call_whisper</code>).</p>
+<ul>
+<li><strong>Audio decode.</strong> The app decodes each audio file in an <code>OfflineAudioContext</code>
+</li>
+</ul>
+<p>with one channel, a length of one frame, and the sample rate of the result. An <code>OfflineAudioContext</code> plays no sound, so the autoplay policy of the browser does not apply to it. <code>decodeAudioData</code> resamples the audio to the sample rate of the context. Sources: https://developer.mozilla.org/en-US/docs/Web/API/OfflineAudioContext/OfflineAudioContext, https://developer.mozilla.org/en-US/docs/Web/API/BaseAudioContext/decodeAudioData, https://developer.mozilla.org/en-US/docs/Web/Media/Guides/Autoplay and https://webaudio.github.io/web-audio-api/ (retrieved 2026-11-24).</p>
 <p><strong>Worker message contract, <code>src/workers/transcribe.worker.ts</code>:</strong></p>
 <p>The types are in <code>src/features/transcription/protocol.ts</code>.</p>
 <pre class="code"><code>type Device = 'webgpu' | 'wasm'
@@ -508,7 +561,7 @@ type ErrorKind = 'download' | 'device' | 'memory' | 'unknown'
 // from worker (FromWorkerMessage)
 { type: 'download'; loadedBytes: number; totalBytes: number }
 { type: 'ready' }
-{ type: 'progress'; runId: string; doneMs: number }
+{ type: 'progress'; runId: string; doneMs: number } // at each timestamp token that moves forward, and at each chunk end
 { type: 'result'; runId: string; words: TimedWord[] }
 { type: 'error'; runId?: string; kind: ErrorKind; detail: string }</code></pre>
 <p><code>TimedWord</code> is <code>{ text: string; startMs: number; endMs: number }</code>. The client stops a run by terminating the worker, and the next run loads the speech model again from the browser cache.</p>
@@ -522,6 +575,7 @@ spreadLyrics(lyrics: string, startMs: number, endMs: number): AlignedPhrase[]</c
 <tr><th>Case</th><th>What the person sees</th></tr>
 <tr><td>Network fails during the download</td><td>"The speech model did not download. Check the connection and retry."</td></tr>
 <tr><td>WebGPU run fails</td><td>No message. The app retries on <code>wasm</code> and updates the device note.</td></tr>
+<tr><td>WebGPU run sends no progress for 45 seconds</td><td>"The graphics card was too slow. The run continues on the CPU." The app stops the worker, runs the same audio again on <code>wasm</code>, and the device line shows "CPU". A <code>wasm</code> run has no time limit.</td></tr>
 <tr><td>Out of memory</td><td>"This browser ran out of memory. Select a smaller speech model."</td></tr>
 <tr><td>The run fails on both devices</td><td>"The transcription failed. Select a smaller speech model and retry."</td></tr>
 <tr><td>No words returned</td><td>"No words were found. Paste the lyrics and use Lyrics only."</td></tr>

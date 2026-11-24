@@ -511,6 +511,9 @@ None of these blocks approval. Each one names the epic that settles it.
   a moved word to its edited phonemes (FR-phoneme-20) moves to issue #27. The
   control for a range run (FR-transcribe-19) is in issue #29, and the style for an
   estimated word (FR-transcribe-16) is in issue #30.
+- 2026-11-24 — The transcribe dialog shows the stages before the first chunk, the
+  elapsed time, finer progress and the device (issue #91, from the review of the
+  maintainer in Firefox).
 
 ## Issue map
 

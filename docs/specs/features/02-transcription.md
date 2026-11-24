@@ -106,7 +106,7 @@ flowchart TD
   A[Start] --> B{Model download ok?}
   B -- no --> E1[Message: download failed, Retry button]
   B -- yes --> C{WebGPU run ok?}
-  C -- no --> D[App retries once on the wasm device]
+  C -- no, or no progress for 45 s --> D[App retries once on the wasm device]
   D -- fails --> E2[Message: transcribe failed, offer smaller speech model]
   C -- yes --> F{Words returned?}
   D -- ok --> F
@@ -130,8 +130,16 @@ flowchart TD
 range selector (full song or the time selection), progress area, buttons.
 
 - idle: selectors enabled, "Start" enabled.
+- preparing: "Preparing audio, 0:02 elapsed" with a bar that has no end. The app
+  decodes the audio and converts it to 16 kHz mono. "Cancel" enabled.
+- loading: "Loading speech model, 0:05 elapsed" with a bar that has no end. The
+  worker loads a speech model from the browser cache. "Cancel" enabled.
 - downloading: "Downloading speech model, 42%" with a bar. "Cancel" enabled.
-- transcribing: "Transcribing, 1:12 of 3:40" with a bar. "Cancel" enabled.
+- started: "Transcribing, 0:12 elapsed" with a bar that has no end, until the first
+  progress of the run. "Cancel" enabled.
+- transcribing: "Transcribing, 1:12 of 3:40" with a bar. "Cancel" enabled. The
+  audio time changes at the end of each sung segment, a few seconds apart, and not
+  only at the end of each 30-second chunk.
 - finishing: "Aligning lyrics and breaking down words".
 - confirm: "The run replaces the marks of this voice." with "Continue" and "Cancel".
 - error: the message, with "Retry" and "Close".
@@ -139,6 +147,19 @@ range selector (full song or the time selection), progress area, buttons.
 
 The device note reads "Uses your graphics card (WebGPU)" or "WebGPU is not
 available. Transcription is slower on this browser."
+
+- The elapsed time counts from the "Start" click and changes each second. The
+  progress text of the preparing, loading and started states shows it.
+- The live region announces the name of each state one time, for example
+  "Transcribing". It does not announce the elapsed time or the audio time.
+- During a speech model run, the device line replaces the device note. It reads
+  "Graphics card (WebGPU)" or "CPU".
+- After the first chunk, the device line adds the speed: the seconds of audio for
+  each second of the run, rounded. For example "CPU, about 2 times faster than the
+  song", "CPU, about 3 times slower than the song" or "CPU, about as fast as the
+  song".
+- If the app moves a slow WebGPU run to the CPU, the dialog shows "The graphics
+  card was too slow. The run continues on the CPU." one time.
 
 If the person selects "Lyrics only" and the lyrics field has no word, the app
 disables "Start". The hint reads "Paste the lyrics to use Lyrics only."
@@ -228,6 +249,28 @@ Confirmed on 2026-11-24 for version 4.3.2. Pull request #71 cites each source.
 - **Stop a run.** The library has no stop operation for a pipeline call. The client
   terminates the worker. Source:
   `node_modules/@huggingface/transformers/types/pipelines/automatic-speech-recognition.d.ts`
+- **Progress inside a chunk.** The pipeline call accepts the generate option
+  `streamer`. The typed pipeline options accept a `TextStreamer`. `generate` calls
+  `streamer.put(tokens)` for the prompt and for each new token, and
+  `streamer.end()` at the end of each generate pass. With word times, Whisper
+  writes timestamp tokens. A timestamp token id minus `timestamp_begin` of the
+  tokenizer, times 0.02 s, gives a time inside the 30-second window of the pass.
+  Whisper can read one chunk in more than one pass, and the next pass starts at the
+  end of the last complete segment. The worker extends `TextStreamer` with its own
+  `put` and `end`, so it decodes no text. Sources:
+  https://huggingface.co/docs/transformers.js/api/generation/streamers and, in
+  `node_modules/@huggingface/transformers/src/`, `generation/streamers.js`,
+  `models/whisper/modeling_whisper.js` (`_generate_with_seek`) and
+  `pipelines/automatic-speech-recognition.js` (`_call_whisper`).
+- **Audio decode.** The app decodes each audio file in an `OfflineAudioContext`
+  with one channel, a length of one frame, and the sample rate of the result. An
+  `OfflineAudioContext` plays no sound, so the autoplay policy of the browser does
+  not apply to it. `decodeAudioData` resamples the audio to the sample rate of the
+  context. Sources:
+  https://developer.mozilla.org/en-US/docs/Web/API/OfflineAudioContext/OfflineAudioContext,
+  https://developer.mozilla.org/en-US/docs/Web/API/BaseAudioContext/decodeAudioData,
+  https://developer.mozilla.org/en-US/docs/Web/Media/Guides/Autoplay and
+  https://webaudio.github.io/web-audio-api/ (retrieved 2026-11-24).
 
 **Worker message contract, `src/workers/transcribe.worker.ts`:**
 
@@ -242,7 +285,7 @@ type ErrorKind = 'download' | 'device' | 'memory' | 'unknown'
 // from worker (FromWorkerMessage)
 { type: 'download'; loadedBytes: number; totalBytes: number }
 { type: 'ready' }
-{ type: 'progress'; runId: string; doneMs: number }
+{ type: 'progress'; runId: string; doneMs: number } // at each timestamp token that moves forward, and at each chunk end
 { type: 'result'; runId: string; words: TimedWord[] }
 { type: 'error'; runId?: string; kind: ErrorKind; detail: string }
 ```
@@ -268,6 +311,7 @@ from 0 to 1.
 |---|---|
 | Network fails during the download | "The speech model did not download. Check the connection and retry." |
 | WebGPU run fails | No message. The app retries on `wasm` and updates the device note. |
+| WebGPU run sends no progress for 45 seconds | "The graphics card was too slow. The run continues on the CPU." The app stops the worker, runs the same audio again on `wasm`, and the device line shows "CPU". A `wasm` run has no time limit. |
 | Out of memory | "This browser ran out of memory. Select a smaller speech model." |
 | The run fails on both devices | "The transcription failed. Select a smaller speech model and retry." |
 | No words returned | "No words were found. Paste the lyrics and use Lyrics only." |

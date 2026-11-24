@@ -13,7 +13,12 @@ import {
   outcomeText,
   progressText,
   progressValue,
+  runSpeed,
   shownRunState,
+  speedText,
+  stateLabel,
+  deviceLine,
+  isRunState,
   transcribeDialogReducer as reduce,
   wholePercent,
 } from './transcribeDialogState.ts'
@@ -22,19 +27,82 @@ const transcribing: DialogState = { status: 'transcribing', doneMs: 0, totalMs: 
 
 describe('progressText', () => {
   it('shows the download percent', () => {
-    expect(progressText({ status: 'downloading', percent: 42 })).toBe(
+    expect(progressText({ status: 'downloading', percent: 42 }, 5000)).toBe(
       'Downloading speech model, 42%',
     )
   })
 
   it('shows the audio time that is complete and the audio time of the run', () => {
-    expect(progressText({ status: 'transcribing', doneMs: 72_000, totalMs: 220_000 })).toBe(
+    expect(progressText({ status: 'transcribing', doneMs: 72_000, totalMs: 220_000 }, 0)).toBe(
       'Transcribing, 1:12 of 3:40',
     )
   })
 
   it('shows the align step', () => {
-    expect(progressText({ status: 'finishing' })).toBe('Aligning lyrics and breaking down words')
+    expect(progressText({ status: 'finishing' }, 0)).toBe('Aligning lyrics and breaking down words')
+  })
+
+  it.each([
+    [{ status: 'preparing' } as const, 'Preparing audio, 0:03 elapsed'],
+    [{ status: 'loading' } as const, 'Loading speech model, 0:03 elapsed'],
+    [{ status: 'started' } as const, 'Transcribing, 0:03 elapsed'],
+  ])('shows the elapsed time for %o', (state, text) => {
+    expect(progressText(state, 3999)).toBe(text)
+  })
+
+  it('shows minutes in the elapsed time', () => {
+    expect(progressText({ status: 'started' }, 72_000)).toBe('Transcribing, 1:12 elapsed')
+  })
+})
+
+describe('stateLabel', () => {
+  it('names each run state without its numbers, for the live region', () => {
+    expect(stateLabel({ status: 'preparing' })).toBe('Preparing audio')
+    expect(stateLabel({ status: 'loading' })).toBe('Loading speech model')
+    expect(stateLabel({ status: 'downloading', percent: 42 })).toBe('Downloading speech model')
+    expect(stateLabel({ status: 'started' })).toBe('Transcribing')
+    expect(stateLabel({ status: 'transcribing', doneMs: 1, totalMs: 2 })).toBe('Transcribing')
+  })
+})
+
+describe('runSpeed', () => {
+  it('returns no speed before the end of the first chunk', () => {
+    expect(runSpeed(25_000, 220_000, 10_000)).toBeNull()
+  })
+
+  it('returns the speed from the end of the first chunk', () => {
+    expect(runSpeed(30_000, 220_000, 15_000)).toEqual({ audioMs: 30_000, runMs: 15_000 })
+  })
+
+  it('returns the speed at the end of a run shorter than one chunk', () => {
+    expect(runSpeed(28_900, 28_900, 9000)).toEqual({ audioMs: 28_900, runMs: 9000 })
+  })
+
+  it('returns no speed for a run time of 0', () => {
+    expect(runSpeed(30_000, 220_000, 0)).toBeNull()
+  })
+})
+
+describe('speedText and deviceLine', () => {
+  it('rounds the seconds of audio for each second of the run', () => {
+    expect(speedText({ audioMs: 30_000, runMs: 14_000 })).toBe('about 2 times faster than the song')
+  })
+
+  it('shows a run slower than the song', () => {
+    expect(speedText({ audioMs: 30_000, runMs: 95_000 })).toBe('about 3 times slower than the song')
+  })
+
+  it('shows a run near the speed of the song', () => {
+    expect(speedText({ audioMs: 30_000, runMs: 36_000 })).toBe('about as fast as the song')
+    expect(speedText({ audioMs: 30_000, runMs: 24_000 })).toBe('about as fast as the song')
+  })
+
+  it('names the device, and adds the speed after the first chunk', () => {
+    expect(deviceLine('webgpu', null)).toBe('Graphics card (WebGPU)')
+    expect(deviceLine('wasm', null)).toBe('CPU')
+    expect(deviceLine('wasm', { audioMs: 30_000, runMs: 15_000 })).toBe(
+      'CPU, about 2 times faster than the song',
+    )
   })
 })
 
@@ -133,12 +201,39 @@ describe('isCancel', () => {
 })
 
 describe('transcribeDialogReducer', () => {
-  it('starts a speech model run at 0:00 of the audio time', () => {
-    expect(reduce(IDLE, { type: 'start', mode: 'model', totalMs: 220_000 })).toEqual(transcribing)
+  it('starts a speech model run at the audio preparation', () => {
+    expect(reduce(IDLE, { type: 'start', mode: 'model' })).toEqual({ status: 'preparing' })
+  })
+
+  it('goes through the steps before the first progress, then to the progress', () => {
+    const preparing = reduce(IDLE, { type: 'start', mode: 'model' })
+    const loading = reduce(preparing, { type: 'stage', stage: 'loading' })
+    expect(loading).toEqual({ status: 'loading' })
+    const started = reduce(loading, { type: 'stage', stage: 'transcribing' })
+    expect(started).toEqual({ status: 'started' })
+    expect(isRunState(started)).toBe(true)
+    expect(progressValue({ status: 'started' })).toBeUndefined()
+
+    expect(reduce(started, { type: 'progress', doneMs: 5000, totalMs: 220_000 })).toEqual({
+      status: 'transcribing',
+      doneMs: 5000,
+      totalMs: 220_000,
+    })
+  })
+
+  it('goes back to the model load when the run moves to wasm', () => {
+    expect(reduce(transcribing, { type: 'stage', stage: 'loading' })).toEqual({ status: 'loading' })
+  })
+
+  it('goes from the model load to the download', () => {
+    expect(reduce({ status: 'loading' }, { type: 'download', percent: 0 })).toEqual({
+      status: 'downloading',
+      percent: 0,
+    })
   })
 
   it('starts a lyrics-only run at the align step', () => {
-    expect(reduce(IDLE, { type: 'start', mode: 'lyrics-only', totalMs: 220_000 })).toEqual({
+    expect(reduce(IDLE, { type: 'start', mode: 'lyrics-only' })).toEqual({
       status: 'finishing',
     })
   })
@@ -208,11 +303,7 @@ describe('transcribeDialogReducer', () => {
   it('starts again from the error state for "Retry"', () => {
     const error: DialogState = { status: 'error', message: ERROR_COPY.failed }
 
-    expect(reduce(error, { type: 'start', mode: 'model', totalMs: 1000 })).toEqual({
-      status: 'transcribing',
-      doneMs: 0,
-      totalMs: 1000,
-    })
+    expect(reduce(error, { type: 'start', mode: 'model' })).toEqual({ status: 'preparing' })
   })
 })
 

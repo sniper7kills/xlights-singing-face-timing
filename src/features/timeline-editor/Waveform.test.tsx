@@ -54,10 +54,9 @@ beforeEach(() => {
   decodeAudioData = () => Promise.resolve({ duration: 3 })
   // jsdom has no Web Audio, and the check of a selected file decodes it.
   vi.stubGlobal(
-    'AudioContext',
+    'OfflineAudioContext',
     class {
       decodeAudioData = () => decodeAudioData()
-      close = () => Promise.resolve()
     },
   )
   vi.mocked(createWaveformPlayer).mockImplementation(

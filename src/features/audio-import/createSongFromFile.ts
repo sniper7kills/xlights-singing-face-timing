@@ -1,5 +1,6 @@
 import { StorageFullError } from '../../store/db.ts'
 import type { Song } from '../../store/types.ts'
+import { decodeAudio } from './decodeAudio.ts'
 import { storeNewSong } from './storeNewSong.ts'
 
 /** The extensions of the audio files that the app accepts, in lower case. */
@@ -40,19 +41,15 @@ export class ImportError extends Error {
 /** Returns the duration of the decoded audio in seconds. Rejects if the browser cannot decode the bytes. */
 export type DecodeAudio = (bytes: ArrayBuffer) => Promise<number>
 
+// The duration needs no audio detail, and a low rate keeps the decoded buffer small.
+const DURATION_SAMPLE_RATE = 8000
+
 /**
  * Returns the duration of the audio in seconds, decoded with Web Audio `decodeAudioData`.
  * Rejects if the browser cannot decode the bytes.
  */
 export async function decodeWithWebAudio(bytes: ArrayBuffer): Promise<number> {
-  const context = new AudioContext()
-  try {
-    const buffer = await context.decodeAudioData(bytes)
-    return buffer.duration
-  } finally {
-    // Browsers limit the number of open audio contexts.
-    void context.close()
-  }
+  return (await decodeAudio(bytes, DURATION_SAMPLE_RATE)).duration
 }
 
 /** Returns the extension of the file name in lower case, with the dot, or '' if it has none. */

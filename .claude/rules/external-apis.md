@@ -22,6 +22,8 @@ Do not reconcile by guess.
 | wavesurfer.js | 8.1.x | https://wavesurfer.xyz/docs/ |
 | CMU Pronouncing Dictionary | file `cmudict.dict` | https://github.com/cmusphinx/cmudict |
 | Web Audio `decodeAudioData` | browser | https://developer.mozilla.org/en-US/docs/Web/API/BaseAudioContext/decodeAudioData |
+| Web Audio `OfflineAudioContext` | browser | https://developer.mozilla.org/en-US/docs/Web/API/OfflineAudioContext/OfflineAudioContext , https://webaudio.github.io/web-audio-api/ |
+| Autoplay policy | browser | https://developer.mozilla.org/en-US/docs/Web/Media/Guides/Autoplay |
 | xLights `.xtiming` format | commit `99a289bf` | https://github.com/xLightsSequencer/xLights — `src-core/render/Element.cpp`, `src-ui-wx/sequencer/RowHeading.cpp`, `src-core/render/SequenceFile.cpp`, `src-core/effects/FacesEffect.cpp` |
 | xLights manual | current | https://manual.xlights.org/xlights/chapters/chapter-four-sequencer/singing-faces.md |
 | AWS CloudFormation (S3, CloudFront, IAM) | current | https://docs.aws.amazon.com/AWSCloudFormation/latest/TemplateReference/ |
@@ -66,6 +68,44 @@ Hugging Face Hub. Pull request #71 cites each source.
 - The model files redirect from `huggingface.co` to `us.aws.cdn.hf.co`.
 - The cache check and the download total read the dtype key `model` for the
   Whisper encoder. The model load reads the key `encoder_model`. The app sets both.
+
+Confirmed on 2026-11-24 for `@huggingface/transformers` 4.3.2, from
+https://huggingface.co/docs/transformers.js/api/generation/streamers and the
+source in `node_modules/@huggingface/transformers/src/` (issue #91):
+
+- A streamer goes to the pipeline call as the generate option `streamer`. The
+  typed pipeline options accept a `TextStreamer` only, not a `BaseStreamer`.
+- `generate` calls `streamer.put(value)` with the prompt tokens first, then with
+  each new token as `[[id]]`. It calls `streamer.end()` at the end of each
+  generate pass.
+- With `return_timestamps: 'word'`, the pipeline also sets `return_timestamps:
+  true`, so Whisper writes timestamp tokens. Whisper then reads each 30-second
+  chunk with a seek loop (`_generate_with_seek`), and one chunk can take more than
+  one pass. The next pass starts at the first token of the last pair of adjacent
+  timestamp tokens.
+- A timestamp token id minus `tokenizer.timestamp_begin`, times 0.02 s, is a time
+  inside the 30-second window of the pass, not inside the run.
+- `WhisperTextStreamer` gives `on_chunk_start(time)` and `on_chunk_end(time)` for
+  timestamp tokens, `token_callback_function(tokens)` for each token, and
+  `on_finalize()` for each `end()`. Its start and end switch does not reset
+  between passes. `TextStreamer.put` decodes all text of the pass after each
+  token, and the default `callback_function` writes to the console.
+- A token callback gives a time only for a timestamp token. A text token gives no
+  time.
+
+Confirmed on 2026-11-24 for the browser Web Audio API (issue #91):
+
+- `new OfflineAudioContext(numberOfChannels, length, sampleRate)`. The channels
+  are 1 to 32, the length is more than 0 frames, the sample rate is 3000 to
+  768 000 Hz. A value out of range throws `NotSupportedError`.
+- `decodeAudioData` is a method of `BaseAudioContext`, so an
+  `OfflineAudioContext` has it. The decode resamples the audio to the sample rate
+  of the context. The result keeps the channels of the file.
+- `OfflineAudioContext` has no `close()` method.
+- The autoplay policy applies to an `AudioContext`. A browser can keep an
+  `AudioContext` from starting until the page has sticky activation. Firefox
+  controls this with `media.autoplay.block-webaudio`. The specification defines
+  "allowed to start" for `AudioContext` only.
 
 Confirmed on 2026-11-24: the CloudFormation properties in `infra/hosting.yml` and
 the IAM action names of the deploy role. Pull request #52 cites each page. The
