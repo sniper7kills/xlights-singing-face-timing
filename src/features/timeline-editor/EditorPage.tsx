@@ -36,6 +36,17 @@ function isNarrowWindow(): boolean {
   return window.innerWidth < MIN_EDITOR_WIDTH_PX
 }
 
+/**
+ * Requests the dictionary in the background when the open song has a word.
+ * A drag or a label change breaks down a word only with the dictionary in memory, so the first edit gets a real break down.
+ * A song with no word requests nothing, so a visit with no break down loads no dictionary (FR-phoneme-1).
+ * A failure shows no message here. The next action that needs the dictionary requests it again and reports the failure.
+ */
+function loadDictionaryForWords() {
+  const marks = useSongStore.getState().current?.marks ?? []
+  if (marks.some((mark) => mark.layer === 'word')) void loadDictionaries().catch(() => undefined)
+}
+
 type EditorPageProps = {
   songId: string
 }
@@ -92,9 +103,6 @@ export function EditorPage({ songId }: EditorPageProps) {
     // Each song opens at the default view, or at the zoom and the scroll offset that the browser keeps for it.
     useViewStore.getState().resetView()
     resetMarkUi()
-    // A drag or a label change breaks down a word only with the dictionary in memory, so the editor loads it now.
-    // A failure shows no message here: the next action that needs the dictionary requests it again and reports it.
-    void loadDictionaries().catch(() => undefined)
     const saved = readSavedView(songId)
     if (saved !== null) useViewStore.setState(saved)
     const stopSave = useViewStore.subscribe((view, previous) => {
@@ -107,6 +115,7 @@ export function EditorPage({ songId }: EditorPageProps) {
       .then((found) => {
         // A link to a deleted song goes back to the song library, the same as an unknown hash.
         if (active && !found) window.location.replace(LIBRARY_HASH)
+        if (active && found) loadDictionaryForWords()
       })
     return () => {
       // An open that ends after the person left the editor must not change the route.

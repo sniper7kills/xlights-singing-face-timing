@@ -1,11 +1,11 @@
-import { act, render, screen, within } from '@testing-library/react'
+import { act, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { LIBRARY_HASH } from '../../app/routes.ts'
 import { breakDownWords, loadDictionaries } from '../../store/actions/breakDown.ts'
 import { startAutosave, useAutosaveStore } from '../../store/autosave.ts'
 import * as db from '../../store/db.ts'
-import { loadSong, StorageFullError } from '../../store/db.ts'
+import { loadSong, saveSong, StorageFullError } from '../../store/db.ts'
 import { useSongStore } from '../../store/songStore.ts'
 import { useViewStore } from '../../store/viewStore.ts'
 import { storeNewSong } from '../audio-import/storeNewSong.ts'
@@ -58,11 +58,38 @@ function topBarTranscribe(): HTMLElement {
 }
 
 describe('EditorPage', () => {
-  it('loads the dictionary in the background when it opens a song and shows no message when the load fails', async () => {
+  it('loads the dictionary in the background when it opens a song with words and shows no message when the load fails', async () => {
+    const song = await storeNewSong({ name: 'carol', durationMs: 3000, audio })
+    const content = await loadSong(song.id)
+    if (content === undefined) throw new Error('The song is not in the database.')
+    const voiceId = content.voices[0]?.id ?? ''
+    await saveSong({
+      ...content,
+      marks: [
+        {
+          id: 'w1',
+          voiceId,
+          layer: 'word',
+          label: 'carol',
+          startMs: 0,
+          endMs: 500,
+          parentId: null,
+          edited: false,
+        },
+      ],
+    })
+
+    render(<EditorPage songId={song.id} />)
+    await screen.findByRole('heading', { level: 2, name: 'carol' })
+
+    await waitFor(() => expect(loadDictionaries).toHaveBeenCalledOnce())
+    expect(screen.queryByRole('alert')).toBeNull()
+  })
+
+  it('requests no dictionary when it opens a song with no words', async () => {
     await renderEditor()
 
-    expect(loadDictionaries).toHaveBeenCalledOnce()
-    expect(screen.queryByRole('alert')).toBeNull()
+    expect(loadDictionaries).not.toHaveBeenCalled()
   })
 
   it('shows a link back to the song library and the song name in the top bar', async () => {
