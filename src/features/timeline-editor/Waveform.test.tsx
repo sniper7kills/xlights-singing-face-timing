@@ -1,4 +1,4 @@
-import { act, render, screen, waitFor } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import * as db from '../../store/db.ts'
@@ -39,6 +39,8 @@ function fakePlayer(listeners: WaveformListeners): FakePlayer {
     }),
     isPlaying: () => player.playing,
     setColors: vi.fn(),
+    setView: vi.fn(),
+    seek: vi.fn(),
     destroy: vi.fn(),
   }
   return player
@@ -75,7 +77,7 @@ afterEach(() => {
 
 async function renderReadyWaveform() {
   const song = await storeNewSong({ name: 'carol', durationMs: 3000, audio })
-  render(<Waveform songId={song.id} />)
+  render(<Waveform songId={song.id} durationMs={3000} />)
   await waitFor(() => expect(screen.getByRole('button', { name: 'Play' })).toBeEnabled())
   return song
 }
@@ -85,7 +87,7 @@ describe('Waveform', () => {
     vi.mocked(createWaveformPlayer).mockReturnValue(new Promise(() => undefined))
     const song = await storeNewSong({ name: 'carol', durationMs: 3000, audio })
 
-    render(<Waveform songId={song.id} />)
+    render(<Waveform songId={song.id} durationMs={3000} />)
 
     expect(await screen.findByText('Drawing waveform')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Play' })).toBeDisabled()
@@ -175,7 +177,7 @@ describe('Waveform', () => {
     vi.mocked(createWaveformPlayer).mockRejectedValue(new ImportError({ kind: 'decode' }))
     const song = await storeNewSong({ name: 'carol', durationMs: 3000, audio })
 
-    render(<Waveform songId={song.id} />)
+    render(<Waveform songId={song.id} durationMs={3000} />)
 
     expect(await screen.findByRole('alert')).toHaveTextContent(
       'This browser cannot decode this file. Convert it to MP3 or WAV and try again.',
@@ -187,7 +189,7 @@ describe('Waveform', () => {
     const song = await storeNewSong({ name: 'carol', durationMs: 3000, audio })
     vi.spyOn(db, 'getAudioFile').mockRejectedValue(new Error('The disk is gone.'))
 
-    render(<Waveform songId={song.id} />)
+    render(<Waveform songId={song.id} durationMs={3000} />)
 
     expect(await screen.findByRole('alert')).toHaveTextContent(
       'The app could not read the audio from browser storage. Reload the page.',
@@ -197,7 +199,7 @@ describe('Waveform', () => {
 
   it('removes the waveform when the editor closes', async () => {
     const song = await storeNewSong({ name: 'carol', durationMs: 3000, audio })
-    const view = render(<Waveform songId={song.id} />)
+    const view = render(<Waveform songId={song.id} durationMs={3000} />)
     await waitFor(() => expect(screen.getByRole('button', { name: 'Play' })).toBeEnabled())
 
     view.unmount()
@@ -208,7 +210,7 @@ describe('Waveform', () => {
   describe('with a missing audio file', () => {
     async function renderMissingAudio() {
       const song = await saveSong(makeSongContent())
-      render(<Waveform songId={song.id} />)
+      render(<Waveform songId={song.id} durationMs={3000} />)
       await screen.findByRole('alert')
       return song
     }
@@ -337,6 +339,151 @@ describe('Waveform', () => {
         await screen.findByText('Browser storage is full. Delete a song and try again.'),
       ).toBeInTheDocument()
       expect(screen.getByRole('button', { name: 'Load the audio file' })).toBeEnabled()
+    })
+  })
+
+  describe('stage', () => {
+    // 1000 px for 20 000 ms is 0.05 px for each ms at the default zoom.
+    const DURATION_MS = 20_000
+
+    beforeEach(() => {
+      vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockReturnValue(1000)
+      // jsdom has no pointer capture.
+      HTMLElement.prototype.setPointerCapture = vi.fn()
+    })
+
+    async function renderStage() {
+      const song = await storeNewSong({ name: 'carol', durationMs: DURATION_MS, audio })
+      const view = render(
+        <Waveform songId={song.id} durationMs={DURATION_MS}>
+          <section aria-label="Layers" />
+        </Waveform>,
+      )
+      await waitFor(() => expect(screen.getByRole('button', { name: 'Play' })).toBeEnabled())
+      const player = players[0]
+      if (player === undefined) throw new Error('No player.')
+      return { player, container: view.container }
+    }
+
+    function waveformStage() {
+      return screen.getByTestId('waveform-stage')
+    }
+
+    function pointer(type: 'pointerDown' | 'pointerMove' | 'pointerUp', clientX: number) {
+      fireEvent[type](waveformStage(), { clientX, button: 0, pointerId: 1 })
+    }
+
+    it('puts the time ruler above the waveform and the layers under it', async () => {
+      const { container } = await renderStage()
+
+      const stage = container.querySelector('.stage')
+      const order = [...(stage?.children ?? [])].map(
+        (child) => child.getAttribute('aria-label') ?? child.className,
+      )
+      expect(order.slice(0, 3)).toEqual(['time-ruler', 'waveform-stage', 'Layers'])
+      expect(useViewStore.getState().stageWidthPx).toBe(1000)
+    })
+
+    it('moves the play cursor for a click on the waveform and clears the time selection', async () => {
+      const { player } = await renderStage()
+      act(() => useViewStore.getState().setSelection({ startMs: 100, endMs: 900 }))
+
+      pointer('pointerDown', 250)
+      pointer('pointerUp', 250)
+
+      expect(player.seek).toHaveBeenCalledWith(5000)
+      expect(useViewStore.getState()).toMatchObject({ playTimeMs: 5000, selection: null })
+      expect(screen.getByTestId('play-cursor')).toHaveStyle({ transform: 'translateX(250px)' })
+      expect(screen.queryByTestId('time-selection')).toBeNull()
+    })
+
+    it('makes a time selection for a drag on the waveform and shows it as a band', async () => {
+      const { player } = await renderStage()
+
+      pointer('pointerDown', 300)
+      pointer('pointerMove', 200)
+      pointer('pointerMove', 100)
+      pointer('pointerUp', 100)
+
+      expect(useViewStore.getState().selection).toEqual({ startMs: 2000, endMs: 6000 })
+      expect(screen.getByTestId('time-selection')).toHaveStyle({ left: '100px', width: '200px' })
+      expect(player.seek).not.toHaveBeenCalled()
+    })
+
+    it('moves the play cursor for a click on the time ruler', async () => {
+      const { player, container } = await renderStage()
+      const ruler = container.querySelector('.time-ruler')
+      if (ruler === null) throw new Error('No ruler.')
+
+      fireEvent.pointerDown(ruler, { clientX: 500, button: 0 })
+
+      expect(player.seek).toHaveBeenCalledWith(10_000)
+      expect(useViewStore.getState().playTimeMs).toBe(10_000)
+    })
+
+    it('passes the zoom and the scroll offset of the view store to the waveform', async () => {
+      const { player } = await renderStage()
+      expect(player.setView).toHaveBeenLastCalledWith(null, 0)
+
+      act(() => useViewStore.setState({ pxPerSecond: 200, scrollMs: 4000 }))
+
+      expect(player.setView).toHaveBeenLastCalledWith(200, 4000)
+    })
+
+    it('scrolls in time for the wheel and zooms at the pointer for Ctrl with the wheel', async () => {
+      const { container } = await renderStage()
+      const stage = container.querySelector('.stage')
+      if (stage === null) throw new Error('No stage.')
+      act(() => useViewStore.setState({ pxPerSecond: 100, scrollMs: 2000 }))
+
+      const scroll = new WheelEvent('wheel', { deltaY: 100, cancelable: true })
+      act(() => {
+        stage.dispatchEvent(scroll)
+      })
+      expect(scroll.defaultPrevented).toBe(true)
+      expect(useViewStore.getState().scrollMs).toBe(3000)
+
+      // The pointer at 200 px shows 5000 ms, and it shows 5000 ms after the zoom too.
+      act(() => {
+        stage.dispatchEvent(
+          new WheelEvent('wheel', { deltaY: -300, ctrlKey: true, clientX: 200, cancelable: true }),
+        )
+      })
+      expect(useViewStore.getState().pxPerSecond).toBeCloseTo(200)
+      expect(useViewStore.getState().scrollMs).toBeCloseTo(4000)
+    })
+
+    it('leaves the wheel to the page at the default zoom', async () => {
+      const { container } = await renderStage()
+      const scroll = new WheelEvent('wheel', { deltaY: 100, cancelable: true })
+
+      container.querySelector('.stage')?.dispatchEvent(scroll)
+
+      expect(scroll.defaultPrevented).toBe(false)
+      expect(useViewStore.getState().scrollMs).toBe(0)
+    })
+
+    it('follows the play cursor during play so that it stays in view', async () => {
+      const { player } = await renderStage()
+      act(() => useViewStore.setState({ pxPerSecond: 100, scrollMs: 0 }))
+      await userEvent.click(screen.getByRole('button', { name: 'Play' }))
+
+      act(() => player.listeners.onTime(9000))
+      expect(useViewStore.getState().scrollMs).toBe(0)
+      act(() => player.listeners.onTime(10_000))
+
+      expect(useViewStore.getState().scrollMs).toBe(10_000)
+      expect(screen.getByTestId('play-cursor')).toHaveStyle({ transform: 'translateX(0px)' })
+    })
+
+    it('does not follow the play cursor while play is paused', async () => {
+      const { player } = await renderStage()
+      act(() => useViewStore.setState({ pxPerSecond: 100, scrollMs: 0 }))
+
+      act(() => player.listeners.onTime(15_000))
+
+      expect(useViewStore.getState().scrollMs).toBe(0)
+      expect(screen.queryByTestId('play-cursor')).toBeNull()
     })
   })
 })

@@ -4,6 +4,19 @@ import { useSongStore } from './songStore.ts'
 import { selectedVoice, useViewStore } from './viewStore.ts'
 
 describe('useViewStore', () => {
+  it('sets and clears the time selection, and keeps the stage width on a reset', () => {
+    useViewStore.getState().setStageWidth(1200)
+    useViewStore.getState().setSelection({ startMs: 1000, endMs: 2500 })
+    expect(useViewStore.getState().selection).toEqual({ startMs: 1000, endMs: 2500 })
+
+    useViewStore.getState().resetView()
+
+    expect(useViewStore.getState()).toMatchObject({ selection: null, stageWidthPx: 1200 })
+    useViewStore.getState().setSelection({ startMs: 0, endMs: 10 })
+    useViewStore.getState().setSelection(null)
+    expect(useViewStore.getState().selection).toBeNull()
+  })
+
   it('sets the zoom, the scroll offset and the play time, and resets them', () => {
     const view = useViewStore.getState()
     view.setZoom(200)

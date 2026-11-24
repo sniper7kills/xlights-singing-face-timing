@@ -1,9 +1,9 @@
-import { useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { useMemo } from 'react'
 import type { Layer, Mark, SongContent } from '../../store/types.ts'
 import { selectedVoice, useViewStore } from '../../store/viewStore.ts'
 import { LayerRow } from './LayerRow.tsx'
-import { TimeRuler } from './TimeRuler.tsx'
-import { inRange, makeTimeScale, visibleRange } from './timeScale.ts'
+import { inRange, visibleRange } from './timeScale.ts'
+import { useStageScale } from './useStageScale.ts'
 
 export type LayersProps = {
   /** Receives a click on the "Transcribe" button of the empty state. Without it, the empty state has no button. */
@@ -19,27 +19,13 @@ const ROWS: { layer: Layer; name: string }[] = [
 ]
 
 /**
- * Shows the time ruler and the phrase layer, the word layer and the phoneme layer of
- * the selected voice. The layers use the zoom and the scroll offset of the view store.
+ * Shows the phrase layer, the word layer and the phoneme layer of the selected voice.
+ * The layers use the time scale of the stage.
  * A voice with no marks shows the empty state.
  */
 export function Layers({ onTranscribe, content }: LayersProps) {
   const selectedVoiceId = useViewStore((view) => view.selectedVoiceId)
-  const pxPerSecond = useViewStore((view) => view.pxPerSecond)
-  const scrollMs = useViewStore((view) => view.scrollMs)
-  const regionRef = useRef<HTMLElement>(null)
-  const [widthPx, setWidthPx] = useState(0)
-
-  useLayoutEffect(() => {
-    const region = regionRef.current
-    if (!region) return
-    // The layers have the width of the waveform container, so the two scales agree.
-    const update = () => setWidthPx(region.clientWidth)
-    update()
-    const observer = new ResizeObserver(update)
-    observer.observe(region)
-    return () => observer.disconnect()
-  }, [])
+  const { input, scale } = useStageScale(content.song.durationMs)
 
   const voiceId = selectedVoice(content.voices, selectedVoiceId)?.id
   const marksByLayer = useMemo(() => {
@@ -51,17 +37,11 @@ export function Layers({ onTranscribe, content }: LayersProps) {
   }, [content.marks, voiceId])
   const empty = ROWS.every(({ layer }) => marksByLayer[layer].length === 0)
 
-  const scale = makeTimeScale({
-    widthPx,
-    durationMs: content.song.durationMs,
-    pxPerSecond,
-    scrollMs,
-  })
-  const range = visibleRange(scale, widthPx)
+  // The layers draw only the marks in view, so a song with 3 000 marks scrolls at 60 frames per second.
+  const range = visibleRange(scale, input.widthPx)
 
   return (
-    <section ref={regionRef} className="layers" aria-label="Layers">
-      <TimeRuler scale={scale} widthPx={widthPx} />
+    <section className="layers" aria-label="Layers">
       {empty ? (
         <div className="layers-empty">
           <p>No marks yet. Select Transcribe to find the words.</p>
