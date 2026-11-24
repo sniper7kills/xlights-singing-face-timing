@@ -67,6 +67,7 @@ function lastRun(): HeldRun {
 
 async function renderDialog() {
   const onClose = vi.fn()
+  const onDone = vi.fn()
   const onActiveChange = vi.fn()
   const user = userEvent.setup()
   const view = render(
@@ -75,11 +76,12 @@ async function renderDialog() {
       durationMs={220_000}
       onActiveChange={onActiveChange}
       onClose={onClose}
+      onDone={onDone}
     />,
   )
   const start = screen.getByRole('button', { name: 'Start' })
   await vi.waitFor(() => expect(start).toBeEnabled())
-  return { onClose, onActiveChange, user, start, view }
+  return { onClose, onDone, onActiveChange, user, start, view }
 }
 
 function progress() {
@@ -226,17 +228,18 @@ describe('TranscribeDialog', () => {
     expect(screen.getByRole('radio', { name: 'base 139 MB' })).toBeDisabled()
   })
 
-  it('closes the dialog when the run ends well', async () => {
-    const { user, start, onClose } = await renderDialog()
+  it('passes the counts of a run that ends well to the parent', async () => {
+    const { user, start, onClose, onDone } = await renderDialog()
     await user.click(start)
 
     await act(async () => lastRun().resolve({ wordCount: 16, estimatedCount: 0 }))
 
-    expect(onClose).toHaveBeenCalledOnce()
+    expect(onDone).toHaveBeenCalledExactlyOnceWith({ wordCount: 16, estimatedCount: 0 })
+    expect(onClose).not.toHaveBeenCalled()
   })
 
   it('stops the run, terminates the worker and goes back to idle for "Cancel"', async () => {
-    const { user, start, onClose, onActiveChange } = await renderDialog()
+    const { user, start, onClose, onDone, onActiveChange } = await renderDialog()
     await user.click(start)
 
     await user.click(screen.getByRole('button', { name: 'Cancel' }))
@@ -248,6 +251,7 @@ describe('TranscribeDialog', () => {
     expect(onActiveChange).toHaveBeenLastCalledWith(false)
     await act(async () => lastRun().reject(new TranscribeError('cancelled', 'x')))
     expect(onClose).not.toHaveBeenCalled()
+    expect(onDone).not.toHaveBeenCalled()
   })
 
   it('ignores the progress of a cancelled run', async () => {

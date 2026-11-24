@@ -95,6 +95,19 @@ describe('EditorPage', () => {
     expect(action).toHaveFocus()
   })
 
+  it('shows the toast with the word count and the estimated count after a run', async () => {
+    vi.mocked(runTranscription).mockResolvedValue({ wordCount: 214, estimatedCount: 9 })
+    const user = userEvent.setup()
+    await renderEditor()
+    await user.click(topBarTranscribe())
+    const start = within(screen.getByRole('dialog')).getByRole('button', { name: 'Start' })
+    await vi.waitFor(() => expect(start).toBeEnabled())
+
+    await user.click(start)
+
+    expect(await screen.findByText('214 words, 9 estimated')).toHaveAttribute('role', 'status')
+  })
+
   it('shows no "Transcribe" action for a song with no voice', async () => {
     const song = await storeNewSong({ name: 'carol', durationMs: 3000, audio, voices: [] })
     render(<EditorPage songId={song.id} />)

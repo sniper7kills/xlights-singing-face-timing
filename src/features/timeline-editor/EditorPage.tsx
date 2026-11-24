@@ -4,9 +4,14 @@ import { useAutosaveStore, useSaveState } from '../../store/autosave.ts'
 import { StorageFullError } from '../../store/db.ts'
 import { useSongStore } from '../../store/songStore.ts'
 import { selectedVoice, useViewStore } from '../../store/viewStore.ts'
+import type { TranscribeOutcome } from '../transcription/runTranscription.ts'
 import { TranscribeDialog } from '../transcription/TranscribeDialog.tsx'
+import { outcomeText } from '../transcription/transcribeDialogState.ts'
 import { Layers } from './Layers.tsx'
 import { Waveform } from './Waveform.tsx'
+
+/** The time that the toast after a transcribe run stays on the screen. */
+const TOAST_MS = 6000
 
 type EditorPageProps = {
   songId: string
@@ -21,6 +26,7 @@ export function EditorPage({ songId }: EditorPageProps) {
   const selectedVoiceId = useViewStore((state) => state.selectedVoiceId)
   const [dialogOpen, setDialogOpen] = useState(false)
   const [running, setRunning] = useState(false)
+  const [toast, setToast] = useState<string | null>(null)
   const opener = useRef<HTMLElement | null>(null)
 
   const openTranscribeDialog = useCallback(() => {
@@ -32,6 +38,20 @@ export function EditorPage({ songId }: EditorPageProps) {
     setDialogOpen(false)
     setRunning(false)
   }, [])
+
+  const finishTranscribe = useCallback(
+    (outcome: TranscribeOutcome) => {
+      setToast(outcomeText(outcome))
+      closeTranscribeDialog()
+    },
+    [closeTranscribeDialog],
+  )
+
+  useEffect(() => {
+    if (toast === null) return
+    const timer = window.setTimeout(() => setToast(null), TOAST_MS)
+    return () => window.clearTimeout(timer)
+  }, [toast])
 
   useEffect(() => {
     // The action is disabled until the render after the run, and a disabled button takes no focus.
@@ -98,7 +118,13 @@ export function EditorPage({ songId }: EditorPageProps) {
           durationMs={song.durationMs}
           onActiveChange={setRunning}
           onClose={closeTranscribeDialog}
+          onDone={finishTranscribe}
         />
+      )}
+      {toast !== null && (
+        <p className="toast" role="status">
+          {toast}
+        </p>
       )}
     </section>
   )
