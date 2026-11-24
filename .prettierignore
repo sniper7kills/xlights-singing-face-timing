@@ -14,3 +14,7 @@ package-lock.json
 
 # The tests compare these files byte for byte with the output of writeXtiming.
 tests/fixtures/
+
+# The dictionary build script writes these files from the vendored source.
+vendor/
+public/dict/
