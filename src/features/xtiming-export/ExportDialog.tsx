@@ -118,8 +118,9 @@ export function ExportDialog({ content, initialOptions, onClose, onDownload }: E
   }
 
   function onKeyDown(event: KeyboardEvent<HTMLDivElement>) {
+    // The dialog is modal, so a key such as the space bar must not reach the editor shortcuts.
+    event.stopPropagation()
     if (event.key === 'Escape') {
-      event.stopPropagation()
       onClose()
     } else if (event.key === 'Tab') {
       keepFocusInside(event)

@@ -567,6 +567,11 @@ button {
   color: var(--ink);
 }
 
+.export-dialog:focus {
+  /* The dialog takes the focus only to move the focus into the modal, so it shows no ring. */
+  outline: none;
+}
+
 .export-head {
   display: flex;
   flex-wrap: wrap;

@@ -260,6 +260,18 @@ describe('ExportDialog', () => {
     expect(onClose).toHaveBeenCalledTimes(2)
   })
 
+  it('keeps a key press inside the dialog away from the editor shortcuts', async () => {
+    const user = userEvent.setup()
+    const onWindowKey = vi.fn()
+    window.addEventListener('keydown', onWindowKey)
+    renderDialog(twoVoices)
+
+    await user.keyboard(' ')
+
+    window.removeEventListener('keydown', onWindowKey)
+    expect(onWindowKey).not.toHaveBeenCalled()
+  })
+
   it('keeps the focus inside the dialog with Tab and Shift+Tab', async () => {
     const user = userEvent.setup()
     renderDialog(twoVoices)
