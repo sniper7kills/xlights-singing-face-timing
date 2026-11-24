@@ -123,12 +123,98 @@ button {
 
 .empty {
   display: grid;
-  justify-items: center;
   gap: 16px;
-  padding: 48px 28px;
+}
+
+.drop-zone-area {
+  display: grid;
+  gap: 12px;
+}
+
+.drop-zone {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 24px;
+  align-items: center;
+  padding: 34px 28px;
   border: 2px dashed var(--line);
   border-radius: 18px;
-  background: var(--panel);
+  background: linear-gradient(135deg, var(--panel), transparent);
+}
+
+.drop-zone:hover,
+.drop-zone.drag-over {
+  border-color: var(--amber);
+}
+
+.drop-zone.drag-over {
+  border-style: solid;
+  background: color-mix(in srgb, var(--amber) 10%, var(--panel));
+}
+
+.drop-zone.compact {
+  gap: 16px;
+  padding: 14px 18px;
+}
+
+.drop-zone.compact .drop-zone-note,
+.drop-zone.compact .drop-zone-hint {
+  display: none;
+}
+
+.drop-zone p {
+  margin: 0;
+}
+
+.drop-zone-title {
+  font: 700 22px var(--display);
+}
+
+.drop-zone.compact .drop-zone-title {
+  font-size: 17px;
+}
+
+.drop-zone-hint {
+  color: var(--mute);
+}
+
+.drop-zone-note {
+  display: grid;
+  place-items: center;
+  width: 74px;
+  height: 74px;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  background: var(--panel2);
+  font-size: 32px;
+}
+
+.drop-zone-actions {
+  display: grid;
+  gap: 8px;
+}
+
+.drop-zone-loading {
+  display: grid;
+  grid-column: 1 / -1;
+  gap: 10px;
+}
+
+.drop-zone-loading b {
+  font-family: var(--display);
+}
+
+.drop-zone-loading progress {
+  width: 100%;
+  accent-color: var(--amber);
+}
+
+.note-band {
+  margin: 0;
+  padding: 10px 14px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  color: var(--mute);
 }
 
 .empty h2 {
@@ -152,5 +238,11 @@ button {
 
   .main {
     padding: 0 16px 40px;
+  }
+
+  .drop-zone {
+    grid-template-columns: 1fr;
+    justify-items: center;
+    text-align: center;
   }
 }

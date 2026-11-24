@@ -1,4 +1,6 @@
+import { DropZone } from '../features/audio-import/DropZone.tsx'
 import type { DatabaseStatus } from './database.ts'
+import { songHash } from './routes.ts'
 
 type SongLibraryPageProps = {
   databaseStatus: DatabaseStatus
@@ -16,9 +18,7 @@ export function SongLibraryPage({ databaseStatus }: SongLibraryPageProps) {
   return (
     <section className="empty" aria-labelledby="empty-title">
       <h2 id="empty-title">No songs yet</h2>
-      <button type="button" className="button primary" disabled>
-        Add a song
-      </button>
+      <DropZone onSongCreated={(song) => window.location.assign(songHash(song.id))} />
     </section>
   )
 }
