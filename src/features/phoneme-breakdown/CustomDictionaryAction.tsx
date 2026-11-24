@@ -6,7 +6,13 @@ export function CustomDictionaryAction() {
   const [open, setOpen] = useState(false)
   return (
     <>
-      <button type="button" className="button" onClick={() => setOpen(true)}>
+      {/* The dialog finds this button by the attribute when the control that opened it is gone. */}
+      <button
+        type="button"
+        className="button"
+        data-custom-dictionary-action
+        onClick={() => setOpen(true)}
+      >
         Custom dictionary
       </button>
       {open && <CustomDictionaryDialog onClose={() => setOpen(false)} />}

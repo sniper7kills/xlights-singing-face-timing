@@ -262,6 +262,31 @@ describe('rebreakForEntries', () => {
     expect(phonemesOf('night')).toEqual([HAND_PHONEME])
   })
 
+  it('updates the unknown state of an edited word and keeps its phonemes, in the undo step of the entry', async () => {
+    const { entries, phonemesOf, word, useSongStore } = await setup()
+    useSongStore.setState((state) => ({
+      current: state.current && {
+        ...state.current,
+        marks: state.current.marks.map((item) =>
+          item.id === 'night' ? { ...item, label: 'Nyght', unknown: true } : item,
+        ),
+      },
+    }))
+
+    await entries.putCustomEntry({ word: 'NYGHT', symbols: 'N AY1 T' })
+
+    expect(word('night')?.unknown).toBe(false)
+    expect(phonemesOf('night')).toEqual([HAND_PHONEME])
+    expect(useSongStore.getState().history.past).toHaveLength(1)
+
+    await entries.deleteCustomEntry('NYGHT')
+    expect(word('night')?.unknown).toBe(true)
+    expect(phonemesOf('night')).toEqual([HAND_PHONEME])
+
+    useSongStore.getState().undo()
+    expect(word('night')?.unknown).toBe(false)
+  })
+
   it("matches a label that ends in IN' with the entry that ends in ING", async () => {
     const { entries, phonemesOf } = await setup()
 

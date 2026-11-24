@@ -403,11 +403,18 @@ describe('runTranscription and the break down', () => {
     })
   })
 
-  it('rejects and writes no mark when the dictionary load fails for a reason other than the file', async () => {
+  it('writes the words without phonemes and reports the failure when the break down fails for a reason other than the file', async () => {
     vi.mocked(loadDictionary).mockRejectedValue(new TypeError('broken'))
 
-    await expect(runTranscription(modelRequest, fakeClient(), handlers())).rejects.toThrow('broken')
-    expect(marks()).toEqual([])
+    const outcome = await runTranscription(modelRequest, fakeClient(), handlers())
+
+    const words = marks().filter((mark) => mark.layer === 'word')
+    expect(words.map((word) => word.label)).toEqual(['Silent', 'night'])
+    expect(labels('phoneme')).toEqual([])
+    expect(outcome.breakDownFailure).toEqual({
+      message: 'The app could not break down the words. Select Retry.',
+      wordIds: words.map((word) => word.id),
+    })
   })
 })
 

@@ -21,6 +21,8 @@ const DICTIONARY = {
   RUDOLPH: 'R UW1 D AA0 L F',
 }
 
+const STORAGE_FAILURE = 'The app could not read or write the custom dictionary. Reload the page.'
+
 beforeEach(() => {
   vi.mocked(loadDictionary).mockResolvedValue(DICTIONARY)
 })
@@ -262,13 +264,17 @@ describe('CustomDictionaryDialog', () => {
       new File([text], 'words.txt', { type: 'text/plain' }),
     )
 
-    expect(await screen.findByRole('status')).toHaveTextContent(
-      '2 entries imported. 2 lines skipped (lines 3, 5).',
+    await waitFor(() =>
+      expect(screen.getByRole('status')).toHaveTextContent(
+        '2 entries imported. 2 lines skipped (lines 3, 5).',
+      ),
     )
-    expect(entryRows()).toEqual([
-      ['RUDOLPH', 'R UW1 D UW0', 'etc U etc U'],
-      ['ZXQV', 'Z', 'etc'],
-    ])
+    await waitFor(() =>
+      expect(entryRows()).toEqual([
+        ['RUDOLPH', 'R UW1 D UW0', 'etc U etc U'],
+        ['ZXQV', 'Z', 'etc'],
+      ]),
+    )
   })
 
   it('reports one skipped line for a file with no good line', async () => {
@@ -279,9 +285,111 @@ describe('CustomDictionaryDialog', () => {
       new File(['bad'], 'words.txt', { type: 'text/plain' }),
     )
 
-    expect(await screen.findByRole('status')).toHaveTextContent(
-      '0 entries imported. 1 line skipped (line 1).',
+    await waitFor(() =>
+      expect(screen.getByRole('status')).toHaveTextContent(
+        '0 entries imported. 1 line skipped (line 1).',
+      ),
     )
+  })
+
+  it('counts the distinct words of an import', async () => {
+    const { user } = await renderDialog()
+    const text = ['Rudolph  R UW1 D AA0 L F', 'RUDOLPH!  R UW1 D UW0'].join('\n')
+
+    await user.upload(
+      screen.getByLabelText('Custom dictionary file'),
+      new File([text], 'words.txt', { type: 'text/plain' }),
+    )
+
+    await waitFor(() =>
+      expect(screen.getByRole('status')).toHaveTextContent(/^1 entry imported\.$/),
+    )
+    await waitFor(() => expect(entryRows()).toEqual([['RUDOLPH', 'R UW1 D UW0', 'etc U etc U']]))
+  })
+
+  it('shows the first 10 skipped line numbers and the count of the other skipped lines', async () => {
+    const { user } = await renderDialog()
+    const lines = Array.from({ length: 15 }, (_, index) => (index === 0 ? 'ZXQV  Z' : 'bad'))
+
+    await user.upload(
+      screen.getByLabelText('Custom dictionary file'),
+      new File([lines.join('\n')], 'words.txt', { type: 'text/plain' }),
+    )
+
+    await waitFor(() =>
+      expect(screen.getByRole('status')).toHaveTextContent(
+        '1 entry imported. 14 lines skipped (lines 2, 3, 4, 5, 6, 7, 8, 9, 10, 11 and 4 more).',
+      ),
+    )
+  })
+
+  it('shows the storage failure message when the app cannot read the import file', async () => {
+    const { user } = await renderDialog()
+    const file = new File(['ZXQV  Z'], 'words.txt', { type: 'text/plain' })
+    vi.spyOn(file, 'text').mockRejectedValue(new Error('gone'))
+
+    await user.upload(screen.getByLabelText('Custom dictionary file'), file)
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(STORAGE_FAILURE)
+    expect(await listCustomEntries()).toEqual([])
+  })
+
+  it('shows the storage failure message when the app cannot read the custom entries', async () => {
+    vi.spyOn(db, 'listRecords').mockRejectedValue(new Error('locked'))
+
+    await renderDialog()
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(STORAGE_FAILURE)
+  })
+
+  it('shows the storage failure message when the app cannot save an entry', async () => {
+    vi.spyOn(db, 'putCustomEntryRecords').mockRejectedValue(new Error('locked'))
+    const { user } = await renderDialog()
+
+    await addBySymbols(user, 'RUDOLPH', 'R UW1')
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(STORAGE_FAILURE)
+    expect(screen.getByLabelText('Word')).toHaveValue('RUDOLPH')
+  })
+
+  it('loads the dictionary again and saves the entry on "Retry" after a failed load', async () => {
+    vi.mocked(loadDictionary).mockRejectedValueOnce(new DictionaryLoadError())
+    const { user } = await renderDialog()
+    await user.type(screen.getByLabelText('Word'), 'RUDOLPH')
+    await user.click(screen.getByRole('radio', { name: 'Sounds like spelling' }))
+    await user.type(screen.getByLabelText('Sounds like'), 'ROO DOLF')
+    await user.click(screen.getByRole('button', { name: 'Add entry' }))
+    await screen.findByText('The dictionary did not load. Check the connection and retry.')
+
+    await user.click(screen.getByRole('button', { name: 'Retry' }))
+
+    await waitFor(() =>
+      expect(entryRows()).toEqual([['RUDOLPH', 'R UW1 D AA1 L F', 'etc U etc AI L FV']]),
+    )
+    expect(
+      screen.queryByText('The dictionary did not load. Check the connection and retry.'),
+    ).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Retry' })).toBeNull()
+  })
+
+  it('moves the focus to the first field with an error after a failed submit', async () => {
+    const { user } = await renderDialog()
+
+    await user.click(screen.getByRole('button', { name: 'Add entry' }))
+    await waitFor(() => expect(screen.getByLabelText('Word')).toHaveFocus())
+
+    await user.type(screen.getByLabelText('Word'), 'RUDOLPH')
+    await user.click(screen.getByRole('button', { name: 'Add entry' }))
+    await waitFor(() => expect(screen.getByLabelText('CMU symbols')).toHaveFocus())
+  })
+
+  it('rejects a word of digits only', async () => {
+    const { user } = await renderDialog()
+
+    await addBySymbols(user, '12', 'T')
+
+    expect(await screen.findByText('Type a word with a letter.')).toBeInTheDocument()
+    expect(await listCustomEntries()).toEqual([])
   })
 
   it('exports the custom dictionary as a text file', async () => {
@@ -418,5 +526,25 @@ describe('CustomDictionaryDialog with an open song', () => {
     await waitFor(() => expect(labelsOf('free')).toEqual(['etc', 'U', 'etc', 'AI', 'L', 'FV']))
 
     expect(marks().filter((mark) => mark.parentId === 'edited')).toEqual([HAND_PHONEME])
+  })
+
+  it('makes a word of the layer known after an import of a line with punctuation in its word', async () => {
+    await openSong()
+    useSongStore.setState((state) => ({
+      current: state.current && {
+        ...state.current,
+        marks: state.current.marks.map((mark) => ({ ...mark, unknown: mark.layer === 'word' })),
+      },
+    }))
+    const { user } = await renderDialog()
+
+    await user.upload(
+      screen.getByLabelText('Custom dictionary file'),
+      new File(['RUDOLPH!  R UW1 D AA0 L F'], 'words.txt', { type: 'text/plain' }),
+    )
+
+    await waitFor(() => expect(marks().find((mark) => mark.id === 'free')?.unknown).toBe(false))
+    expect(labelsOf('free')).toEqual(['etc', 'U', 'etc', 'AI', 'L', 'FV'])
+    expect(entryRows()).toEqual([['RUDOLPH', 'R UW1 D AA0 L F', 'etc U etc AI L FV']])
   })
 })

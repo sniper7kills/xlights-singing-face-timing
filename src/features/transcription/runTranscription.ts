@@ -88,7 +88,7 @@ function stopIfCancelled(signal: AbortSignal): void {
 
 /**
  * Runs one transcription for the open song, writes the marks as one undo step, and returns the counts.
- * The same undo step holds the phonemes of each new word. If the dictionary does not load, the words have no phonemes and the outcome reports it.
+ * The same undo step holds the phonemes of each new word. If the break down fails, the words have no phonemes and the outcome reports it.
  * The run replaces the marks of the voice that lie fully inside the range. The marks outside it stay.
  * @param request The run that the person started. Without a range, the range is the full song.
  * @param client The client that runs the speech model. A lyrics-only run does not call it.
@@ -133,8 +133,8 @@ export async function runTranscription(
 
 /**
  * Returns the marks of a run with the phonemes of each new word added.
- * A dictionary that does not load must not lose the run, so the words then stay without phonemes and the failure names them.
- * Rejects for a failure other than DictionaryLoadError, for example a database that cannot read the custom dictionary.
+ * A break down that fails must not lose the run, so the words then stay without phonemes and the failure names them.
+ * The failure is a dictionary that does not load, or any other failure, for example a database that cannot read the custom dictionary.
  */
 async function breakDownRun(
   marks: Mark[],
@@ -148,10 +148,13 @@ async function breakDownRun(
       breakDownFailure: null,
     }
   } catch (error) {
-    if (!(error instanceof DictionaryLoadError)) throw error
+    const message =
+      error instanceof DictionaryLoadError
+        ? error.message
+        : 'The app could not break down the words. Select Retry.'
     return {
       written: marks,
-      breakDownFailure: { message: error.message, wordIds: words.map((word) => word.id) },
+      breakDownFailure: { message, wordIds: words.map((word) => word.id) },
     }
   }
 }

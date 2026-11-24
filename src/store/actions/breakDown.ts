@@ -84,27 +84,33 @@ export function breakDownMarks(
   ]
 }
 
-async function applyBreakDown(isTarget: (word: Mark) => boolean): Promise<void> {
+async function applyToMarks(
+  change: (marks: readonly Mark[], dictionaries: Dictionaries, frameMs: number) => readonly Mark[],
+): Promise<void> {
   const dictionaries = await loadDictionaries()
   useSongStore.getState().apply((content): SongContent => {
-    const marks = breakDownMarks(content.marks, isTarget, dictionaries, content.song.frameMs)
+    const marks = change(content.marks, dictionaries, content.song.frameMs)
     return marks === content.marks ? content : { ...content, marks: [...marks] }
   })
 }
 
 /**
- * Breaks down the words of the open song again, as one undo step. This is "Break down again".
+ * Replaces the phonemes of the given words of the open song with a new break down, as one undo step.
+ * TODO(#30): Add the "Break down again" control for the selected words.
  * An edited word keeps its phonemes. An id of a mark that is not a word changes nothing.
  * @param wordIds The ids of the word marks.
  * Rejects with DictionaryLoadError when the dictionary file does not load. The words then keep their phonemes.
  */
 export function breakDownWords(wordIds: readonly string[]): Promise<void> {
   const ids = new Set(wordIds)
-  return applyBreakDown((word) => ids.has(word.id))
+  return applyToMarks((marks, dictionaries, frameMs) =>
+    breakDownMarks(marks, (word) => ids.has(word.id), dictionaries, frameMs),
+  )
 }
 
 /**
  * Breaks down again each unedited word of the open song that the custom entries match, in every voice, as one undo step.
+ * An edited word that matches keeps its phonemes. The same undo step sets its `unknown` state again.
  * Call it after a custom entry changes or goes, with the in-memory copy already refreshed.
  * The words of a song that is not open do not change. They read the entry at their next break down.
  * A label that ends in `IN'` also matches the entry with `ING`, the same as `lookup`.
@@ -119,6 +125,15 @@ export async function rebreakForEntries(words: readonly string[]): Promise<void>
   }
   const marks = useSongStore.getState().current?.marks ?? []
   // No match needs no dictionary, so an entry change before the first break down requests no file.
-  if (!marks.some((mark) => mark.layer === 'word' && !mark.edited && matches(mark))) return
-  await applyBreakDown(matches)
+  if (!marks.some((mark) => mark.layer === 'word' && matches(mark))) return
+  await applyToMarks((current, dictionaries, frameMs) => {
+    const broken = breakDownMarks(current, matches, dictionaries, frameMs)
+    const unknownNow = (word: Mark) =>
+      lookup(word.label, dictionaries.custom, dictionaries.cmu).source === 'guess'
+    // The break down skips an edited word, and the unknown-word counter still reads its `unknown` state.
+    const stale = (mark: Mark) =>
+      mark.layer === 'word' && mark.edited && matches(mark) && mark.unknown !== unknownNow(mark)
+    if (!broken.some(stale)) return broken
+    return broken.map((mark) => (stale(mark) ? { ...mark, unknown: unknownNow(mark) } : mark))
+  })
 }

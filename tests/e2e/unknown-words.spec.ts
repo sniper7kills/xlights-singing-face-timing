@@ -51,6 +51,9 @@ test('shows an unknown word with a dotted border, selects it from the counter, a
   await expect(toolbar(page).getByRole('button', { name: /unknown word/ })).toHaveCount(0)
   await page.keyboard.press('Escape')
   await expect(dictionary).toBeHidden()
+  // The save removed the button that opened the dialog, so the focus goes to the selected word.
+  await expect(zxqv).toBeFocused()
+  await expect(page.locator('body')).not.toBeFocused()
   await expect(zxqv).toHaveCSS('border-top-style', 'solid')
 
   await expect(page.locator('.save-state')).toHaveText('Saved')

@@ -54,6 +54,45 @@ describe('custom entries', () => {
     expect(await api.customDictionary()).toEqual({ RUDOLPH: 'R UW1 D UW0', ZXQV: 'Z K S' })
   })
 
+  it('normalises the word of an entry before the save', async () => {
+    await api.putCustomEntry({ word: 'Rudolph!', symbols: 'R UW1 D AA0 L F' })
+
+    expect((await api.listCustomEntries()).map((entry) => entry.word)).toEqual(['RUDOLPH'])
+    expect(await api.customDictionary()).toEqual({ RUDOLPH: 'R UW1 D AA0 L F' })
+  })
+
+  it.each(['12', '--', ''])(
+    'rejects the word "%s" with CustomEntryWordError and saves nothing',
+    async (word) => {
+      await expect(api.putCustomEntry({ word, symbols: 'R UW1' })).rejects.toBeInstanceOf(
+        api.CustomEntryWordError,
+      )
+      expect(await api.listCustomEntries()).toEqual([])
+    },
+  )
+
+  it('skips an entry whose word has no letter in a batch save and returns its word', async () => {
+    const skipped = await api.putCustomEntries([
+      { word: '12', symbols: 'T' },
+      { word: 'zxqv', symbols: 'Z K S' },
+      { word: '!?', symbols: 'T' },
+    ])
+
+    expect(skipped).toEqual(['12', '!?'])
+    expect((await api.listCustomEntries()).map((entry) => entry.word)).toEqual(['ZXQV'])
+  })
+
+  it('keeps one record, with the later symbols, for two words that normalise to the same word', async () => {
+    await api.putCustomEntries([
+      { word: 'Rudolph', symbols: 'R UW1 D AA0 L F' },
+      { word: 'RUDOLPH!', symbols: 'R UW1 D UW0' },
+    ])
+
+    expect((await api.listCustomEntries()).map(({ word, symbols }) => [word, symbols])).toEqual([
+      ['RUDOLPH', 'R UW1 D UW0'],
+    ])
+  })
+
   it('deletes an entry and removes it from the copy', async () => {
     await api.putCustomEntries([
       { word: 'RUDOLPH', symbols: 'R UW1 D AA0 L F' },

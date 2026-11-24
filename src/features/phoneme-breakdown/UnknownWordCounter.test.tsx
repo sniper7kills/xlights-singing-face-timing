@@ -5,7 +5,10 @@ import { makeSongContent } from '../../store/fixtures.test-helpers.ts'
 import { useSongStore } from '../../store/songStore.ts'
 import type { Mark } from '../../store/types.ts'
 import { useViewStore } from '../../store/viewStore.ts'
+import { EditorToolbar } from '../timeline-editor/EditorToolbar.tsx'
+import { MarkView } from '../timeline-editor/MarkView.tsx'
 import { AddWordAction } from './AddWordAction.tsx'
+import { CustomDictionaryAction } from './CustomDictionaryAction.tsx'
 import { UnknownWordCounter } from './UnknownWordCounter.tsx'
 
 const VOICE = 'song-1-voice'
@@ -117,6 +120,17 @@ describe('UnknownWordCounter', () => {
     expect(useViewStore.getState().scrollMs).toBe(2000)
   })
 
+  it('announces the selected word in a polite live region', async () => {
+    const user = userEvent.setup()
+    openSongWith(THREE_UNKNOWN)
+    render(<UnknownWordCounter />)
+    expect(screen.getByRole('status')).toBeEmptyDOMElement()
+
+    await user.click(screen.getByRole('button', { name: '3 unknown words' }))
+
+    expect(screen.getByRole('status')).toHaveTextContent(/^Selected Blorp\.$/)
+  })
+
   it('counts the unknown words of the selected voice', () => {
     const content = makeSongContent()
     const harmony = { id: 'voice-2', songId: 'song-1', name: 'Harmony', order: 1, color: '#5d9ee0' }
@@ -177,5 +191,62 @@ describe('AddWordAction', () => {
 
     expect(screen.queryByRole('button', { name: 'Add to custom dictionary' })).toBeNull()
     expect(screen.getByRole('dialog', { name: 'Custom dictionary' })).toBeInTheDocument()
+  })
+
+  it('shows the dialog outside the toolbar', async () => {
+    const user = userEvent.setup()
+    openSongWith(THREE_UNKNOWN)
+    useViewStore.getState().selectMarks(['Zxqv'])
+    render(
+      <EditorToolbar>
+        <AddWordAction />
+      </EditorToolbar>,
+    )
+
+    await user.click(screen.getByRole('button', { name: 'Add to custom dictionary' }))
+
+    const dialog = screen.getByRole('dialog', { name: 'Custom dictionary' })
+    expect(screen.getByRole('toolbar', { name: 'Editor tools' })).not.toContainElement(dialog)
+  })
+
+  it('moves the focus to the selected mark when the dialog closes after the word becomes known', async () => {
+    const user = userEvent.setup()
+    openSongWith(THREE_UNKNOWN)
+    useViewStore.getState().selectMarks(['Zxqv'])
+    render(
+      <>
+        <ul>
+          <MarkView mark={word('Zxqv', 3000, true)} scale={{ pxPerMs: 0.1, scrollMs: 0 }} />
+        </ul>
+        <CustomDictionaryAction />
+        <AddWordAction />
+      </>,
+    )
+    await user.click(screen.getByRole('button', { name: 'Add to custom dictionary' }))
+    act(() => openSongWith([word('Zxqv', 3000, false)]))
+
+    await user.keyboard('{Escape}')
+
+    expect(screen.queryByRole('dialog')).toBeNull()
+    expect(screen.getByRole('listitem')).toHaveFocus()
+  })
+
+  it('moves the focus to "Custom dictionary" when the dialog closes with no opener and no selected mark', async () => {
+    const user = userEvent.setup()
+    openSongWith(THREE_UNKNOWN)
+    useViewStore.getState().selectMarks(['Zxqv'])
+    render(
+      <>
+        <CustomDictionaryAction />
+        <AddWordAction />
+      </>,
+    )
+    await user.click(screen.getByRole('button', { name: 'Add to custom dictionary' }))
+    act(() => openSongWith([word('Zxqv', 3000, false)]))
+
+    await user.keyboard('{Escape}')
+
+    expect(screen.queryByRole('dialog')).toBeNull()
+    expect(screen.getByRole('button', { name: 'Custom dictionary' })).toHaveFocus()
   })
 })

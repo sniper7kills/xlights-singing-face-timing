@@ -1,5 +1,9 @@
-import { type FormEvent, useId, useState } from 'react'
-import { isEntryWord, MAX_WORD_LENGTH } from '../../lib/dictionary/customDictionaryFile.ts'
+import { type FormEvent, useEffect, useId, useRef, useState } from 'react'
+import {
+  entryKey,
+  isEntryWord,
+  MAX_WORD_LENGTH,
+} from '../../lib/dictionary/customDictionaryFile.ts'
 import { normaliseWord } from '../../lib/dictionary/normaliseWord.ts'
 import { resolveSoundsLike } from '../../lib/dictionary/soundsLike.ts'
 import { validateSymbols } from '../../lib/dictionary/validateSymbols.ts'
@@ -26,6 +30,8 @@ type EntryFormProps = {
   onSave: (entry: CustomEntryInput) => Promise<boolean>
   /** Stops the edit. */
   onCancel: () => void
+  /** Tells the dialog that the app cannot read the custom dictionary, so the dialog shows the message. */
+  onStorageFailure: () => void
 }
 
 /** Returns the first text of the word field: the word of the edited entry, else the initial word as a dictionary key. */
@@ -39,21 +45,35 @@ function wordError(typed: string): string | undefined {
   if (typed === '') return 'Type a word.'
   if (!isEntryWord(typed)) return `A word has 1 to ${MAX_WORD_LENGTH} characters and no spaces.`
   if (normaliseWord(typed) === '') return 'Type a word with a letter or a digit.'
+  if (entryKey(typed) === undefined) return 'Type a word with a letter.'
   return undefined
 }
 
 /**
  * Shows the entry form of the custom dictionary dialog: the word, the entry type, and the CMU symbols or the "sounds like" spelling.
- * The form validates the entry and shows each error under its field.
+ * The form validates the entry and shows each error under its field. A failed submit moves the focus to the first field with an error.
+ * If the dictionary does not load for a "sounds like" spelling, "Retry" beside the message runs the submit again.
  */
-export function EntryForm({ editing, initialWord, onSave, onCancel }: EntryFormProps) {
+export function EntryForm({
+  editing,
+  initialWord,
+  onSave,
+  onCancel,
+  onStorageFailure,
+}: EntryFormProps) {
   const id = useId()
+  const formRef = useRef<HTMLFormElement>(null)
   const [word, setWord] = useState(() => firstWord(editing, initialWord))
   const [entryType, setEntryType] = useState<EntryType>('symbols')
   const [symbols, setSymbols] = useState(() => editing?.symbols ?? '')
   const [soundsLike, setSoundsLike] = useState('')
   const [errors, setErrors] = useState<FieldErrors>({})
   const [busy, setBusy] = useState(false)
+
+  useEffect(() => {
+    // The field has `aria-invalid` only after the render, so the focus moves here and not in the submit.
+    formRef.current?.querySelector<HTMLElement>('[aria-invalid="true"]')?.focus()
+  }, [errors])
 
   function chooseEntryType(type: EntryType) {
     setEntryType(type)
@@ -83,13 +103,18 @@ export function EntryForm({ editing, initialWord, onSave, onCancel }: EntryFormP
         errors: { soundsLike: `The app does not know ${result.unknown}. Use shorter known words.` },
       }
     } catch (failure) {
-      if (!(failure instanceof DictionaryLoadError)) throw failure
-      return { errors: { form: failure.message } }
+      if (failure instanceof DictionaryLoadError) return { errors: { form: failure.message } }
+      onStorageFailure()
+      return { errors: {} }
     }
   }
 
-  async function submit(event: FormEvent<HTMLFormElement>) {
+  function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
+    void check()
+  }
+
+  async function check() {
     const typed = word.trim()
     const badWord = wordError(typed)
     setBusy(true)
@@ -116,7 +141,13 @@ export function EntryForm({ editing, initialWord, onSave, onCancel }: EntryFormP
       ? { title: 'Add a word', submit: 'Add entry' }
       : { title: `Edit ${editing.word}`, submit: 'Save entry' }
   return (
-    <form className="entry-form" aria-labelledby={`${id}-title`} noValidate onSubmit={submit}>
+    <form
+      ref={formRef}
+      className="entry-form"
+      aria-labelledby={`${id}-title`}
+      noValidate
+      onSubmit={submit}
+    >
       <h4 id={`${id}-title`}>{text.title}</h4>
       <TextField
         id={`${id}-word`}
@@ -170,7 +201,10 @@ export function EntryForm({ editing, initialWord, onSave, onCancel }: EntryFormP
       )}
       {errors.form !== undefined && (
         <p className="field-error" role="alert">
-          {errors.form}
+          {errors.form}{' '}
+          <button type="button" className="button" disabled={busy} onClick={() => void check()}>
+            Retry
+          </button>
         </p>
       )}
       <div className="dialog-actions">

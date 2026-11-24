@@ -8,6 +8,7 @@ import {
   useRef,
   useState,
 } from 'react'
+import { createPortal } from 'react-dom'
 import { keepFocusInside, tabStops } from '../../app/modalFocus.ts'
 import {
   parseCustomDictionary,
@@ -28,6 +29,9 @@ import { EntryForm } from './EntryForm.tsx'
 import { DictionaryLoadError } from './loadDictionary.ts'
 
 const EXPORT_FILE_NAME = 'custom-dictionary.txt'
+const STORAGE_FAILURE = 'The app could not read or write the custom dictionary. Reload the page.'
+/** The count of skipped line numbers that the import report shows. */
+const SHOWN_SKIPPED_LINES = 10
 
 type CustomDictionaryDialogProps = {
   /**
@@ -43,18 +47,27 @@ function count(n: number, one: string, many: string): string {
   return `${n} ${n === 1 ? one : many}`
 }
 
-/** Returns the import report, for example "1 entry imported. 2 lines skipped (lines 3, 7)." */
+/**
+ * Returns the import report, for example "1 entry imported. 2 lines skipped (lines 3, 7)."
+ * The report shows the first 10 line numbers, then the count of the others: "(lines 2, 5 … 22 and 4 more)".
+ * @param imported The count of distinct words that the import saved.
+ * @param skippedLines The line numbers of the bad lines.
+ */
 function importReport(imported: number, skippedLines: readonly number[]): string {
   const report = `${count(imported, 'entry', 'entries')} imported.`
   if (skippedLines.length === 0) return report
   const skipped = count(skippedLines.length, 'line', 'lines')
-  const numbers = `${skippedLines.length === 1 ? 'line' : 'lines'} ${skippedLines.join(', ')}`
-  return `${report} ${skipped} skipped (${numbers}).`
+  const shown = skippedLines.slice(0, SHOWN_SKIPPED_LINES).join(', ')
+  const more = skippedLines.length - SHOWN_SKIPPED_LINES
+  const numbers = `${skippedLines.length === 1 ? 'line' : 'lines'} ${shown}`
+  return `${report} ${skipped} skipped (${numbers}${more > 0 ? ` and ${more} more` : ''}).`
 }
 
 /**
  * Shows the custom dictionary dialog: the search field, the entry list, the entry form, import and export, and the CMU symbol reference.
  * The dialog is modal. It keeps the focus inside it, and gives the focus back to the control that opened it.
+ * If that control is gone, the focus goes to the selected mark, else to the "Custom dictionary" button.
+ * The dialog is a child of the document body, so it is outside the toolbar that can open it.
  * Each change goes through the custom entry store, which breaks down again the matching words of the open song.
  */
 export function CustomDictionaryDialog({ initialWord, onClose }: CustomDictionaryDialogProps) {
@@ -72,11 +85,24 @@ export function CustomDictionaryDialog({ initialWord, onClose }: CustomDictionar
     document.activeElement instanceof HTMLElement ? document.activeElement : null,
   )
 
-  const refresh = useCallback(async () => setEntries(await listCustomEntries()), [])
+  const refresh = useCallback(async () => {
+    try {
+      setEntries(await listCustomEntries())
+    } catch {
+      setError(STORAGE_FAILURE)
+    }
+  }, [])
 
   useEffect(() => {
     void refresh()
-    return () => opener?.focus()
+    return () => {
+      // A save can make the word known, and the editor then removes the button that opened the dialog.
+      const target = opener?.isConnected
+        ? opener
+        : (document.querySelector<HTMLElement>('.mark[aria-current="true"]') ??
+          document.querySelector<HTMLElement>('[data-custom-dictionary-action]'))
+      target?.focus()
+    }
   }, [opener, refresh])
 
   useEffect(() => {
@@ -87,7 +113,7 @@ export function CustomDictionaryDialog({ initialWord, onClose }: CustomDictionar
   }, [entries, editing])
 
   /** Runs a write of the custom entry store. Resolves to true when the write saved its change. */
-  async function write(change: () => Promise<void>): Promise<boolean> {
+  async function write(change: () => Promise<unknown>): Promise<boolean> {
     setError(null)
     try {
       await change()
@@ -98,8 +124,7 @@ export function CustomDictionaryDialog({ initialWord, onClose }: CustomDictionar
         setError(failure.message)
         return true
       }
-      if (!(failure instanceof StorageFullError)) throw failure
-      setError(failure.message)
+      setError(failure instanceof StorageFullError ? failure.message : STORAGE_FAILURE)
       return false
     } finally {
       await refresh()
@@ -121,10 +146,17 @@ export function CustomDictionaryDialog({ initialWord, onClose }: CustomDictionar
     const input = event.currentTarget
     const file = input.files?.[0]
     if (file === undefined) return
-    const parsed = parseCustomDictionary(await file.text())
     // The same file can be chosen again after a fix.
     input.value = ''
     setReport('')
+    let text: string
+    try {
+      text = await file.text()
+    } catch {
+      setError(STORAGE_FAILURE)
+      return
+    }
+    const parsed = parseCustomDictionary(text)
     const saved =
       parsed.entries.length === 0 || (await write(() => putCustomEntries(parsed.entries)))
     if (saved) setReport(importReport(parsed.entries.length, parsed.skippedLines))
@@ -155,7 +187,7 @@ export function CustomDictionaryDialog({ initialWord, onClose }: CustomDictionar
     if (event.target === event.currentTarget) event.preventDefault()
   }
 
-  return (
+  return createPortal(
     <div className="modal-backdrop" onMouseDown={keepFocus}>
       <div
         ref={dialogRef}
@@ -182,6 +214,7 @@ export function CustomDictionaryDialog({ initialWord, onClose }: CustomDictionar
           initialWord={initialWord}
           onSave={save}
           onCancel={() => setEditing(null)}
+          onStorageFailure={() => setError(STORAGE_FAILURE)}
         />
         {error !== null && (
           <p className="message" role="alert">
@@ -218,7 +251,8 @@ export function CustomDictionaryDialog({ initialWord, onClose }: CustomDictionar
         </div>
         <SymbolReference />
       </div>
-    </div>
+    </div>,
+    document.body,
   )
 }
 

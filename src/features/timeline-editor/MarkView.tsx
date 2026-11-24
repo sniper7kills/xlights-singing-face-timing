@@ -24,6 +24,8 @@ export function MarkView({ mark, scale }: MarkViewProps) {
       // A list item has no `aria-selected`, so `aria-current` tells a screen reader which mark is selected.
       aria-current={selected ? 'true' : undefined}
       data-unknown={unknown ? 'true' : undefined}
+      // The custom dictionary dialog gives the focus to the selected mark when its opener is gone.
+      tabIndex={selected ? -1 : undefined}
       title={mark.label}
       style={{ left: `${leftPx}px`, width: `${widthPx}px` }}
     >
