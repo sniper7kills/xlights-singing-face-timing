@@ -7,6 +7,7 @@ import { selectedVoice, useViewStore } from '../../store/viewStore.ts'
 import type { TranscribeOutcome } from '../transcription/runTranscription.ts'
 import { TranscribeDialog } from '../transcription/TranscribeDialog.tsx'
 import { outcomeText } from '../transcription/transcribeDialogState.ts'
+import { ExportAction } from '../xtiming-export/ExportAction.tsx'
 import { Layers } from './Layers.tsx'
 import { Waveform } from './Waveform.tsx'
 
@@ -100,6 +101,7 @@ export function EditorPage({ songId }: EditorPageProps) {
             Transcribe
           </button>
         )}
+        <ExportAction />
         <span className="save-state" role="status">
           {saveState === 'saved' ? 'Saved' : 'Saving'}
         </span>

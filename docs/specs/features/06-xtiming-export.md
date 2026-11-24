@@ -3,7 +3,7 @@ id: xtiming-export
 feature: xtiming export
 epic: "Epic 6: Export"
 status: issued
-issues: [41, 42, 43, 44, 45, 46]
+issues: [41, 42, 43, 44, 45, 46, 79]
 mockups: [mockups/03-export.html]
 ---
 
@@ -123,6 +123,24 @@ file preview, import steps, buttons.
 - done: a confirmation line, "2 timing tracks written to carol.xtiming", and the
   import steps expanded.
 
+Labels:
+
+- Dialog title: "Export to xLights". Beside it: "<song name> · Frame size: <frame size> ms".
+- Group legends: "Voices", "Timing tracks", "Files", "Options".
+- Timing track list heading: "Timing track names in xLights".
+- Name of each name field: "Name of the timing track for <default timing track name>".
+- Layer and mark count line of each timing track: "3 layers · 1 mark" or
+  "3 layers · <count> marks".
+- Checks heading: "Checks · <count> errors · <count> warnings". A count of 1 gives
+  "1 error" and "1 warning".
+- Preview heading: "Preview · <file name>". Name of the preview region: "File preview".
+- Import steps heading: "Next, in xLights".
+- Footer count line: "<count> timing tracks · <count> files". A count of 1 gives
+  "1 timing track" and "1 file".
+- Done line for several files: "<count> timing tracks written to <count> files".
+- No voice selected, beside the disabled "Download" button: "Select one voice or more."
+- Buttons: "Close", "Download".
+
 ## Behaviour rules
 
 **Names.**
@@ -172,18 +190,18 @@ file preview, import steps, buttons.
 
 **Checks.**
 
-| Check | Type |
-|---|---|
-| A selected voice has no marks. | error |
-| Two timing tracks have the same name. | error |
-| A timing track name is empty. | error |
-| A phoneme label is not one of the ten phoneme labels. | error |
-| A mark has an end time that is not after its start time. | error |
-| A word has no phoneme. | warning |
-| A word is "unknown". | warning |
-| A word is "estimated". | warning |
-| A mark is shorter than the frame size after the snap. | warning |
-| A mark ends after the end of the song. | warning |
+| Check | Type | Message |
+|---|---|---|
+| A selected voice has no marks. | error | `“<voice name>” has no marks.` |
+| Two timing tracks have the same name. | error | `Two timing tracks have the name “<timing track name>”.` |
+| A timing track name is empty. | error | `A timing track of “<voice name>” has no name.` |
+| A phoneme label is not one of the ten phoneme labels. | error | `“<label>” at <time> is not a phoneme label.` |
+| A mark has an end time that is not after its start time. | error | `“<label>” at <time> ends at or before its start.` |
+| A word has no phoneme. | warning | `“<label>” at <time> has no phoneme.` |
+| A word is "unknown". | warning | `“<label>” at <time> is an unknown word. Its phonemes are a guess.` |
+| A word is "estimated". | warning | `“<label>” at <time> has an estimated time.` |
+| A mark is shorter than the frame size after the snap. | warning | `“<label>” at <time> is shorter than one frame. The export makes it one frame long.` |
+| A mark ends after the end of the song. | warning | `“<label>” at <time> ends after the end of the song.` |
 
 - The app snaps all times in the output with `snap`. The stored marks do not
   change.
@@ -246,14 +264,17 @@ imports unchanged.
 interface ExportTrack {
   name: string
   layers: [ExportMark[], ExportMark[], ExportMark[]]   // phrases, words, phonemes
+  key: string                            // voiceId or voiceId:sectionId
+  voiceId?: string
 }
-interface ExportMark { label: string; startMs: number; endMs: number }
-
-buildTracks(song, voices, sections, marks, options: ExportOptions): ExportTrack[]
-checkTracks(tracks: ExportTrack[], song): Finding[]
-writeXtiming(tracks: ExportTrack[], sourceVersion: string): string   // XML text
-escapeXml(text: string): string
-
+interface ExportMark {
+  label: string
+  startMs: number
+  endMs: number
+  markId?: string                        // the id of the stored mark
+  unknown?: boolean                      // words only
+  estimated?: boolean                    // words only
+}
 interface ExportOptions {
   voiceIds: string[]
   grouping: 'voice' | 'voice-section'
@@ -268,8 +289,33 @@ interface Finding {
   markId?: string
   voiceId?: string
 }
+interface ExportFile { name: string; text: string }
+type SourceMark = Mark & { unknown?: boolean }
+
+buildTracks(
+  song: Song,
+  voices: readonly Voice[],
+  sections: readonly Section[],
+  marks: readonly SourceMark[],
+  options: ExportOptions,
+): ExportTrack[]
+checkTracks(
+  tracks: readonly ExportTrack[],
+  song: Song,
+  voices: readonly Voice[],
+  marks: readonly SourceMark[],
+  options: ExportOptions,
+): Finding[]
+writeXtiming(tracks: ExportTrack[], sourceVersion: string): string   // XML text
+escapeXml(text: string): string
+exportFiles(
+  tracks: ExportTrack[],
+  songName: string,
+  packaging: ExportOptions['packaging'],
+): ExportFile[]
 ```
 
+`writeXtiming` reads only `label`, `startMs` and `endMs` of a mark.
 `writeXtiming` is a pure function with no browser API, so the unit tests compare
 its output with golden files.
 
@@ -281,7 +327,8 @@ its output with golden files.
 | Label has non-ASCII text, for example `café` | The file has the UTF-8 bytes unchanged. |
 | Voice with phrases and words but no phonemes | Three layers, the third is empty. Warning for each word. |
 | Section grouping with no sections | The dialog disables that grouping with the hint "This song has no sections." |
-| Browser blocks several downloads | The dialog shows "The browser blocked some downloads. Allow downloads for this site, or select One file." |
+| The browser can block several downloads | The dialog shows a standing hint beside "One file for each timing track": "The browser can block several downloads. If files are missing, allow downloads for this site, or select One file." A page cannot detect a blocked download. |
+| A label has a control character | The file omits the characters that XML 1.0 forbids. A tab or a line break in a label is kept. |
 | 12 voices and 10 sections | 120 timing tracks at most. The timing track list scrolls. |
 | A timing track name exists in the xLights sequence | xLights renames the track on import. The import steps state this. |
 | Song with frame size 25 ms imported into a 50 ms sequence | xLights moves times down to 50 ms. The import steps warn about it in step 2. |

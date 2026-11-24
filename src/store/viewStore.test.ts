@@ -20,6 +20,16 @@ describe('useViewStore', () => {
     expect(useViewStore.getState()).toMatchObject({ pxPerSecond: null, scrollMs: 0, playTimeMs: 0 })
   })
 
+  it('selects the marks with the ids and clears the selection on a reset', () => {
+    expect(useViewStore.getState().selectedMarkIds).toEqual([])
+
+    useViewStore.getState().selectMarks(['mark-1', 'mark-2'])
+    expect(useViewStore.getState().selectedMarkIds).toEqual(['mark-1', 'mark-2'])
+
+    useViewStore.getState().resetView()
+    expect(useViewStore.getState().selectedMarkIds).toEqual([])
+  })
+
   it('selects a voice, and the reset selects the first voice again', () => {
     useViewStore.getState().selectVoice('voice-2')
     expect(useViewStore.getState().selectedVoiceId).toBe('voice-2')

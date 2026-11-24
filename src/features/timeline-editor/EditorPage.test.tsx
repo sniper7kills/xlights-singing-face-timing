@@ -113,7 +113,19 @@ describe('EditorPage', () => {
     render(<EditorPage songId={song.id} />)
     const heading = await screen.findByRole('heading', { level: 2, name: 'carol' })
 
-    expect(within(heading.parentElement ?? document.body).queryByRole('button')).toBeNull()
+    const bar = within(heading.parentElement ?? document.body)
+    expect(bar.queryByRole('button', { name: 'Transcribe' })).toBeNull()
+    expect(bar.getByRole('button', { name: 'Export' })).toBeInTheDocument()
+  })
+
+  it('shows the "Transcribe" action before the "Export" action in the top bar', async () => {
+    await renderEditor()
+    const bar = screen.getByRole('heading', { level: 2 }).parentElement ?? document.body
+
+    const names = within(bar)
+      .getAllByRole('button')
+      .map((button) => button.textContent)
+    expect(names).toEqual(['Transcribe', 'Export'])
   })
 
   it('shows no "Transcribe" button in the empty state of the layers for a song with no voice', async () => {

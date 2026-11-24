@@ -720,6 +720,11 @@ body.rv-open .layout { padding-right:21rem; }
 </li>
 </ul>
 <p>removed (issue #77): it measured the speech model and unchecked demo marks, not the code. The user accepts vocal separation as a later option. A transcribe run stops by terminating the worker (<code>docs/adr/0004</code>). The variable <code>VITE_MODEL_HOST</code> is removed. The app does not store the device. Issues #64 and #77 joined the batch of epic #14. The real speech model runs under the production Content-Security-Policy with no violation.</p>
+<ul>
+<li>2026-11-24 — Export batch. The export code shipped without the manual check in
+</li>
+</ul>
+<p>xLights, which waits for the user (issue #79). The export omits characters that XML 1.0 forbids in a label. A page cannot detect a blocked download, so the dialog shows a standing hint. A click on a finding selects the voice and the mark, and the layers draw a selected mark. The export batch started before the phoneme epic ended, and it carried issues #21 and #22 of epic #20 into <code>main</code>.</p>
 <h2 id="issue-map">Issue map</h2>
 <p>Written by <code>/spec-to-issues</code> on 2026-11-24. Repository: <code>sniper7kills/xlights-singing-face-timing</code>.</p>
 <p>The spec has one editor epic. The tracker has two, because 30 requirements do not fit one batch.</p>
@@ -732,7 +737,7 @@ body.rv-open .layout { padding-right:21rem; }
 <tr><td>Editor — edit marks</td><td>#26</td><td>#27, #28, #29, #30</td></tr>
 <tr><td>Editor — play tools</td><td>#31</td><td>#32, #33, #34</td></tr>
 <tr><td>Voices and sections</td><td>#35</td><td>#36, #37, #38, #39, #40</td></tr>
-<tr><td>Export</td><td>#41</td><td>#42, #43, #44, #45, #46</td></tr>
+<tr><td>Export</td><td>#41</td><td>#42, #43, #44, #45, #46, #79</td></tr>
 </table></div>
 <div class="table-wrap"><table>
 <tr><th>Requirement</th><th>Issues</th></tr>

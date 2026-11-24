@@ -325,6 +325,42 @@ body.rv-open .layout { padding-right:21rem; }
 </li>
 </ul>
 <p>import steps expanded.</p>
+<p>Labels:</p>
+<ul>
+<li>Dialog title: "Export to xLights". Beside it: "&lt;song name&gt; · Frame size: &lt;frame size&gt; ms".
+</li>
+<li>Group legends: "Voices", "Timing tracks", "Files", "Options".
+</li>
+<li>Timing track list heading: "Timing track names in xLights".
+</li>
+<li>Name of each name field: "Name of the timing track for &lt;default timing track name&gt;".
+</li>
+<li>Layer and mark count line of each timing track: "3 layers · 1 mark" or
+</li>
+</ul>
+<p>"3 layers · &lt;count&gt; marks".</p>
+<ul>
+<li>Checks heading: "Checks · &lt;count&gt; errors · &lt;count&gt; warnings". A count of 1 gives
+</li>
+</ul>
+<p>"1 error" and "1 warning".</p>
+<ul>
+<li>Preview heading: "Preview · &lt;file name&gt;". Name of the preview region: "File preview".
+</li>
+<li>Import steps heading: "Next, in xLights".
+</li>
+<li>Footer count line: "&lt;count&gt; timing tracks · &lt;count&gt; files". A count of 1 gives
+</li>
+</ul>
+<p>"1 timing track" and "1 file".</p>
+<ul>
+<li>Done line for several files: "&lt;count&gt; timing tracks written to &lt;count&gt; files".
+</li>
+<li>No voice selected, beside the disabled "Download" button: "Select one voice or more."
+</li>
+<li>Buttons: "Close", "Download".
+</li>
+</ul>
 <h3 id="xtiming-export-behaviour-rules">Behaviour rules</h3>
 <p><strong>Names.</strong></p>
 <ul>
@@ -395,17 +431,17 @@ body.rv-open .layout { padding-right:21rem; }
 <p>the song.</p>
 <p><strong>Checks.</strong></p>
 <div class="table-wrap"><table>
-<tr><th>Check</th><th>Type</th></tr>
-<tr><td>A selected voice has no marks.</td><td>error</td></tr>
-<tr><td>Two timing tracks have the same name.</td><td>error</td></tr>
-<tr><td>A timing track name is empty.</td><td>error</td></tr>
-<tr><td>A phoneme label is not one of the ten phoneme labels.</td><td>error</td></tr>
-<tr><td>A mark has an end time that is not after its start time.</td><td>error</td></tr>
-<tr><td>A word has no phoneme.</td><td>warning</td></tr>
-<tr><td>A word is "unknown".</td><td>warning</td></tr>
-<tr><td>A word is "estimated".</td><td>warning</td></tr>
-<tr><td>A mark is shorter than the frame size after the snap.</td><td>warning</td></tr>
-<tr><td>A mark ends after the end of the song.</td><td>warning</td></tr>
+<tr><th>Check</th><th>Type</th><th>Message</th></tr>
+<tr><td>A selected voice has no marks.</td><td>error</td><td><code>“&lt;voice name&gt;” has no marks.</code></td></tr>
+<tr><td>Two timing tracks have the same name.</td><td>error</td><td><code>Two timing tracks have the name “&lt;timing track name&gt;”.</code></td></tr>
+<tr><td>A timing track name is empty.</td><td>error</td><td><code>A timing track of “&lt;voice name&gt;” has no name.</code></td></tr>
+<tr><td>A phoneme label is not one of the ten phoneme labels.</td><td>error</td><td><code>“&lt;label&gt;” at &lt;time&gt; is not a phoneme label.</code></td></tr>
+<tr><td>A mark has an end time that is not after its start time.</td><td>error</td><td><code>“&lt;label&gt;” at &lt;time&gt; ends at or before its start.</code></td></tr>
+<tr><td>A word has no phoneme.</td><td>warning</td><td><code>“&lt;label&gt;” at &lt;time&gt; has no phoneme.</code></td></tr>
+<tr><td>A word is "unknown".</td><td>warning</td><td><code>“&lt;label&gt;” at &lt;time&gt; is an unknown word. Its phonemes are a guess.</code></td></tr>
+<tr><td>A word is "estimated".</td><td>warning</td><td><code>“&lt;label&gt;” at &lt;time&gt; has an estimated time.</code></td></tr>
+<tr><td>A mark is shorter than the frame size after the snap.</td><td>warning</td><td><code>“&lt;label&gt;” at &lt;time&gt; is shorter than one frame. The export makes it one frame long.</code></td></tr>
+<tr><td>A mark ends after the end of the song.</td><td>warning</td><td><code>“&lt;label&gt;” at &lt;time&gt; ends after the end of the song.</code></td></tr>
 </table></div>
 <ul>
 <li>The app snaps all times in the output with <code>snap</code>. The stored marks do not
@@ -483,14 +519,17 @@ body.rv-open .layout { padding-right:21rem; }
 <pre class="code"><code>interface ExportTrack {
   name: string
   layers: [ExportMark[], ExportMark[], ExportMark[]]   // phrases, words, phonemes
+  key: string                            // voiceId or voiceId:sectionId
+  voiceId?: string
 }
-interface ExportMark { label: string; startMs: number; endMs: number }
-
-buildTracks(song, voices, sections, marks, options: ExportOptions): ExportTrack[]
-checkTracks(tracks: ExportTrack[], song): Finding[]
-writeXtiming(tracks: ExportTrack[], sourceVersion: string): string   // XML text
-escapeXml(text: string): string
-
+interface ExportMark {
+  label: string
+  startMs: number
+  endMs: number
+  markId?: string                        // the id of the stored mark
+  unknown?: boolean                      // words only
+  estimated?: boolean                    // words only
+}
 interface ExportOptions {
   voiceIds: string[]
   grouping: 'voice' | 'voice-section'
@@ -504,8 +543,32 @@ interface Finding {
   message: string
   markId?: string
   voiceId?: string
-}</code></pre>
-<p><code>writeXtiming</code> is a pure function with no browser API, so the unit tests compare its output with golden files.</p>
+}
+interface ExportFile { name: string; text: string }
+type SourceMark = Mark &amp; { unknown?: boolean }
+
+buildTracks(
+  song: Song,
+  voices: readonly Voice[],
+  sections: readonly Section[],
+  marks: readonly SourceMark[],
+  options: ExportOptions,
+): ExportTrack[]
+checkTracks(
+  tracks: readonly ExportTrack[],
+  song: Song,
+  voices: readonly Voice[],
+  marks: readonly SourceMark[],
+  options: ExportOptions,
+): Finding[]
+writeXtiming(tracks: ExportTrack[], sourceVersion: string): string   // XML text
+escapeXml(text: string): string
+exportFiles(
+  tracks: ExportTrack[],
+  songName: string,
+  packaging: ExportOptions['packaging'],
+): ExportFile[]</code></pre>
+<p><code>writeXtiming</code> reads only <code>label</code>, <code>startMs</code> and <code>endMs</code> of a mark. <code>writeXtiming</code> is a pure function with no browser API, so the unit tests compare its output with golden files.</p>
 <h3 id="xtiming-export-edge-cases-failures">Edge cases &amp; failures</h3>
 <div class="table-wrap"><table>
 <tr><th>Case</th><th>Result</th></tr>
@@ -513,7 +576,8 @@ interface Finding {
 <tr><td>Label has non-ASCII text, for example <code>café</code></td><td>The file has the UTF-8 bytes unchanged.</td></tr>
 <tr><td>Voice with phrases and words but no phonemes</td><td>Three layers, the third is empty. Warning for each word.</td></tr>
 <tr><td>Section grouping with no sections</td><td>The dialog disables that grouping with the hint "This song has no sections."</td></tr>
-<tr><td>Browser blocks several downloads</td><td>The dialog shows "The browser blocked some downloads. Allow downloads for this site, or select One file."</td></tr>
+<tr><td>The browser can block several downloads</td><td>The dialog shows a standing hint beside "One file for each timing track": "The browser can block several downloads. If files are missing, allow downloads for this site, or select One file." A page cannot detect a blocked download.</td></tr>
+<tr><td>A label has a control character</td><td>The file omits the characters that XML 1.0 forbids. A tab or a line break in a label is kept.</td></tr>
 <tr><td>12 voices and 10 sections</td><td>120 timing tracks at most. The timing track list scrolls.</td></tr>
 <tr><td>A timing track name exists in the xLights sequence</td><td>xLights renames the track on import. The import steps state this.</td></tr>
 <tr><td>Song with frame size 25 ms imported into a 50 ms sequence</td><td>xLights moves times down to 50 ms. The import steps warn about it in step 2.</td></tr>

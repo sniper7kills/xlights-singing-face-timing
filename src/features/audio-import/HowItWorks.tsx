@@ -31,6 +31,11 @@ export function HowItWorks() {
           </span>
         </li>
       </ol>
+      <p className="card-note">
+        The app uses the{' '}
+        <a href="https://github.com/cmusphinx/cmudict">CMU Pronouncing Dictionary</a> of Carnegie
+        Mellon University (<a href="dict/cmudict-LICENSE.txt">licence</a>).
+      </p>
     </section>
   )
 }

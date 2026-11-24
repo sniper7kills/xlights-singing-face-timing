@@ -30,9 +30,23 @@ Do not reconcile by guess.
 
 Not confirmed yet. Confirm each one before the code that depends on it:
 
-- The entry format and the licence file of `cmudict.dict`.
 - The wavesurfer.js method and event names for zoom and scroll.
 - The output of the xLights `XmlSafe` function for `&`, `<`, `>`, `"` and `'`.
+
+Confirmed on 2026-11-24 for `cmudict.dict` at commit
+`74790861f652b15e4ac49015a90074ad62a27690`, from the file and its `LICENSE`:
+
+- Each line is a word in lower case, one space, then CMU symbols separated by one
+  space. Vowel symbols carry a stress digit `0`, `1` or `2`.
+- A variant entry has a number after the word, for example `hello(2)`. It always
+  comes after the first entry of the word.
+- A `#` starts a comment to the end of the line, for example
+  `aalborg AO1 L B AO0 R G # place, danish`. 22 lines have a comment.
+- The file has 135166 entries for 126052 words, in ASCII. A word holds the letters
+  `a` to `z`, `'`, `.` and `-`.
+- The licence is a BSD-2-Clause style licence, copyright Carnegie Mellon
+  University. It allows redistribution and requires the copyright notice with
+  each copy.
 
 Confirmed on 2026-11-24 for `@huggingface/transformers` 4.3.2, from the typed API
 in `node_modules/@huggingface/transformers/types/` and the model files on the

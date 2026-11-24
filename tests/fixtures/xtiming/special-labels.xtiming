@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<timing name="Tom &amp; &quot;Jerry&apos;s&quot; &lt;3" subType="" SourceVersion="2024.01">
+   <EffectLayer>
+      <Effect label="Tom &amp; &quot;Jerry&apos;s&quot; &lt;3 &gt; café" starttime="1000" endtime="3000" />
+   </EffectLayer>
+   <EffectLayer>
+      <Effect label="Tom" starttime="1000" endtime="1500" />
+      <Effect label="&amp;" starttime="1500" endtime="1750" />
+      <Effect label="&quot;Jerry&apos;s&quot;" starttime="1750" endtime="2250" />
+      <Effect label="&lt;3" starttime="2250" endtime="2500" />
+      <Effect label="&gt;" starttime="2500" endtime="2750" />
+      <Effect label="café" starttime="2750" endtime="3000" />
+   </EffectLayer>
+   <EffectLayer>
+   </EffectLayer>
+</timing>

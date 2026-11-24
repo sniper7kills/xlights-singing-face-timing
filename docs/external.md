@@ -50,8 +50,12 @@ These values come from the outputs of the hosting stack.
 ## Third-party sources
 
 - Speech model files: the Hugging Face Hub, downloaded by the browser at run time.
-- Dictionary: `cmudict.dict` from https://github.com/cmusphinx/cmudict. The build
-  script converts it. Acknowledge Carnegie Mellon University in the app.
+- Dictionary: `cmudict.dict` from https://github.com/cmusphinx/cmudict, commit
+  `74790861f652b15e4ac49015a90074ad62a27690` (2025-10-24). The licence is a
+  BSD-2-Clause style licence, copyright Carnegie Mellon University. The copy is in
+  `vendor/cmudict/`. `node scripts/build-dictionary.mjs` writes
+  `public/dict/cmudict.json` and `public/dict/cmudict-LICENSE.txt`. The "How it
+  works" strip acknowledges Carnegie Mellon University.
 - xLights source, for the `.xtiming` format:
   https://github.com/xLightsSequencer/xLights
 - xLights manual: https://manual.xlights.org/xlights/
