@@ -482,6 +482,8 @@ None of these blocks approval. Each one names the epic that settles it.
   which waits for the user's AWS account and approval. The project compiles with
   TypeScript 7 and lints with the TypeScript 6 API (`docs/adr/0003`). The
   distribution redirects HTTP to HTTPS.
+- 2026-11-24 — The MIME type rule for audio files changed: `video/ogg`,
+  `application/ogg` and an empty type are accepted (issue #58).
 
 ## Issue map
 
