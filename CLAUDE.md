@@ -11,7 +11,9 @@ song from an audio file, see the song list, rename a song, delete a song and try
 the demo song. The editor shows the waveform and plays the audio. The hosting stack
 does not exist yet (issue #7). The person can transcribe a song with a speech model
 in the browser, or create phrases from lyrics, and see the marks on three layers.
-Phoneme breakdown and export are next.
+The person can export `.xtiming` files from the export dialog. The dictionary
+module exists. Phonemes for new words, the custom dictionary and the edit actions
+of the editor are next.
 
 ## Design
 
