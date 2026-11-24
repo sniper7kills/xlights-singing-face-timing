@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import * as db from '../../store/db.ts'
 import { getAudioFile, loadSong, putRecord } from '../../store/db.ts'
 import type { Mark } from '../../store/types.ts'
 import { storeNewSong } from './storeNewSong.ts'
@@ -12,6 +13,7 @@ const audio = {
 
 afterEach(() => {
   removeStorageStub()
+  vi.restoreAllMocks()
 })
 
 describe('storeNewSong', () => {
@@ -25,6 +27,27 @@ describe('storeNewSong', () => {
     await new Promise((resolve) => setTimeout(resolve, 50))
 
     expect(storage.persist).toHaveBeenCalledTimes(1)
+  })
+
+  it('stores the song when the persistent storage request fails', async () => {
+    // The tests run in Node, and the app tsconfig has no Node types.
+    const { process } = globalThis as unknown as {
+      process: Record<'on' | 'off', (event: string, listener: () => void) => void>
+    }
+    const onUnhandled = vi.fn()
+    process.on('unhandledRejection', onUnhandled)
+    try {
+      vi.spyOn(db, 'listSongs').mockRejectedValue(new Error('The disk is gone.'))
+
+      const song = await storeNewSong({ name: 'carol', durationMs: 1000, audio })
+      // Node reports a rejection without a handler after the microtasks end.
+      await new Promise((resolve) => setTimeout(resolve, 20))
+
+      expect((await loadSong(song.id))?.song.name).toBe('carol')
+      expect(onUnhandled).not.toHaveBeenCalled()
+    } finally {
+      process.off('unhandledRejection', onUnhandled)
+    }
   })
 
   it('stores a song with one "Lead Vocals" voice, no marks and the audio file', async () => {

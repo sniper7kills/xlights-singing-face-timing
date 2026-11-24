@@ -1,7 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   closeDatabase,
-  deleteRecord,
   deleteSong,
   getAudioFile,
   getRecord,
@@ -101,7 +100,7 @@ describe('openDatabase', () => {
 })
 
 describe('records', () => {
-  it('puts, gets, lists and deletes a record', async () => {
+  it('puts, gets and lists a record', async () => {
     const entry: CustomEntry = {
       word: 'NOEL',
       symbols: 'N OW0 EH1 L',
@@ -111,9 +110,6 @@ describe('records', () => {
     await putRecord('customEntries', entry)
     expect(await getRecord('customEntries', 'NOEL')).toEqual(entry)
     expect(await listRecords('customEntries')).toEqual([entry])
-
-    await deleteRecord('customEntries', 'NOEL')
-    expect(await getRecord('customEntries', 'NOEL')).toBeUndefined()
   })
 
   it('stores the app settings under the settings key', async () => {

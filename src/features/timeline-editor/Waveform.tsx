@@ -4,8 +4,8 @@ import { getAudioFile, putRecord, StorageFullError } from '../../store/db.ts'
 import { useViewStore } from '../../store/viewStore.ts'
 import {
   ACCEPTED_EXTENSIONS,
+  checkAudioFile,
   ImportError,
-  isAcceptedAudioFile,
 } from '../audio-import/createSongFromFile.ts'
 import { createWaveformPlayer, type WaveformColors, type WaveformPlayer } from './waveformPlayer.ts'
 
@@ -27,13 +27,6 @@ function readColors(element: HTMLElement): WaveformColors {
   }
 }
 
-function isSpaceForPlay(event: KeyboardEvent): boolean {
-  if (event.key !== ' ' || event.repeat || event.ctrlKey || event.metaKey || event.altKey) {
-    return false
-  }
-  return !(event.target instanceof Element && event.target.closest(CONTROL_SELECTOR))
-}
-
 /**
  * Shows the waveform region of the editor: the waveform of the song, a play button and
  * the play time. If the song has no audio file, it asks the person for the file again.
@@ -44,6 +37,7 @@ export function Waveform({ songId }: WaveformProps) {
   const playerRef = useRef<WaveformPlayer | null>(null)
   const [state, setState] = useState<WaveformState>('loading')
   const [playing, setPlaying] = useState(false)
+  const [loadMessage, setLoadMessage] = useState<string | null>(null)
   const [fileMessage, setFileMessage] = useState<string | null>(null)
   // A new audio file for a song without one starts the load again.
   const [loadCount, setLoadCount] = useState(0)
@@ -75,8 +69,14 @@ export function Waveform({ songId }: WaveformProps) {
       setState('ready')
     }
 
-    load(container).catch(() => {
-      if (!cancelled) setState('error')
+    load(container).catch((error: unknown) => {
+      if (cancelled) return
+      setLoadMessage(
+        error instanceof ImportError
+          ? error.message
+          : 'The app could not read the audio from browser storage. Reload the page.',
+      )
+      setState('error')
     })
     return () => {
       cancelled = true
@@ -109,7 +109,9 @@ export function Waveform({ songId }: WaveformProps) {
   useEffect(() => {
     if (state !== 'ready') return
     function onKeyDown(event: KeyboardEvent) {
-      if (!isSpaceForPlay(event)) return
+      if (event.key !== ' ' || event.repeat || event.ctrlKey || event.metaKey || event.altKey)
+        return
+      if (event.target instanceof Element && event.target.closest(CONTROL_SELECTOR)) return
       // The space bar scrolls the page unless the editor cancels the event.
       event.preventDefault()
       togglePlay()
@@ -119,11 +121,8 @@ export function Waveform({ songId }: WaveformProps) {
   }, [state, togglePlay])
 
   async function storeAudioFile(file: File) {
-    if (!isAcceptedAudioFile(file)) {
-      setFileMessage(new ImportError({ kind: 'type' }).message)
-      return
-    }
     try {
+      await checkAudioFile(file)
       await putRecord('audioFiles', {
         songId,
         data: file,
@@ -132,7 +131,7 @@ export function Waveform({ songId }: WaveformProps) {
         byteLength: file.size,
       })
     } catch (error) {
-      if (!(error instanceof StorageFullError)) throw error
+      if (!(error instanceof ImportError || error instanceof StorageFullError)) throw error
       setFileMessage(error.message)
       return
     }
@@ -168,7 +167,7 @@ export function Waveform({ songId }: WaveformProps) {
       )}
       {state === 'error' && (
         <p className="message" role="alert">
-          This browser cannot decode this file. Convert it to MP3 or WAV and try again.
+          {loadMessage}
         </p>
       )}
       <div className="waveform-stage" hidden={state === 'missing' || state === 'error'}>

@@ -5,8 +5,8 @@ import { storeNewSong } from './storeNewSong.ts'
 /** The extensions of the audio files that the app accepts, in lower case. */
 export const ACCEPTED_EXTENSIONS = ['.mp3', '.wav', '.ogg', '.flac', '.m4a', '.aac']
 
-// Decimal megabytes, so that a "201 MB" file is above the limit in both decimal and binary units.
-const MAX_BYTES = 200_000_000
+// Binary megabytes, the unit of the storage meter.
+const MAX_BYTES = 200 * 1024 * 1024
 const MAX_DURATION_MS = 15 * 60 * 1000
 const MAX_NAME_LENGTH = 80
 
@@ -26,7 +26,7 @@ const MESSAGES: Record<ImportFailure['kind'], string> = {
   storage: 'Browser storage is full. Delete a song and try again.',
 }
 
-/** The error that createSongFromFile rejects with. Its message is the text that the person sees. */
+/** The error of an audio file that the app does not accept. Its message is the text that the person sees. */
 export class ImportError extends Error {
   readonly failure: ImportFailure
 
@@ -34,10 +34,6 @@ export class ImportError extends Error {
     super(MESSAGES[failure.kind])
     this.name = 'ImportError'
     this.failure = failure
-  }
-
-  get kind(): ImportFailure['kind'] {
-    return this.failure.kind
   }
 }
 
@@ -86,13 +82,28 @@ export function songNameFromFileName(fileName: string): string {
   return (name === '' ? fileName.trim() : name).slice(0, MAX_NAME_LENGTH)
 }
 
-async function decodeDurationMs(file: File, decode: DecodeAudio): Promise<number> {
+/**
+ * Returns the duration of the audio file in whole milliseconds, after the file passes the
+ * checks of the type, the size, the decode and the duration.
+ * @param file The audio file that the person selects or drops.
+ * @param decode The decode step. Tests replace it so that they need no real audio.
+ * Rejects with ImportError. Its `failure.kind` is 'type', 'size', 'decode' or 'duration'.
+ */
+export async function checkAudioFile(
+  file: File,
+  decode: DecodeAudio = decodeWithWebAudio,
+): Promise<number> {
+  if (!isAcceptedAudioFile(file)) throw new ImportError({ kind: 'type' })
+  if (file.size > MAX_BYTES) throw new ImportError({ kind: 'size', bytes: file.size })
+  let durationMs: number
   try {
-    return Math.round((await decode(await file.arrayBuffer())) * 1000)
+    durationMs = Math.round((await decode(await file.arrayBuffer())) * 1000)
   } catch {
     // The decodeAudioData page lists no supported formats, so each rejection means "cannot decode".
     throw new ImportError({ kind: 'decode' })
   }
+  if (durationMs > MAX_DURATION_MS) throw new ImportError({ kind: 'duration', ms: durationMs })
+  return durationMs
 }
 
 /**
@@ -100,17 +111,14 @@ async function decodeDurationMs(file: File, decode: DecodeAudio): Promise<number
  * The song name is the file name without the extension.
  * @param file The audio file that the person selects or drops.
  * @param decode The decode step. Tests replace it so that they need no real audio.
- * Rejects with ImportError. Its `kind` is 'type', 'size', 'decode', 'duration' or 'storage'.
+ * Rejects with ImportError. Its `failure.kind` is 'type', 'size', 'decode', 'duration' or 'storage'.
  * Nothing is stored after a rejection.
  */
 export async function createSongFromFile(
   file: File,
   decode: DecodeAudio = decodeWithWebAudio,
 ): Promise<Song> {
-  if (!isAcceptedAudioFile(file)) throw new ImportError({ kind: 'type' })
-  if (file.size > MAX_BYTES) throw new ImportError({ kind: 'size', bytes: file.size })
-  const durationMs = await decodeDurationMs(file, decode)
-  if (durationMs > MAX_DURATION_MS) throw new ImportError({ kind: 'duration', ms: durationMs })
+  const durationMs = await checkAudioFile(file, decode)
   try {
     return await storeNewSong({
       name: songNameFromFileName(file.name),

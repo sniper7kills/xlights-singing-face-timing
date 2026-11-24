@@ -14,7 +14,7 @@ type DemoMarksFile = {
 /** The demo files did not load. The message states the cause and the next action. */
 export class DemoSongError extends Error {
   constructor(options?: ErrorOptions) {
-    super('The demo song did not load. Check the connection and try again.', options)
+    super('The demo song did not load. Check the connection and retry.', options)
     this.name = 'DemoSongError'
   }
 }

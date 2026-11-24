@@ -1,8 +1,11 @@
 import { act, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { deleteRecord, getAudioFile } from '../../store/db.ts'
+import * as db from '../../store/db.ts'
+import { getAudioFile, saveSong } from '../../store/db.ts'
+import { makeSongContent } from '../../store/fixtures.test-helpers.ts'
 import { useViewStore } from '../../store/viewStore.ts'
+import { ImportError } from '../audio-import/createSongFromFile.ts'
 import { storeNewSong } from '../audio-import/storeNewSong.ts'
 import { Waveform } from './Waveform.tsx'
 import {
@@ -42,9 +45,19 @@ function fakePlayer(listeners: WaveformListeners): FakePlayer {
 }
 
 let players: FakePlayer[]
+let decodeAudioData: () => Promise<{ duration: number }>
 
 beforeEach(() => {
   players = []
+  decodeAudioData = () => Promise.resolve({ duration: 3 })
+  // jsdom has no Web Audio, and the check of a selected file decodes it.
+  vi.stubGlobal(
+    'AudioContext',
+    class {
+      decodeAudioData = () => decodeAudioData()
+      close = () => Promise.resolve()
+    },
+  )
   vi.mocked(createWaveformPlayer).mockImplementation(
     async (_container, _audio, _colors, listeners) => {
       const player = fakePlayer(listeners)
@@ -57,6 +70,7 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.mocked(createWaveformPlayer).mockReset()
+  vi.restoreAllMocks()
 })
 
 async function renderReadyWaveform() {
@@ -142,13 +156,25 @@ describe('Waveform', () => {
   })
 
   it('shows the decode message when the browser cannot decode the audio', async () => {
-    vi.mocked(createWaveformPlayer).mockRejectedValue(new DOMException('bad data', 'EncodingError'))
+    vi.mocked(createWaveformPlayer).mockRejectedValue(new ImportError({ kind: 'decode' }))
     const song = await storeNewSong({ name: 'carol', durationMs: 3000, audio })
 
     render(<Waveform songId={song.id} />)
 
     expect(await screen.findByRole('alert')).toHaveTextContent(
       'This browser cannot decode this file. Convert it to MP3 or WAV and try again.',
+    )
+    expect(screen.getByRole('button', { name: 'Play' })).toBeDisabled()
+  })
+
+  it('shows the storage message when the app cannot read the audio file', async () => {
+    const song = await storeNewSong({ name: 'carol', durationMs: 3000, audio })
+    vi.spyOn(db, 'getAudioFile').mockRejectedValue(new Error('The disk is gone.'))
+
+    render(<Waveform songId={song.id} />)
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'The app could not read the audio from browser storage. Reload the page.',
     )
     expect(screen.getByRole('button', { name: 'Play' })).toBeDisabled()
   })
@@ -165,8 +191,7 @@ describe('Waveform', () => {
 
   describe('with a missing audio file', () => {
     async function renderMissingAudio() {
-      const song = await storeNewSong({ name: 'carol', durationMs: 3000, audio })
-      await deleteRecord('audioFiles', song.id)
+      const song = await saveSong(makeSongContent())
       render(<Waveform songId={song.id} />)
       await screen.findByRole('alert')
       return song
@@ -222,6 +247,49 @@ describe('Waveform', () => {
         ),
       ).toBeInTheDocument()
       expect(await getAudioFile(song.id)).toBeUndefined()
+    })
+
+    it('shows the size message for a 201 MB file and stores no file', async () => {
+      const user = userEvent.setup()
+      const song = await renderMissingAudio()
+      const file = new File([new Uint8Array([4, 5])], 'carol.ogg', { type: 'audio/ogg' })
+      Object.defineProperty(file, 'size', { value: 201 * 1024 * 1024 })
+
+      await user.upload(screen.getByLabelText('Audio file'), file)
+
+      expect(await screen.findByText('This file is larger than 200 MB.')).toBeInTheDocument()
+      expect(await getAudioFile(song.id)).toBeUndefined()
+      expect(screen.getByRole('button', { name: 'Load the audio file' })).toBeEnabled()
+    })
+
+    it('shows the duration message for a 16-minute file and stores no file', async () => {
+      const user = userEvent.setup()
+      const song = await renderMissingAudio()
+      decodeAudioData = () => Promise.resolve({ duration: 960 })
+      const file = new File([new Uint8Array([4, 5])], 'carol.ogg', { type: 'audio/ogg' })
+
+      await user.upload(screen.getByLabelText('Audio file'), file)
+
+      expect(await screen.findByText('This song is longer than 15 minutes.')).toBeInTheDocument()
+      expect(await getAudioFile(song.id)).toBeUndefined()
+      expect(screen.getByRole('button', { name: 'Load the audio file' })).toBeEnabled()
+    })
+
+    it('shows the decode message for a file that the browser cannot decode', async () => {
+      const user = userEvent.setup()
+      const song = await renderMissingAudio()
+      decodeAudioData = () => Promise.reject(new DOMException('bad data', 'EncodingError'))
+      const file = new File([new Uint8Array([4, 5])], 'carol.ogg', { type: 'audio/ogg' })
+
+      await user.upload(screen.getByLabelText('Audio file'), file)
+
+      expect(
+        await screen.findByText(
+          'This browser cannot decode this file. Convert it to MP3 or WAV and try again.',
+        ),
+      ).toBeInTheDocument()
+      expect(await getAudioFile(song.id)).toBeUndefined()
+      expect(screen.getByRole('button', { name: 'Load the audio file' })).toBeEnabled()
     })
   })
 })

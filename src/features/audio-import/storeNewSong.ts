@@ -59,6 +59,7 @@ export async function storeNewSong(newSong: NewSong): Promise<Song> {
     },
   )
   // Firefox asks the person, so the editor opens before the answer.
-  void requestPersistentStorageForFirstSong()
+  // The request is best effort, so a failure does not stop the new song.
+  requestPersistentStorageForFirstSong().catch(() => undefined)
   return stored
 }

@@ -76,7 +76,7 @@ describe('createSongFromFile', () => {
     const error = await rejectionOf(
       createSongFromFile(audioFile('clip.mp3', 'video/mp4'), decodes(1)),
     )
-    expect(error.kind).toBe('type')
+    expect(error.failure).toEqual({ kind: 'type' })
   })
 
   it('rejects an .mp3 file with the MIME type text/plain with the file-type message', async () => {
@@ -108,9 +108,9 @@ describe('createSongFromFile', () => {
     expect(await listSongs()).toEqual([])
   })
 
-  it('accepts a file of exactly 200 MB', async () => {
+  it('accepts a file of exactly 200 × 1024 × 1024 bytes', async () => {
     const song = await createSongFromFile(
-      audioFile('max.wav', 'audio/wav', 200_000_000),
+      audioFile('max.wav', 'audio/wav', 200 * 1024 * 1024),
       decodes(1),
     )
     expect(song.name).toBe('max')

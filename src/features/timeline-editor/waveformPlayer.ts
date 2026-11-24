@@ -1,4 +1,5 @@
 import WaveSurfer from 'wavesurfer.js'
+import { ImportError } from '../audio-import/createSongFromFile.ts'
 import { mixChannels } from './mixChannels.ts'
 
 // wavesurfer.js decodes for the waveform at this rate by default. Play uses the original file.
@@ -37,7 +38,8 @@ export type WaveformPlayer = {
  * @param audio The bytes of the audio file.
  * @param colors The colours of the waveform.
  * @param listeners The functions that receive the play time and the play state.
- * Rejects if the browser cannot decode the audio.
+ * Rejects with ImportError of the kind 'decode' if the browser cannot decode the audio.
+ * Rejects with a different error if the browser cannot read the bytes of `audio`.
  */
 export async function createWaveformPlayer(
   container: HTMLElement,
@@ -45,10 +47,14 @@ export async function createWaveformPlayer(
   colors: WaveformColors,
   listeners: WaveformListeners,
 ): Promise<WaveformPlayer> {
+  const bytes = await audio.arrayBuffer()
   const context = new AudioContext({ sampleRate: WAVEFORM_SAMPLE_RATE })
   let decoded: AudioBuffer
   try {
-    decoded = await context.decodeAudioData(await audio.arrayBuffer())
+    decoded = await context.decodeAudioData(bytes)
+  } catch {
+    // The decodeAudioData page lists no supported formats, so each rejection means "cannot decode".
+    throw new ImportError({ kind: 'decode' })
   } finally {
     // Browsers limit the number of open audio contexts.
     void context.close()

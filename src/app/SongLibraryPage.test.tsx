@@ -147,7 +147,7 @@ describe('SongLibraryPage', () => {
     await user.click(button)
 
     expect(await screen.findByRole('alert')).toHaveTextContent(
-      'The demo song did not load. Check the connection and try again.',
+      'The demo song did not load. Check the connection and retry.',
     )
     expect(button).toBeEnabled()
     expect(await listSongs()).toEqual([])

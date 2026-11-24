@@ -18,12 +18,22 @@ export function EditorPage({ songId }: EditorPageProps) {
   const saveError = useAutosaveStore((state) => state.error)
 
   useEffect(() => {
+    let active = true
     // Each song opens at the default view: the full song in the width, at time 0.
     useViewStore.getState().resetView()
-    void openSong(songId).then((found) => {
-      // A link to a deleted song goes back to the song library, the same as an unknown hash.
-      if (!found) window.location.replace(LIBRARY_HASH)
-    })
+    void openSong(songId)
+      // A song that the app cannot read gets the same result as a deleted song.
+      .catch(() => false)
+      .then((found) => {
+        // A link to a deleted song goes back to the song library, the same as an unknown hash.
+        if (active && !found) window.location.replace(LIBRARY_HASH)
+      })
+    return () => {
+      // An open that ends after the person left the editor must not change the route.
+      active = false
+      // The close saves a pending change, so the next open reads the saved change.
+      useSongStore.getState().closeSong()
+    }
   }, [openSong, songId])
 
   if (song?.id !== songId) return null

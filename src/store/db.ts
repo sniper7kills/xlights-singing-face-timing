@@ -180,14 +180,6 @@ export function putRecord<S extends StoreName>(store: S, value: StoreRecords[S])
   })
 }
 
-/** Deletes the record with `key` from `store`. A missing record is not an error. */
-export function deleteRecord(store: StoreName, key: IDBValidKey): Promise<void> {
-  return transact([store], 'readwrite', (transaction) => {
-    transaction.objectStore(store).delete(key)
-    return nothing
-  })
-}
-
 /** Returns all saved songs, in key order. */
 export function listSongs(): Promise<Song[]> {
   return listRecords('songs')

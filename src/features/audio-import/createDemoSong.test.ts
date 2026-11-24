@@ -27,7 +27,7 @@ describe('createDemoSong', () => {
 
     const song = await createDemoSong()
 
-    expect(song).toMatchObject({ name: 'silent-night', durationMs: 28900, frameMs: 50 })
+    expect(song).toMatchObject({ name: 'Silent Night', durationMs: 28900, frameMs: 50 })
     const content = await loadSong(song.id)
     expect(content?.voices).toEqual([
       { id: expect.any(String), songId: song.id, name: 'Lead Vocals', order: 0, color: '#ffb238' },
@@ -86,7 +86,7 @@ describe('createDemoSong', () => {
       expect(error).toBeInstanceOf(DemoSongError)
       expect(error).toHaveProperty(
         'message',
-        'The demo song did not load. Check the connection and try again.',
+        'The demo song did not load. Check the connection and retry.',
       )
       expect(await listSongs()).toEqual([])
     },

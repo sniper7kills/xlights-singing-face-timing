@@ -1,7 +1,7 @@
 # Demo song
 
 This folder holds the demo song and its expected marks. The E2E tests and the
-"Try the demo song" button will use these files. Issue #13 adds the button.
+"Try the demo song" button use these files.
 
 | File | Content |
 |---|---|
@@ -78,7 +78,8 @@ not a reference for accuracy.
 
 The file has three keys:
 
-- `song`: `name`, `durationMs` and `frameMs` (50).
+- `song`: `name`, `durationMs` and `frameMs` (50). The app does not read `frameMs`.
+  The app takes the frame size from the app settings.
 - `voices`: one voice with `id`, `name` and `order`.
 - `marks`: the fields of `MARK` in the data model of `docs/specs/spec.md`.
 

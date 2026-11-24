@@ -23,20 +23,20 @@ test('creates the demo song with words and phonemes, keeps it after a reload and
   await page.keyboard.press('Enter')
 
   await expect(page).toHaveURL(/#\/song\/[0-9a-f-]+$/)
-  await expect(page.getByRole('heading', { level: 2, name: 'silent-night' })).toBeVisible()
+  await expect(page.getByRole('heading', { level: 2, name: 'Silent Night' })).toBeVisible()
   expect(await page.evaluate(COUNT_MARKS_BY_LAYER)).toEqual({ phrase: 3, word: 16, phoneme: 51 })
 
   await page.goto('/#/')
   await page.reload()
-  const song = page.getByRole('link', { name: /silent-night/ })
+  const song = page.getByRole('link', { name: /Silent Night/ })
   await expect(song).toContainText('0:29')
   await expect(page.getByRole('button', { name: 'Try the demo song' })).toHaveCount(0)
 
-  await page.getByRole('button', { name: 'Delete silent-night' }).click()
+  await page.getByRole('button', { name: 'Delete Silent Night' }).click()
   await page.getByRole('alertdialog').getByRole('button', { name: 'Delete' }).click()
   await expect(page.getByRole('heading', { name: 'No songs yet' })).toBeVisible()
   await page.reload()
-  await expect(page.getByRole('link', { name: /silent-night/ })).toHaveCount(0)
+  await expect(page.getByRole('link', { name: /Silent Night/ })).toHaveCount(0)
   expect(await page.evaluate(COUNT_MARKS_BY_LAYER)).toEqual({})
 })
 
@@ -49,7 +49,7 @@ test('shows the load message and stays in the song library when the demo files d
   await page.getByRole('button', { name: 'Try the demo song' }).click()
 
   await expect(page.getByRole('alert')).toHaveText(
-    'The demo song did not load. Check the connection and try again.',
+    'The demo song did not load. Check the connection and retry.',
   )
   await expect(page.getByRole('heading', { name: 'No songs yet' })).toBeVisible()
 })

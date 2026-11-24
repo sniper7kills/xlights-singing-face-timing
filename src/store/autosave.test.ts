@@ -48,8 +48,9 @@ describe('autosave', () => {
 
     vi.advanceTimersByTime(1)
 
-    expect(save).toHaveBeenCalledTimes(1)
+    // The save starts after the saves before it end, so the test waits for the save state.
     expect(await savedLabel('song-1')).toBe('two')
+    expect(save).toHaveBeenCalledTimes(1)
   })
 
   it('keeps an edit after a reload 2 seconds later', async () => {
@@ -109,6 +110,59 @@ describe('autosave', () => {
     await vi.waitFor(() =>
       expect(useAutosaveStore.getState().error).toBeInstanceOf(db.StorageFullError),
     )
+    expect(useAutosaveStore.getState().saveState).toBe('saving')
+  })
+
+  it('keeps an edit when the person opens the same song again before the save', async () => {
+    useSongStore.getState().apply(relabel('holy night'))
+
+    await useSongStore.getState().openSong('song-1')
+
+    expect(useSongStore.getState().current?.marks[0]?.label).toBe('holy night')
+    vi.advanceTimersByTime(AUTOSAVE_DELAY_MS)
+    // A reload drops the connection and the store state.
+    await closeDatabase()
+    useSongStore.getState().closeSong()
+    await useSongStore.getState().openSong('song-1')
+    expect(useSongStore.getState().current?.marks[0]?.label).toBe('holy night')
+  })
+
+  it('saves nothing when the person opens the same song again with no change', async () => {
+    const save = vi.spyOn(db, 'saveSong')
+
+    await useSongStore.getState().openSong('song-1')
+    vi.advanceTimersByTime(AUTOSAVE_DELAY_MS)
+
+    expect(save).not.toHaveBeenCalled()
+    expect(useAutosaveStore.getState().saveState).toBe('saved')
+  })
+
+  it('saves the change of a failed save when the song closes', async () => {
+    vi.spyOn(db, 'saveSong').mockRejectedValueOnce(new db.StorageFullError())
+    useSongStore.getState().apply(relabel('holy night'))
+    vi.advanceTimersByTime(AUTOSAVE_DELAY_MS)
+    await vi.waitFor(() =>
+      expect(useAutosaveStore.getState().error).toBeInstanceOf(db.StorageFullError),
+    )
+
+    useSongStore.getState().closeSong()
+
+    expect(await savedLabel('song-1')).toBe('holy night')
+    expect(useAutosaveStore.getState().error).toBeNull()
+  })
+
+  it('keeps the change of a failed save when the person opens the song again', async () => {
+    vi.spyOn(db, 'saveSong').mockRejectedValue(new db.StorageFullError())
+    useSongStore.getState().apply(relabel('holy night'))
+    vi.advanceTimersByTime(AUTOSAVE_DELAY_MS)
+    await vi.waitFor(() =>
+      expect(useAutosaveStore.getState().error).toBeInstanceOf(db.StorageFullError),
+    )
+
+    useSongStore.getState().closeSong()
+    await useSongStore.getState().openSong('song-1')
+
+    expect(useSongStore.getState().current?.marks[0]?.label).toBe('holy night')
     expect(useAutosaveStore.getState().saveState).toBe('saving')
   })
 
