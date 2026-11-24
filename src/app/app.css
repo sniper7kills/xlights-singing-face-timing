@@ -704,6 +704,126 @@ button {
   color: var(--red);
 }
 
+/* The backdrop takes the pointer, so the editor behind the dialog gets no click. */
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgb(0 0 0 / 55%);
+}
+
+.dialog {
+  display: grid;
+  gap: 14px;
+  width: min(520px, 100%);
+  max-height: calc(100vh - 40px);
+  overflow: auto;
+  padding: 20px 22px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--panel);
+  color: var(--ink);
+}
+
+.dialog h3 {
+  margin: 0;
+  font: 600 18px var(--display);
+}
+
+.dialog-fields {
+  display: grid;
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.choice-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  margin: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+.choice-group legend {
+  padding: 0 4px;
+  color: var(--mute);
+}
+
+.choice {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.choice input {
+  accent-color: var(--amber);
+}
+
+.choice-size {
+  font: 12px var(--mono);
+  color: var(--mute);
+}
+
+.dialog-field {
+  display: grid;
+  gap: 6px;
+}
+
+.dialog-field textarea {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel2);
+  color: var(--ink);
+  font: inherit;
+  resize: vertical;
+}
+
+.dialog-note {
+  margin: 0;
+  color: var(--mute);
+}
+
+.dialog-progress {
+  display: grid;
+  gap: 6px;
+}
+
+.dialog-progress p {
+  min-height: 1.4em;
+  margin: 0;
+}
+
+.dialog-progress progress {
+  width: 100%;
+  accent-color: var(--amber);
+}
+
+.dialog-confirm {
+  margin: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--amber);
+  border-radius: 8px;
+}
+
+.dialog-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.dialog fieldset:disabled {
+  opacity: 0.6;
+}
+
 @media (max-width: 760px) {
   .library {
     grid-template-columns: 1fr;
