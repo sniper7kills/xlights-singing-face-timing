@@ -1,41 +1,7 @@
-import { normaliseForMatch } from './normalise.ts'
+import { matchWords } from '../../lib/text/matchWords.ts'
+import { normaliseForMatch } from '../../lib/text/normalise.ts'
 import { parseLyrics, spreadLyrics, spreadWords, toPhrase } from './phrases.ts'
 import type { AlignResult, AlignedWord, TimedWord } from './types.ts'
-
-/**
- * Returns the pairs of matched words, as the longest common sequence of the two lists.
- * Each entry of the result is the index of the transcribed word that matches the
- * lyrics word at the same index, or -1 when the lyrics word has no match.
- */
-function matchWords(transcribed: string[], lyrics: string[]): number[] {
-  const rows = lyrics.length + 1
-  const cols = transcribed.length + 1
-  // lengths[i * cols + j] is the length of the longest common sequence of
-  // lyrics[i..] and transcribed[j..].
-  const lengths = new Uint32Array(rows * cols)
-  const at = (i: number, j: number): number => lengths[i * cols + j] ?? 0
-  for (let i = lyrics.length - 1; i >= 0; i--) {
-    for (let j = transcribed.length - 1; j >= 0; j--) {
-      lengths[i * cols + j] =
-        lyrics[i] === transcribed[j] ? at(i + 1, j + 1) + 1 : Math.max(at(i + 1, j), at(i, j + 1))
-    }
-  }
-  const matches = new Array<number>(lyrics.length).fill(-1)
-  let i = 0
-  let j = 0
-  while (i < lyrics.length && j < transcribed.length) {
-    if (lyrics[i] === transcribed[j] && at(i, j) === at(i + 1, j + 1) + 1) {
-      matches[i] = j
-      i++
-      j++
-    } else if (at(i + 1, j) >= at(i, j + 1)) {
-      i++
-    } else {
-      j++
-    }
-  }
-  return matches
-}
 
 /**
  * Returns the lyrics as phrases, with the times of the transcribed words, and the

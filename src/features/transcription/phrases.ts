@@ -1,4 +1,4 @@
-import { normaliseForMatch } from './normalise.ts'
+import { normaliseForMatch } from '../../lib/text/normalise.ts'
 import type { AlignedPhrase, AlignedWord, TimedWord } from './types.ts'
 
 const PHRASE_GAP_MS = 700
