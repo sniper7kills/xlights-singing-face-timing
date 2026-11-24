@@ -63,6 +63,17 @@ describe('playerStore', () => {
     expect(player.loop).toHaveBeenCalledWith({ startMs: 850, endMs: 2000 })
   })
 
+  it('pauses the player when the browser refuses the loop', async () => {
+    const player = fakePlayer()
+    vi.mocked(player.loop).mockRejectedValueOnce(new DOMException('refused', 'NotAllowedError'))
+    attachPlayer(player)
+    useViewStore.getState().selectMarks(['w1'])
+
+    expect(loopSelection()).toBe(true)
+
+    await vi.waitFor(() => expect(player.pause).toHaveBeenCalledOnce())
+  })
+
   it('returns false with no player', () => {
     useViewStore.getState().selectMarks(['w1'])
 

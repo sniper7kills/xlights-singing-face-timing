@@ -13,14 +13,15 @@ export type BaseUrlResult =
   { ok: true; baseUrl: string } | { ok: false; reason: 'empty' | 'invalid' | 'credentials' }
 
 /**
- * Returns the base URL to store for the text that the person typed.
- * The app keeps the path as typed and removes only a trailing slash, because servers put the API at different paths.
+ * Returns the base URL to store for the text that the person typed: the origin and the path, with no trailing slash.
+ * The app keeps the path, because servers put the API at different paths.
  * @param text The text of the base URL field.
- * Returns `invalid` for text that is not an `http` or `https` URL, or that has a query or a fragment.
+ * Returns `invalid` for text that is not an `http` or `https` URL, or that has a `?` or a `#`.
+ * A bare `?` or `#` gives an empty query or fragment, and `transcriptionsUrl` would add its path after it.
  * Returns `credentials` for a URL with a user name or a password, because the browser refuses such a request.
  */
 export function parseBaseUrl(text: string): BaseUrlResult {
-  const trimmed = text.trim().replace(/\/+$/, '')
+  const trimmed = text.trim()
   if (trimmed === '') return { ok: false, reason: 'empty' }
   let url: URL
   try {
@@ -29,9 +30,9 @@ export function parseBaseUrl(text: string): BaseUrlResult {
     return { ok: false, reason: 'invalid' }
   }
   if (url.protocol !== 'http:' && url.protocol !== 'https:') return { ok: false, reason: 'invalid' }
-  if (url.search !== '' || url.hash !== '') return { ok: false, reason: 'invalid' }
+  if (/[?#]/.test(trimmed)) return { ok: false, reason: 'invalid' }
   if (url.username !== '' || url.password !== '') return { ok: false, reason: 'credentials' }
-  return { ok: true, baseUrl: trimmed }
+  return { ok: true, baseUrl: `${url.origin}${url.pathname}`.replace(/\/+$/, '') }
 }
 
 /** Returns the URL of the transcription operation: the base URL and `/audio/transcriptions`. */

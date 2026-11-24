@@ -14,7 +14,7 @@ import { formatTime } from '../../lib/time/formatTime.ts'
 import type { TimeRange } from '../../lib/time/timeRange.ts'
 import { DEFAULT_SETTINGS, loadSettings, updateSettings } from '../../store/settings.ts'
 import type { AppSettings, DeviceSpeeds, TranscribeSource } from '../../store/types.ts'
-import { hasWebGpu, pickDevice, withSpeed } from './device.ts'
+import { hasWebGpu, pickDevice, withFailureTimes, withSpeed } from './device.ts'
 import { parseLyrics } from './phrases.ts'
 import { type Device, SPEECH_MODELS } from './protocol.ts'
 import { RemoteEndpointPanel } from './RemoteEndpointPanel.tsx'
@@ -101,12 +101,15 @@ export function TranscribeDialog({
 
   useEffect(() => {
     let mounted = true
-    void loadSettings().then((settings) => {
-      if (!mounted) return
-      if (SPEECH_MODELS.some((model) => model.id === settings.speechModelId))
-        setSpeechModelId(settings.speechModelId)
-      restore(settings)
-    })
+    // A failed read keeps the default settings: the browser source and no remote endpoint.
+    void loadSettings()
+      .catch(() => DEFAULT_SETTINGS)
+      .then((settings) => {
+        if (!mounted) return
+        if (SPEECH_MODELS.some((model) => model.id === settings.speechModelId))
+          setSpeechModelId(settings.speechModelId)
+        restore(settings)
+      })
     if (dialogRef.current !== null) tabStops(dialogRef.current)[0]?.focus()
     return () => {
       mounted = false
@@ -436,7 +439,11 @@ function useTranscribeRun(onDone: (outcome: TranscribeOutcome) => void) {
     const settings = loadSettings().catch(() => DEFAULT_SETTINGS)
     void Promise.all([hasWebGpu(), settings]).then(([available, { deviceSpeeds }]) => {
       if (!mounted) return
-      speedsRef.current = deviceSpeeds
+      const stamped = withFailureTimes(deviceSpeeds, Date.now())
+      speedsRef.current = stamped
+      // The failure time of an earlier record starts the wait before the app tries WebGPU again.
+      if (stamped !== deviceSpeeds)
+        void updateSettings({ deviceSpeeds: speedsRef.current }).catch(() => undefined)
       setWebgpu(available)
     })
     return () => {
@@ -453,11 +460,17 @@ function useTranscribeRun(onDone: (outcome: TranscribeOutcome) => void) {
       speechModelRef.current = speechModelId
       // A client can outlive this run, so the handler reads the speech model of the active run.
       const recordSpeed = (measured: Device, speed: number) => {
-        speedsRef.current = withSpeed(speedsRef.current, speechModelRef.current, measured, speed)
+        speedsRef.current = withSpeed(
+          speedsRef.current,
+          speechModelRef.current,
+          measured,
+          speed,
+          Date.now(),
+        )
         void updateSettings({ deviceSpeeds: speedsRef.current }).catch(() => undefined)
       }
       // A remote run can start before the WebGPU check ends. It uses no device.
-      const first = pickDevice(webgpu === true, speedsRef.current[speechModelId])
+      const first = pickDevice(webgpu === true, speedsRef.current[speechModelId], Date.now())
       // The client keeps one device, so a run that needs the other device needs a new client.
       if (clientRef.current?.device !== first) {
         clientRef.current?.dispose()
@@ -465,7 +478,7 @@ function useTranscribeRun(onDone: (outcome: TranscribeOutcome) => void) {
           device: first,
           onDeviceChange: (next, reason) => {
             setDevice(next)
-            // A failed or stalled WebGPU device gets the lowest speed, so the app does not select it again.
+            // A failed or stalled WebGPU device gets the lowest speed, so the app selects it again only after RETRY_FAILED_DEVICE_MS.
             recordSpeed('webgpu', 0)
             if (reason === 'slow')
               setMeter((current) => current && { ...current, slowDevice: true })

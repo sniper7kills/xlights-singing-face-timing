@@ -77,8 +77,17 @@ export type CustomEntry = {
   updatedAt: string
 }
 
-/** The measured speed of each device for one speech model, in seconds of audio for each second of run. */
-export type DeviceSpeeds = Partial<Record<'webgpu' | 'wasm', number>>
+/**
+ * The measured speed of each device for one speech model, in seconds of audio for each second of run.
+ * A failed or stalled device has the speed 0.
+ */
+export type DeviceSpeeds = Partial<Record<'webgpu' | 'wasm', number>> & {
+  /**
+   * The `Date.now()` of the last failure of each device with the speed 0.
+   * A record from an earlier version of the app has no failure time.
+   */
+  failedAtMs?: Partial<Record<'webgpu' | 'wasm', number>>
+}
 
 export type AppSettings = {
   speechModelId: string

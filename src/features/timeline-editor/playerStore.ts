@@ -72,7 +72,16 @@ export function loopSelection(): boolean {
   const { player } = usePlayerStore.getState()
   const range = currentLoopRange()
   if (player === null || range === null) return false
-  // The play button of the waveform ignores a refused play the same way: the player stays paused.
-  void player.loop(range)
+  pauseOnRefusal(player, player.loop(range))
   return true
+}
+
+/**
+ * Pauses `player` when the browser refuses the play that `started` waits for, for example under the autoplay policy.
+ * The pause ends a loop and sends the pause event, so the controls show that the audio does not play.
+ * @param player The player that started the play.
+ * @param started The promise of `play` or `loop`.
+ */
+export function pauseOnRefusal(player: WaveformPlayer, started: Promise<void>): void {
+  started.catch(() => player.pause())
 }

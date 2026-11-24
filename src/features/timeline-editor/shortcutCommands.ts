@@ -14,19 +14,27 @@ import type { Mark } from '../../store/types.ts'
 import { useViewStore } from '../../store/viewStore.ts'
 import { selectAndReveal } from './markCommands.ts'
 import { layerFocusId, useMarkUiStore } from './markUiStore.ts'
-import { usePlayerStore } from './playerStore.ts'
+import { pauseOnRefusal, usePlayerStore } from './playerStore.ts'
 import { followCursor } from './timeScale.ts'
 import { currentStageInput } from './useStageScale.ts'
 
 /** A key function of an editor shortcut. It returns false when it does not act. */
 export type KeyRun = (event: KeyboardEvent) => boolean
 
-// These controls use the space bar or the arrow keys themselves, so a shortcut on those keys must leave them alone.
-const CONTROL_SELECTOR =
-  'button, a[href], input, select, textarea, [contenteditable], [role="slider"], [role="listbox"], [role="dialog"]'
+// A form control changes its own value with the keys, for example a checkbox with the space bar.
+// The dispatcher lets the keys of a range input, a checkbox and a radio through, so each shortcut checks the focus.
+const FORM_CONTROL_SELECTOR =
+  'input, select, textarea, [contenteditable], [role="slider"], [role="listbox"], [role="dialog"]'
 
-function fromControl(event: KeyboardEvent): boolean {
-  return event.target instanceof Element && event.target.closest(CONTROL_SELECTOR) !== null
+// A button and a link also use the space bar or the arrow keys themselves.
+const CONTROL_SELECTOR = `button, a[href], ${FORM_CONTROL_SELECTOR}`
+
+/**
+ * Returns true when the focus is on a control that uses the key itself.
+ * @param selector `CONTROL_SELECTOR` for a key that a button or a link uses. `FORM_CONTROL_SELECTOR` for a key that only a form control uses.
+ */
+function fromControl(event: KeyboardEvent, selector = CONTROL_SELECTOR): boolean {
+  return event.target instanceof Element && event.target.closest(selector) !== null
 }
 
 /**
@@ -55,18 +63,20 @@ export function togglePlay(event: KeyboardEvent): boolean {
   if (player === null || fromControl(event)) return false
   if (event.repeat) return true
   if (player.isPlaying()) player.pause()
-  else void player.play()
+  else pauseOnRefusal(player, player.play())
   return true
 }
 
 /**
  * `S`: splits the only selected mark at the play cursor. The first part keeps the id, so it stays selected.
  * It does not act when the split is not possible, for example with the play cursor outside the mark.
+ * It does not act on a focused form control, such as the zoom slider or a checkbox.
  */
-export function splitAtCursor(): boolean {
+export function splitAtCursor(event: KeyboardEvent): boolean {
   const mark = onlySelected()
   const atMs = useViewStore.getState().playTimeMs
-  if (editorBusy() || !mark || !canSplitMark(mark.id, atMs)) return false
+  if (fromControl(event, FORM_CONTROL_SELECTOR) || editorBusy() || !mark) return false
+  if (!canSplitMark(mark.id, atMs)) return false
   splitMark(mark.id, atMs)
   return true
 }
@@ -74,10 +84,12 @@ export function splitAtCursor(): boolean {
 /**
  * `M`: merges the only selected mark with the next mark on its layer. The merged mark keeps the id, so it stays selected.
  * It does not act on the last mark of a layer or across a parent edge.
+ * It does not act on a focused form control, such as the zoom slider or a checkbox.
  */
-export function mergeSelected(): boolean {
+export function mergeSelected(event: KeyboardEvent): boolean {
   const mark = onlySelected()
-  if (editorBusy() || !mark || !canMergeWithNext(mark.id)) return false
+  if (fromControl(event, FORM_CONTROL_SELECTOR) || editorBusy()) return false
+  if (!mark || !canMergeWithNext(mark.id)) return false
   mergeWithNext(mark.id)
   return true
 }
@@ -86,11 +98,13 @@ export function mergeSelected(): boolean {
  * `Delete`: deletes the selected marks with their children, as one undo step.
  * The selection then keeps only the marks that still exist (see `keepSelectionInSong`).
  * When the selection is then empty, the focus goes to the layer track of the first deleted mark, so the focus stays in the layers.
+ * It does not act on a focused form control, such as the zoom slider or a checkbox.
  */
-export function deleteSelected(): boolean {
+export function deleteSelected(event: KeyboardEvent): boolean {
   const ids = useViewStore.getState().selectedMarkIds
   const first = findMark(useSongStore.getState().current?.marks ?? [], ids[0] ?? '')
-  if (editorBusy() || !first || !canDeleteMarks(ids)) return false
+  if (fromControl(event, FORM_CONTROL_SELECTOR) || editorBusy()) return false
+  if (!first || !canDeleteMarks(ids)) return false
   deleteMarks(ids)
   if (useViewStore.getState().selectedMarkIds.length === 0)
     useMarkUiStore.getState().requestFocus(layerFocusId(first.voiceId, first.layer))

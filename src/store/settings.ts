@@ -22,11 +22,19 @@ export async function loadSettings(): Promise<AppSettings> {
   return { ...DEFAULT_SETTINGS, ...(await getRecord('settings', SETTINGS_KEY)) }
 }
 
+/** The last write of `updateSettings`. A failed write does not stop the next write. */
+let lastWrite: Promise<unknown> = Promise.resolve()
+
 /**
  * Writes one change to the app settings and keeps the other fields.
+ * Each write reads the record after the previous write ends, so two changes close together both stay.
  * @param change The fields to write.
  * Rejects with StorageFullError when the browser storage is full.
  */
-export async function updateSettings(change: Partial<AppSettings>): Promise<void> {
-  await putRecord('settings', { ...(await loadSettings()), ...change })
+export function updateSettings(change: Partial<AppSettings>): Promise<void> {
+  const write = lastWrite.then(async () => {
+    await putRecord('settings', { ...(await loadSettings()), ...change })
+  })
+  lastWrite = write.catch(() => undefined)
+  return write
 }

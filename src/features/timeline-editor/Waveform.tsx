@@ -15,6 +15,7 @@ import {
   checkAudioFile,
   ImportError,
 } from '../audio-import/createSongFromFile.ts'
+import { pauseOnRefusal } from './playerStore.ts'
 import { PlayCursor } from './PlayCursor.tsx'
 import { TimeRuler } from './TimeRuler.tsx'
 import { TimeSelection } from './TimeSelection.tsx'
@@ -221,7 +222,7 @@ export function Waveform({ songId, durationMs, children }: WaveformProps) {
     const player = playerRef.current
     if (!player) return
     if (player.isPlaying()) player.pause()
-    else void player.play()
+    else pauseOnRefusal(player, player.play())
   }, [])
 
   async function storeAudioFile(file: File) {
