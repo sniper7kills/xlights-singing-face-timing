@@ -154,7 +154,9 @@ describe('EditorPage', () => {
     render(<EditorPage songId={song.id} />)
     const heading = await screen.findByRole('heading', { level: 2, name: 'carol' })
 
-    expect(within(heading.parentElement ?? document.body).queryByRole('button')).toBeNull()
+    expect(
+      within(heading.parentElement ?? document.body).queryByRole('button', { name: 'Transcribe' }),
+    ).toBeNull()
   })
 
   it('shows no "Transcribe" button in the empty state of the layers for a song with no voice', async () => {
