@@ -423,6 +423,13 @@ button {
   font-size: 13px;
 }
 
+/* The outline shows the selection without colour alone. It is inside the mark, so the layer does not cut it. */
+.mark[aria-current='true'] {
+  outline: 2px solid var(--amber);
+  outline-offset: -2px;
+  z-index: 1;
+}
+
 .mark-label {
   overflow: hidden;
   text-overflow: ellipsis;

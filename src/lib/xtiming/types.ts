@@ -28,7 +28,7 @@ export interface ExportTrack {
   /** The marks of the three layers, in this order: phrases, words, phonemes. */
   layers: [ExportMark[], ExportMark[], ExportMark[]]
   /** The key of the name in `ExportOptions.trackNames`: `voiceId` or `voiceId:sectionId`. */
-  key?: string
+  key: string
   /** The id of the voice that gives the marks. */
   voiceId?: string
 }

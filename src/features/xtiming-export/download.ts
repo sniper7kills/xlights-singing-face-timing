@@ -1,7 +1,7 @@
 import type { ExportFile } from '../../lib/xtiming/exportFiles.ts'
 
-// The browser reads the Blob after the click returns, so the object URL stays valid for a short time.
-const REVOKE_DELAY_MS = 1000
+// The browser reads the Blob after the click returns, and a large file can take many seconds to save.
+const REVOKE_DELAY_MS = 30_000
 
 /**
  * Gives each file to the browser as a download, in the order of the list.
@@ -16,7 +16,10 @@ export function downloadFiles(files: readonly ExportFile[]): void {
     const anchor = document.createElement('a')
     anchor.href = url
     anchor.download = file.name
+    // Some browsers start a download only from an anchor that is in the document.
+    document.body.append(anchor)
     anchor.click()
+    anchor.remove()
     setTimeout(() => URL.revokeObjectURL(url), REVOKE_DELAY_MS)
   }
 }

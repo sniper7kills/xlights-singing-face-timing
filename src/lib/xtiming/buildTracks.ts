@@ -21,10 +21,11 @@ export type SourceMark = Mark & { unknown?: boolean }
  * - A word belongs to the timing track of its parent phrase. A phoneme belongs to the timing track of its parent word.
  * - An edited name in `options.trackNames` replaces the default name.
  * - A layer has the order of start time.
- * - If the snap makes a mark zero length, the mark gets the length of one frame size.
+ * - No time is before 0. A stored time before the start of the song becomes 0.
+ * - If the snap or the limit at 0 makes a mark zero length, the mark gets the length of one frame size.
  * - A mark never starts before the end of the mark before it on the layer.
  *   If an extension overlaps the next mark, the next mark moves later by the overlap, and so on.
- *   The check of #44 warns about each mark that is shorter than the frame size after the snap.
+ *   The `short-mark` check of `checkTracks` warns about each mark that is shorter than the frame size after the snap.
  * - With `options.writeRest`, a `rest` phoneme fills each gap of the phoneme layer between the first phrase start and the last phrase end.
  *
  * The function returns new objects and changes no input.
@@ -120,7 +121,8 @@ function makeTrack(
 function snapLayer(marks: readonly SourceMark[], frameMs: number, isWord: boolean): ExportMark[] {
   const sorted = [...marks].sort((a, b) => a.startMs - b.startMs)
   const layer: ExportMark[] = []
-  let previousEnd = -Infinity
+  // xLights has no time before the start of the song, so the first mark starts at 0 or later.
+  let previousEnd = 0
   for (const mark of sorted) {
     const startMs = Math.max(snap(mark.startMs, frameMs), previousEnd)
     const endMs = Math.max(snap(mark.endMs, frameMs), startMs + frameMs)

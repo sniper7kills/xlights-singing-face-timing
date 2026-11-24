@@ -2,6 +2,7 @@ import { useEffect, useId, useMemo, useRef, useState, type KeyboardEvent } from 
 import { buildTracks } from '../../lib/xtiming/buildTracks.ts'
 import { checkTracks } from '../../lib/xtiming/checkTracks.ts'
 import { exportFiles, type ExportFile } from '../../lib/xtiming/exportFiles.ts'
+import { defaultTrackNames } from '../../lib/xtiming/names.ts'
 import type { ExportOptions } from '../../lib/xtiming/types.ts'
 import { saveExportOptions, StorageFullError } from '../../store/db.ts'
 import type { SongContent } from '../../store/types.ts'
@@ -10,6 +11,7 @@ import { ChecksList } from './ChecksList.tsx'
 import { FilePreview } from './FilePreview.tsx'
 import { ImportSteps } from './ImportSteps.tsx'
 import { PackagingGroup } from './PackagingGroup.tsx'
+import { plural } from './plural.ts'
 
 const FOCUSABLE = 'button, input, summary, [tabindex="0"]'
 
@@ -45,10 +47,6 @@ function keepFocusInside(event: KeyboardEvent<HTMLDivElement>): void {
   }
 }
 
-function plural(n: number, word: string): string {
-  return `${n} ${word}${n === 1 ? '' : 's'}`
-}
-
 function doneLine(trackCount: number, files: ExportFile[]): string {
   const target = files.length === 1 && files[0] ? files[0].name : plural(files.length, 'file')
   return `${plural(trackCount, 'timing track')} written to ${target}`
@@ -69,6 +67,7 @@ export function ExportDialog({ content, initialOptions, onClose, onDownload }: E
   const dialogRef = useRef<HTMLDivElement>(null)
   const titleId = useId()
   const sectionHintId = useId()
+  const voiceHintId = useId()
 
   const tracks = useMemo(
     () => buildTracks(song, voices, sections, marks, options),
@@ -83,7 +82,10 @@ export function ExportDialog({ content, initialOptions, onClose, onDownload }: E
     [tracks, song.name, options.packaging],
   )
 
+  const defaultNames = useMemo(() => defaultTrackNames(voices, sections), [voices, sections])
+
   const empty = marks.length === 0
+  const noVoice = options.voiceIds.length === 0
   const blocked = findings.some((finding) => finding.type === 'error')
   const firstFile = files[0]
 
@@ -111,15 +113,20 @@ export function ExportDialog({ content, initialOptions, onClose, onDownload }: E
   function showMark(markId: string) {
     onClose()
     const view = useViewStore.getState()
-    view.selectMarks([markId])
     const mark = marks.find((stored) => stored.id === markId)
+    // The layers show one voice, so the voice of the mark comes before the selection.
+    if (mark) view.selectVoice(mark.voiceId)
+    view.selectMarks([markId])
     // At the default zoom the full song is in the width, so every mark is in view already.
     if (mark && view.pxPerSecond !== null) view.setScroll(mark.startMs)
   }
 
   async function download() {
     try {
-      await saveExportOptions(song.id, options)
+      await saveExportOptions(song.id, {
+        ...options,
+        knownVoiceIds: voices.map((voice) => voice.id),
+      })
     } catch (error) {
       if (!(error instanceof StorageFullError)) throw error
       setStorageMessage(error.message)
@@ -226,21 +233,18 @@ export function ExportDialog({ content, initialOptions, onClose, onDownload }: E
                 <fieldset className="export-group">
                   <legend>Timing track names in xLights</legend>
                   <ol className="export-tracks">
-                    {tracks.map((track, index) => {
-                      // buildTracks sets the key on every timing track. The type keeps it optional for other callers.
-                      const key = track.key ?? track.name
-                      return (
-                        <li key={key}>
-                          <input
-                            className="text-field"
-                            aria-label={`Timing track name ${index + 1}`}
-                            value={track.name}
-                            onChange={(event) => rename(key, event.currentTarget.value)}
-                          />
-                          <span>3 layers · {plural(track.layers.flat().length, 'mark')}</span>
-                        </li>
-                      )
-                    })}
+                    {tracks.map((track) => (
+                      <li key={track.key}>
+                        <input
+                          className="text-field"
+                          // The default name stays the same while the person edits the name.
+                          aria-label={`Name of the timing track for ${defaultNames.get(track.key) ?? track.name}`}
+                          value={track.name}
+                          onChange={(event) => rename(track.key, event.currentTarget.value)}
+                        />
+                        <span>3 layers · {plural(track.layers.flat().length, 'mark')}</span>
+                      </li>
+                    ))}
                   </ol>
                 </fieldset>
                 <ChecksList findings={findings} onSelectMark={showMark} />
@@ -264,6 +268,11 @@ export function ExportDialog({ content, initialOptions, onClose, onDownload }: E
           <span className="export-done" role="status">
             {done}
           </span>
+          {noVoice && (
+            <small id={voiceHintId} className="export-hint">
+              Select one voice or more.
+            </small>
+          )}
           <button type="button" className="button" onClick={onClose}>
             Close
           </button>
@@ -271,6 +280,7 @@ export function ExportDialog({ content, initialOptions, onClose, onDownload }: E
             type="button"
             className="button primary"
             disabled={empty || blocked || files.length === 0}
+            aria-describedby={noVoice ? voiceHintId : undefined}
             onClick={() => void download()}
           >
             Download

@@ -223,6 +223,22 @@ describe('checkTracks', () => {
       ])
     })
 
+    it('gives a warning for a mark that ends before the start of the song', () => {
+      const marks = [...cleanMarks(), makeMark('p0', 'phrase', 'Oh', -300, -100)]
+      const findings = check(buildTracks(song, voices, [], marks, options()), marks)
+
+      expect(findings).toEqual([
+        {
+          type: 'warning',
+          check: 'short-mark',
+          message:
+            '“Oh” at 0:00.000 is shorter than one frame. The export makes it one frame long.',
+          markId: 'p0',
+          voiceId: 'lead',
+        },
+      ])
+    })
+
     it('gives a warning for a mark that the snap makes shorter than the frame size', () => {
       const marks = cleanMarks()
       marks[4] = makeMark('ph2', 'phoneme', 'AI', 12450, 12460, 'w1')

@@ -19,6 +19,26 @@ export function defaultTrackName(voiceName: string, sectionName: string | null):
   return sectionName === null ? voiceName : `${voiceName} - ${sectionName}`
 }
 
+/**
+ * Returns the default name of every timing track that an export of the song can have.
+ * The key of each name is the key of `trackKey`: the voice, the voice with each section, and the voice with `UNSECTIONED`.
+ * @param voices The voices of the song. The function reads `id` and `name`.
+ * @param sections The sections of the song. The function reads `id` and `name`.
+ */
+export function defaultTrackNames(
+  voices: readonly { id: string; name: string }[],
+  sections: readonly { id: string; name: string }[],
+): Map<string, string> {
+  const names = new Map<string, string>()
+  for (const voice of voices) {
+    names.set(trackKey(voice.id, null), defaultTrackName(voice.name, null))
+    for (const section of [...sections, { id: UNSECTIONED, name: UNSECTIONED }]) {
+      names.set(trackKey(voice.id, section.id), defaultTrackName(voice.name, section.name))
+    }
+  }
+  return names
+}
+
 // Windows refuses these characters in a file name, and `/` separates folders on every system.
 const UNSAFE_FILE_CHARACTERS = /[\\/:*?"<>|]/g
 

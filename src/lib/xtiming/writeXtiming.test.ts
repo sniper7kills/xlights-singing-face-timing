@@ -15,6 +15,7 @@ function mark(label: string, startMs: number, endMs: number): ExportMark {
 
 const leadVocals: ExportTrack = {
   name: 'Lead Vocals',
+  key: 'voice-1',
   layers: [
     [mark('Jingle bells', 12350, 13900)],
     [mark('Jingle', 12350, 13000), mark('bells', 13000, 13900)],
@@ -24,6 +25,7 @@ const leadVocals: ExportTrack = {
 
 const harmony: ExportTrack = {
   name: 'Harmony',
+  key: 'voice-1',
   layers: [
     [mark('Oh what fun', 14000, 15500)],
     [mark('Oh', 14000, 14500), mark('what', 14500, 15000), mark('fun', 15000, 15500)],
@@ -41,6 +43,7 @@ const tomAndJerry = `Tom & "Jerry's" <3`
 
 const specialLabels: ExportTrack = {
   name: tomAndJerry,
+  key: 'voice-1',
   layers: [
     [mark(`${tomAndJerry} > café`, 1000, 3000)],
     [
@@ -57,6 +60,7 @@ const specialLabels: ExportTrack = {
 
 const noPhonemes: ExportTrack = {
   name: 'Lead Vocals',
+  key: 'voice-1',
   layers: [leadVocals.layers[0], leadVocals.layers[1], []],
 }
 
@@ -100,7 +104,11 @@ describe('writeXtiming', () => {
   })
 
   it('gives back the label Tom & "Jerry\'s" <3 after an XML parser reads the file', () => {
-    const track: ExportTrack = { name: tomAndJerry, layers: [[mark(tomAndJerry, 0, 50)], [], []] }
+    const track: ExportTrack = {
+      name: tomAndJerry,
+      key: 'voice-1',
+      layers: [[mark(tomAndJerry, 0, 50)], [], []],
+    }
     const doc = parse(writeXtiming([track], VERSION))
     expect(doc.querySelector('parsererror')).toBeNull()
     expect(doc.documentElement.getAttribute('name')).toBe(tomAndJerry)
@@ -108,7 +116,11 @@ describe('writeXtiming', () => {
   })
 
   it('keeps the UTF-8 bytes of non-ASCII text unchanged', () => {
-    const track: ExportTrack = { name: 'café', layers: [[mark('café', 0, 50)], [], []] }
+    const track: ExportTrack = {
+      name: 'café',
+      key: 'voice-1',
+      layers: [[mark('café', 0, 50)], [], []],
+    }
     const out = bytes(writeXtiming([track], VERSION))
     const cafe = [0x63, 0x61, 0x66, 0xc3, 0xa9]
     const count = out.reduce((n, _, i) => (cafe.every((b, j) => out[i + j] === b) ? n + 1 : n), 0)
@@ -128,6 +140,7 @@ describe('writeXtiming', () => {
   it('writes the marks of a layer in order of start time', () => {
     const reversed: ExportTrack = {
       name: leadVocals.name,
+      key: 'voice-1',
       layers: [
         [...leadVocals.layers[0]].reverse(),
         [...leadVocals.layers[1]].reverse(),
@@ -139,7 +152,7 @@ describe('writeXtiming', () => {
 
   it('keeps the order of the marks in the array of the caller', () => {
     const layer = [mark('b', 100, 200), mark('a', 0, 100)]
-    writeXtiming([{ name: 'x', layers: [layer, [], []] }], VERSION)
+    writeXtiming([{ name: 'x', key: 'voice-1', layers: [layer, [], []] }], VERSION)
     expect(layer.map((m) => m.label)).toEqual(['b', 'a'])
   })
 
@@ -147,6 +160,7 @@ describe('writeXtiming', () => {
     const withExtras = (m: ExportMark) => ({ ...m, markId: 'm1', unknown: true, estimated: true })
     const track: ExportTrack = {
       name: leadVocals.name,
+      key: 'voice-1',
       layers: [
         leadVocals.layers[0].map(withExtras),
         leadVocals.layers[1].map(withExtras),

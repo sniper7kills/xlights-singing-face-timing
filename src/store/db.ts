@@ -186,8 +186,14 @@ function exportOptionsKey(songId: string): string {
   return `export:${songId}`
 }
 
+/** The export options of a song in the form that the `settings` object store holds. */
+export type StoredExportOptions = ExportOptions & {
+  /** The ids of all voices of the song at the export. A voice outside this list is new to the options. */
+  knownVoiceIds: string[]
+}
+
 /** Returns the export options of the previous export of the song, or undefined if the song has none. */
-export function loadExportOptions(songId: string): Promise<ExportOptions | undefined> {
+export function loadExportOptions(songId: string): Promise<StoredExportOptions | undefined> {
   return transact(['settings'], 'readonly', (transaction) => {
     const request = transaction.objectStore('settings').get(exportOptionsKey(songId))
     return () => request.result
@@ -198,7 +204,7 @@ export function loadExportOptions(songId: string): Promise<ExportOptions | undef
  * Stores the export options of the song in the `settings` object store, and replaces the previous options.
  * Rejects with StorageFullError when the browser storage is full.
  */
-export function saveExportOptions(songId: string, options: ExportOptions): Promise<void> {
+export function saveExportOptions(songId: string, options: StoredExportOptions): Promise<void> {
   return transact(['settings'], 'readwrite', (transaction) => {
     transaction.objectStore('settings').put(options, exportOptionsKey(songId))
     return nothing

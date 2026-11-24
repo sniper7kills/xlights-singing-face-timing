@@ -20,6 +20,7 @@ const PHONEME_LABEL_SET: ReadonlySet<string> = new Set(PHONEME_LABELS)
  * - A name with only spaces is empty. Two empty names give two `empty-name` errors and no `duplicate-name` error.
  * - A word has a phoneme when a stored phoneme has the word as its parent.
  * - A mark is short when the snap of its stored start and end times gives less than one frame size.
+ *   A stored time before 0 counts as 0, as in `buildTracks`.
  *   `buildTracks` extends such a mark to one frame size, so the output alone does not show it.
  * - A mark ends after the song when its time in the output ends after `song.durationMs`.
  *
@@ -129,7 +130,9 @@ function timeFindings(
     )
   } else if (
     stored !== undefined &&
-    snap(stored.endMs, song.frameMs) - snap(stored.startMs, song.frameMs) < song.frameMs
+    Math.max(snap(stored.endMs, song.frameMs), 0) -
+      Math.max(snap(stored.startMs, song.frameMs), 0) <
+      song.frameMs
   ) {
     findings.push(
       finding(

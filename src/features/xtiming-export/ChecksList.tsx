@@ -1,15 +1,12 @@
 import { useState } from 'react'
 import type { Finding } from '../../lib/xtiming/types.ts'
+import { plural } from './plural.ts'
 
 type ChecksListProps = {
   /** The findings of `checkTracks`, errors first. */
   findings: Finding[]
   /** Shows the mark of a finding in the editor. */
   onSelectMark: (markId: string) => void
-}
-
-function count(n: number, word: string): string {
-  return `${n} ${word}${n === 1 ? '' : 's'}`
 }
 
 /**
@@ -27,7 +24,7 @@ export function ChecksList({ findings, onSelectMark }: ChecksListProps) {
       onToggle={(event) => setOpened(event.currentTarget.open)}
     >
       <summary>
-        Checks · {count(errors, 'error')} · {count(warnings, 'warning')}
+        Checks · {plural(errors, 'error')} · {plural(warnings, 'warning')}
       </summary>
       <ul>
         {findings.map((finding, index) => {

@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest'
-import { defaultTrackName, songFileName, trackFileName, trackKey, UNSECTIONED } from './names.ts'
+import {
+  defaultTrackName,
+  defaultTrackNames,
+  songFileName,
+  trackFileName,
+  trackKey,
+  UNSECTIONED,
+} from './names.ts'
 
 describe('trackKey', () => {
   it('returns the voice id for grouping by voice', () => {
@@ -22,6 +29,27 @@ describe('defaultTrackName', () => {
 
   it('names the track for the phrases outside every section Unsectioned', () => {
     expect(defaultTrackName('Lead Vocals', UNSECTIONED)).toBe('Lead Vocals - Unsectioned')
+  })
+})
+
+describe('defaultTrackNames', () => {
+  it('gives the default name for each voice, for each voice and section, and for Unsectioned', () => {
+    const names = defaultTrackNames(
+      [
+        { id: 'v1', name: 'Lead Vocals' },
+        { id: 'v2', name: 'Santa' },
+      ],
+      [{ id: 's1', name: 'Chorus' }],
+    )
+
+    expect([...names]).toEqual([
+      ['v1', 'Lead Vocals'],
+      ['v1:s1', 'Lead Vocals - Chorus'],
+      ['v1:Unsectioned', 'Lead Vocals - Unsectioned'],
+      ['v2', 'Santa'],
+      ['v2:s1', 'Santa - Chorus'],
+      ['v2:Unsectioned', 'Santa - Unsectioned'],
+    ])
   })
 })
 

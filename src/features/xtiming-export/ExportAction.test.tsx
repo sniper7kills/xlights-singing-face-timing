@@ -1,6 +1,7 @@
 import { act, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import * as db from '../../store/db.ts'
 import { saveExportOptions } from '../../store/db.ts'
 import { useSongStore } from '../../store/songStore.ts'
 import { downloadFiles } from './download.ts'
@@ -16,6 +17,7 @@ const content = makeContent(
 )
 
 afterEach(() => {
+  vi.restoreAllMocks()
   vi.mocked(downloadFiles).mockClear()
   act(() => useSongStore.getState().closeSong())
 })
@@ -65,6 +67,7 @@ describe('ExportAction', () => {
       packaging: 'file-per-track',
       writeRest: true,
       trackNames: { v2: 'Elf' },
+      knownVoiceIds: ['v1', 'v2'],
     })
     useSongStore.setState({ current: content })
     render(<ExportAction />)
@@ -76,7 +79,23 @@ describe('ExportAction', () => {
     expect(screen.getByRole('checkbox', { name: 'Santa' })).toBeChecked()
     expect(screen.getByRole('radio', { name: 'One file for each timing track' })).toBeChecked()
     expect(screen.getByRole('checkbox', { name: 'Write rest phonemes in gaps' })).toBeChecked()
-    expect(screen.getByRole('textbox', { name: 'Timing track name 1' })).toHaveValue('Elf')
+    expect(screen.getByRole('textbox', { name: 'Name of the timing track for Santa' })).toHaveValue(
+      'Elf',
+    )
+  })
+
+  it('opens the dialog with the default options when the stored options do not load', async () => {
+    const user = userEvent.setup()
+    vi.spyOn(db, 'loadExportOptions').mockRejectedValue(new Error('The database is closed.'))
+    useSongStore.setState({ current: content })
+    render(<ExportAction />)
+
+    await user.click(screen.getByRole('button', { name: 'Export' }))
+
+    await screen.findByRole('dialog', { name: 'Export to xLights' })
+    expect(screen.getByRole('checkbox', { name: 'Lead Vocals' })).toBeChecked()
+    expect(screen.getByRole('checkbox', { name: 'Santa' })).toBeChecked()
+    expect(screen.getByRole('radio', { name: 'One file with all timing tracks' })).toBeChecked()
   })
 
   it('remembers the options of a download for the next export', async () => {

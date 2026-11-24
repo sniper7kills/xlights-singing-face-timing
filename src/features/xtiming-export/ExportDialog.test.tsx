@@ -6,6 +6,7 @@ import * as db from '../../store/db.ts'
 import { loadExportOptions, StorageFullError } from '../../store/db.ts'
 import type { SongContent } from '../../store/types.ts'
 import { useViewStore } from '../../store/viewStore.ts'
+import { Layers } from '../timeline-editor/Layers.tsx'
 import { ExportDialog } from './ExportDialog.tsx'
 import {
   makeContent,
@@ -38,9 +39,11 @@ function download() {
 }
 
 function trackNames() {
-  return screen.queryAllByRole('textbox', { name: /^Timing track name/ }).map((input) => {
-    return (input as HTMLInputElement).value
-  })
+  return screen
+    .queryAllByRole('textbox', { name: /^Name of the timing track for / })
+    .map((input) => {
+      return (input as HTMLInputElement).value
+    })
 }
 
 function preview() {
@@ -150,6 +153,47 @@ describe('ExportDialog', () => {
     ])
   })
 
+  it('labels each name input with the default name of its timing track', async () => {
+    const user = userEvent.setup()
+    const sections = [makeSection('s1', 'Chorus', 0, 2000)]
+    const marks = [...makeSungPhrase('v1', 500), ...makeSungPhrase('v1', 5000)]
+    const content = makeContent([lead], marks, sections)
+    renderDialog(content, { ...makeOptions(content), trackNames: { v1: 'Soloist' } })
+    expect(
+      screen.getByRole('textbox', { name: 'Name of the timing track for Lead Vocals' }),
+    ).toHaveValue('Soloist')
+
+    await user.click(
+      screen.getByRole('radio', { name: 'One timing track for each voice and section' }),
+    )
+
+    expect(
+      screen.getByRole('textbox', { name: 'Name of the timing track for Lead Vocals - Chorus' }),
+    ).toBeInTheDocument()
+    expect(
+      screen.getByRole('textbox', {
+        name: 'Name of the timing track for Lead Vocals - Unsectioned',
+      }),
+    ).toBeInTheDocument()
+  })
+
+  it('gives the file preview the role of a named region', () => {
+    renderDialog(twoVoices)
+
+    expect(screen.getByRole('region', { name: 'File preview' }).tagName).toBe('PRE')
+  })
+
+  it('shows "Select one voice or more." beside the disabled "Download" when no voice is selected', async () => {
+    const user = userEvent.setup()
+    renderDialog(makeContent([lead], makeSungPhrase('v1', 1000)))
+    expect(screen.queryByText('Select one voice or more.')).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole('checkbox', { name: 'Lead Vocals' }))
+
+    expect(download()).toBeDisabled()
+    expect(download()).toHaveAccessibleDescription('Select one voice or more.')
+  })
+
   it('disables grouping by section with a hint when the song has no sections', () => {
     renderDialog(twoVoices)
 
@@ -200,7 +244,7 @@ describe('ExportDialog', () => {
     const user = userEvent.setup()
     renderDialog(twoVoices)
 
-    const name = screen.getByRole('textbox', { name: 'Timing track name 2' })
+    const name = screen.getByRole('textbox', { name: 'Name of the timing track for Santa' })
     await user.clear(name)
     await user.type(name, 'Soloist')
 
@@ -211,7 +255,7 @@ describe('ExportDialog', () => {
     const user = userEvent.setup()
     renderDialog(twoVoices)
 
-    const name = screen.getByRole('textbox', { name: 'Timing track name 2' })
+    const name = screen.getByRole('textbox', { name: 'Name of the timing track for Santa' })
     await user.clear(name)
     await user.type(name, 'Lead Vocals')
 
@@ -229,6 +273,28 @@ describe('ExportDialog', () => {
 
     expect(onClose).toHaveBeenCalled()
     expect(useViewStore.getState().selectedMarkIds).toEqual(['v1-1000-word'])
+  })
+
+  it('shows the voice of a finding in the layers with its mark selected', async () => {
+    const user = userEvent.setup()
+    vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockReturnValue(1000)
+    const santaMarks = makeSungPhrase('v2', 3000)
+      .filter((mark) => mark.layer !== 'phoneme')
+      .map((mark) => (mark.layer === 'word' ? { ...mark, label: 'Ho' } : mark))
+    const content = makeContent([lead, santa], [...makeSungPhrase('v1', 1000), ...santaMarks])
+    render(<Layers content={content} />)
+    const words = () => within(screen.getByRole('list', { name: 'Words' })).getAllByRole('listitem')
+    expect(words().map((word) => word.textContent)).toEqual(['Noel'])
+    expect(words()[0]).not.toHaveAttribute('aria-current')
+    renderDialog(content)
+
+    await user.click(screen.getByText('Checks · 0 errors · 1 warning'))
+    await user.click(screen.getByRole('button', { name: /“Ho” at 0:03.000 has no phoneme/ }))
+
+    expect(words().map((word) => word.textContent)).toEqual(['Ho'])
+    expect(words()[0]).toHaveAttribute('aria-current', 'true')
+    const phrase = within(screen.getByRole('list', { name: 'Phrases' })).getByRole('listitem')
+    expect(phrase).not.toHaveAttribute('aria-current')
   })
 
   it('scrolls a zoomed editor to the mark of a finding', async () => {
@@ -338,10 +404,10 @@ describe('ExportDialog', () => {
     expect(screen.getByRole('status')).toBeEmptyDOMElement()
   })
 
-  it('shows the blocked-download hint only when several files download', async () => {
+  it('shows the hint about blocked downloads only when several files download', async () => {
     const user = userEvent.setup()
     const hint =
-      'The browser blocked some downloads. Allow downloads for this site, or select One file.'
+      'The browser can block several downloads. If files are missing, allow downloads for this site, or select One file.'
     renderDialog(twoVoices)
     expect(screen.queryByText(hint)).not.toBeInTheDocument()
 
@@ -353,11 +419,11 @@ describe('ExportDialog', () => {
     ).toHaveAccessibleDescription(hint)
   })
 
-  it('shows no blocked-download hint for one file for each timing track with one file', () => {
+  it('shows no hint about blocked downloads for one file for each timing track with one file', () => {
     const oneVoice = makeContent([lead], makeSungPhrase('v1', 1000))
     renderDialog(oneVoice, { ...makeOptions(oneVoice), packaging: 'file-per-track' })
 
-    expect(screen.queryByText(/The browser blocked some downloads/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/The browser can block several downloads/)).not.toBeInTheDocument()
   })
 
   it('shows the storage-full message and keeps the dialog when the options do not save', async () => {

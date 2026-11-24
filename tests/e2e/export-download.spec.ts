@@ -78,7 +78,7 @@ test('downloads one file for each of two timing tracks', async ({ page }) => {
   await dialog.getByRole('radio', { name: 'One file for each timing track' }).check()
   await expect(
     dialog.getByText(
-      'The browser blocked some downloads. Allow downloads for this site, or select One file.',
+      'The browser can block several downloads. If files are missing, allow downloads for this site, or select One file.',
     ),
   ).toBeVisible()
 

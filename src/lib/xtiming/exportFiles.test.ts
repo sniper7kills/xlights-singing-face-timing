@@ -3,7 +3,7 @@ import { exportFiles } from './exportFiles.ts'
 import type { ExportTrack } from './types.ts'
 
 function makeTrack(name: string): ExportTrack {
-  return { name, layers: [[{ label: 'Noel', startMs: 0, endMs: 500 }], [], []] }
+  return { name, key: name, layers: [[{ label: 'Noel', startMs: 0, endMs: 500 }], [], []] }
 }
 
 describe('exportFiles', () => {

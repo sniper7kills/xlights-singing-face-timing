@@ -340,6 +340,36 @@ describe('buildTracks, times', () => {
     expect(lead.layers[2]).toEqual([{ label: 'O', startMs: 1000, endMs: 1050, markId: 'f' }])
   })
 
+  it('moves a negative start time to 0', () => {
+    const marks = [makeMark('p', 'lead', 'phrase', 'Oh', -120, 400)]
+    const [lead = noTrack()] = buildTracks(
+      makeSong(50),
+      voices,
+      [],
+      marks,
+      options({ voiceIds: ['lead'] }),
+    )
+    expect(lead.layers[0]).toEqual([{ label: 'Oh', startMs: 0, endMs: 400, markId: 'p' }])
+  })
+
+  it('gives a mark that ends at or before 0 the length of one frame size from 0', () => {
+    const marks = [
+      makeMark('p1', 'lead', 'phrase', 'Oh', -300, -100),
+      makeMark('p2', 'lead', 'phrase', 'holy', 0, 400),
+    ]
+    const [lead = noTrack()] = buildTracks(
+      makeSong(50),
+      voices,
+      [],
+      marks,
+      options({ voiceIds: ['lead'] }),
+    )
+    expect(lead.layers[0]).toEqual([
+      { label: 'Oh', startMs: 0, endMs: 50, markId: 'p1' },
+      { label: 'holy', startMs: 50, endMs: 400, markId: 'p2' },
+    ])
+  })
+
   it('moves the next mark later when an extension overlaps it', () => {
     const marks = [
       makeMark('p', 'lead', 'phrase', 'Oh', 1000, 2000),

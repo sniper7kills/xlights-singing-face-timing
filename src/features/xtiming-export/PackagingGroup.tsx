@@ -42,7 +42,8 @@ export function PackagingGroup({ packaging, fileCount, onChange }: PackagingGrou
       </label>
       {severalDownloads && (
         <small id={hintId} className="export-hint">
-          The browser blocked some downloads. Allow downloads for this site, or select One file.
+          The browser can block several downloads. If files are missing, allow downloads for this
+          site, or select One file.
         </small>
       )}
     </fieldset>

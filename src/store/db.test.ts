@@ -14,9 +14,9 @@ import {
   saveExportOptions,
   saveSong,
   SETTINGS_KEY,
+  type StoredExportOptions,
   StorageFullError,
 } from './db.ts'
-import type { ExportOptions } from '../lib/xtiming/types.ts'
 import { makeSongContent } from './fixtures.test-helpers.ts'
 import type { AudioFile, CustomEntry, Voice } from './types.ts'
 
@@ -130,12 +130,13 @@ describe('records', () => {
 })
 
 describe('export options', () => {
-  const options: ExportOptions = {
+  const options: StoredExportOptions = {
     voiceIds: ['voice-1'],
     grouping: 'voice',
     packaging: 'file-per-track',
     writeRest: true,
     trackNames: { 'voice-1': 'Santa' },
+    knownVoiceIds: ['voice-1', 'voice-2'],
   }
 
   it('stores the export options of each song apart from the app settings', async () => {
@@ -257,12 +258,13 @@ describe('deleteSong', () => {
     const kept = makeSongContent('song-2')
     await saveSong(deleted, makeAudioFile('song-1'))
     const keptSong = await saveSong(kept, makeAudioFile('song-2'))
-    const options: ExportOptions = {
+    const options: StoredExportOptions = {
       voiceIds: [],
       grouping: 'voice',
       packaging: 'one-file',
       writeRest: false,
       trackNames: {},
+      knownVoiceIds: [],
     }
     await saveExportOptions('song-1', options)
     await saveExportOptions('song-2', options)

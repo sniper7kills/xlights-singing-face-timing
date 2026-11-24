@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { downloadFiles } from './download.ts'
 
 const blobs: Blob[] = []
-const clicked: { href: string; download: string }[] = []
+const clicked: { href: string; download: string; connected: boolean }[] = []
 
 beforeEach(() => {
   vi.useFakeTimers()
@@ -17,7 +17,7 @@ beforeEach(() => {
   vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(function (
     this: HTMLAnchorElement,
   ) {
-    clicked.push({ href: this.href, download: this.download })
+    clicked.push({ href: this.href, download: this.download, connected: this.isConnected })
   })
 })
 
@@ -34,8 +34,8 @@ describe('downloadFiles', () => {
     ])
 
     expect(clicked).toEqual([
-      { href: 'blob:test/1', download: 'Carol - Lead Vocals.xtiming' },
-      { href: 'blob:test/2', download: 'Carol - Santa.xtiming' },
+      { href: 'blob:test/1', download: 'Carol - Lead Vocals.xtiming', connected: true },
+      { href: 'blob:test/2', download: 'Carol - Santa.xtiming', connected: true },
     ])
   })
 
@@ -49,12 +49,20 @@ describe('downloadFiles', () => {
     expect([...bytes]).toEqual([...new TextEncoder().encode('<x label="café"/>\n')])
   })
 
-  it('revokes each object URL after the download starts', () => {
+  it('keeps each object URL for 30 seconds, so that a large file can finish', () => {
     downloadFiles([{ name: 'Carol.xtiming', text: '' }])
-    expect(URL.revokeObjectURL).not.toHaveBeenCalled()
 
-    vi.runAllTimers()
+    vi.advanceTimersByTime(29_999)
+    expect(URL.revokeObjectURL).not.toHaveBeenCalled()
+    vi.advanceTimersByTime(1)
 
     expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:test/1')
+  })
+
+  it('has the anchor in the document at the click and removes it after the click', () => {
+    downloadFiles([{ name: 'Carol.xtiming', text: '' }])
+
+    expect(clicked).toEqual([{ href: 'blob:test/1', download: 'Carol.xtiming', connected: true }])
+    expect(document.querySelector('a')).toBeNull()
   })
 })

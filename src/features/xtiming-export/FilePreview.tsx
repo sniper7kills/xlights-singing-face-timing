@@ -15,7 +15,7 @@ export function FilePreview({ file }: FilePreviewProps) {
     <section className="export-group" aria-labelledby={headingId}>
       <h3 id={headingId}>Preview · {file.name}</h3>
       {/* The preview scrolls, so it takes the focus to give the keyboard a scroll path. */}
-      <pre className="export-preview" tabIndex={0} aria-label="File preview">
+      <pre className="export-preview" role="region" tabIndex={0} aria-label="File preview">
         {file.text.split('\n').slice(0, PREVIEW_LINES).join('\n')}
       </pre>
     </section>
