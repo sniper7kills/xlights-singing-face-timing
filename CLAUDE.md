@@ -9,7 +9,9 @@ reads the phoneme layer. No audio leaves the browser.
 Current state: the foundation and the song library exist. The person can create a
 song from an audio file, see the song list, rename a song, delete a song and try
 the demo song. The editor shows the waveform and plays the audio. The hosting stack
-does not exist yet (issue #7). Transcription is next.
+does not exist yet (issue #7). The person can transcribe a song with a speech model
+in the browser, or create phrases from lyrics, and see the marks on three layers.
+Phoneme breakdown and export are next.
 
 ## Design
 

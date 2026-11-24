@@ -559,10 +559,10 @@ spreadLyrics(lyrics: string, startMs: number, endMs: number): AlignedPhrase[]</c
 </ul>
 <p>16 000, within 1%. (FR-transcribe-11)</p>
 <ul>
-<li>The demo song yields the fixture words within 150 ms of the fixture times with
+<li>Each word that the speech model returns with a start time and an end time
 </li>
 </ul>
-<p>the base speech model. This is a recorded manual check. (FR-transcribe-12)</p>
+<p>becomes one word on the word layer. (FR-transcribe-12)</p>
 <ul>
 <li><code>groupIntoPhrases</code> returns a new phrase after a 700 ms gap. (FR-transcribe-13)
 </li>
@@ -608,7 +608,7 @@ spreadLyrics(lyrics: string, startMs: number, endMs: number): AlignedPhrase[]</c
 </li>
 </ul>
 <h3 id="transcription-open-questions" class="callout-h">Open questions</h3>
-<p>None for the user. The four items under <a href="#interfaces">Interfaces</a> are engineering checks.</p><nav class="pager">
+<p>None.</p><nav class="pager">
 <a href="feature-audio-import.html">&larr; Feature: Audio import</a>
 <a href="feature-phoneme-breakdown.html">Feature: Phoneme breakdown &rarr;</a>
 </nav>

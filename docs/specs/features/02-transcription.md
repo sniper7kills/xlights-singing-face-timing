@@ -3,7 +3,7 @@ id: transcription
 feature: Transcription
 epic: "Epic 2: Transcription"
 status: issued
-issues: [14, 15, 16, 17, 18, 23]
+issues: [14, 15, 16, 17, 18, 23, 77]
 mockups: []
 ---
 
@@ -290,8 +290,8 @@ from 0 to 1.
 - "Cancel" stops the run within 2 seconds and no mark changes. (FR-transcribe-10)
 - The worker receives a `Float32Array` whose length is duration in seconds times
   16 000, within 1%. (FR-transcribe-11)
-- The demo song yields the fixture words within 150 ms of the fixture times with
-  the base speech model. This is a recorded manual check. (FR-transcribe-12)
+- Each word that the speech model returns with a start time and an end time
+  becomes one word on the word layer. (FR-transcribe-12)
 - `groupIntoPhrases` returns a new phrase after a 700 ms gap. (FR-transcribe-13)
 - `alignLyrics` returns the lyrics spelling for each matched word.
   (FR-transcribe-14)
@@ -316,5 +316,4 @@ from 0 to 1.
 
 ## Open questions
 
-None for the user. The four items under [Interfaces](#interfaces) are engineering
-checks.
+None.

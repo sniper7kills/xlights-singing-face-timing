@@ -439,7 +439,6 @@ body.rv-open .layout { padding-right:21rem; }
   }
   APP_SETTINGS {
     string speechModelId
-    string device
     int defaultFrameMs
     string theme
   }</pre></div>
@@ -644,7 +643,7 @@ body.rv-open .layout { padding-right:21rem; }
 <li><strong>Speech model accuracy on songs.</strong> Whisper is trained on speech. Music and
 </li>
 </ol>
-<p>harmony lower the accuracy of words and times. Mitigation: the lyrics align flow in <a href="html/feature-transcription.html">features/02-transcription.md</a> and the editor. Epic 2 measures the demo song and records the result.</p>
+<p>harmony lower the accuracy of words and times. Mitigation: the lyrics align flow in <a href="html/feature-transcription.html">features/02-transcription.md</a> and the editor. Epic 2 measured the demo song: the base speech model returned 15 words for the choir clip, with one wrong line. The spec has no accuracy criterion for a song. Vocal separation (to transcribe the voice without the instruments) is an accepted later option. It is not in v1. A spec update adds it if real songs show the need.</p>
 <ol>
 <li><strong>Word times need the right model export.</strong> The docs confirm
 </li>
@@ -716,6 +715,11 @@ body.rv-open .layout { padding-right:21rem; }
 </li>
 </ul>
 <p>bytes. The demo song has the name "Silent Night". The editor saves a pending change when the person leaves it and when the page is hidden. Issue #58 joined the batch of epic #8.</p>
+<ul>
+<li>2026-11-24 — Epic 2 batch. The 150 ms accuracy criterion for the demo song is
+</li>
+</ul>
+<p>removed (issue #77): it measured the speech model and unchecked demo marks, not the code. The user accepts vocal separation as a later option. A transcribe run stops by terminating the worker (<code>docs/adr/0004</code>). The variable <code>VITE_MODEL_HOST</code> is removed. The app does not store the device. Issues #64 and #77 joined the batch of epic #14. The real speech model runs under the production Content-Security-Policy with no violation.</p>
 <h2 id="issue-map">Issue map</h2>
 <p>Written by <code>/spec-to-issues</code> on 2026-11-24. Repository: <code>sniper7kills/xlights-singing-face-timing</code>.</p>
 <p>The spec has one editor epic. The tracker has two, because 30 requirements do not fit one batch.</p>
@@ -723,7 +727,7 @@ body.rv-open .layout { padding-right:21rem; }
 <tr><th>Epic</th><th>Epic issue</th><th>Sub-issues</th></tr>
 <tr><td>Foundation</td><td>#1</td><td>#2, #3, #4, #5, #6, #7</td></tr>
 <tr><td>Song and waveform</td><td>#8</td><td>#9, #10, #11, #12, #13, #58</td></tr>
-<tr><td>Transcription</td><td>#14</td><td>#15, #16, #17, #18, #19</td></tr>
+<tr><td>Transcription</td><td>#14</td><td>#15, #16, #17, #18, #19, #64, #77</td></tr>
 <tr><td>Phoneme breakdown</td><td>#20</td><td>#21, #22, #23, #24, #25</td></tr>
 <tr><td>Editor — edit marks</td><td>#26</td><td>#27, #28, #29, #30</td></tr>
 <tr><td>Editor — play tools</td><td>#31</td><td>#32, #33, #34</td></tr>
