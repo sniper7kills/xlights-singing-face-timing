@@ -37,8 +37,10 @@ Not confirmed yet. Confirm each one before the code that depends on it:
 - The entry format and the licence file of `cmudict.dict`.
 - The wavesurfer.js method and event names for zoom, scroll and time.
 - The output of the xLights `XmlSafe` function for `&`, `<`, `>`, `"` and `'`.
-- The CloudFormation properties of the bucket policy and the distribution, and the
-  IAM action names for the deploy role.
+
+Confirmed on 2026-11-24: the CloudFormation properties in `infra/hosting.yml` and
+the IAM action names of the deploy role. Pull request #52 cites each page. The
+template passes `cfn-lint`. No stack exists yet, so AWS has not validated it.
 
 Evidence format:
 
