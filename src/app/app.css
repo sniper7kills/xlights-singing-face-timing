@@ -263,6 +263,10 @@ button {
   gap: 16px;
 }
 
+.editor[hidden] {
+  display: none;
+}
+
 .editor-top {
   display: flex;
   align-items: center;
@@ -293,13 +297,82 @@ button {
   gap: 12px;
 }
 
-.waveform-stage {
+/* One panel holds the time ruler, the waveform and the layers, so all three have the same inner width. */
+.stage {
   position: relative;
-  height: 120px;
   border: 1px solid var(--line);
   border-radius: 12px;
   background: var(--bg);
   overflow: hidden;
+}
+
+.waveform-stage {
+  position: relative;
+  height: 120px;
+  border-bottom: 1px solid var(--line);
+  cursor: text;
+  touch-action: none;
+}
+
+/* The line and the band cross the stage and let the pointer through to the waveform and the marks. */
+.play-cursor {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 3;
+  width: 2px;
+  margin-left: -1px;
+  background: var(--amber);
+  pointer-events: none;
+}
+
+.time-selection {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  z-index: 2;
+  border-inline: 1px solid var(--amber);
+  background: color-mix(in srgb, var(--amber) 16%, transparent);
+  pointer-events: none;
+}
+
+.editor-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 16px;
+  padding: 8px 14px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--panel);
+}
+
+.zoom-control {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--mute);
+  font: 12px var(--mono);
+}
+
+.zoom-control input {
+  width: 220px;
+  accent-color: var(--amber);
+}
+
+.narrow-note[hidden] {
+  display: none;
+}
+
+.narrow-note {
+  display: grid;
+  min-height: 60vh;
+  place-items: center;
+  margin: 0;
+  color: var(--mute);
+  font: 600 18px var(--display);
+  text-align: center;
 }
 
 .waveform-stage[hidden] {
@@ -356,19 +429,16 @@ button {
   font-variant-numeric: tabular-nums;
 }
 
-/* The layers have the same border as the waveform stage, so both have the same inner width. */
 .layers {
   position: relative;
-  border: 1px solid var(--line);
-  border-radius: 12px;
-  background: var(--bg);
-  overflow: hidden;
 }
 
 .time-ruler {
   position: relative;
   height: 22px;
+  overflow: hidden;
   border-bottom: 1px solid var(--line);
+  cursor: pointer;
 }
 
 .time-ruler .tick {

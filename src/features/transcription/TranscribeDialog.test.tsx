@@ -1,6 +1,7 @@
 import { act, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import type { TimeRange } from '../../lib/time/timeRange.ts'
 import { loadSettings, updateSettings } from '../../store/settings.ts'
 import { chooseDevice } from './device.ts'
 import type { Device } from './protocol.ts'
@@ -65,7 +66,7 @@ function lastRun(): HeldRun {
   return run
 }
 
-async function renderDialog() {
+async function renderDialog(selection: TimeRange | null = null) {
   const onClose = vi.fn()
   const onDone = vi.fn()
   const onActiveChange = vi.fn()
@@ -74,6 +75,7 @@ async function renderDialog() {
     <TranscribeDialog
       voiceId="voice-1"
       durationMs={220_000}
+      selection={selection}
       onActiveChange={onActiveChange}
       onClose={onClose}
       onDone={onDone}
@@ -159,10 +161,53 @@ describe('TranscribeDialog', () => {
     ).toBeInTheDocument()
   })
 
-  it('offers the full song as the range', async () => {
+  it('offers the full song as the only range when the editor has no time selection', async () => {
     await renderDialog()
 
     expect(screen.getByRole('radio', { name: 'Full song' })).toBeChecked()
+    expect(screen.getAllByRole('radio', { name: /song|selection/ })).toHaveLength(1)
+  })
+
+  it('offers the time selection with its times beside the full song', async () => {
+    await renderDialog({ startMs: 12_000, endMs: 27_500 })
+
+    expect(screen.getByRole('radio', { name: 'Full song' })).toBeChecked()
+    expect(
+      screen.getByRole('radio', { name: 'The time selection 0:12.000 to 0:27.500' }),
+    ).not.toBeChecked()
+  })
+
+  it('passes the time selection as the range of a lyrics-only run', async () => {
+    const { user, start } = await renderDialog({ startMs: 12_000, endMs: 27_500 })
+
+    await user.click(screen.getByRole('radio', { name: /^The time selection/ }))
+    await user.click(screen.getByRole('checkbox', { name: 'Lyrics only' }))
+    await user.type(screen.getByLabelText('Lyrics (optional)'), 'All is calm')
+    await user.click(start)
+
+    expect(lastRun().request).toMatchObject({
+      mode: 'lyrics-only',
+      range: { startMs: 12_000, endMs: 27_500 },
+    })
+  })
+
+  it('passes no range when the person goes back to the full song', async () => {
+    const { user, start } = await renderDialog({ startMs: 12_000, endMs: 27_500 })
+
+    await user.click(screen.getByRole('radio', { name: /^The time selection/ }))
+    await user.click(screen.getByRole('radio', { name: 'Full song' }))
+    await user.click(start)
+
+    expect(lastRun().request.range).toBeUndefined()
+  })
+
+  it('shows the length of the time selection in the first progress text', async () => {
+    const { user, start } = await renderDialog({ startMs: 0, endMs: 90_000 })
+
+    await user.click(screen.getByRole('radio', { name: /^The time selection/ }))
+    await user.click(start)
+
+    expect(progress()).toHaveTextContent('Transcribing, 0:00 of 1:30')
   })
 
   it('starts a speech model run with the lyrics and shows the transcribe progress', async () => {

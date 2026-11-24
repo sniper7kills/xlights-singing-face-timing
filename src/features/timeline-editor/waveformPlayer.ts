@@ -26,6 +26,14 @@ export type WaveformPlayer = {
   pause: () => void
   isPlaying: () => boolean
   setColors: (colors: WaveformColors) => void
+  /**
+   * Shows the waveform at the zoom and the scroll offset of the editor.
+   * @param pxPerSecond The zoom in pixels for each second. Null fits the full song in the width.
+   * @param scrollMs The time at the left edge, in milliseconds. The editor clamps it to the song.
+   */
+  setView: (pxPerSecond: number | null, scrollMs: number) => void
+  /** Moves the play time to `ms`. The player sends the new time to `onTime`. */
+  seek: (ms: number) => void
   /** Stops play and removes the waveform from its container. */
   destroy: () => void
 }
@@ -33,7 +41,8 @@ export type WaveformPlayer = {
 /**
  * Returns a player that draws the waveform of `audio` in `container` and plays `audio`.
  * The waveform shows one mixed channel. Play keeps all channels of the file.
- * The waveform fills the width of the container.
+ * The waveform fills the width of the container until `setView` sets a zoom.
+ * The player draws no cursor, takes no click and does not scroll by itself: the editor owns those.
  * @param container The element that holds the waveform.
  * @param audio The bytes of the audio file.
  * @param colors The colours of the waveform.
@@ -70,6 +79,19 @@ export async function createWaveformPlayer(
     waveColor: colors.wave,
     progressColor: colors.progress,
     cursorColor: colors.progress,
+    // The editor draws one play cursor across the stage, so the waveform draws none.
+    cursorWidth: 0,
+    // A click or a drag on the waveform moves the play cursor or makes a time selection in the editor.
+    interact: false,
+    // The editor follows the play cursor itself, so the waveform and the layers scroll together.
+    autoScroll: false,
+    autoCenter: false,
+    hideScrollbar: true,
+  })
+  // The view that the editor set. A resize of the container makes wavesurfer.js move its scroll.
+  let view: { pxPerSecond: number | null; scrollPx: number } = { pxPerSecond: null, scrollPx: 0 }
+  waveSurfer.on('scroll', (_start, _end, scrollLeft) => {
+    if (Math.abs(scrollLeft - view.scrollPx) >= 1) waveSurfer.setScroll(view.scrollPx)
   })
   waveSurfer.on('timeupdate', (seconds) => listeners.onTime(Math.round(seconds * 1000)))
   waveSurfer.on('play', () => listeners.onPlayChange(true))
@@ -91,6 +113,17 @@ export async function createWaveformPlayer(
     isPlaying: () => waveSurfer.isPlaying(),
     setColors: ({ wave, progress }) =>
       waveSurfer.setOptions({ waveColor: wave, progressColor: progress, cursorColor: progress }),
+    setView: (pxPerSecond, scrollMs) => {
+      if (pxPerSecond !== view.pxPerSecond)
+        // `fillParent` stretches a short waveform to the width, which the time scale of the layers does not do.
+        waveSurfer.setOptions({ minPxPerSec: pxPerSecond ?? 0, fillParent: pxPerSecond === null })
+      view = {
+        pxPerSecond,
+        scrollPx: pxPerSecond === null ? 0 : Math.round((scrollMs * pxPerSecond) / 1000),
+      }
+      waveSurfer.setScroll(view.scrollPx)
+    },
+    seek: (ms) => waveSurfer.setTime(ms / 1000),
     destroy: () => waveSurfer.destroy(),
   }
 }

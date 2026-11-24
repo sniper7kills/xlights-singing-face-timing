@@ -54,7 +54,7 @@ describe('Waveform with a wavesurfer.js load failure', () => {
       byteLength: audio.data.size,
     })
 
-    render(<Waveform songId={song.id} />)
+    render(<Waveform songId={song.id} durationMs={3000} />)
 
     expect(await screen.findByRole('alert')).toHaveTextContent(
       'This browser cannot decode this file. Convert it to MP3 or WAV and try again.',

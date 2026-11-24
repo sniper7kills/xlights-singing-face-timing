@@ -25,6 +25,7 @@ const audio = {
 }
 
 beforeEach(() => {
+  localStorage.clear()
   vi.mocked(createWaveformPlayer).mockReturnValue(new Promise(() => undefined))
   useAutosaveStore.setState({ saveState: 'saved', error: null })
   useSongStore.getState().closeSong()
@@ -244,5 +245,72 @@ describe('EditorPage', () => {
     await act(() => new Promise((resolve) => setTimeout(resolve, 20)))
 
     expect(window.location.hash).toBe('#/song/other')
+  })
+
+  it('shows the zoom slider in the editor tools under the stage', async () => {
+    await renderEditor()
+
+    const toolbar = screen.getByRole('toolbar', { name: 'Editor tools' })
+    expect(within(toolbar).getByRole('slider', { name: 'Zoom' })).toBeInTheDocument()
+    expect(
+      screen.getByRole('region', { name: 'Waveform' }).compareDocumentPosition(toolbar) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy()
+  })
+
+  it('opens a song at the zoom and the scroll offset that the browser keeps for it', async () => {
+    const song = await storeNewSong({ name: 'carol', durationMs: 3000, audio })
+    localStorage.setItem(`sft.view.${song.id}`, JSON.stringify({ pxPerSecond: 400, scrollMs: 900 }))
+
+    render(<EditorPage songId={song.id} />)
+    await screen.findByRole('heading', { level: 2, name: 'carol' })
+
+    expect(useViewStore.getState()).toMatchObject({ pxPerSecond: 400, scrollMs: 900 })
+  })
+
+  it('keeps a change of the zoom and the scroll offset for the song', async () => {
+    const { song } = await renderEditor()
+
+    act(() => {
+      useViewStore.getState().setZoom(250)
+      useViewStore.getState().setScroll(1200)
+    })
+
+    expect(JSON.parse(localStorage.getItem(`sft.view.${song.id}`) ?? 'null')).toEqual({
+      pxPerSecond: 250,
+      scrollMs: 1200,
+    })
+  })
+
+  it('shows the note for a window narrower than 1024 px and hides the editor', async () => {
+    const width = window.innerWidth
+    try {
+      await renderEditor()
+      expect(screen.getByText(/needs a window/)).not.toBeVisible()
+
+      act(() => {
+        window.innerWidth = 1023
+        window.dispatchEvent(new Event('resize'))
+      })
+
+      expect(
+        screen.getByText('The editor needs a window that is 1024 px wide or more.'),
+      ).toBeVisible()
+      expect(screen.queryByRole('region', { name: 'Waveform' })).toBeNull()
+    } finally {
+      window.innerWidth = width
+    }
+  })
+
+  it('passes the time selection to the transcribe dialog', async () => {
+    const user = userEvent.setup()
+    await renderEditor()
+    act(() => useViewStore.getState().setSelection({ startMs: 500, endMs: 1500 }))
+
+    await user.click(topBarTranscribe())
+
+    expect(
+      await screen.findByRole('radio', { name: 'The time selection 0:00.500 to 0:01.500' }),
+    ).toBeInTheDocument()
   })
 })

@@ -8,6 +8,8 @@ import {
   useRef,
   useState,
 } from 'react'
+import { formatTime } from '../../lib/time/formatTime.ts'
+import type { TimeRange } from '../../lib/time/timeRange.ts'
 import { DEFAULT_SETTINGS, loadSettings, updateSettings } from '../../store/settings.ts'
 import { chooseDevice } from './device.ts'
 import { parseLyrics } from './phrases.ts'
@@ -45,6 +47,8 @@ type TranscribeDialogProps = {
   voiceId: string
   /** The duration of the song, for the first progress text. */
   durationMs: number
+  /** The time selection of the editor. Without one, the dialog offers the full song only. */
+  selection: TimeRange | null
   /** Receives true when a run starts and false when it stops. */
   onActiveChange: (active: boolean) => void
   /** Closes the dialog for "Close" and Escape. */
@@ -60,6 +64,7 @@ type TranscribeDialogProps = {
 export function TranscribeDialog({
   voiceId,
   durationMs,
+  selection,
   onActiveChange,
   onClose,
   onDone,
@@ -69,8 +74,12 @@ export function TranscribeDialog({
   const [speechModelId, setSpeechModelId] = useState(DEFAULT_SETTINGS.speechModelId)
   const [lyrics, setLyrics] = useState('')
   const [lyricsOnly, setLyricsOnly] = useState(false)
+  const [range, setRange] = useState<TimeRange | undefined>(undefined)
   const dialogRef = useRef<HTMLDivElement>(null)
-  const run = useTranscribeRun(durationMs, onDone)
+  const run = useTranscribeRun(
+    range === undefined ? durationMs : range.endMs - range.startMs,
+    onDone,
+  )
   const { state } = run
   const active = isActive(state)
   // Lyrics with no word, such as one "[Chorus]" line, give no phrase, so they count as no lyrics.
@@ -110,6 +119,7 @@ export function TranscribeDialog({
       speechModelId,
       mode: lyricsOnly ? 'lyrics-only' : 'model',
       lyrics: hasLyrics ? lyrics : undefined,
+      range,
     })
   }
 
@@ -175,11 +185,7 @@ export function TranscribeDialog({
           </label>
           <fieldset className="choice-group">
             <legend>Range</legend>
-            {/* TODO(#29): Offer the time selection as a range. */}
-            <label className="choice">
-              <input type="radio" name="range" value="full" checked readOnly />
-              Full song
-            </label>
+            <RangeChoices selection={selection} range={range} onChange={setRange} />
           </fieldset>
         </fieldset>
         <ProgressArea state={state} />
@@ -205,6 +211,46 @@ export function TranscribeDialog({
         </div>
       </div>
     </div>
+  )
+}
+
+type RangeChoicesProps = {
+  selection: TimeRange | null
+  /** The chosen range. Undefined chooses the full song. */
+  range: TimeRange | undefined
+  onChange: (range: TimeRange | undefined) => void
+}
+
+/** Shows "Full song" and, when the editor has a time selection, "The time selection" with its times. */
+function RangeChoices({ selection, range, onChange }: RangeChoicesProps) {
+  return (
+    <>
+      <label className="choice">
+        <input
+          type="radio"
+          name="range"
+          value="full"
+          checked={range === undefined}
+          onChange={() => onChange(undefined)}
+        />
+        Full song
+      </label>
+      {selection !== null && (
+        <label className="choice">
+          <input
+            type="radio"
+            name="range"
+            value="selection"
+            checked={range !== undefined}
+            onChange={() => onChange(selection)}
+          />
+          The time selection{' '}
+          <span className="choice-size">
+            {formatTime(selection.startMs)} to {formatTime(selection.endMs)}
+          </span>
+        </label>
+      )}
+    </>
   )
 }
 

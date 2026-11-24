@@ -30,7 +30,6 @@ Do not reconcile by guess.
 
 Not confirmed yet. Confirm each one before the code that depends on it:
 
-- The wavesurfer.js method and event names for zoom and scroll.
 - The output of the xLights `XmlSafe` function for `&`, `<`, `>`, `"` and `'`.
 
 Confirmed on 2026-11-24 for `cmudict.dict` at commit
@@ -78,6 +77,31 @@ duration?)`, `play()`, `pause()`, `isPlaying()`, `setOptions()`, `destroy()`, an
 events `timeupdate` (time in seconds), `play`, `pause` and `finish`. If
 `loadBlob` gets `channelData` and `duration`, wavesurfer.js does not decode the
 blob. The pull request of issue #12 cites the pages.
+
+Confirmed on 2026-11-24 for wavesurfer.js 8.1.1, from the typed API in
+`node_modules/wavesurfer.js/dist/wavesurfer.d.ts` and the code in
+`dist/wavesurfer.js` and `dist/renderer.js`. The pages
+https://wavesurfer.xyz/docs/methods , https://wavesurfer.xyz/docs/options and
+https://wavesurfer.xyz/docs/events show their text only after a script runs, so
+the typed API is the source.
+
+- Zoom: `zoom(minPxPerSec)` throws `No audio loaded` before a load. The option
+  `minPxPerSec` through `setOptions()` sets the same zoom and draws again.
+- Width: the waveform is `Math.ceil(duration * minPxPerSec)` pixels wide. With
+  `fillParent: true`, a waveform narrower than the container stretches to the
+  container width. The app sets `fillParent: false` for a set zoom.
+- Scroll: `setScroll(pixels)` and `getScroll()` set and read `scrollLeft` of the
+  scroll container. `setScrollTime(seconds)` also exists. The browser clamps
+  `scrollLeft` to the waveform width.
+- Events: `scroll` gives `(visibleStartTime, visibleEndTime, scrollLeft,
+  scrollRight)`. `zoom` gives `minPxPerSec`. `timeupdate` fires on each animation
+  frame during play.
+- A redraw keeps the cursor position in view, so it can change `scrollLeft`. The
+  app sets its scroll offset again on each `scroll` event.
+- Options: `interact: false` stops clicks and drags. `autoScroll: false` stops the
+  scroll during play. `cursorWidth: 0` hides the cursor. `hideScrollbar: true`
+  hides the scroll bar.
+- Seek: `setTime(seconds)`.
 
 Evidence format:
 
