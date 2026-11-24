@@ -48,10 +48,6 @@ const PX_PER_WHEEL_LINE = 16
 const STORAGE_READ_MESSAGE =
   'The app could not read the audio from browser storage. Reload the page.'
 
-// A focused control uses the space bar itself, so a toggle here would apply the key two times.
-const CONTROL_SELECTOR =
-  'input, textarea, select, button, a[href], [contenteditable], [role=dialog]'
-
 function readColors(element: HTMLElement): WaveformColors {
   // wavesurfer.js draws on a canvas, so it needs the colour values and not the CSS variables.
   const style = getComputedStyle(element)
@@ -227,20 +223,6 @@ export function Waveform({ songId, durationMs, children }: WaveformProps) {
     if (player.isPlaying()) player.pause()
     else void player.play()
   }, [])
-
-  useEffect(() => {
-    if (state !== 'ready') return
-    function onKeyDown(event: KeyboardEvent) {
-      if (event.key !== ' ' || event.repeat || event.ctrlKey || event.metaKey || event.altKey)
-        return
-      if (event.target instanceof Element && event.target.closest(CONTROL_SELECTOR)) return
-      // The space bar scrolls the page unless the editor cancels the event.
-      event.preventDefault()
-      togglePlay()
-    }
-    window.addEventListener('keydown', onKeyDown)
-    return () => window.removeEventListener('keydown', onKeyDown)
-  }, [state, togglePlay])
 
   async function storeAudioFile(file: File) {
     try {

@@ -8,6 +8,7 @@ import { addMark } from '../../store/actions/addMark.ts'
 import { setMarkLabel, wordsWouldChange } from '../../store/actions/setMarkLabel.ts'
 import { setPhonemeLabel } from '../../store/actions/setPhonemeLabel.ts'
 import { useSongStore } from '../../store/songStore.ts'
+import type { Mark } from '../../store/types.ts'
 import { useViewStore } from '../../store/viewStore.ts'
 import { type LabelTarget, layerFocusId, useMarkUiStore } from './markUiStore.ts'
 import { followCursor } from './timeScale.ts'
@@ -141,9 +142,18 @@ export function stepSelection(id: string, direction: 1 | -1): boolean {
   const mark = findMark(marks, id)
   const next = mark && (direction === 1 ? nextOnLayer(marks, mark) : previousOnLayer(marks, mark))
   if (!content || !next) return false
-  useViewStore.getState().selectMarks([next.id])
-  const scrollMs = followCursor(currentStageInput(content.song.durationMs), next.startMs)
-  if (scrollMs !== null) useViewStore.getState().setScroll(scrollMs)
-  useMarkUiStore.getState().requestFocus(next.id)
+  selectAndReveal(next, content.song.durationMs)
   return true
+}
+
+/**
+ * Selects only the mark, scrolls the view when the mark start is out of view, and gives the mark the focus.
+ * @param mark The mark to select.
+ * @param durationMs The length of the song, for the time scale of the stage.
+ */
+export function selectAndReveal(mark: Mark, durationMs: number): void {
+  useViewStore.getState().selectMarks([mark.id])
+  const scrollMs = followCursor(currentStageInput(durationMs), mark.startMs)
+  if (scrollMs !== null) useViewStore.getState().setScroll(scrollMs)
+  useMarkUiStore.getState().requestFocus(mark.id)
 }

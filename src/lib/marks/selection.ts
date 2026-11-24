@@ -1,6 +1,6 @@
 import type { Mark } from '../../store/types.ts'
 import type { TimeRange } from '../time/timeRange.ts'
-import { findMark } from './family.ts'
+import { childrenOf, findMark } from './family.ts'
 
 /** The length of a mark that a double-click adds, in frames. The add rule clamps it to the empty range. */
 const ADD_LENGTH_FRAMES = 10
@@ -34,6 +34,33 @@ export function marksBetween(marks: readonly Mark[], anchorId: string, targetId:
     )
     .sort((a, b) => a.startMs - b.startMs)
     .map((mark) => mark.id)
+}
+
+/**
+ * Returns the ids that name a mark of the song, in the same order.
+ * The selection keeps only these ids after a change of the marks.
+ * @param marks The marks of the song.
+ * @param ids The ids to check, usually the selected marks.
+ */
+export function existingIds(marks: readonly Mark[], ids: readonly string[]): string[] {
+  const known = new Set(marks.map((mark) => mark.id))
+  return ids.filter((id) => known.has(id))
+}
+
+/**
+ * Returns the mark that `Up` or `Down` selects from the mark: the parent for `up`, and the first child in time for `down`.
+ * Returns undefined when that mark does not exist: `up` from a phrase, `down` from a phoneme, or `down` from a mark with no children.
+ * @param marks The marks of the song.
+ * @param mark The selected mark.
+ * @param direction `up` goes to the layer above, `down` to the layer below.
+ */
+export function markOnNextLayer(
+  marks: readonly Mark[],
+  mark: Mark,
+  direction: 'up' | 'down',
+): Mark | undefined {
+  if (direction === 'down') return childrenOf(marks, mark.id)[0]
+  return mark.parentId === null ? undefined : findMark(marks, mark.parentId)
 }
 
 /**
