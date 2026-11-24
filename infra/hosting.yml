@@ -110,7 +110,8 @@ Resources:
         # The app uses hash routes, so the distribution has no rewrite rule and no custom error response.
         DefaultCacheBehavior:
           TargetOriginId: site-bucket
-          ViewerProtocolPolicy: https-only
+          # CloudFront serves content over HTTPS only, and sends an http:// request to the HTTPS URL.
+          ViewerProtocolPolicy: redirect-to-https
           AllowedMethods:
             - GET
             - HEAD
