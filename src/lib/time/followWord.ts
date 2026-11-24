@@ -3,7 +3,7 @@ import type { TimeRange } from './timeRange.ts'
 
 /**
  * Returns the phonemes of an edited word at the new time of the word, in time order.
- * TODO(#27): Call this function from the move and resize actions.
+ * The resize rule of `src/lib/marks/` calls it, and keeps one frame size for each phoneme in the word.
  *
  * The rules:
  * - If the word keeps its length, each phoneme moves by the same amount as the word.
