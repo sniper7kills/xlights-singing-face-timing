@@ -28,6 +28,13 @@ function isUnwatched(filePath: string): boolean {
   return unwatchedFolders.has(relativePath.split(path.sep)[0])
 }
 
+// The two headers make the page cross-origin isolated, so the speech model can use more than one CPU thread.
+// See docs/adr/0006-cross-origin-isolation-for-wasm-threads.md. infra/hosting.yml sends the same values.
+const isolationHeaders = {
+  'Cross-Origin-Opener-Policy': 'same-origin',
+  'Cross-Origin-Embedder-Policy': 'require-corp',
+}
+
 export default defineConfig({
   plugins: [react()],
   server: {
@@ -37,11 +44,7 @@ export default defineConfig({
     // Vite adds this matcher to its own defaults (.git, node_modules, test-results and
     // the cache directory); it does not replace them.
     watch: { ignored: [isUnwatched] },
+    headers: isolationHeaders,
   },
-  preview: {
-    headers: {
-      'Cross-Origin-Opener-Policy': 'same-origin',
-      'Cross-Origin-Embedder-Policy': 'require-corp',
-    },
-  },
+  preview: { headers: isolationHeaders },
 })
