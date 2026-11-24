@@ -147,6 +147,22 @@ describe('Waveform', () => {
     }
   })
 
+  it('starts no play for the space bar inside a dialog', async () => {
+    const user = userEvent.setup()
+    await renderReadyWaveform()
+    const dialog = document.body.appendChild(document.createElement('div'))
+    dialog.setAttribute('role', 'dialog')
+    dialog.tabIndex = -1
+    try {
+      dialog.focus()
+      await user.keyboard(' ')
+
+      expect(players[0]?.play).not.toHaveBeenCalled()
+    } finally {
+      dialog.remove()
+    }
+  })
+
   it('shows the play time as m:ss.mmm', async () => {
     await renderReadyWaveform()
 

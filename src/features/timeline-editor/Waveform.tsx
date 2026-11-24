@@ -21,7 +21,8 @@ const STORAGE_READ_MESSAGE =
   'The app could not read the audio from browser storage. Reload the page.'
 
 // A focused control uses the space bar itself, so a toggle here would apply the key two times.
-const CONTROL_SELECTOR = 'input, textarea, select, button, a[href], [contenteditable]'
+const CONTROL_SELECTOR =
+  'input, textarea, select, button, a[href], [contenteditable], [role=dialog]'
 
 function readColors(element: HTMLElement): WaveformColors {
   // wavesurfer.js draws on a canvas, so it needs the colour values and not the CSS variables.

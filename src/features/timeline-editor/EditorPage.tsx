@@ -1,9 +1,10 @@
-import { useEffect } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { LIBRARY_HASH } from '../../app/routes.ts'
 import { useAutosaveStore, useSaveState } from '../../store/autosave.ts'
 import { StorageFullError } from '../../store/db.ts'
 import { useSongStore } from '../../store/songStore.ts'
-import { useViewStore } from '../../store/viewStore.ts'
+import { selectedVoice, useViewStore } from '../../store/viewStore.ts'
+import { TranscribeDialog } from '../transcription/TranscribeDialog.tsx'
 import { Layers } from './Layers.tsx'
 import { Waveform } from './Waveform.tsx'
 
@@ -11,15 +12,33 @@ type EditorPageProps = {
   songId: string
 }
 
-// TODO(#17): Open the transcribe dialog.
-function openTranscribeDialog() {}
-
 /** Shows the editor for one song: the top bar, the waveform region and the layers. */
 export function EditorPage({ songId }: EditorPageProps) {
   const content = useSongStore((state) => state.current)
   const openSong = useSongStore((state) => state.openSong)
   const saveState = useSaveState()
   const saveError = useAutosaveStore((state) => state.error)
+  const selectedVoiceId = useViewStore((state) => state.selectedVoiceId)
+  const [dialogOpen, setDialogOpen] = useState(false)
+  const [running, setRunning] = useState(false)
+  const opener = useRef<HTMLElement | null>(null)
+
+  const openTranscribeDialog = useCallback(() => {
+    opener.current = document.activeElement instanceof HTMLElement ? document.activeElement : null
+    setDialogOpen(true)
+  }, [])
+
+  const closeTranscribeDialog = useCallback(() => {
+    setDialogOpen(false)
+    setRunning(false)
+  }, [])
+
+  useEffect(() => {
+    // The action is disabled until the render after the run, and a disabled button takes no focus.
+    if (dialogOpen || opener.current === null) return
+    opener.current.focus()
+    opener.current = null
+  }, [dialogOpen])
 
   useEffect(() => {
     let active = true
@@ -42,6 +61,7 @@ export function EditorPage({ songId }: EditorPageProps) {
 
   if (content?.song.id !== songId) return null
   const { song } = content
+  const voice = selectedVoice(content.voices, selectedVoiceId)
   return (
     <section className="editor" aria-labelledby="editor-title">
       <div className="editor-top">
@@ -50,6 +70,16 @@ export function EditorPage({ songId }: EditorPageProps) {
         </a>
         <h2 id="editor-title">{song.name}</h2>
         <span className="spacer" />
+        {voice !== undefined && (
+          <button
+            type="button"
+            className="button primary"
+            disabled={running}
+            onClick={openTranscribeDialog}
+          >
+            Transcribe
+          </button>
+        )}
         <span className="save-state" role="status">
           {saveState === 'saved' ? 'Saved' : 'Saving'}
         </span>
@@ -62,6 +92,14 @@ export function EditorPage({ songId }: EditorPageProps) {
       <Waveform key={songId} songId={songId}>
         <Layers content={content} onTranscribe={openTranscribeDialog} />
       </Waveform>
+      {dialogOpen && voice !== undefined && (
+        <TranscribeDialog
+          voiceId={voice.id}
+          durationMs={song.durationMs}
+          onActiveChange={setRunning}
+          onClose={closeTranscribeDialog}
+        />
+      )}
     </section>
   )
 }
