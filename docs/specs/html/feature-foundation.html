@@ -352,11 +352,13 @@ aws cloudfront create-invalidation --distribution-id $CLOUDFRONT_DISTRIBUTION_ID
 <p>Headers that the response headers policy sets on every response:</p>
 <div class="table-wrap"><table>
 <tr><th>Header</th><th>Value</th></tr>
-<tr><td><code>Content-Security-Policy</code></td><td><code>default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; connect-src 'self' https://huggingface.co https://<em>.huggingface.co https://</em>.hf.co; img-src 'self' data: blob:; media-src 'self' blob:; worker-src 'self' blob:; style-src 'self' 'unsafe-inline'</code></td></tr>
+<tr><td><code>Content-Security-Policy</code></td><td><code>default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; connect-src 'self' https: http://localhost:* http://127.0.0.1:*; img-src 'self' data: blob:; media-src 'self' blob:; worker-src 'self' blob:; style-src 'self' 'unsafe-inline'</code></td></tr>
 <tr><td><code>X-Content-Type-Options</code></td><td><code>nosniff</code></td></tr>
 <tr><td><code>Referrer-Policy</code></td><td><code>no-referrer</code></td></tr>
+<tr><td><code>Cross-Origin-Opener-Policy</code></td><td><code>same-origin</code></td></tr>
+<tr><td><code>Cross-Origin-Embedder-Policy</code></td><td><code>require-corp</code></td></tr>
 </table></div>
-<p>Epic 2 changes the <code>connect-src</code> list if the speech model files come from other hosts.</p>
+<p>The <code>connect-src</code> list allows the speech model hosts and the remote endpoint that the person selects (ADR 0007). The two <code>Cross-Origin-</code> headers make the page cross-origin isolated, so the <code>wasm</code> device uses more than one thread (ADR 0006).</p>
 <p><strong>Deploy status.</strong> The deploy runs in GitHub Actions, so the workflow run is the deploy status. The repository needs no separate status script.</p>
 <p><strong>Routes.</strong> The app uses hash routes, so the distribution needs no rewrite rule and no custom error response.</p>
 <h3 id="foundation-edge-cases-failures">Edge cases &amp; failures</h3>
