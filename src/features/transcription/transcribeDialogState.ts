@@ -1,3 +1,4 @@
+import { RemoteError } from '../../lib/remote/response.ts'
 import { formatClock } from '../../lib/time/formatClock.ts'
 import { CHUNK_LENGTH_S, type Device } from './protocol.ts'
 import {
@@ -18,6 +19,8 @@ export type RunState =
   | { status: 'downloading'; percent: number }
   | { status: 'started' }
   | { status: 'transcribing'; doneMs: number; totalMs: number }
+  | { status: 'sending'; percent: number | null }
+  | { status: 'waiting' }
   | { status: 'finishing' }
 
 /** The state of the transcribe dialog. The dialog closes in the state `done`. */
@@ -34,6 +37,7 @@ export type DialogEvent =
   | { type: 'start'; mode: TranscribeMode }
   | { type: 'stage'; stage: RunStage }
   | { type: 'download'; percent: number }
+  | { type: 'upload'; percent: number }
   | { type: 'progress'; doneMs: number; totalMs: number }
   | { type: 'finishing' }
   | { type: 'confirm-replace' }
@@ -71,8 +75,52 @@ export function downloadPercent(loadedBytes: number, totalBytes: number): number
   return totalBytes > 0 ? wholePercent(loadedBytes / totalBytes) : 0
 }
 
+/** The message before "Start" when the browser blocks the call to the endpoint as mixed content. */
+export const MIXED_CONTENT_MESSAGE =
+  'This page is secure (https), and the browser blocks a call to an http address. Use an https address for the endpoint.'
+
+/** Returns the warning that the dialog shows before each remote run. */
+export function remoteWarning(host: string): string {
+  return `The app sends the audio of this song to ${host}. The audio leaves this computer.`
+}
+
+/**
+ * The copy of each failure of a remote run, from the edge case table in docs/specs/features/02-transcription.md.
+ * The browser does not tell a CORS refusal from no connection, so the `network` copy names both causes.
+ */
+const REMOTE_COPY: Record<RemoteError['kind'], (error: RemoteError, origin: string) => string> = {
+  network: ({ host }, origin) =>
+    `The app could not connect to ${host}. The server is not available, or its CORS settings block this page. Check that the server runs and sends the header Access-Control-Allow-Origin: ${origin}`,
+  auth: ({ host, status }) =>
+    `${host} refused the API key (HTTP ${status}). Check the API key of the remote endpoint.`,
+  'not-found': ({ host }) =>
+    `${host} has no transcription service at this address (HTTP 404). Check the base URL. It usually ends with /v1.`,
+  'too-large': () =>
+    'The audio is too large for the remote endpoint. Select a shorter part of the song in the editor, and transcribe the time selection.',
+  'rate-limit': ({ host }) =>
+    `${host} received too many requests (HTTP 429). Wait one minute, then select Retry.`,
+  server: ({ host, status }) =>
+    `${host} reported an error (HTTP ${status}). Check the server, then select Retry.`,
+  refused: ({ host, status }) =>
+    `${host} refused the request (HTTP ${status}). Check the speech model name of the remote endpoint.`,
+  'not-json': ({ host }) =>
+    `${host} did not return JSON. Check the base URL. It usually ends with /v1.`,
+  'no-word-times': ({ host }) =>
+    `${host} returned no word times. Use a server and a speech model that return the words field of verbose_json.`,
+}
+
+/**
+ * Returns the message for a failure of a remote run or of "Test connection".
+ * @param error The failure.
+ * @param origin The origin of the app, for the CORS header that the server needs.
+ */
+export function remoteErrorMessage(error: RemoteError, origin: string): string {
+  return REMOTE_COPY[error.kind](error, origin)
+}
+
 /** Returns the message that the dialog shows for a failed run. */
 export function errorMessage(error: unknown): string {
+  if (error instanceof RemoteError) return remoteErrorMessage(error, globalThis.location.origin)
   if (error instanceof NoWordsError) return ERROR_COPY.noWords
   if (error instanceof TranscribeError && error.kind === 'download') return ERROR_COPY.download
   if (error instanceof TranscribeError && error.kind === 'memory') return ERROR_COPY.memory
@@ -97,39 +145,56 @@ export function lowMatchMessage(ratio: number): string {
   return `Only ${wholePercent(ratio)}% of the lyrics matched the audio. Check that the lyrics belong to this song.`
 }
 
-/** The text of each run state without its numbers. The live region reads it, so a screen reader hears each state one time. */
-const STATE_LABEL: Record<RunState['status'], string> = {
-  preparing: 'Preparing audio',
-  loading: 'Loading speech model',
-  downloading: 'Downloading speech model',
-  started: 'Transcribing',
-  transcribing: 'Transcribing',
-  finishing: 'Aligning lyrics and breaking down words',
+/**
+ * The text of each run state without its numbers. The live region reads it, so a screen reader hears each state one time.
+ * The two states of a remote run name the host of the endpoint.
+ */
+const STATE_LABEL: Record<RunState['status'], (host: string) => string> = {
+  preparing: () => 'Preparing audio',
+  loading: () => 'Loading speech model',
+  downloading: () => 'Downloading speech model',
+  started: () => 'Transcribing',
+  transcribing: () => 'Transcribing',
+  sending: (host) => `Sending audio to ${host}`,
+  waiting: (host) => `Waiting for ${host}`,
+  finishing: () => 'Aligning lyrics and breaking down words',
 }
 
-/** Returns the text that the live region announces for a run state. */
-export function stateLabel(state: RunState): string {
-  return STATE_LABEL[state.status]
+/**
+ * Returns the text that the live region announces for a run state.
+ * @param host The host of the remote endpoint. A run in the browser does not read it.
+ */
+export function stateLabel(state: RunState, host: string): string {
+  return STATE_LABEL[state.status](host)
 }
 
 /** Returns true when the run state has no progress value and the dialog shows the elapsed time. */
 export function showsElapsed(state: RunState): boolean {
-  return state.status === 'preparing' || state.status === 'loading' || state.status === 'started'
+  if (state.status === 'sending') return state.percent === null
+  return (
+    state.status === 'preparing' ||
+    state.status === 'loading' ||
+    state.status === 'started' ||
+    state.status === 'waiting'
+  )
 }
 
 /**
  * Returns the text of the progress area for a run state, for example "Transcribing, 1:12 of 3:40".
  * @param elapsedMs The time from the "Start" click. A state with no progress value shows it, for example "Transcribing, 0:12 elapsed".
+ * @param host The host of the remote endpoint. A run in the browser does not read it.
  */
-export function progressText(state: RunState, elapsedMs: number): string {
-  if (showsElapsed(state)) return `${STATE_LABEL[state.status]}, ${formatClock(elapsedMs)} elapsed`
+export function progressText(state: RunState, elapsedMs: number, host: string): string {
+  const label = stateLabel(state, host)
+  if (showsElapsed(state)) return `${label}, ${formatClock(elapsedMs)} elapsed`
   switch (state.status) {
     case 'downloading':
-      return `Downloading speech model, ${state.percent}%`
+    case 'sending':
+      return `${label}, ${state.percent}%`
     case 'transcribing':
-      return `Transcribing, ${formatClock(state.doneMs)} of ${formatClock(state.totalMs)}`
+      return `${label}, ${formatClock(state.doneMs)} of ${formatClock(state.totalMs)}`
     default:
-      return STATE_LABEL[state.status]
+      return label
   }
 }
 
@@ -179,6 +244,7 @@ export function deviceLine(device: Device, speed: RunSpeed | null): string {
 /** Returns the value of the progress bar from 0 to 1, or undefined for a bar with no value. */
 export function progressValue(state: RunState): number | undefined {
   if (state.status === 'downloading') return state.percent / 100
+  if (state.status === 'sending' && state.percent !== null) return state.percent / 100
   if (state.status === 'transcribing')
     return state.totalMs > 0 ? Math.min(1, state.doneMs / state.totalMs) : 0
   return undefined
@@ -210,7 +276,14 @@ export function transcribeDialogReducer(state: DialogState, event: DialogEvent):
 type RunEvent = Extract<
   DialogEvent,
   {
-    type: 'stage' | 'download' | 'progress' | 'finishing' | 'confirm-replace' | 'confirm-low-match'
+    type:
+      | 'stage'
+      | 'download'
+      | 'upload'
+      | 'progress'
+      | 'finishing'
+      | 'confirm-replace'
+      | 'confirm-low-match'
   }
 >
 
@@ -218,6 +291,8 @@ const STAGE_STATE: Record<RunStage, RunState> = {
   preparing: { status: 'preparing' },
   loading: { status: 'loading' },
   transcribing: { status: 'started' },
+  sending: { status: 'sending', percent: null },
+  waiting: { status: 'waiting' },
 }
 type EndEvent = Extract<DialogEvent, { type: 'answer' | 'cancelled' | 'failed' | 'done' }>
 
@@ -227,6 +302,8 @@ function runStep(state: DialogState, event: RunEvent): DialogState {
       return STAGE_STATE[event.stage]
     case 'download':
       return { status: 'downloading', percent: event.percent }
+    case 'upload':
+      return { status: 'sending', percent: event.percent }
     case 'progress':
       return { status: 'transcribing', doneMs: event.doneMs, totalMs: event.totalMs }
     case 'finishing':

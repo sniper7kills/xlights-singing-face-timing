@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import * as db from '../../store/db.ts'
 import { getAudioFile, loadSong, putRecord } from '../../store/db.ts'
+import { DEFAULT_SETTINGS } from '../../store/settings.ts'
 import type { Mark } from '../../store/types.ts'
 import { storeNewSong } from './storeNewSong.ts'
 import { removeStorageStub, stubStorage } from './storageStub.test-helpers.ts'
@@ -77,12 +78,7 @@ describe('storeNewSong', () => {
   })
 
   it('reads frameMs from the default frame size in the app settings', async () => {
-    await putRecord('settings', {
-      speechModelId: 'whisper-base',
-      deviceSpeeds: {},
-      defaultFrameMs: 25,
-      theme: 'dark',
-    })
+    await putRecord('settings', { ...DEFAULT_SETTINGS, defaultFrameMs: 25 })
 
     const song = await storeNewSong({ name: 'a', durationMs: 1, audio })
 

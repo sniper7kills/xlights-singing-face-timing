@@ -17,22 +17,6 @@ describe('loadSettings', () => {
 
     expect(await loadSettings()).toEqual(stored)
   })
-
-  it('fills a field that a record of an earlier version does not have', async () => {
-    // A record of an earlier version has `device` and no `deviceSpeeds`, so the test writes it past the type.
-    const earlier = {
-      speechModelId: 'whisper-base',
-      device: 'wasm',
-      defaultFrameMs: 50,
-      theme: 'light',
-    }
-    await putRecord('settings', earlier as unknown as typeof DEFAULT_SETTINGS)
-
-    const settings = await loadSettings()
-
-    expect(settings.deviceSpeeds).toEqual({})
-    expect(settings.theme).toBe('light')
-  })
 })
 
 describe('updateSettings', () => {
@@ -64,5 +48,25 @@ describe('updateSettings', () => {
       defaultFrameMs: 25,
       theme: 'light',
     })
+  })
+
+  it('stores the remote endpoint and the last source choice', async () => {
+    const remoteEndpoint = { baseUrl: 'http://localhost:8000/v1', apiKey: 'sk-1', model: 'm' }
+    await updateSettings({ transcribeSource: 'remote', remoteEndpoint })
+
+    expect(await loadSettings()).toMatchObject({ transcribeSource: 'remote', remoteEndpoint })
+  })
+})
+
+describe('loadSettings of an earlier record', () => {
+  it('adds the default value of each field that the record does not have', async () => {
+    const earlier = { speechModelId: 'whisper-base', device: 'wasm', defaultFrameMs: 50 }
+    // A record from an earlier version of the app has `device`, and it does not have the remote fields or `deviceSpeeds`.
+    await putRecord('settings', {
+      ...earlier,
+      theme: 'light',
+    } as unknown as typeof DEFAULT_SETTINGS)
+
+    expect(await loadSettings()).toEqual({ ...DEFAULT_SETTINGS, device: 'wasm', theme: 'light' })
   })
 })

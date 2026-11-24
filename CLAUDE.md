@@ -4,7 +4,8 @@ The app is a browser-only web application. The person loads an audio file of a
 song. The app transcribes the song with a Whisper speech model in the browser,
 breaks down each word into xLights phonemes, and exports an `.xtiming` file with
 three layers (phrases, words, phonemes) for each voice. The xLights Faces effect
-reads the phoneme layer. No audio leaves the browser.
+reads the phoneme layer. Audio leaves the browser only when the person selects a
+remote endpoint, and the app shows the host first.
 
 Current state: the foundation and the song library exist. The person can create a
 song from an audio file, see the song list, rename a song, delete a song and try
@@ -15,7 +16,9 @@ The person can export `.xtiming` files from the export dialog. A transcribe run
 breaks down each word into phonemes with the dictionary, and the person manages a
 custom dictionary. The editor shows unknown words. The person edits marks on the
 layers with the mouse: move, resize, label, phoneme label and add. The transcribe
-dialog shows each step, the elapsed time and the device. The shortcuts, the loop,
+dialog shows each step, the elapsed time and the device. The person can transcribe
+with a remote endpoint that is compatible with the OpenAI transcription API in
+place of the speech model in the browser. The shortcuts, the loop,
 the inspector and the voices are next.
 
 ## Design

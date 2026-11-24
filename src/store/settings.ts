@@ -10,11 +10,13 @@ export const DEFAULT_SETTINGS: AppSettings = {
   deviceSpeeds: {},
   defaultFrameMs: 50,
   theme: 'dark',
+  transcribeSource: 'browser',
+  remoteEndpoint: { baseUrl: '', apiKey: '', model: 'whisper-1' },
 }
 
 /**
- * Returns the app settings, or `DEFAULT_SETTINGS` when the app has stored none.
- * A record from an earlier version of the app can miss a field, so the default fills it.
+ * Returns the app settings, with the default value for each field that the app has not stored.
+ * A record from an earlier version of the app has no field for a later setting.
  */
 export async function loadSettings(): Promise<AppSettings> {
   return { ...DEFAULT_SETTINGS, ...(await getRecord('settings', SETTINGS_KEY)) }

@@ -121,6 +121,8 @@ describe('records', () => {
       deviceSpeeds: { 'whisper-base': { wasm: 2.5 } },
       defaultFrameMs: 50,
       theme: 'dark',
+      transcribeSource: 'browser',
+      remoteEndpoint: { baseUrl: '', apiKey: '', model: 'whisper-1' },
     } as const
 
     await putRecord('settings', settings)

@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { RemoteError } from '../../lib/remote/response.ts'
 import { NoWordsError } from './runTranscription.ts'
 import { TranscribeError } from './transcribeClient.ts'
 import {
@@ -13,6 +14,7 @@ import {
   outcomeText,
   progressText,
   progressValue,
+  remoteErrorMessage,
   runSpeed,
   shownRunState,
   speedText,
@@ -27,19 +29,21 @@ const transcribing: DialogState = { status: 'transcribing', doneMs: 0, totalMs: 
 
 describe('progressText', () => {
   it('shows the download percent', () => {
-    expect(progressText({ status: 'downloading', percent: 42 }, 5000)).toBe(
+    expect(progressText({ status: 'downloading', percent: 42 }, 5000, '')).toBe(
       'Downloading speech model, 42%',
     )
   })
 
   it('shows the audio time that is complete and the audio time of the run', () => {
-    expect(progressText({ status: 'transcribing', doneMs: 72_000, totalMs: 220_000 }, 0)).toBe(
+    expect(progressText({ status: 'transcribing', doneMs: 72_000, totalMs: 220_000 }, 0, '')).toBe(
       'Transcribing, 1:12 of 3:40',
     )
   })
 
   it('shows the align step', () => {
-    expect(progressText({ status: 'finishing' }, 0)).toBe('Aligning lyrics and breaking down words')
+    expect(progressText({ status: 'finishing' }, 0, '')).toBe(
+      'Aligning lyrics and breaking down words',
+    )
   })
 
   it.each([
@@ -47,21 +51,21 @@ describe('progressText', () => {
     [{ status: 'loading' } as const, 'Loading speech model, 0:03 elapsed'],
     [{ status: 'started' } as const, 'Transcribing, 0:03 elapsed'],
   ])('shows the elapsed time for %o', (state, text) => {
-    expect(progressText(state, 3999)).toBe(text)
+    expect(progressText(state, 3999, '')).toBe(text)
   })
 
   it('shows minutes in the elapsed time', () => {
-    expect(progressText({ status: 'started' }, 72_000)).toBe('Transcribing, 1:12 elapsed')
+    expect(progressText({ status: 'started' }, 72_000, '')).toBe('Transcribing, 1:12 elapsed')
   })
 })
 
 describe('stateLabel', () => {
   it('names each run state without its numbers, for the live region', () => {
-    expect(stateLabel({ status: 'preparing' })).toBe('Preparing audio')
-    expect(stateLabel({ status: 'loading' })).toBe('Loading speech model')
-    expect(stateLabel({ status: 'downloading', percent: 42 })).toBe('Downloading speech model')
-    expect(stateLabel({ status: 'started' })).toBe('Transcribing')
-    expect(stateLabel({ status: 'transcribing', doneMs: 1, totalMs: 2 })).toBe('Transcribing')
+    expect(stateLabel({ status: 'preparing' }, '')).toBe('Preparing audio')
+    expect(stateLabel({ status: 'loading' }, '')).toBe('Loading speech model')
+    expect(stateLabel({ status: 'downloading', percent: 42 }, '')).toBe('Downloading speech model')
+    expect(stateLabel({ status: 'started' }, '')).toBe('Transcribing')
+    expect(stateLabel({ status: 'transcribing', doneMs: 1, totalMs: 2 }, '')).toBe('Transcribing')
   })
 })
 
@@ -318,5 +322,102 @@ describe('isActive and shownRunState', () => {
 
   it('shows no run state when no run is active', () => {
     expect(shownRunState(IDLE)).toBeNull()
+  })
+})
+
+describe('the states of a remote run', () => {
+  const HOST = 'localhost:8000'
+
+  it('names the host in the sending and waiting states', () => {
+    expect(stateLabel({ status: 'sending', percent: 42 }, HOST)).toBe(
+      'Sending audio to localhost:8000',
+    )
+    expect(stateLabel({ status: 'waiting' }, HOST)).toBe('Waiting for localhost:8000')
+  })
+
+  it('shows the upload percent when the browser reports it', () => {
+    expect(progressText({ status: 'sending', percent: 42 }, 5000, HOST)).toBe(
+      'Sending audio to localhost:8000, 42%',
+    )
+    expect(progressValue({ status: 'sending', percent: 42 })).toBe(0.42)
+  })
+
+  it('shows the elapsed time before the first upload progress and during the wait', () => {
+    expect(progressText({ status: 'sending', percent: null }, 3999, HOST)).toBe(
+      'Sending audio to localhost:8000, 0:03 elapsed',
+    )
+    expect(progressText({ status: 'waiting' }, 72_000, HOST)).toBe(
+      'Waiting for localhost:8000, 1:12 elapsed',
+    )
+    expect(progressValue({ status: 'sending', percent: null })).toBeUndefined()
+    expect(progressValue({ status: 'waiting' })).toBeUndefined()
+  })
+
+  it('moves from preparing to sending, to the upload percent, then to waiting', () => {
+    let state = reduce(IDLE, { type: 'start', mode: 'model' })
+    state = reduce(state, { type: 'stage', stage: 'sending' })
+    expect(state).toEqual({ status: 'sending', percent: null })
+    state = reduce(state, { type: 'upload', percent: 50 })
+    expect(state).toEqual({ status: 'sending', percent: 50 })
+    expect(isRunState(state)).toBe(true)
+    state = reduce(state, { type: 'stage', stage: 'waiting' })
+    expect(state).toEqual({ status: 'waiting' })
+    expect(isActive(state)).toBe(true)
+  })
+})
+
+describe('remoteErrorMessage', () => {
+  const HOST = 'ai.example.com'
+  const ORIGIN = 'https://timing.example.com'
+
+  it.each([
+    [
+      new RemoteError('network', HOST),
+      'The app could not connect to ai.example.com. The server is not available, or its CORS settings block this page. Check that the server runs and sends the header Access-Control-Allow-Origin: https://timing.example.com',
+    ],
+    [
+      new RemoteError('auth', HOST, 401),
+      'ai.example.com refused the API key (HTTP 401). Check the API key of the remote endpoint.',
+    ],
+    [
+      new RemoteError('auth', HOST, 403),
+      'ai.example.com refused the API key (HTTP 403). Check the API key of the remote endpoint.',
+    ],
+    [
+      new RemoteError('not-found', HOST, 404),
+      'ai.example.com has no transcription service at this address (HTTP 404). Check the base URL. It usually ends with /v1.',
+    ],
+    [
+      new RemoteError('too-large', HOST),
+      'The audio is too large for the remote endpoint. Select a shorter part of the song in the editor, and transcribe the time selection.',
+    ],
+    [
+      new RemoteError('rate-limit', HOST, 429),
+      'ai.example.com received too many requests (HTTP 429). Wait one minute, then select Retry.',
+    ],
+    [
+      new RemoteError('server', HOST, 502),
+      'ai.example.com reported an error (HTTP 502). Check the server, then select Retry.',
+    ],
+    [
+      new RemoteError('refused', HOST, 400),
+      'ai.example.com refused the request (HTTP 400). Check the speech model name of the remote endpoint.',
+    ],
+    [
+      new RemoteError('not-json', HOST, 200),
+      'ai.example.com did not return JSON. Check the base URL. It usually ends with /v1.',
+    ],
+    [
+      new RemoteError('no-word-times', HOST),
+      'ai.example.com returned no word times. Use a server and a speech model that return the words field of verbose_json.',
+    ],
+  ])('returns the copy for %s', (error, text) => {
+    expect(remoteErrorMessage(error, ORIGIN)).toBe(text)
+  })
+
+  it('gives the origin of the page to the network message of a failed run', () => {
+    expect(errorMessage(new RemoteError('network', HOST))).toContain(
+      `Access-Control-Allow-Origin: ${globalThis.location.origin}`,
+    )
   })
 })

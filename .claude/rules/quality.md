@@ -21,6 +21,9 @@ paths:
 - Every change to marks, voices or sections goes through a store action that
   records one undo step.
 - Every time that reaches `src/lib/xtiming/` is a whole number of milliseconds.
-- No network request with audio, lyrics or marks in the body or the URL.
+- No network request with audio, lyrics or marks in the body or the URL. The one
+  exception is the audio of a remote run, to the remote endpoint that the person
+  selected.
+- No API key in a log, an error message, an export, a URL or a test snapshot.
 - No string that the person supplies reaches XML without `escapeXml`.
 - Each message that the person sees matches the copy in the feature file.

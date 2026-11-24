@@ -1052,6 +1052,23 @@ button {
   color: var(--red);
 }
 
+.remote-endpoint {
+  display: grid;
+}
+
+.remote-summary,
+.remote-form-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+}
+
+.remote-form {
+  display: grid;
+  gap: 8px;
+}
+
 .visually-hidden {
   position: absolute;
   width: 1px;

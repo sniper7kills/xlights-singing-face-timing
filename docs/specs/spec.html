@@ -171,7 +171,7 @@ body.rv-open .layout { padding-right:21rem; }
 <h2 id="overview">Overview</h2>
 <p>The app is a web application for people who build light shows with xLights. The person loads an audio file of a song. The app finds each sung word and the time of each word. The app then converts each word into the mouth shapes that xLights uses to animate a singing face.</p>
 <p>The app writes the result as an <code>.xtiming</code> file. xLights imports that file as a timing track that has three layers: phrases, words and phonemes. The Faces effect in xLights reads the phoneme layer and moves the mouth of a face model.</p>
-<p>The same work in xLights is manual today. The person types the lyrics, then drags each phrase, each word and each phoneme into position by ear. A three-minute song can take several hours. The app does the first pass in minutes and gives the person an editor to correct the result. All audio stays in the browser. The app has no server that receives audio.</p>
+<p>The same work in xLights is manual today. The person types the lyrics, then drags each phrase, each word and each phoneme into position by ear. A three-minute song can take several hours. The app does the first pass in minutes and gives the person an editor to correct the result. Audio leaves the browser only when the person selects a remote endpoint, and the app shows the host first. The app has no server that receives audio.</p>
 <p>The user's request, verbatim:</p>
 <blockquote>I want to create a web-based project that will help me synchronize recordings word-by-word into an xlights compatable .xtiming to anamate singing faces. Ideally I can upload the audio file to the website and then have the xtimings file generate. Extra points if we can help generate the files however it would be easiest to import for multile faces/sections of the song. Include a nice GUI. Analyze xlights; and all relivant settings.</blockquote>
 <h2 id="terms">Terms</h2>
@@ -193,7 +193,11 @@ body.rv-open .layout { padding-right:21rem; }
 <tr><td>CMU symbol</td><td>noun</td><td>One sound symbol from the CMU Pronouncing Dictionary, for example <code>AY1</code>.</td><td>ARPAbet, CMU phoneme</td></tr>
 <tr><td>dictionary</td><td>noun</td><td>The table that gives the CMU symbols for a word.</td><td>lexicon</td></tr>
 <tr><td>custom dictionary</td><td>noun</td><td>The table of words that the person adds or changes. It takes priority over the dictionary.</td><td>user library, overrides</td></tr>
-<tr><td>speech model</td><td>noun</td><td>A Whisper model file that the browser downloads and runs.</td><td>model, AI, engine</td></tr>
+<tr><td>speech model</td><td>noun</td><td>A Whisper model that transcribes the audio: a model file that the browser downloads and runs, or the model of a remote endpoint.</td><td>model, AI, engine</td></tr>
+<tr><td>remote endpoint</td><td>noun</td><td>A server that the person selects to transcribe the audio in place of the speech model in the browser. It is compatible with the OpenAI transcription API.</td><td>cloud, API server, backend, service</td></tr>
+<tr><td>base URL</td><td>noun</td><td>The address of a remote endpoint, for example <code>https://api.openai.com/v1</code>. The app adds <code>/audio/transcriptions</code>.</td><td>endpoint URL, server address</td></tr>
+<tr><td>CORS</td><td>noun</td><td>Cross-Origin Resource Sharing: the HTTP headers that let a server accept a request from a page of another origin. A remote endpoint needs them for the app.</td><td>cross-site permission</td></tr>
+<tr><td>API key</td><td>noun</td><td>The secret text that a remote endpoint can ask for. The app sends it only to the base URL of the remote endpoint.</td><td>token, password, secret</td></tr>
 <tr><td>device</td><td>noun</td><td>The part of the computer that runs the speech model: the graphics card (<code>webgpu</code>) or the CPU (<code>wasm</code>).</td><td>backend, processor, hardware</td></tr>
 <tr><td>transcribe</td><td>verb</td><td>To run the speech model on the audio file and get words with times.</td><td>recognise, sync, analyse</td></tr>
 <tr><td>align</td><td>verb</td><td>To match the transcribed words with lyrics that the person supplies.</td><td>reconcile, merge</td></tr>
@@ -225,9 +229,10 @@ body.rv-open .layout { padding-right:21rem; }
 </li>
 <li>A person exports one file that holds one timing track for each voice.
 </li>
-<li>No audio data leaves the browser.
+<li>Audio leaves the browser only when the person selects a remote endpoint, and the
 </li>
 </ol>
+<p>app shows the host first.</p>
 <h2 id="non-goals">Non-goals</h2>
 <ul>
 <li>The app does not edit xLights sequences (<code>.xsq</code>), layouts or face definitions.
@@ -242,8 +247,11 @@ body.rv-open .layout { padding-right:21rem; }
 </li>
 <li>The app does not support phone-size screens in v1. The minimum width is 1024 px.
 </li>
-<li>The app does not use a paid speech service.
+<li>The app does not include a paid speech service. A remote endpoint belongs to the
 </li>
+</ul>
+<p>person.</p>
+<ul>
 <li>The app does not support dictionaries for languages other than English in v1.
 </li>
 </ul>
@@ -287,6 +295,7 @@ body.rv-open .layout { padding-right:21rem; }
   end
   Host[Amazon CloudFront + private S3 bucket: static files]
   HF[Hugging Face Hub: speech model files]
+  Remote[Remote endpoint of the person: optional]
   File[.xtiming download]
   XL[xLights: Import Timing Track]
 
@@ -298,6 +307,8 @@ body.rv-open .layout { padding-right:21rem; }
   HF -- model files, first use only --&gt; Worker
   Worker &lt;--&gt; Cache
   Worker -- words with times --&gt; Store
+  Store -- WAV of the song or the range, remote run only --&gt; Remote
+  Remote -- words with times --&gt; Store
   Store --&gt; Dict --&gt; Store
   Store --&gt; Writer --&gt; File --&gt; XL</pre></div>
 <p>The app is a static single-page application. It has no backend. Each component:</p>
@@ -320,7 +331,7 @@ body.rv-open .layout { padding-right:21rem; }
 <li><strong>Transcribe worker.</strong> A Web Worker runs <code>@huggingface/transformers</code> 4.3.2
 </li>
 </ul>
-<p>(Apache-2.0) with a Whisper speech model. The worker keeps the UI responsive. The library accepts <code>device: 'webgpu'</code> and returns word times when the call passes <code>return_timestamps: 'word'</code>. Browser Whisper is the user's choice. A cloud speech service costs money and sends audio to a third party. Verified against: https://huggingface.co/docs/transformers.js/api/pipelines and https://huggingface.co/docs/transformers.js/en/guides/webgpu (retrieved 2026-11-24), <code>npm view @huggingface/transformers version</code> (4.3.2).</p>
+<p>(Apache-2.0) with a Whisper speech model. The worker keeps the UI responsive. The library accepts <code>device: 'webgpu'</code> and returns word times when the call passes <code>return_timestamps: 'word'</code>. Browser Whisper is the user's choice and the default. The person can select a remote endpoint that is compatible with the OpenAI transcription API, for example a self-hosted server (issue #101, <code>docs/adr/0007-remote-whisper-endpoint.md</code>). Verified against: https://huggingface.co/docs/transformers.js/api/pipelines and https://huggingface.co/docs/transformers.js/en/guides/webgpu (retrieved 2026-11-24), <code>npm view @huggingface/transformers version</code> (4.3.2).</p>
 <ul>
 <li><strong>Dictionary module.</strong> Pure TypeScript. It looks up CMU symbols and maps each
 </li>
@@ -442,6 +453,8 @@ body.rv-open .layout { padding-right:21rem; }
     string speechModelId
     int defaultFrameMs
     string theme
+    string transcribeSource
+    object remoteEndpoint
   }</pre></div>
 <ul>
 <li><strong>Song.</strong> <code>id</code> is a UUID. <code>name</code> defaults to the audio file name without the
@@ -474,15 +487,15 @@ body.rv-open .layout { padding-right:21rem; }
 <li><strong>App settings.</strong> One record. <code>speechModelId</code> is one of the three supported speech
 </li>
 </ul>
-<p>models. The app does not store <code>device</code>. The app derives the device from the browser on each visit.</p>
+<p>models. The app does not store <code>device</code>. The app derives the device from the browser on each visit. <code>transcribeSource</code> is <code>browser</code> or <code>remote</code>, and the default is <code>browser</code>. <code>remoteEndpoint</code> holds <code>baseUrl</code>, <code>apiKey</code> and <code>model</code>. The API key stays in this record. No export and no custom dictionary file holds it.</p>
 <h2 id="cross-cutting-concerns">Cross-cutting concerns</h2>
 <ul>
 <li><strong>Auth.</strong> None. The app has no accounts and no server data.
 </li>
-<li><strong>Privacy.</strong> The app sends no audio, no lyrics and no marks to any server. The
+<li><strong>Privacy.</strong> Audio leaves the browser only when the person selects a remote
 </li>
 </ul>
-<p>only network requests are for the app files and the speech model files.</p>
+<p>endpoint, and the app shows the host first. A remote run sends the audio of the song or of the range to that host only. The app sends no lyrics and no marks to any server. The other network requests are for the app files and the speech model files. The API key goes only to the base URL of the remote endpoint.</p>
 <ul>
 <li><strong>Error handling.</strong> Each failure shows a message that states the cause and the
 </li>
@@ -736,6 +749,11 @@ body.rv-open .layout { padding-right:21rem; }
 </li>
 </ul>
 <p>elapsed time, finer progress and the device (issue #91, from the review of the maintainer in Firefox).</p>
+<ul>
+<li>2026-11-24 — The maintainer asked for "an API call ability to go to a whisper
+</li>
+</ul>
+<p>endpoint" (issue #101). The person can select a remote endpoint that is compatible with the OpenAI transcription API, for example a self-hosted server. The privacy promise changes: audio leaves the browser only when the person selects a remote endpoint, and the app shows the host first. The Content-Security-Policy <code>connect-src</code> allows any <code>https</code> address and <code>http</code> on <code>localhost</code> (<code>docs/adr/0007</code>).</p>
 <h2 id="issue-map">Issue map</h2>
 <p>Written by <code>/spec-to-issues</code> on 2026-11-24. Repository: <code>sniper7kills/xlights-singing-face-timing</code>.</p>
 <p>The spec has one editor epic. The tracker has two, because 30 requirements do not fit one batch.</p>
