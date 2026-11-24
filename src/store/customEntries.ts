@@ -17,10 +17,12 @@ export class CustomEntryWordError extends Error {
 
 // The break down reads the custom dictionary for each word, so the app keeps a copy in memory.
 let copy: Promise<Dictionary> | undefined
+let loadedCopy: Dictionary | undefined
 
 async function readCopy(): Promise<Dictionary> {
   const entries = await listRecords('customEntries')
-  return Object.fromEntries(entries.map((entry) => [entry.word, entry.symbols]))
+  loadedCopy = Object.fromEntries(entries.map((entry) => [entry.word, entry.symbols]))
+  return loadedCopy
 }
 
 /**
@@ -35,6 +37,14 @@ export function customDictionary(): Promise<Dictionary> {
     throw error
   })
   return copy
+}
+
+/**
+ * Returns the last in-memory copy of the custom dictionary that a read gave, or undefined before the first read.
+ * A store action that cannot wait for the database reads it here.
+ */
+export function loadedCustomDictionary(): Dictionary | undefined {
+  return loadedCopy
 }
 
 /** Returns all saved custom entries, in word order. */

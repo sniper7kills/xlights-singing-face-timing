@@ -148,6 +148,17 @@ describe('phonemesForWord', () => {
   })
 })
 
+describe('loadedDictionaries', () => {
+  it('returns undefined before the first load and both tables after it', async () => {
+    const { actions } = await setup()
+    expect(actions.loadedDictionaries()).toBeUndefined()
+
+    await actions.loadDictionaries()
+
+    expect(actions.loadedDictionaries()).toEqual({ custom: {}, cmu: DICTIONARY })
+  })
+})
+
 describe('breakDownMarks', () => {
   it('returns the same array when no word is a target', async () => {
     const { actions } = await setup()

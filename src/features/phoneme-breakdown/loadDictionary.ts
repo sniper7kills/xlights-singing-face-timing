@@ -12,12 +12,14 @@ export class DictionaryLoadError extends Error {
 }
 
 let request: Promise<Dictionary> | undefined
+let loaded: Dictionary | undefined
 
 async function fetchDictionary(): Promise<Dictionary> {
   try {
     const response = await fetch(`${import.meta.env.BASE_URL}${DICTIONARY_PATH}`)
     if (!response.ok) throw new Error(`${DICTIONARY_PATH}: HTTP ${response.status}`)
-    return (await response.json()) as Dictionary
+    loaded = (await response.json()) as Dictionary
+    return loaded
   } catch (cause) {
     throw new DictionaryLoadError({ cause })
   }
@@ -34,4 +36,12 @@ export function loadDictionary(): Promise<Dictionary> {
     throw error
   })
   return request
+}
+
+/**
+ * Returns the dictionary when a request has loaded it, or undefined before that.
+ * A store action that cannot wait for the file reads it here.
+ */
+export function loadedDictionary(): Dictionary | undefined {
+  return loaded
 }
