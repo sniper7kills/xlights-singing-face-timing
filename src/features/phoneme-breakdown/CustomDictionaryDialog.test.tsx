@@ -526,7 +526,8 @@ describe('CustomDictionaryDialog with an open song', () => {
     await waitFor(() => expect(labelsOf('free')).toEqual(['etc', 'U', 'etc', 'U']))
     expect(marks().find((mark) => mark.id === 'free')?.unknown).toBe(false)
 
-    await user.click(screen.getByRole('button', { name: 'Edit RUDOLPH' }))
+    // The break down ends before the dialog reads the entry list again.
+    await user.click(await screen.findByRole('button', { name: 'Edit RUDOLPH' }))
     await user.clear(screen.getByLabelText('CMU symbols'))
     await user.type(screen.getByLabelText('CMU symbols'), 'R UW1 D')
     await user.click(screen.getByRole('button', { name: 'Save entry' }))
