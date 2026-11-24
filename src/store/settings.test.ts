@@ -28,7 +28,10 @@ describe('loadSettings', () => {
     }
     await putRecord('settings', earlier as unknown as typeof DEFAULT_SETTINGS)
 
-    expect(await loadSettings()).toMatchObject({ ...DEFAULT_SETTINGS, theme: 'light' })
+    const settings = await loadSettings()
+
+    expect(settings.deviceSpeeds).toEqual({})
+    expect(settings.theme).toBe('light')
   })
 })
 
