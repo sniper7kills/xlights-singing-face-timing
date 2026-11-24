@@ -8,6 +8,8 @@
   --amber: #ffb238;
   --amber-ink: #1a1204;
   --red: #ff5a4d;
+  --wave: #3d4a78;
+  --wave-hi: #ffb238;
   --display: 'Rockwell', 'Roboto Slab', 'DejaVu Serif', Georgia, serif;
   --body: 'Avenir Next', 'Segoe UI Variable', 'Trebuchet MS', Verdana, sans-serif;
   --mono: ui-monospace, 'JetBrains Mono', 'DejaVu Sans Mono', Menlo, Consolas, monospace;
@@ -26,6 +28,8 @@
     --amber: #c2410c;
     --amber-ink: #fff8ec;
     --red: #b91c1c;
+    --wave: #b9ad92;
+    --wave-hi: #c2410c;
     color-scheme: light;
   }
 }
@@ -40,6 +44,8 @@
   --amber: #c2410c;
   --amber-ink: #fff8ec;
   --red: #b91c1c;
+  --wave: #b9ad92;
+  --wave-hi: #c2410c;
   color-scheme: light;
 }
 
@@ -229,6 +235,104 @@ button {
   border-radius: 10px;
   color: var(--red);
   background: color-mix(in srgb, var(--red) 8%, transparent);
+}
+
+.editor {
+  display: grid;
+  gap: 16px;
+}
+
+.editor-top {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 10px 14px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--panel);
+}
+
+.editor-top a.button {
+  color: inherit;
+  text-decoration: none;
+}
+
+.editor-top h2 {
+  margin: 0;
+  font: 600 18px var(--display);
+}
+
+.save-state {
+  font: 12px var(--mono);
+  color: var(--mute);
+}
+
+.waveform-region {
+  display: grid;
+  gap: 12px;
+}
+
+.waveform-stage {
+  position: relative;
+  height: 120px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--bg);
+  overflow: hidden;
+}
+
+.waveform-stage[hidden] {
+  display: none;
+}
+
+.waveform {
+  height: 100%;
+}
+
+.waveform-skeleton {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  color: var(--mute);
+  font: 13px var(--mono);
+  background: repeating-linear-gradient(90deg, var(--panel2) 0 6px, transparent 6px 12px);
+}
+
+.waveform-missing {
+  display: grid;
+  gap: 10px;
+  justify-items: start;
+}
+
+.waveform-missing p {
+  margin: 0;
+}
+
+.transport {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.play {
+  width: 42px;
+  height: 42px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--amber);
+  color: var(--amber-ink);
+  font-size: 16px;
+}
+
+.play:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.play-time {
+  font: 15px var(--mono);
+  font-variant-numeric: tabular-nums;
 }
 
 @media (max-width: 760px) {
