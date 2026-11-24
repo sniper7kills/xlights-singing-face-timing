@@ -185,21 +185,56 @@ the word in proportion to its weight:
 **CMU Pronouncing Dictionary.** Source: https://github.com/cmusphinx/cmudict, file
 `cmudict.dict`. The README states that use for any research or commercial purpose
 is unrestricted and asks for acknowledgement.
-Verified against: https://github.com/cmusphinx/cmudict (retrieved 2026-11-24). The
-entry format and the entry count are not verified. The engineer reads the file and
-the `LICENSE` file before the build script is written (spec.md, Risks 6 and 7).
+Verified against: https://github.com/cmusphinx/cmudict (retrieved 2026-11-24).
+
+These facts are confirmed from the file and its `LICENSE` file. `docs/external.md`
+records them.
+
+- Source: commit `74790861f652b15e4ac49015a90074ad62a27690` (2025-10-24). The copy
+  is in `vendor/cmudict/`.
+- Entry format: each line is a word, one space, then its CMU symbols separated by
+  one space. A variant entry has a number after the word, for example `hello(2)`.
+  A `#` starts a comment to the end of the line.
+- Entry count: `public/dict/cmudict.json` holds 126052 words. The app keeps the
+  first entry of each word.
+- Licence: a BSD-2-Clause style licence, copyright Carnegie Mellon University. The
+  app serves the notice as `public/dict/cmudict-LICENSE.txt`.
 
 **Module contract, `src/lib/dictionary/`:**
 
 ```ts
-type PhonemeLabel = 'AI'|'E'|'etc'|'FV'|'L'|'MBP'|'O'|'rest'|'U'|'WQ'
+const PHONEME_LABELS = ['AI', 'E', 'etc', 'FV', 'L', 'MBP', 'O', 'rest', 'U', 'WQ'] as const
+type PhonemeLabel = (typeof PHONEME_LABELS)[number]
 
-loadDictionary(): Promise<void>                       // idempotent
-lookup(word: string): { symbols: string[]; source: 'custom'|'cmu'|'guess' }
-toPhonemeLabels(symbols: string[]): PhonemeLabel[]    // mapped and merged
-spread(labels: PhonemeLabel[], startMs: number, endMs: number, frameMs: number):
-  { label: PhonemeLabel; startMs: number; endMs: number }[]
+// key: the word in upper case. value: its CMU symbols separated by one space.
+type Dictionary = Readonly<Record<string, string>>
+
+interface LookupResult {
+  readonly symbols: string[]
+  readonly source: 'custom' | 'cmu' | 'guess'
+}
+interface SpreadPhoneme {
+  readonly label: PhonemeLabel
+  readonly startMs: number
+  readonly endMs: number
+}
+
+lookup(word: string, customEntries: Dictionary, dictionary: Dictionary): LookupResult
+toPhonemeLabels(symbols: readonly string[]): PhonemeLabel[]    // mapped and merged
+spread(
+  labels: readonly PhonemeLabel[],
+  startMs: number,
+  endMs: number,
+  frameMs: number,
+): SpreadPhoneme[]
 validateSymbols(text: string): { ok: true } | { ok: false; bad: string }
+```
+
+`loadDictionary` is in `src/features/phoneme-breakdown/`, because it uses the
+network:
+
+```ts
+loadDictionary(): Promise<Dictionary>    // later calls get the same promise
 ```
 
 ## Edge cases & failures

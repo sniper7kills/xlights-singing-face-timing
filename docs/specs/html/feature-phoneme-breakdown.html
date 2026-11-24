@@ -392,16 +392,56 @@ body.rv-open .layout { padding-right:21rem; }
 </ul>
 <p><code>cmudict.dict</code> by <code>scripts/build-dictionary.mjs</code>.</p>
 <h3 id="phoneme-breakdown-interfaces">Interfaces</h3>
-<p><strong>CMU Pronouncing Dictionary.</strong> Source: https://github.com/cmusphinx/cmudict, file <code>cmudict.dict</code>. The README states that use for any research or commercial purpose is unrestricted and asks for acknowledgement. Verified against: https://github.com/cmusphinx/cmudict (retrieved 2026-11-24). The entry format and the entry count are not verified. The engineer reads the file and the <code>LICENSE</code> file before the build script is written (spec.md, Risks 6 and 7).</p>
+<p><strong>CMU Pronouncing Dictionary.</strong> Source: https://github.com/cmusphinx/cmudict, file <code>cmudict.dict</code>. The README states that use for any research or commercial purpose is unrestricted and asks for acknowledgement. Verified against: https://github.com/cmusphinx/cmudict (retrieved 2026-11-24).</p>
+<p>These facts are confirmed from the file and its <code>LICENSE</code> file. <code>docs/external.md</code> records them.</p>
+<ul>
+<li>Source: commit <code>74790861f652b15e4ac49015a90074ad62a27690</code> (2025-10-24). The copy
+</li>
+</ul>
+<p>is in <code>vendor/cmudict/</code>.</p>
+<ul>
+<li>Entry format: each line is a word, one space, then its CMU symbols separated by
+</li>
+</ul>
+<p>one space. A variant entry has a number after the word, for example <code>hello(2)</code>. A <code>#</code> starts a comment to the end of the line.</p>
+<ul>
+<li>Entry count: <code>public/dict/cmudict.json</code> holds 126052 words. The app keeps the
+</li>
+</ul>
+<p>first entry of each word.</p>
+<ul>
+<li>Licence: a BSD-2-Clause style licence, copyright Carnegie Mellon University. The
+</li>
+</ul>
+<p>app serves the notice as <code>public/dict/cmudict-LICENSE.txt</code>.</p>
 <p><strong>Module contract, <code>src/lib/dictionary/</code>:</strong></p>
-<pre class="code"><code>type PhonemeLabel = 'AI'|'E'|'etc'|'FV'|'L'|'MBP'|'O'|'rest'|'U'|'WQ'
+<pre class="code"><code>const PHONEME_LABELS = ['AI', 'E', 'etc', 'FV', 'L', 'MBP', 'O', 'rest', 'U', 'WQ'] as const
+type PhonemeLabel = (typeof PHONEME_LABELS)[number]
 
-loadDictionary(): Promise&lt;void&gt;                       // idempotent
-lookup(word: string): { symbols: string[]; source: 'custom'|'cmu'|'guess' }
-toPhonemeLabels(symbols: string[]): PhonemeLabel[]    // mapped and merged
-spread(labels: PhonemeLabel[], startMs: number, endMs: number, frameMs: number):
-  { label: PhonemeLabel; startMs: number; endMs: number }[]
+// key: the word in upper case. value: its CMU symbols separated by one space.
+type Dictionary = Readonly&lt;Record&lt;string, string&gt;&gt;
+
+interface LookupResult {
+  readonly symbols: string[]
+  readonly source: 'custom' | 'cmu' | 'guess'
+}
+interface SpreadPhoneme {
+  readonly label: PhonemeLabel
+  readonly startMs: number
+  readonly endMs: number
+}
+
+lookup(word: string, customEntries: Dictionary, dictionary: Dictionary): LookupResult
+toPhonemeLabels(symbols: readonly string[]): PhonemeLabel[]    // mapped and merged
+spread(
+  labels: readonly PhonemeLabel[],
+  startMs: number,
+  endMs: number,
+  frameMs: number,
+): SpreadPhoneme[]
 validateSymbols(text: string): { ok: true } | { ok: false; bad: string }</code></pre>
+<p><code>loadDictionary</code> is in <code>src/features/phoneme-breakdown/</code>, because it uses the network:</p>
+<pre class="code"><code>loadDictionary(): Promise&lt;Dictionary&gt;    // later calls get the same promise</code></pre>
 <h3 id="phoneme-breakdown-edge-cases-failures">Edge cases &amp; failures</h3>
 <div class="table-wrap"><table>
 <tr><th>Case</th><th>Result</th></tr>
