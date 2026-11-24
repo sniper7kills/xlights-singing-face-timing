@@ -69,6 +69,7 @@ export function openDatabase(): Promise<IDBDatabase> {
 export async function closeDatabase(): Promise<void> {
   const pending = connection
   connection = undefined
+  // A failed open has no connection to close.
   const database = await pending?.catch(() => undefined)
   database?.close()
 }

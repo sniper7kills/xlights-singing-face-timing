@@ -32,7 +32,7 @@ afterEach(() => {
 })
 
 async function savedLabel(songId: string) {
-  // Each await lets the fake IndexedDB finish its pending transactions.
+  // The save transaction ends after the timer fires, so the test waits for the save state.
   await vi.waitFor(() => expect(useAutosaveStore.getState().saveState).toBe('saved'))
   return (await loadSong(songId))?.marks.find((mark) => mark.id === `${songId}-phrase`)?.label
 }
