@@ -20,6 +20,27 @@ credential.
 
 These values come from the outputs of the hosting stack.
 
+## Hosting stack
+
+- Template: `infra/hosting.yml`. Create the stack in `us-east-1`.
+- Parameter `GitHubRepository`: the repository as `owner/name`. The deploy role
+  trusts only `repo:<owner>/<name>:ref:refs/heads/main`.
+- Parameter `CreateGitHubOidcProvider`: `true` only if the account has no IAM OIDC
+  provider for `token.actions.githubusercontent.com`. The default is `false`.
+- Stack outputs and the repository variable that each one fills:
+
+| Output | Repository variable |
+|---|---|
+| `DeployRoleArn` | `AWS_DEPLOY_ROLE_ARN` |
+| `SiteBucketName` | `SITE_BUCKET` |
+| `DistributionId` | `CLOUDFRONT_DISTRIBUTION_ID` |
+| `DistributionDomainName` | None. It is the production URL. |
+
+- The deploy workflow is `.github/workflows/deploy.yml`. It runs on each push to
+  `main`. If a repository variable is not set, the first step fails and names it.
+- Files in `assets/` get `Cache-Control: public, max-age=31536000, immutable`.
+  All other files, `index.html` included, get `Cache-Control: no-cache`.
+
 ## Build-time environment variables
 
 | Name | Meaning |

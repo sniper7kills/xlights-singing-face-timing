@@ -1,0 +1,98 @@
+# FR-foundation-11: each commit on main deploys to the S3 bucket and invalidates the CloudFront distribution.
+# The repository variables come from the outputs of the stack in infra/hosting.yml.
+name: Deploy
+
+on:
+  push:
+    branches:
+      - main
+
+# A second deploy waits for the first, because a cancelled sync leaves the bucket half updated.
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  AWS_DEPLOY_ROLE_ARN: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+  SITE_BUCKET: ${{ vars.SITE_BUCKET }}
+  CLOUDFRONT_DISTRIBUTION_ID: ${{ vars.CLOUDFRONT_DISTRIBUTION_ID }}
+
+jobs:
+  deploy:
+    name: Build and deploy to production
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    # FR-foundation-18: the job gets AWS credentials through GitHub OIDC, so it needs an ID token.
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      # This step comes first, so a missing variable stops the deploy before any build or AWS call.
+      - name: Check the repository variables
+        run: |
+          missing=0
+          for name in AWS_DEPLOY_ROLE_ARN SITE_BUCKET CLOUDFRONT_DISTRIBUTION_ID; do
+            if [ -z "${!name}" ]; then
+              echo "::error title=Missing repository variable::The GitHub Actions repository variable $name is not set. Set it from the outputs of the stack in infra/hosting.yml."
+              missing=1
+            fi
+          done
+          exit "$missing"
+
+      # The commit SHA pins each action, because a tag can move to different code.
+      - name: Check out the repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Node.js from .nvmrc
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Get AWS credentials through GitHub OIDC
+        uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: us-east-1
+
+      # The file names in dist/assets/ hold a content hash, so a browser can keep each file for one year.
+      # This pass does not delete, so a browser with the old index.html can still get the old files.
+      - name: Upload the hashed files
+        run: >-
+          aws s3 sync dist/assets/ "s3://$SITE_BUCKET/assets/"
+          --cache-control "public, max-age=31536000, immutable"
+
+      # These file names hold no hash, so the browser checks each one again on every load.
+      # The exclude filter also stops --delete from removing the files of the previous pass.
+      - name: Upload index.html and the other files
+        run: >-
+          aws s3 sync dist/ "s3://$SITE_BUCKET/"
+          --delete
+          --exclude "assets/*"
+          --cache-control "no-cache"
+
+      # The new index.html is in the bucket now, so no current page refers to the old hashed files.
+      # The cache-control value applies if sync uploads a file again.
+      - name: Delete the old hashed files
+        run: >-
+          aws s3 sync dist/assets/ "s3://$SITE_BUCKET/assets/"
+          --delete
+          --cache-control "public, max-age=31536000, immutable"
+
+      # GitHub Actions skips this step if a sync step fails, so production keeps the old version.
+      - name: Invalidate the CloudFront cache
+        run: >-
+          aws cloudfront create-invalidation
+          --distribution-id "$CLOUDFRONT_DISTRIBUTION_ID"
+          --paths "/*"
