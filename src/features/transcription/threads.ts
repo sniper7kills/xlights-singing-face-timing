@@ -1,8 +1,9 @@
 /**
  * The most threads that the `wasm` device uses.
- * More threads gave no more speed in the measured runs of ADR 0005.
+ * In the measured runs of ADR 0006, 2 threads were the fastest, and 4 or 8 threads were slower than 2.
+ * The ONNX runtime default is up to 4 threads, so the app sets the value.
  */
-export const MAX_WASM_THREADS = 4
+export const MAX_WASM_THREADS = 2
 
 /**
  * Returns the thread count for the ONNX runtime on the `wasm` device, or undefined for the library default.

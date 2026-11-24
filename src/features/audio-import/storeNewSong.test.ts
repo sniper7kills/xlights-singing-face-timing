@@ -79,7 +79,7 @@ describe('storeNewSong', () => {
   it('reads frameMs from the default frame size in the app settings', async () => {
     await putRecord('settings', {
       speechModelId: 'whisper-base',
-      device: 'wasm',
+      deviceSpeeds: {},
       defaultFrameMs: 25,
       theme: 'dark',
     })

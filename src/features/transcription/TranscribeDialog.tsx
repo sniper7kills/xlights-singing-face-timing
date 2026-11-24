@@ -23,11 +23,7 @@ import {
   type TranscribeOutcome,
   type TranscribeRequest,
 } from './runTranscription.ts'
-import {
-  createTranscribeClient,
-  type DeviceChangeReason,
-  type TranscribeClient,
-} from './transcribeClient.ts'
+import { createTranscribeClient, type TranscribeClient } from './transcribeClient.ts'
 import {
   type DialogEvent,
   type DialogState,
@@ -341,7 +337,8 @@ function useTranscribeRun(onDone: (outcome: TranscribeOutcome) => void) {
             setDevice(next)
             // A failed or stalled WebGPU device gets the lowest speed, so the app does not select it again.
             recordSpeed('webgpu', 0)
-            if (reason === 'slow') setMeter((current) => current && { ...current, slowDevice: true })
+            if (reason === 'slow')
+              setMeter((current) => current && { ...current, slowDevice: true })
           },
           onSpeed: recordSpeed,
         })

@@ -7,7 +7,7 @@ describe('wasmThreads', () => {
   })
 
   it('returns the core count when it is below the limit', () => {
-    expect(wasmThreads(true, 2)).toBe(2)
+    expect(wasmThreads(true, 1)).toBe(1)
   })
 
   it('returns the limit for a processor with more cores', () => {

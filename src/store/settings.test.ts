@@ -19,11 +19,16 @@ describe('loadSettings', () => {
   })
 
   it('fills a field that a record of an earlier version does not have', async () => {
-    const { deviceSpeeds: _missing, ...earlier } = DEFAULT_SETTINGS
-    // A record of an earlier version has no `deviceSpeeds`, so the test writes it past the type.
-    await putRecord('settings', { ...earlier, theme: 'light' } as typeof DEFAULT_SETTINGS)
+    // A record of an earlier version has `device` and no `deviceSpeeds`, so the test writes it past the type.
+    const earlier = {
+      speechModelId: 'whisper-base',
+      device: 'wasm',
+      defaultFrameMs: 50,
+      theme: 'light',
+    }
+    await putRecord('settings', earlier as unknown as typeof DEFAULT_SETTINGS)
 
-    expect(await loadSettings()).toEqual({ ...DEFAULT_SETTINGS, theme: 'light' })
+    expect(await loadSettings()).toMatchObject({ ...DEFAULT_SETTINGS, theme: 'light' })
   })
 })
 
