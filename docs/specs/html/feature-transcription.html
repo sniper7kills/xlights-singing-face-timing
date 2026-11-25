@@ -439,6 +439,91 @@ body.rv-open .layout { padding-right:21rem; }
 </li>
 </ul>
 <p>voice of the run, and the toast states the failure.</p>
+<h4 id="transcription-run-report-issue-129">Run report (issue #129)</h4>
+<ul>
+<li>FR-transcribe-63 — At the end of each completed run, the app stores one run report
+</li>
+</ul>
+<p>for the song. The report of the new run replaces the report of the earlier run.</p>
+<ul>
+<li>FR-transcribe-64 — A completed run includes a run with a failed, cancelled or capped
+</li>
+</ul>
+<p>singer step, and a run that found one singer.</p>
+<ul>
+<li>FR-transcribe-65 — A cancelled or a failed run stores no report. The earlier report
+</li>
+</ul>
+<p>stays.</p>
+<ul>
+<li>FR-transcribe-66 — The app stores the singer ranges of the singer step with the
+</li>
+</ul>
+<p>report, with song times.</p>
+<ul>
+<li>FR-transcribe-67 — The report holds no label of a mark, no API key and no full URL
+</li>
+</ul>
+<p>of the remote endpoint.</p>
+<ul>
+<li>FR-transcribe-68 — The report states the source, the host of the remote endpoint,
+</li>
+</ul>
+<p>the speech model and the device.</p>
+<ul>
+<li>FR-transcribe-69 — The report states the vocal separation model of the vocals, and
+</li>
+</ul>
+<p>whether the run changed to the fast model.</p>
+<ul>
+<li>FR-transcribe-70 — The report states the count of phrases, words, estimated words
+</li>
+</ul>
+<p>and unknown words of the run.</p>
+<ul>
+<li>FR-transcribe-71 — The report states the time of each step in milliseconds.
+</li>
+<li>FR-transcribe-72 — The report states the range and the frame size of the run.
+</li>
+<li>FR-transcribe-73 — The report lists each warning and each failure of a step that
+</li>
+</ul>
+<p>the run continued after, with its cause.</p>
+<ul>
+<li>FR-transcribe-74 — The report states the result of the singer step: <code>option-off</code>,
+</li>
+</ul>
+<p><code>split</code>, <code>one-singer</code>, <code>capped</code>, <code>failed</code> with its cause, <code>cancelled</code> or <code>no-vocals</code>.</p>
+<ul>
+<li>FR-transcribe-75 — The singer section holds the diagnostics of the singer search.
+</li>
+</ul>
+<p>See "Singer diagnostics" in the behaviour rules.</p>
+<ul>
+<li>FR-transcribe-76 — The singer section states the count of singers with one phrase
+</li>
+</ul>
+<p>or more, the phrase share of 30%, and the count of voices made.</p>
+<ul>
+<li>FR-transcribe-77 — The singer section states the count of phrases that no singer
+</li>
+</ul>
+<p>range touches, and the count of phrases with more than one singer.</p>
+<ul>
+<li>FR-transcribe-78 — The report lists each voice that holds phrases of the run, with
+</li>
+</ul>
+<p>its count of phrases.</p>
+<ul>
+<li>FR-transcribe-79 — The app gives the report as plain text: one heading line for
+</li>
+</ul>
+<p>each section, one fact on each line, a unit with each number.</p>
+<ul>
+<li>FR-transcribe-80 — If the browser storage is full, the run completes and the song
+</li>
+</ul>
+<p>keeps the earlier report.</p>
 <h3 id="transcription-user-flows">User flows</h3>
 <h4 id="transcription-transcribe-a-song">Transcribe a song</h4>
 <div class="diagram"><pre class="mermaid">sequenceDiagram
@@ -921,6 +1006,11 @@ body.rv-open .layout { padding-right:21rem; }
 </ul>
 <h3 id="transcription-data-touched">Data touched</h3>
 <ul>
+<li>Writes <code>RUN_DATA</code> for the song at the end of each completed run: the singer ranges
+</li>
+</ul>
+<p>and the run report. A new run replaces the full record.</p>
+<ul>
 <li>Reads <code>AUDIO_FILE</code>. Reads and writes <code>APP_SETTINGS.speechModelId</code>.
 </li>
 <li>Reads and writes <code>APP_SETTINGS.transcribeSource</code> and
@@ -1168,6 +1258,57 @@ spreadLyrics(lyrics: string, startMs: number, endMs: number): AlignedPhrase[]</c
 <tr><td>Singer step: more singers than free voices, and the song has room for some singers</td><td>The app adds a voice for each free voice. The toast adds "The song has room for &lt;k&gt; more voices. The other singers stay on &lt;voice name&gt;."</td></tr>
 <tr><td>Remote endpoint: the browser asks for the permission to reach the local network</td><td>The run waits for the answer of the person. If the person refuses, the dialog shows the message for no connection.</td></tr>
 </table></div>
+<h3 id="transcription-run-report">Run report</h3>
+<p>The report has these sections. <code>reportToText</code> writes them in this order. Each section starts with a heading line in brackets.</p>
+<div class="table-wrap"><table>
+<tr><th>Section</th><th>Facts</th></tr>
+<tr><td>Header</td><td>"Transcribe run report", the start time of the run (ISO 8601)</td></tr>
+<tr><td><code>[Run]</code></td><td>Source (<code>browser</code> or <code>remote</code>), the host of the remote endpoint, the mode, the speech model, the device, the range in ms, the frame size in ms</td></tr>
+<tr><td><code>[Vocal separation]</code></td><td>The separation model of the vocals (<code>spleeter</code>, <code>demucs</code> or <code>none</code>), "Changed to the fast model" (<code>yes</code> or <code>no</code>)</td></tr>
+<tr><td><code>[Counts]</code></td><td>Phrases, words, estimated words, unknown words</td></tr>
+<tr><td><code>[Voices]</code></td><td>Each voice that holds phrases of the run, with its count of phrases</td></tr>
+<tr><td><code>[Singers]</code></td><td>The result of the singer step, the singer diagnostics, the singer ranges, the phrase share, the singers with one phrase or more, the phrases with no singer range, the phrases with more than one singer, the voices made</td></tr>
+<tr><td><code>[Step times]</code></td><td>The time of each step that ran, in ms</td></tr>
+<tr><td><code>[Warnings and failures]</code></td><td>One line for each warning or failure, for example "separation failed: memory; continued with the fast model"</td></tr>
+</table></div>
+<h4 id="transcription-singer-diagnostics">Singer diagnostics</h4>
+<p>The singer search counts these numbers with no extra model call:</p>
+<ul>
+<li>The audio time, the count of windows, the frames with a singer and the sung time.
+</li>
+<li>The count of embeddings, and the embeddings with a value that is not finite.
+</li>
+<li>The settings in force: the merge threshold, the minimum group size, the highest
+</li>
+</ul>
+<p>count of singers, and the two limits of the rule for short singers.</p>
+<ul>
+<li>The raw groups: the groups after the threshold merge, before each later join.
+</li>
+<li>For each raw group: its sung time, its count of embeddings, and its result. A raw
+</li>
+</ul>
+<p>group stays as a singer, or joins another raw group for one of these reasons:</p>
+<ul>
+<li>"fewer than &lt;n&gt; embeddings"
+<ul>
+<li>"over the highest count"
+</li>
+<li>"under &lt;p&gt;% of the sung time"
+</li>
+<li>"under &lt;s&gt; seconds"
+</li>
+</ul>
+</li>
+<li>The smallest, the median and the largest distance between the centroids of the
+</li>
+</ul>
+<p>raw groups, so that a reader can compare them with the threshold.</p>
+<ul>
+<li>The final singers: for each, its sung time and its count of ranges.
+</li>
+</ul>
+<p>The text writes the raw groups and the final singers as tables with aligned columns.</p>
 <h3 id="transcription-acceptance-criteria">Acceptance criteria</h3>
 <ul>
 <li>The editor shows "Transcribe" when a voice is selected. (FR-transcribe-1)
@@ -1392,6 +1533,26 @@ spreadLyrics(lyrics: string, startMs: number, endMs: number): AlignedPhrase[]</c
 </li>
 </ul>
 <p>names the voice. (FR-transcribe-62)</p>
+<ul>
+<li>After a run with both options on and a reload, the song has a run report with the
+</li>
+</ul>
+<p>singer section and the singer diagnostics. (FR-transcribe-63, 66, 74, 75)</p>
+<ul>
+<li>After a failed singer step, the song has a run report with the status <code>failed</code>
+</li>
+</ul>
+<p>and its cause. (FR-transcribe-64, 74)</p>
+<ul>
+<li>After a cancelled run, the song keeps the earlier run report. (FR-transcribe-65)
+</li>
+<li>The stored report and its text hold no word of the lyrics. (FR-transcribe-67, 79)
+</li>
+<li>Deleting a song removes its run report. (FR-transcribe-63)
+</li>
+<li>A full browser storage gives a completed run. (FR-transcribe-80)
+</li>
+</ul>
 <h3 id="transcription-out-of-scope">Out of scope</h3>
 <ul>
 <li>Separation of stems other than the vocals.
