@@ -191,6 +191,12 @@ Track rows (FR-editor-31 to 37):
 - Each row has the toggle buttons "Mute <row name>" and "Solo <row name>". A
   pressed button shows a fill, a bold letter and a frame.
 - The fold button "Audio tracks" hides and shows the rows. It has `aria-expanded`.
+- The group shows at most 4 rows. With more rows, the group scrolls inside itself,
+  so the phrase, word and phoneme layers stay on the screen. The row names, "Mute"
+  and "Solo" scroll with their rows. The waveforms stay on the time scale of the
+  stage.
+- If the browser refuses the sound of a row, the group shows "The browser did not
+  start the sound of <row name>. Select "Mute" and then "Solo" on the row again."
 - A song with no kept audio tracks shows no group and no "Song" controls.
 
 ## Behaviour rules
@@ -326,7 +332,9 @@ scroll methods before use. Those names are not verified in this spec.
 | Audio missing | Play controls are disabled. Edits work. |
 | 3 000 marks in view | Scroll and zoom stay at 60 frames per second. The editor draws only the marks in view. |
 | A new run stores new tracks | The track rows show the new tracks. |
-| The browser refuses to play a track | The track stays silent, and the song audio plays. The next check tries again. |
+| The browser refuses to play a track (`NotAllowedError`) | The track stays silent, and the song audio plays. The group shows "The browser did not start the sound of <row name>. Select "Mute" and then "Solo" on the row again." The app tries the track again after the next click on "Mute" or "Solo" of that row. |
+| The play of a track stops for another cause, for example a quick pause | No message. The next check starts the track again. |
+| A phrase edit changes the times of a singer row during play | The track keeps its play. The muted "Song" stays muted. The row uses the new times. |
 | A voice of a singer row has a new name or is deleted | The row of that voice does not show. |
 
 ## Acceptance criteria

@@ -182,6 +182,8 @@ leaves the browser, and the app shows the host before each run.
   See "Singer diagnostics" in the behaviour rules.
 - FR-transcribe-76 — The singer section states the count of singers with one phrase
   or more, the phrase share of 30%, and the count of voices made.
+- FR-transcribe-123 — The singer section states the choice of "Singers" of the run:
+  "Automatic", 2, 3 or 4. A report from before this field gives "not recorded".
 - FR-transcribe-77 — The singer section states the count of phrases that no singer
   range touches, and the count of phrases with more than one singer.
 - FR-transcribe-78 — The report lists each voice that holds phrases of the run, with
@@ -251,8 +253,11 @@ leaves the browser, and the app shows the host before each run.
   is full, so the app did not keep the separated tracks."
 - FR-transcribe-111 — The run waits 5 seconds or less for the write of the run
   data. Then the run completes.
-- FR-transcribe-112 — If the app did not store the run data, the toast shows no
+- FR-transcribe-112 — If the write of the run data failed, the toast shows no
   "Run report" link and adds "The app could not store the run report."
+- FR-transcribe-124 — If the write of the run data did not end in 5 seconds, the
+  toast shows no "Run report" link and adds "The app still stores the run report.
+  It shows in "Run report" when it is ready." The write continues.
 - FR-transcribe-113 — Deleting the song deletes its audio tracks.
 - FR-transcribe-114 — The storage meter of the song library counts the audio
   tracks.
@@ -923,7 +928,8 @@ from 0 to 1.
 | Singer step: more singers than free voices, and the song has room for some singers | The app adds a voice for each free voice. The toast adds "The song has room for <k> more voices. The other singers stay on <voice name>." |
 | Kept audio tracks: the browser storage is full | The run completes. The app stores the report and the singer ranges with no audio tracks. The report has the line "audio tracks not kept: the browser storage is full". The toast adds "The browser storage is full, so the app did not keep the separated tracks." |
 | Kept audio tracks: the browser cannot resample the tracks | The run completes with no audio tracks. The report has the line "audio tracks not kept: the app could not convert the tracks". |
-| The write of the run data does not end in 5 seconds | The run completes. The toast shows no "Run report" link and adds "The app could not store the run report." The write can still end later. |
+| The write of the run data does not end in 5 seconds | The run completes. The toast shows no "Run report" link and adds "The app still stores the run report. It shows in "Run report" when it is ready." When the write ends, "Run report" and the track rows show the new run. If the storage is full, the app stores the report with no audio tracks and its line "audio tracks not kept: the browser storage is full". |
+| The write of the run data fails | The run completes. The toast shows no "Run report" link and adds "The app could not store the run report." |
 | A newer version of the app wrote the database | The song library shows "This browser holds data from a newer version of the app. Reload the page. If the message stays, close the other tabs of the app and reload." |
 | Another tab of the app keeps the database open during an upgrade | The song library shows "Close the other tabs of the app. Then reload this page." The library opens when the other tab closes. |
 | Remote endpoint: the browser asks for the permission to reach the local network | The run waits for the answer of the person. If the person refuses, the dialog shows the message for no connection. |
@@ -940,7 +946,7 @@ section starts with a heading line in brackets.
 | `[Vocal separation]` | The separation model of the vocals (`spleeter`, `demucs` or `none`), "Changed to the fast model" (`yes` or `no`), "Audio tracks" (the count), "Tracks kept" (`yes` or `no`). A report from before issue #129 gives `not known` for the last two. |
 | `[Counts]` | Phrases, words, estimated words, unknown words |
 | `[Voices]` | Each voice that holds phrases of the run, with its count of phrases. A voice that the singer step made has ", made by the run". |
-| `[Singers]` | The result of the singer step, the singer diagnostics, the singer ranges, the phrase share, the singers with one phrase or more, the phrases with no singer range, the phrases with more than one singer, the voices made |
+| `[Singers]` | The result of the singer step, the choice of "Singers" ("Singers selected": `Automatic`, the count, or `not recorded`), the singer diagnostics, the singer ranges, the phrase share, the singers with one phrase or more, the phrases with no singer range, the phrases with more than one singer, the voices made |
 | `[Step times]` | The time of each step that ran, in ms |
 | `[Warnings and failures]` | One line for each warning or failure, for example "separation failed: memory; continued with the fast model" |
 
