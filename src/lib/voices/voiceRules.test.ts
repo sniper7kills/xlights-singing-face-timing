@@ -48,6 +48,10 @@ describe('nextVoiceName', () => {
       'Voice 3',
     )
   })
+
+  it('gives "Singer N" with the lowest free number for the base "Singer"', () => {
+    expect(nextVoiceName([LEAD, voice('b', 'singer 2', 1)], 'Singer')).toBe('Singer 3')
+  })
 })
 
 describe('nextVoiceColor', () => {
