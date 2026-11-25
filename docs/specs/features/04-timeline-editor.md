@@ -122,7 +122,7 @@ flowchart TD
 Regions:
 
 - **Top bar.** Back to the song library, song name, save state ("Saved" or
-  "Saving"), "Transcribe", "Custom dictionary", "Export".
+  "Saving"), "Transcribe", "Run report", "Custom dictionary", "Export".
 - **Voice rail** (left). The voices of the song. Defined in
   [05-voices-sections.md](05-voices-sections.md).
 - **Stage** (centre). From top to bottom: the section band, the time ruler, the

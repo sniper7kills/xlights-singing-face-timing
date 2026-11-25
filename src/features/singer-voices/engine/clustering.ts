@@ -96,15 +96,50 @@ export function clusterEmbeddings(
   embeddings: readonly Float32Array[],
   settings: ClusterSettings,
 ): number[] {
+  return clusterStages(embeddings, settings).capped
+}
+
+/** The group of each embedding after each step of `clusterEmbeddings`, for the singer diagnostics. */
+export type ClusterStages = {
+  /** After the threshold merge. */
+  merged: number[]
+  /** After the join of small groups. */
+  joinedSmall: number[]
+  /** After the cap at `maxGroups`: the result of `clusterEmbeddings`. */
+  capped: number[]
+  /** The distance between the centroids of each pair of groups after the threshold merge. */
+  mergedDistances: number[]
+  /** The small group size in force. It is lower than `minGroupSize` for a short input. */
+  minGroupSize: number
+}
+
+/** Returns the distance between the centroids of each pair of groups. */
+function pairDistances(groups: readonly Group[]): number[] {
+  return groups.flatMap((a, i) => groups.slice(i + 1).map((b) => centroidDistance(a, b)))
+}
+
+/**
+ * Returns the group of each embedding after each step of the clustering, as `clusterEmbeddings` runs it.
+ * @param embeddings The speaker embeddings, in the order of their time.
+ * @param settings The threshold, the small group size and the highest count of groups.
+ */
+export function clusterStages(
+  embeddings: readonly Float32Array[],
+  settings: ClusterSettings,
+): ClusterStages {
   const groups: Group[] = embeddings.flatMap((embedding, index) =>
     embedding.every(Number.isFinite) ? [{ sum: unitLength(embedding), members: [index] }] : [],
   )
   // pyannote.audio lowers the small group size for a short input in the same way.
   const minSize = Math.min(settings.minGroupSize, Math.max(1, Math.round(groups.length / 10)))
   mergeClosest(groups, (distance) => distance <= settings.threshold)
+  const merged = groupNumbers(groups, embeddings.length)
+  const mergedDistances = pairDistances(groups)
   joinSmallGroups(groups, minSize)
+  const joinedSmall = groupNumbers(groups, embeddings.length)
   mergeClosest(groups, () => groups.length > settings.maxGroups)
-  return groupNumbers(groups, embeddings.length)
+  const capped = groupNumbers(groups, embeddings.length)
+  return { merged, joinedSmall, capped, mergedDistances, minGroupSize: minSize }
 }
 
 /** Returns the group of each embedding, with the groups numbered in the order of their first embedding. */

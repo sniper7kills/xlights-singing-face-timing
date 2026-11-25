@@ -200,6 +200,8 @@ body.rv-open .layout { padding-right:21rem; }
 <tr><td>CORS</td><td>noun</td><td>Cross-Origin Resource Sharing: the HTTP headers that let a server accept a request from a page of another origin. A remote endpoint needs them for the app.</td><td>cross-site permission</td></tr>
 <tr><td>API key</td><td>noun</td><td>The secret text that a remote endpoint can ask for. The app sends it only to the base URL of the remote endpoint.</td><td>token, password, secret</td></tr>
 <tr><td>device</td><td>noun</td><td>The part of the computer that runs the speech model: the graphics card (<code>webgpu</code>) or the CPU (<code>wasm</code>).</td><td>backend, processor, hardware</td></tr>
+<tr><td>run report</td><td>noun</td><td>The record of what the last transcribe run of a song did: the source, the models, the counts, the time of each step, the singer diagnostics, and each warning and failure. It holds no lyrics.</td><td>debug info, log, run log</td></tr>
+<tr><td>build</td><td>noun</td><td>The short git commit of the version of the app, for example <code>abc1234</code>. The run report and the song library show it.</td><td>version number, release</td></tr>
 <tr><td>vocal separation</td><td>noun</td><td>The step that removes the instruments from the audio before a transcribe run.</td><td>stem split, demix, isolation</td></tr>
 <tr><td>transcribe</td><td>verb</td><td>To run the speech model on the audio file and get words with times.</td><td>recognise, sync, analyse</td></tr>
 <tr><td>align</td><td>verb</td><td>To match the transcribed words with lyrics that the person supplies.</td><td>reconcile, merge</td></tr>
@@ -411,6 +413,7 @@ body.rv-open .layout { padding-right:21rem; }
   VOICE ||--o{ MARK : has
   MARK ||--o{ MARK : "parent of"
   CUSTOM_ENTRY }o--|| APP_SETTINGS : "stored beside"
+  SONG ||--o| RUN_DATA : "last run"
   SONG {
     string id PK
     string name
@@ -455,6 +458,11 @@ body.rv-open .layout { padding-right:21rem; }
     string symbols
     string updatedAt
   }
+  RUN_DATA {
+    string songId PK
+    object singerSegments
+    object report
+  }
   APP_SETTINGS {
     string speechModelId
     int defaultFrameMs
@@ -489,6 +497,11 @@ body.rv-open .layout { padding-right:21rem; }
 </li>
 </ul>
 <p>separated by spaces. Custom entries belong to the browser, not to one song.</p>
+<ul>
+<li><strong>Run data.</strong> One record for each song, in the object store <code>runs</code> (database
+</li>
+</ul>
+<p>version 3). It holds the singer ranges and the run report of the last completed transcribe run. A new run replaces the full record. Deleting the song deletes it in the same transaction. It holds no lyrics, no label of a mark and no API key.</p>
 <ul>
 <li><strong>App settings.</strong> One record. <code>speechModelId</code> is one of the three supported speech
 </li>
@@ -780,6 +793,11 @@ body.rv-open .layout { padding-right:21rem; }
 </li>
 </ul>
 <p>ability to get a zip of everything" (issue #132). The export dialog has the check box "Everything as one zip file". The app writes the zip file in the browser with no compression and no library.</p>
+<ul>
+<li>2026-11-24 — The maintainer said: "they should be shown as seperate tracks in the
+</li>
+</ul>
+<p>GUI as seperate waveforms and the ability to play/mute each track. additionally some debug info should be visable" (epic #128). Each completed transcribe run stores a run report for the song, with the singer diagnostics first (issue #129).</p>
 <h2 id="issue-map">Issue map</h2>
 <p>Written by <code>/spec-to-issues</code> on 2026-11-24. Repository: <code>sniper7kills/xlights-singing-face-timing</code>.</p>
 <p>The spec has one editor epic. The tracker has two, because 30 requirements do not fit one batch.</p>

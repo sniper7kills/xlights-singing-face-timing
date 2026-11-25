@@ -1,3 +1,4 @@
+import { execFileSync } from 'node:child_process'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import react from '@vitejs/plugin-react'
@@ -28,6 +29,24 @@ function isUnwatched(filePath: string): boolean {
   return unwatchedFolders.has(relativePath.split(path.sep)[0])
 }
 
+/**
+ * Returns the short git commit of the build, so that a run report names the version of the app that made it.
+ * CI sets GITHUB_SHA. A local build reads the commit from git. A folder with no git gives 'dev'.
+ */
+function buildId(): string {
+  const sha = process.env.GITHUB_SHA
+  if (sha !== undefined && sha !== '') return sha.slice(0, 7)
+  try {
+    return execFileSync('git', ['rev-parse', '--short=7', 'HEAD'], {
+      cwd: projectRoot,
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+    }).trim()
+  } catch {
+    return 'dev'
+  }
+}
+
 // The two headers make the page cross-origin isolated, so the speech model can use more than one CPU thread.
 // See docs/adr/0006-cross-origin-isolation-for-wasm-threads.md. infra/hosting.yml sends the same values.
 const isolationHeaders = {
@@ -37,6 +56,8 @@ const isolationHeaders = {
 
 export default defineConfig({
   plugins: [react()],
+  // Vite replaces the name in the build and defines it as a global in dev and in the unit tests.
+  define: { __APP_BUILD__: JSON.stringify(buildId()) },
   server: {
     port: 5173,
     // The documented local URL is http://localhost:5173, so a busy port is an error.

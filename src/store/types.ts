@@ -1,6 +1,7 @@
 // The entity types of the data model in docs/specs/spec.md. Times are whole milliseconds.
 import type { SeparationModelId } from '../features/vocal-separation/protocol.ts'
 import type { RemoteEndpoint } from '../lib/remote/endpoint.ts'
+import type { ReportSingerRange, RunReport } from '../lib/runReport/runReport.ts'
 
 /** The length of one xLights frame in milliseconds. */
 export type FrameMs = 25 | 50
@@ -111,6 +112,17 @@ export type AppSettings = {
   singerVoices: boolean
   /** The last choice of "Separation model" of the transcribe dialog. */
   separationModel: SeparationModelId
+}
+
+/**
+ * The data of the last completed transcribe run of a song. A new run replaces the full record.
+ * Lyrics, labels and the API key are never in it.
+ */
+export type RunData = {
+  songId: string
+  /** The singer ranges of the singer step, with song times. Empty when the step did not return ranges. */
+  singerSegments: ReportSingerRange[]
+  report: RunReport
 }
 
 /** Where a transcribe run finds the words: the speech model in this browser, or a remote endpoint. */

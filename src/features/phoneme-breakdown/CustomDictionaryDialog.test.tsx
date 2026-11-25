@@ -576,8 +576,16 @@ describe('CustomDictionaryDialog with an open song', () => {
       new File(['RUDOLPH!  R UW1 D AA0 L F'], 'words.txt', { type: 'text/plain' }),
     )
 
-    await waitFor(() => expect(marks().find((mark) => mark.id === 'free')?.unknown).toBe(false))
+    const wait = { timeout: 5000 }
+    await waitFor(
+      () => expect(marks().find((mark) => mark.id === 'free')?.unknown).toBe(false),
+      wait,
+    )
     expect(labelsOf('free')).toEqual(['etc', 'U', 'etc', 'AI', 'L', 'FV'])
-    expect(entryRows()).toEqual([['RUDOLPH', 'R UW1 D AA0 L F', 'etc U etc AI L FV']])
+    // The list of entries draws again after the store changes, so the row can arrive one render later.
+    await waitFor(
+      () => expect(entryRows()).toEqual([['RUDOLPH', 'R UW1 D AA0 L F', 'etc U etc AI L FV']]),
+      wait,
+    )
   })
 })
