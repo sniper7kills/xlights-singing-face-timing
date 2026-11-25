@@ -1,5 +1,6 @@
 import { type KeyboardEvent, useEffect, useId, useRef, useState } from 'react'
 import { voiceNameError } from '../../lib/voices/voiceRules.ts'
+import { setVoicePreviewMuted } from '../../store/actions/setPreviewMuted.ts'
 import { renameVoice } from '../../store/actions/voices.ts'
 import type { Voice } from '../../store/types.ts'
 import { useViewStore } from '../../store/viewStore.ts'
@@ -23,7 +24,7 @@ type Focus = 'select' | 'menu' | null
 
 /**
  * Shows one row of the voice rail: a select button with the colour chip, the name and the phrase count,
- * then the menu button.
+ * then the mute button of the face preview and the menu button.
  * "Rename" shows a text field in place of the select button. `Enter` and a lost focus save, and `Escape` cancels.
  * A name with a field error keeps the field open with the error.
  */
@@ -49,6 +50,7 @@ export function VoiceRow({
   // A save or a cancel removes the field, and the removal can blur it, so the field reports one result only.
   const finished = useRef(false)
   const index = voices.findIndex((item) => item.id === voice.id)
+  const muted = voice.previewMuted === true
 
   useEffect(() => {
     if (focus === null) return
@@ -140,7 +142,17 @@ export function VoiceRow({
           </span>
         </button>
       )}
-      {/* Issue #38 puts the mute button of the face preview here. */}
+      {/* The glyph changes with the state, so the button does not show the state by colour alone. */}
+      <button
+        type="button"
+        className="voice-mute-button"
+        aria-label={`Mute face preview of ${voice.name}`}
+        title={`Mute face preview of ${voice.name}`}
+        aria-pressed={muted}
+        onClick={() => setVoicePreviewMuted(voice.id, !muted)}
+      >
+        <span aria-hidden="true">{muted ? '⊘' : '☺'}</span>
+      </button>
       <button
         ref={menuButton}
         type="button"

@@ -15,13 +15,13 @@ const NO_MARKS: Mark[] = []
  * so it draws again when the label changes, and the layers do not draw again.
  * The label shows as text, so the preview does not rely on colour alone.
  * The text alternative has no live region, so a screen reader does not read each change during play.
- * @param voice The voice of the layers. Undefined is for a song with no voice.
+ * @param voice The voice of the face. Undefined is for a song with no voice.
  */
 export function FacePreview({ voice }: { voice: Voice | undefined }) {
   const marks = useSongStore((state) => state.current?.marks ?? NO_MARKS)
   const label = useViewStore((view) => phonemeLabelAt(marks, voice?.id, view.playTimeMs)) ?? 'rest'
   return (
-    <figure className="face-preview" data-phoneme={label}>
+    <figure className="face-preview" data-phoneme={label} data-voice-id={voice?.id}>
       <div className="face">
         <svg viewBox="0 0 120 120" role="img" aria-label={`Face preview, mouth shape ${label}`}>
           <circle className="face-outline" cx="60" cy="60" r="52" />
