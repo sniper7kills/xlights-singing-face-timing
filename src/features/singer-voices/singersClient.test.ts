@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import type { SingerSegment, SingersMessage, SingersRequest } from './protocol.ts'
+import { fixtureDiagnostics } from './engine/fixtureSingerFinder.ts'
 import { findSingers, SingersError, type SingersWorkerLike } from './singersClient.ts'
 
 /** A fake worker that records each request and lets the test send the replies. */
@@ -75,6 +76,36 @@ describe('findSingers', () => {
     expect(onDownload).toHaveBeenCalledWith(10, 40)
     expect(onProgress).toHaveBeenCalledWith(500, 1000)
     expect(worker.terminated).toBe(true)
+  })
+
+  it('calls onDiagnostics with the diagnostics of the result before it resolves', async () => {
+    const worker = new FakeWorker()
+    const order: string[] = []
+    const onDiagnostics = vi.fn(() => order.push('diagnostics'))
+    const result = findSingers(new Float32Array(4), { onDiagnostics }, () => worker).then(
+      (segments) => {
+        order.push('resolved')
+        return segments
+      },
+    )
+    const diagnostics = fixtureDiagnostics(500, SEGMENTS)
+
+    worker.reply({ type: 'result', runId: worker.runId(), segments: SEGMENTS, diagnostics })
+    await result
+
+    expect(onDiagnostics).toHaveBeenCalledWith(diagnostics)
+    expect(order).toEqual(['diagnostics', 'resolved'])
+  })
+
+  it('does not call onDiagnostics when the result has no diagnostics', async () => {
+    const worker = new FakeWorker()
+    const onDiagnostics = vi.fn()
+    const result = findSingers(new Float32Array(4), { onDiagnostics }, () => worker)
+
+    worker.reply({ type: 'result', runId: worker.runId(), segments: SEGMENTS })
+    await result
+
+    expect(onDiagnostics).not.toHaveBeenCalled()
   })
 
   it('ignores a message of another run', async () => {

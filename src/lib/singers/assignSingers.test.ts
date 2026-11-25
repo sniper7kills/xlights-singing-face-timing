@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import { assignSingers, type PhraseRange, type SingerRange } from './assignSingers.ts'
+import {
+  assignmentStats,
+  assignSingers,
+  type PhraseRange,
+  type SingerRange,
+} from './assignSingers.ts'
 
 const phrase = (id: string, startMs: number, endMs: number): PhraseRange => ({ id, startMs, endMs })
 const sings = (singer: number, startMs: number, endMs: number): SingerRange => ({
@@ -105,5 +110,35 @@ describe('assignSingers', () => {
     const phrases = [phrase('a', 0, 1000), phrase('b', 1000, 2000)]
 
     expect(asObject(assignSingers(phrases, segments, 0))).toEqual({ a: [0], b: [0] })
+  })
+})
+
+describe('assignmentStats', () => {
+  it('counts the singers with phrases with no limit of singers', () => {
+    const phrases = [phrase('a', 0, 1000), phrase('b', 1000, 2000)]
+    const segments = [sings(0, 0, 1000), sings(1, 1000, 2000)]
+
+    expect(assignmentStats(phrases, segments).singersWithPhrases).toBe(2)
+  })
+
+  it('counts the phrases that no singer range touches', () => {
+    const phrases = [phrase('a', 0, 1000), phrase('b', 2000, 3000)]
+
+    expect(assignmentStats(phrases, [sings(0, 0, 1000)]).phrasesWithNoSinger).toBe(1)
+  })
+
+  it('counts the phrases that two singers got', () => {
+    const phrases = [phrase('a', 0, 1000), phrase('b', 1000, 2000)]
+    const segments = [sings(0, 0, 2000), sings(1, 400, 1000)]
+
+    expect(assignmentStats(phrases, segments).phrasesWithMoreSingers).toBe(1)
+  })
+
+  it('gives zeros for no phrase and no range', () => {
+    expect(assignmentStats([], [])).toEqual({
+      singersWithPhrases: 0,
+      phrasesWithNoSinger: 0,
+      phrasesWithMoreSingers: 0,
+    })
   })
 })

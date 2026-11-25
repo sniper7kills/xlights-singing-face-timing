@@ -1,4 +1,6 @@
 // The PM fixed this interface on issue #119. The engine and the app side both build against it, so keep each field as it is.
+// Issue #129 added the optional field `diagnostics` to the `result` message.
+import type { SingerDiagnostics } from '../../lib/singers/diagnostics.ts'
 
 /** One time range in which one singer sings. Ranges of different singers can overlap. */
 export interface SingerSegment {
@@ -20,7 +22,13 @@ export type SingersRequest = {
 export type SingersMessage =
   | { type: 'download'; runId: number; loadedBytes: number; totalBytes: number }
   | { type: 'progress'; runId: number; doneMs: number; totalMs: number }
-  | { type: 'result'; runId: number; segments: SingerSegment[] }
+  | {
+      type: 'result'
+      runId: number
+      segments: SingerSegment[]
+      /** The numbers of the search, for the run report. An engine that has none sends none. */
+      diagnostics?: SingerDiagnostics
+    }
   | {
       type: 'error'
       runId: number

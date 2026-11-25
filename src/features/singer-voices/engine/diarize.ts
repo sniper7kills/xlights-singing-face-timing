@@ -1,7 +1,14 @@
-import { foldShortGroups, groupSingers, NO_GROUP } from './clustering.ts'
+import {
+  type DiagnosticSettings,
+  distanceSummary,
+  finalSingers,
+  groupFates,
+  type SingerDiagnostics,
+} from '../../../lib/singers/diagnostics.ts'
+import { type ClusterStages, clusterStages, foldShortGroups, NO_GROUP } from './clustering.ts'
 import { decodePowerset } from './powerset.ts'
 import type { SingerSegment } from '../protocol.ts'
-import { activityToRanges, renumberByFirstRange } from './segments.ts'
+import { activityToRanges, firstRangeNumbers, renumberByFirstRange } from './segments.ts'
 import { planWindows, windowSamplesAt } from './windows.ts'
 
 /** The two models that the diarization calls. Tests replace them. */
@@ -161,6 +168,42 @@ function singerShares(
   )
 }
 
+/** The facts of one search that `searchDiagnostics` needs, besides the settings. */
+interface SearchFacts {
+  audioMs: number
+  windowCount: number
+  embeddingCount: number
+  stages: ClusterStages
+}
+
+/** Returns the diagnostics of a search that found no speaker with a finite embedding. */
+function emptyDiagnostics(facts: SearchFacts, settings: DiarizeSettings): SingerDiagnostics {
+  return {
+    audioMs: Math.round(facts.audioMs),
+    windowCount: facts.windowCount,
+    framesWithSpeech: 0,
+    sungMs: 0,
+    embeddingCount: facts.embeddingCount,
+    droppedEmbeddings: facts.embeddingCount,
+    settings: settingsInForce(settings, facts.stages),
+    rawGroupCount: 0,
+    rawGroups: [],
+    centroidDistances: null,
+    finalSingerCount: 0,
+    singers: [],
+  }
+}
+
+function settingsInForce(settings: DiarizeSettings, stages: ClusterStages): DiagnosticSettings {
+  return {
+    threshold: settings.threshold,
+    minGroupSize: stages.minGroupSize,
+    maxSingers: settings.maxSingers,
+    minSingerShare: settings.minSingerShare,
+    minSingerMs: settings.minSingerMs,
+  }
+}
+
 /**
  * Returns the time ranges in which each singer sings, sorted by start, with singers numbered in the order of their first range.
  * The segmentation model reads overlapping windows and finds up to 3 local speakers in each.
@@ -171,6 +214,7 @@ function singerShares(
  * @param models The segmentation model and the embedding model.
  * @param settings The window plan, the clustering and the range limits.
  * @param onProgress Called after each window with the samples done and the total samples.
+ * @param onDiagnostics Receives the numbers of the search before the function resolves. The numbers cost no model call.
  * Rejects with the error of a model call.
  */
 export async function diarize(
@@ -178,6 +222,7 @@ export async function diarize(
   models: DiarizeModels,
   settings: DiarizeSettings,
   onProgress: (doneSamples: number, totalSamples: number) => void,
+  onDiagnostics: (diagnostics: SingerDiagnostics) => void = () => undefined,
 ): Promise<SingerSegment[]> {
   const starts = planWindows(vocals.length, settings.windowSamples, settings.stepSamples)
   const found: LocalSpeaker[] = []
@@ -186,7 +231,7 @@ export async function diarize(
     found.push(...(await windowSpeakers(window, start, models, settings)))
     onProgress(Math.min(vocals.length, start + settings.windowSamples), vocals.length)
   }
-  const owners = groupSingers(
+  const stages = clusterStages(
     found.map((speaker) => speaker.embedding),
     found.map((speaker) => speaker.samples),
     {
@@ -197,35 +242,137 @@ export async function diarize(
     },
     settings.singerCount,
   )
-  // A speaker with an embedding that is not finite has no group, so its frames count for no singer, as silence does.
-  const speakers = found.filter((_, index) => owners[index] !== NO_GROUP)
-  const singers = owners.filter((owner) => owner !== NO_GROUP)
-  const first = speakers[0]
-  if (first === undefined) return []
-  const frameSamples = settings.windowSamples / first.activity.length
-  const grid = {
-    frameSamples,
-    frames: Math.ceil(vocals.length / frameSamples),
-    windowFrames: first.activity.length,
+  const facts: SearchFacts = {
+    audioMs: (vocals.length / settings.sampleRate) * 1000,
+    windowCount: starts.length,
+    embeddingCount: found.length,
+    stages,
   }
-  const frameMs = (frameSamples / settings.sampleRate) * 1000
-  const active = singerActivity(singerShares(speakers, singers, starts, grid))
+  // A speaker with an embedding that is not finite has no group, so its frames count for no singer, as silence does.
+  const kept = found.map((_, index) => stages.capped[index] !== NO_GROUP)
+  const speakers = found.filter((_, index) => kept[index])
+  const first = speakers[0]
+  if (first === undefined) {
+    onDiagnostics(emptyDiagnostics(facts, settings))
+    return []
+  }
+  const frameSamples = settings.windowSamples / first.activity.length
+  const search: Search = {
+    speakers,
+    starts,
+    grid: {
+      frameSamples,
+      frames: Math.ceil(vocals.length / frameSamples),
+      windowFrames: first.activity.length,
+    },
+    frameMs: (frameSamples / settings.sampleRate) * 1000,
+    stages: keptStages(stages, kept),
+  }
+  const result = foldAndRange(search, settings)
+  onDiagnostics(searchDiagnostics(facts, search, result, settings))
+  return result.segments
+}
+
+/** The speakers with a finite embedding and the frame grid of one search. */
+interface Search {
+  speakers: LocalSpeaker[]
+  starts: readonly number[]
+  grid: Grid
+  frameMs: number
+  /** The group of each speaker of `speakers` after each step of the clustering. */
+  stages: Omit<ClusterStages, 'mergedDistances' | 'minGroupSize'>
+}
+
+/** The result of the join of short singers and of the range limits. */
+interface SearchResult {
+  /** The group of each speaker after the join of short singers. */
+  folded: number[]
+  /** The ranges with the numbers of the folded groups. */
+  ranges: SingerSegment[]
+  segments: SingerSegment[]
+  sungFrames: number
+  foldReason: 'share' | 'time'
+}
+
+function keptStages(stages: ClusterStages, kept: readonly boolean[]): Search['stages'] {
+  const pick = (owners: readonly number[]) => owners.filter((_, index) => kept[index])
+  return {
+    merged: pick(stages.merged),
+    joinedSmall: pick(stages.joinedSmall),
+    capped: pick(stages.capped),
+  }
+}
+
+/** Returns, for each group, true for each frame that the group sings, from the group of each speaker. */
+function groupActivity(search: Search, owners: readonly number[]): boolean[][] {
+  return singerActivity(singerShares(search.speakers, owners, search.starts, search.grid))
+}
+
+/** Joins each short singer into the closest other singer, and returns the ranges of the singers that remain. */
+function foldAndRange(search: Search, settings: DiarizeSettings): SearchResult {
+  const singers = search.stages.capped
+  const active = groupActivity(search, singers)
+  const sungFrames = countSungFrames(active)
+  const shareMs = settings.minSingerShare * sungFrames * search.frameMs
   // A count of the person is a fact, so no group joins another for its short time.
   const folded =
     settings.singerCount !== undefined
       ? singers
       : foldShortGroups(
           singers,
-          speakers.map((speaker) => speaker.embedding),
-          active.map((frames) => frames.filter(Boolean).length * frameMs),
-          shortSingerLimitMs(active, frameMs, settings),
+          search.speakers.map((speaker) => speaker.embedding),
+          active.map((frames) => frames.filter(Boolean).length * search.frameMs),
+          Math.max(shareMs, settings.minSingerMs),
         )
-  const rangeSettings = { frameMs, minGapMs: settings.minGapMs, minRangeMs: settings.minRangeMs }
-  return renumberByFirstRange(
-    singerActivity(singerShares(speakers, folded, starts, grid)).flatMap((frames, singer) =>
-      activityToRanges(frames, singer, rangeSettings),
-    ),
+  const rangeSettings = {
+    frameMs: search.frameMs,
+    minGapMs: settings.minGapMs,
+    minRangeMs: settings.minRangeMs,
+  }
+  const ranges = groupActivity(search, folded).flatMap((frames, singer) =>
+    activityToRanges(frames, singer, rangeSettings),
   )
+  return {
+    folded,
+    ranges,
+    segments: renumberByFirstRange(ranges),
+    sungFrames,
+    foldReason: shareMs >= settings.minSingerMs ? 'share' : 'time',
+  }
+}
+
+/** Returns the numbers of a search: the raw groups, what happened to each, and the singers of the result. */
+function searchDiagnostics(
+  facts: SearchFacts,
+  search: Search,
+  result: SearchResult,
+  settings: DiarizeSettings,
+): SingerDiagnostics {
+  const rawSungMs = groupActivity(search, search.stages.merged).map(
+    (frames) => frames.filter(Boolean).length * search.frameMs,
+  )
+  const numbers = firstRangeNumbers(result.ranges)
+  const rawGroups = groupFates(
+    { ...search.stages, folded: result.folded },
+    rawSungMs,
+    (folded) => numbers.get(folded),
+    result.foldReason,
+  )
+  const singers = finalSingers(result.segments)
+  return {
+    audioMs: Math.round(facts.audioMs),
+    windowCount: facts.windowCount,
+    framesWithSpeech: result.sungFrames,
+    sungMs: Math.round(result.sungFrames * search.frameMs),
+    embeddingCount: facts.embeddingCount,
+    droppedEmbeddings: facts.embeddingCount - search.speakers.length,
+    settings: settingsInForce(settings, facts.stages),
+    rawGroupCount: rawGroups.length,
+    rawGroups,
+    centroidDistances: distanceSummary(facts.stages.mergedDistances),
+    finalSingerCount: singers.length,
+    singers,
+  }
 }
 
 /** Returns, for each singer, true for each frame that at least half of the windows over it give to the singer. */
@@ -233,16 +380,12 @@ function singerActivity(shares: readonly Float32Array[]): boolean[][] {
   return shares.map((share) => Array.from(share, (value) => value >= 0.5))
 }
 
-/** Returns the sung time under which a singer joins another singer: a share of the sung time, but not less than a fixed time. */
-function shortSingerLimitMs(
-  active: readonly boolean[][],
-  frameMs: number,
-  settings: DiarizeSettings,
-): number {
+/** Returns the count of frames in which one or more singers sing. */
+function countSungFrames(active: readonly boolean[][]): number {
   const frames = active[0]?.length ?? 0
   let sungFrames = 0
   for (let frame = 0; frame < frames; frame++) {
     if (active.some((singer) => singer[frame] === true)) sungFrames++
   }
-  return Math.max(settings.minSingerShare * sungFrames * frameMs, settings.minSingerMs)
+  return sungFrames
 }

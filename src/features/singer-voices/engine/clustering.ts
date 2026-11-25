@@ -98,12 +98,14 @@ function countLarge(groups: readonly Group[], minSize: number): number {
 interface MergeHistory {
   joins: [number, number][]
   large: number[]
+  /** The small group size of the large counts. */
+  minSize: number
 }
 
 /** Merges the closest centroids until one group remains, and records each join. The start groups do not change. */
 function mergeHistory(start: readonly Group[], minSize: number): MergeHistory {
   const groups = copyGroups(start)
-  const history: MergeHistory = { joins: [], large: [countLarge(groups, minSize)] }
+  const history: MergeHistory = { joins: [], large: [countLarge(groups, minSize)], minSize }
   for (let round = groups.length; round > 1; round--) {
     const pair = closestPair(groups, () => true)
     if (pair.a < 0) break
@@ -114,17 +116,31 @@ function mergeHistory(start: readonly Group[], minSize: number): MergeHistory {
   return history
 }
 
+/** The groups of one cut, after each step. The numbers are the group of each embedding, as `groupNumbers` gives them. */
+interface Cut {
+  merged: number[]
+  mergedDistances: number[]
+  joinedSmall: number[]
+  groups: Group[]
+}
+
+/** Returns the distance between the centroids of each pair of groups. */
+function pairDistances(groups: readonly Group[]): number[] {
+  return groups.flatMap((a, i) => groups.slice(i + 1).map((b) => centroidDistance(a, b)))
+}
+
 /**
  * Returns the groups at the merge round with a count of large groups closest to `count`, as pyannote.audio does for a known count.
  * A later round wins a tie. Then each small group joins the closest large group, and the closest groups merge down to `count`.
  * If no round has as many large groups as `count`, the result is the round with `count` groups, small or large.
+ * @param total The count of all embeddings, with the embeddings that are not finite.
  */
 function cutAtCount(
   start: readonly Group[],
   history: MergeHistory,
   count: number,
-  minSize: number,
-): Group[] {
+  total: number,
+): Cut {
   const miss = (round: number) => Math.abs((history.large[round] ?? 0) - count)
   const best = history.large.reduce(
     (found, _, round) => (miss(round) <= miss(found) ? round : found),
@@ -134,10 +150,13 @@ function cutAtCount(
   const rounds = tooFew ? Math.max(0, start.length - count) : best
   const groups = copyGroups(start)
   for (const [a, b] of history.joins.slice(0, rounds)) join(groups, a, b)
-  if (tooFew) return groups
-  joinSmallGroups(groups, minSize)
+  const merged = groupNumbers(groups, total)
+  const mergedDistances = pairDistances(groups)
+  if (tooFew) return { merged, mergedDistances, joinedSmall: merged, groups }
+  joinSmallGroups(groups, history.minSize)
+  const joinedSmall = groupNumbers(groups, total)
   mergeClosest(groups, () => groups.length > count)
-  return groups
+  return { merged, mergedDistances, joinedSmall, groups }
 }
 
 /** Returns true when each group holds `minShare` of the weight or more, and each pair of centroids is farther apart than `threshold`. */
@@ -147,6 +166,58 @@ function separated(groups: readonly Group[], settings: SingerGroupSettings): boo
   return groups.every((a, i) =>
     groups.every((b, j) => j <= i || centroidDistance(a, b) > settings.threshold),
   )
+}
+
+/** The group of each embedding after each step of `groupSingers`, for the singer diagnostics. */
+export type ClusterStages = {
+  /** The groups of the selected merge round, before the join of small groups. */
+  merged: number[]
+  /** After the join of small groups. */
+  joinedSmall: number[]
+  /** After the merge down to the count: the result of `groupSingers`. */
+  capped: number[]
+  /** The distance between the centroids of each pair of groups of the selected merge round. */
+  mergedDistances: number[]
+  /** The small group size in force. It is lower than `minGroupSize` for a short input. */
+  minGroupSize: number
+}
+
+/**
+ * Returns the group of each embedding after each step of `groupSingers`.
+ * @param embeddings The speaker embeddings, in the order of their time.
+ * @param weights The weight of each embedding, for example its samples.
+ * @param settings The threshold, the small group size, the highest count of groups and the share of a singer.
+ * @param count The count of singers that the person gives. With a count, the threshold and the share do not apply.
+ */
+export function clusterStages(
+  embeddings: readonly Float32Array[],
+  weights: readonly number[],
+  settings: SingerGroupSettings,
+  count?: number,
+): ClusterStages {
+  const start: Group[] = embeddings.flatMap((embedding, index) =>
+    embedding.every(Number.isFinite)
+      ? [{ sum: unitLength(embedding), members: [index], weight: weights[index] ?? 0 }]
+      : [],
+  )
+  // pyannote.audio lowers the small group size for a short input in the same way.
+  const minSize = Math.min(settings.minGroupSize, Math.max(1, Math.round(start.length / 10)))
+  const history = mergeHistory(start, minSize)
+  const cut = (groupCount: number) => cutAtCount(start, history, groupCount, embeddings.length)
+  const best = count === undefined ? automaticCut(cut, settings) : cut(count)
+  const capped = groupNumbers(best.groups, embeddings.length)
+  return { ...best, capped, minGroupSize: minSize }
+}
+
+/** Returns the cut with the highest count, up to `maxGroups`, whose groups are `separated`, or the cut with one group. */
+function automaticCut(cut: (groupCount: number) => Cut, settings: SingerGroupSettings): Cut {
+  let best = cut(1)
+  for (let groupCount = 2; groupCount <= settings.maxGroups; groupCount++) {
+    const next = cut(groupCount)
+    if (next.groups.length < groupCount || !separated(next.groups, settings)) break
+    best = next
+  }
+  return best
 }
 
 /**
@@ -169,23 +240,7 @@ export function groupSingers(
   settings: SingerGroupSettings,
   count?: number,
 ): number[] {
-  const start: Group[] = embeddings.flatMap((embedding, index) =>
-    embedding.every(Number.isFinite)
-      ? [{ sum: unitLength(embedding), members: [index], weight: weights[index] ?? 0 }]
-      : [],
-  )
-  // pyannote.audio lowers the small group size for a short input in the same way.
-  const minSize = Math.min(settings.minGroupSize, Math.max(1, Math.round(start.length / 10)))
-  const history = mergeHistory(start, minSize)
-  const cut = (groupCount: number) => cutAtCount(start, history, groupCount, minSize)
-  if (count !== undefined) return groupNumbers(cut(count), embeddings.length)
-  let best = cut(1)
-  for (let groupCount = 2; groupCount <= settings.maxGroups; groupCount++) {
-    const groups = cut(groupCount)
-    if (groups.length < groupCount || !separated(groups, settings)) break
-    best = groups
-  }
-  return groupNumbers(best, embeddings.length)
+  return clusterStages(embeddings, weights, settings, count).capped
 }
 
 /** Returns the group of each embedding, with the groups numbered in the order of their first embedding. */

@@ -24,6 +24,7 @@ const STORE_NAMES = [
   'audioFiles',
   'customEntries',
   'marks',
+  'runs',
   'sections',
   'settings',
   'songs',
@@ -57,12 +58,12 @@ afterEach(() => {
 })
 
 describe('openDatabase', () => {
-  it('upgrades a version 1 database with no object stores to version 2 with seven object stores', async () => {
+  it('upgrades a version 1 database with no object stores to version 3 with eight object stores', async () => {
     await openVersionOne()
 
     const database = await openDatabase()
 
-    expect(database.version).toBe(2)
+    expect(database.version).toBe(3)
     expect([...database.objectStoreNames].sort()).toEqual(STORE_NAMES)
   })
 
@@ -76,7 +77,7 @@ describe('openDatabase', () => {
     await expect(openDatabase()).rejects.toThrow('This browser has no IndexedDB.')
     vi.stubGlobal('indexedDB', original)
 
-    await expect(openDatabase()).resolves.toHaveProperty('version', 2)
+    await expect(openDatabase()).resolves.toHaveProperty('version', 3)
   })
 
   it('rejects when the open request throws', async () => {
@@ -90,14 +91,14 @@ describe('openDatabase', () => {
   it('closes the connection when a later version of the app opens the database', async () => {
     await openDatabase()
     await new Promise<void>((resolve) => {
-      const request = indexedDB.open('singing-face-timing', 3)
+      const request = indexedDB.open('singing-face-timing', 4)
       request.onsuccess = () => {
         request.result.close()
         resolve()
       }
     })
 
-    // A new open request at version 2 fails, so the store did not keep the closed connection.
+    // A new open request at version 3 fails, so the store did not keep the closed connection.
     await expect(openDatabase()).rejects.toHaveProperty('name', 'VersionError')
   })
 })
@@ -127,6 +128,7 @@ describe('records', () => {
       singerVoices: false,
       singerCount: 'automatic',
       separationModel: 'spleeter',
+      keepTracks: true,
     } as const
 
     await putRecord('settings', settings)

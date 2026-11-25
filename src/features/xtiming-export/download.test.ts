@@ -49,6 +49,12 @@ describe('downloadFiles', () => {
     expect([...bytes]).toEqual([...new TextEncoder().encode('<x label="café"/>\n')])
   })
 
+  it('writes the text with the media type that the caller gives', () => {
+    downloadFiles([{ name: 'Carol - run report.txt', text: 'Run\n' }], 'text/plain;charset=utf-8')
+
+    expect(blobs[0]?.type).toBe('text/plain;charset=utf-8')
+  })
+
   it('keeps each object URL for 30 seconds, so that a large file can finish', () => {
     downloadFiles([{ name: 'Carol.xtiming', text: '' }])
 

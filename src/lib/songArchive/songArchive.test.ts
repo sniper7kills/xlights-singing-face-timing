@@ -210,7 +210,14 @@ describe('songArchiveEntries', () => {
         ].join('\n'),
       ),
     ).toBe(true)
-    expect(readme.endsWith('7. Repeat steps 5 and 6 for each face model.\n')).toBe(true)
+    expect(readme).toContain(
+      '7. Repeat steps 5 and 6 for each face model.\n\nUse the timing tracks with several face models:\n',
+    )
+    expect(
+      readme.endsWith(
+        '5. In each of these effects, select the same timing track: the timing track of the chorus voice.\n',
+      ),
+    ).toBe(true)
   })
 
   it('gives each entry the date of the input', () => {

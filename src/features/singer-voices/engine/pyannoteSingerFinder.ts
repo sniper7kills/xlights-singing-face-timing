@@ -122,8 +122,12 @@ export function createPyannoteSingerFinder(): SingerFinder {
       on.progress(0, totalMs)
       const settings =
         singerCount === undefined ? DIARIZE_SETTINGS : { ...DIARIZE_SETTINGS, singerCount }
-      return diarize(vocals, diarizeModels(loaded), settings, (done) =>
-        on.progress((done / DIARIZE_SETTINGS.sampleRate) * 1000, totalMs),
+      return diarize(
+        vocals,
+        diarizeModels(loaded),
+        settings,
+        (done) => on.progress((done / DIARIZE_SETTINGS.sampleRate) * 1000, totalMs),
+        on.diagnostics,
       ).catch((error: unknown) => {
         throw runFailure(error)
       })

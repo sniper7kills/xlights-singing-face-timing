@@ -36,6 +36,13 @@ describe('SongLibraryPage', () => {
     expect(screen.getByRole('region', { name: 'How it works' })).toBeInTheDocument()
   })
 
+  it('shows the build of the app in the footer', async () => {
+    render(<SongLibraryPage databaseStatus="ready" />)
+
+    expect(await screen.findByText(`Build ${__APP_BUILD__}`)).toBeInTheDocument()
+    expect(__APP_BUILD__).toMatch(/^([0-9a-f]{7}|dev)$/)
+  })
+
   it('shows the saved songs below a compact drop zone', async () => {
     await storeNewSong({ name: 'carol', durationMs: 3000, audio })
 

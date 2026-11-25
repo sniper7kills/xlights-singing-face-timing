@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { foldShortGroups, groupSingers, NO_GROUP } from './clustering.ts'
+import { clusterStages, foldShortGroups, groupSingers, NO_GROUP } from './clustering.ts'
 
 const vector = (...values: number[]) => Float32Array.from(values)
 const settings = { threshold: 0.5, minGroupSize: 1, maxGroups: 12, minShare: 0.05 }
@@ -164,5 +164,52 @@ describe('foldShortGroups', () => {
 
   it('gives an empty list for no embeddings', () => {
     expect(foldShortGroups([], [], [], 3000)).toEqual([])
+  })
+})
+
+describe('clusterStages', () => {
+  const many = Array.from({ length: 10 }, (_, index) => vector(1, index / 100, 0))
+  const others = Array.from({ length: 10 }, (_, index) => vector(0, index / 100, 1))
+  const stray = vector(0.6, 0.8, 0)
+  const embeddings = [...many, ...others, stray]
+  const small = { threshold: 0.3, minGroupSize: 2, maxGroups: 12, minShare: 0.05 }
+  const weights = ones(embeddings.length)
+
+  it('gives the groups of the selected merge round before the join of small groups', () => {
+    // For a count of 3, the round with 3 large groups splits the second direction, and the stray embedding is a small group.
+    const { merged, joinedSmall } = clusterStages(embeddings, weights, small, 3)
+    expect(new Set(merged).size).toBe(4)
+    expect(merged.at(-1)).toBe(3)
+    expect(joinedSmall.at(-1)).toBe(0)
+  })
+
+  it('joins the small group into a larger group after the join of small groups', () => {
+    const { joinedSmall } = clusterStages(embeddings, weights, small)
+    expect(new Set(joinedSmall).size).toBe(2)
+    expect(joinedSmall.at(-1)).toBe(0)
+  })
+
+  it('gives the result of groupSingers as the capped groups', () => {
+    const three = [vector(1, 0, 0), vector(0, 1, 0), vector(0, 0, 1)]
+    const capped = { ...settings, maxGroups: 2 }
+    expect(clusterStages(three, ones(3), capped).capped).toEqual(
+      groupSingers(three, ones(3), capped),
+    )
+    expect(clusterStages(embeddings, weights, small, 2).capped).toEqual(
+      groupSingers(embeddings, weights, small, 2),
+    )
+  })
+
+  it('gives one distance for each pair of merged groups', () => {
+    expect(clusterStages(embeddings, weights, small, 3).mergedDistances).toHaveLength(6)
+    expect(
+      clusterStages([vector(1, 0), vector(1, 0.1)], ones(2), settings).mergedDistances,
+    ).toEqual([])
+  })
+
+  it('lowers the small group size for a short input', () => {
+    const short = [vector(1, 0), vector(0, 1)]
+    expect(clusterStages(short, ones(2), { ...settings, minGroupSize: 12 }).minGroupSize).toBe(1)
+    expect(clusterStages(embeddings, weights, small).minGroupSize).toBe(2)
   })
 })

@@ -1,3 +1,4 @@
+import type { SingerDiagnostics } from '../../lib/singers/diagnostics.ts'
 import type { SingerSegment, SingersMessage, SingersRequest } from './protocol.ts'
 import type { SingerFailureKind } from './singerFailure.ts'
 
@@ -40,6 +41,8 @@ export type SingersHandlers = {
   onProgress?: (doneMs: number, totalMs: number) => void
   /** Stops the search. The client then terminates the worker. */
   signal?: AbortSignal
+  /** Receives the diagnostics of the search before the search resolves. A worker that sends none does not call it. */
+  onDiagnostics?: (diagnostics: SingerDiagnostics) => void
 }
 
 function createDefaultWorker(): SingersWorkerLike {
@@ -95,6 +98,7 @@ export function findSingers(
       else if (data.type === 'error') fail(new SingersError(data.kind, data.detail))
       else {
         finish()
+        if (data.diagnostics !== undefined) handlers.onDiagnostics?.(data.diagnostics)
         resolve(data.segments)
       }
     }

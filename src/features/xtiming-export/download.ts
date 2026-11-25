@@ -24,10 +24,14 @@ export function downloadBlob(name: string, blob: Blob): void {
  * Gives each file to the browser as a download, in the order of the list.
  * The text of each file is encoded as UTF-8 with the line ends unchanged. No network request occurs.
  * The browser can block the second and later downloads. The page receives no signal when it does.
- * @param files The files from `exportFiles`.
+ * @param files The files from `exportFiles`, or another text file with a name.
+ * @param type The media type of each file. The default is UTF-8 XML.
  */
-export function downloadFiles(files: readonly ExportFile[]): void {
+export function downloadFiles(
+  files: readonly ExportFile[],
+  type = 'application/xml;charset=utf-8',
+): void {
   for (const file of files) {
-    downloadBlob(file.name, new Blob([file.text], { type: 'application/xml;charset=utf-8' }))
+    downloadBlob(file.name, new Blob([file.text], { type }))
   }
 }

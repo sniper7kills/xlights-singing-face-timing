@@ -14,6 +14,8 @@ import { CustomDictionaryAction } from '../phoneme-breakdown/CustomDictionaryAct
 import { UnknownWordCounter } from '../phoneme-breakdown/UnknownWordCounter.tsx'
 import type { BreakDownFailure, TranscribeOutcome } from '../transcription/runTranscription.ts'
 import { TranscribeDialog } from '../transcription/TranscribeDialog.tsx'
+import { RunReportAction } from '../transcription/RunReportAction.tsx'
+import { RunToast } from '../transcription/RunToast.tsx'
 import { AddSectionAction } from '../voices-sections/AddSectionAction.tsx'
 import { GhostRow } from '../voices-sections/GhostRow.tsx'
 import { PhraseMenu } from '../voices-sections/PhraseMenu.tsx'
@@ -29,9 +31,6 @@ import { TransportControls } from './TransportControls.tsx'
 import { UndoRedoButtons } from './UndoRedoButtons.tsx'
 import { Waveform } from './Waveform.tsx'
 import { ZoomControl } from './ZoomControl.tsx'
-
-/** The time that the toast after a transcribe run stays on the screen. */
-const TOAST_MS = 6000
 
 /** The narrowest window that shows the editor, in pixels. */
 const MIN_EDITOR_WIDTH_PX = 1024
@@ -94,11 +93,7 @@ export function EditorPage({ songId }: EditorPageProps) {
     [closeTranscribeDialog],
   )
 
-  useEffect(() => {
-    if (toast === null) return
-    const timer = window.setTimeout(() => setToast(null), TOAST_MS)
-    return () => window.clearTimeout(timer)
-  }, [toast])
+  const hideToast = useCallback(() => setToast(null), [])
 
   useEffect(() => {
     // The action is disabled until the render after the run, and a disabled button takes no focus.
@@ -163,6 +158,7 @@ export function EditorPage({ songId }: EditorPageProps) {
               Transcribe
             </button>
           )}
+          <RunReportAction />
           <CustomDictionaryAction />
           <ExportAction />
           <span className="save-state" role="status">
@@ -205,11 +201,7 @@ export function EditorPage({ songId }: EditorPageProps) {
         )}
         <ShortcutList />
         <BreakDownNotice failure={breakDownFailure} onChange={setBreakDownFailure} />
-        {toast !== null && (
-          <p className="toast" role="status">
-            {toast}
-          </p>
-        )}
+        {toast !== null && <RunToast text={toast} songId={songId} onDone={hideToast} />}
       </section>
     </>
   )

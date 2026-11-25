@@ -153,6 +153,74 @@ leaves the browser, and the app shows the host before each run.
 - FR-transcribe-66 — With "Automatic", the singer step estimates the count of
   singers.
 
+### Run report (issue #129)
+
+- FR-transcribe-63 — At the end of each completed run, the app stores one run report
+  for the song. The report of the new run replaces the report of the earlier run.
+- FR-transcribe-64 — A completed run includes a run with a failed, cancelled or capped
+  singer step, and a run that found one singer.
+- FR-transcribe-65 — A cancelled or a failed run stores no report. The earlier report
+  stays.
+- FR-transcribe-66 — The app stores the singer ranges of the singer step with the
+  report, with song times.
+- FR-transcribe-67 — The report holds no label of a mark, no API key and no full URL
+  of the remote endpoint.
+- FR-transcribe-68 — The report states the source, the host of the remote endpoint,
+  the speech model and the device.
+- FR-transcribe-69 — The report states the vocal separation model of the vocals, and
+  whether the run changed to the fast model.
+- FR-transcribe-70 — The report states the count of phrases, words, estimated words
+  and unknown words of the run.
+- FR-transcribe-71 — The report states the time of each step in milliseconds.
+- FR-transcribe-72 — The report states the range and the frame size of the run.
+- FR-transcribe-73 — The report lists each warning and each failure of a step that
+  the run continued after, with its cause.
+- FR-transcribe-74 — The report states the result of the singer step: `option-off`,
+  `split`, `one-singer`, `capped`, `failed` with its cause, `cancelled` or
+  `no-vocals`.
+- FR-transcribe-75 — The singer section holds the diagnostics of the singer search.
+  See "Singer diagnostics" in the behaviour rules.
+- FR-transcribe-76 — The singer section states the count of singers with one phrase
+  or more, the phrase share of 30%, and the count of voices made.
+- FR-transcribe-77 — The singer section states the count of phrases that no singer
+  range touches, and the count of phrases with more than one singer.
+- FR-transcribe-78 — The report lists each voice that holds phrases of the run, with
+  its count of phrases.
+- FR-transcribe-79 — The app gives the report as plain text: one heading line for
+  each section, one fact on each line, a unit with each number.
+- FR-transcribe-80 — If the browser storage is full, the run completes and the song
+  keeps the earlier report.
+
+### Run report panel (issue #131)
+
+- FR-transcribe-81 — The editor top bar shows "Run report" after "Transcribe".
+- FR-transcribe-82 — If the song has no run report, "Run report" is disabled and
+  shows the tooltip "No transcribe run for this song yet."
+- FR-transcribe-83 — If the song has a run report, the toast after a run shows a
+  "Run report" link.
+- FR-transcribe-84 — The toast stays while its link has the focus.
+- FR-transcribe-85 — "Run report" opens the run report panel. The panel shows the
+  run report of the last run of the song and is read-only.
+- FR-transcribe-86 — The panel shows the sections Run, Steps, Vocal separation,
+  Singers, Voices, Marks and Notes.
+- FR-transcribe-87 — The panel shows each time in seconds with one decimal, for
+  example "12.3 s".
+- FR-transcribe-88 — A section with no data shows one sentence and no table.
+- FR-transcribe-89 — The Singers section shows the groups after the clustering in a
+  table: the group, the sung time, the count of embeddings and the result.
+- FR-transcribe-90 — "Copy report" puts the text of the report on the clipboard.
+- FR-transcribe-91 — After a copy, the button shows "Copied" for 2 seconds.
+- FR-transcribe-92 — If the browser refuses the copy, the panel selects the text in
+  a read-only text area and shows "Press Ctrl+C to copy."
+- FR-transcribe-93 — "Download report" gives the text as the file
+  "<song name> - run report.txt".
+- FR-transcribe-94 — If a run stores a new report while the panel is open, the panel
+  shows the new report.
+- FR-transcribe-95 — The panel shows no label of a mark.
+- FR-transcribe-96 — The report states the build of the app that made the run.
+- FR-transcribe-97 — The song library shows the build of the app in its footer.
+- FR-transcribe-98 — The report states each voice that the singer step made.
+
 ## User flows
 
 ### Transcribe a song
@@ -435,6 +503,36 @@ Each base URL that the app refuses shows a message:
 | With a user name or a password | "Remove the user name and the password from the base URL. Type the API key in the API key field." |
 | Speech model name empty | "Type the name of the speech model, for example whisper-1." |
 
+**Run report panel.** A modal dialog with the title "Run report" and the song name.
+"Escape" and "Close" close it, and the focus goes back to the control that opened
+it. If that control is gone, the focus goes to "Run report" in the top bar.
+
+| Section | Content | Sentence with no data |
+|---|---|---|
+| Run | The start time in local time, the build, the source, the host of the remote endpoint, the speech model, the device, the range, the frame size | — |
+| Steps | A table with the time of each step, and the total | "The report has no step times." |
+| Vocal separation | The separation model, and "Changed to the fast model" | "The run did not separate the vocals." |
+| Singers | The result of the singer step in one sentence. A table of the groups after the clustering. A table of the final singers with the sung time and the count of ranges. The settings in force, the centroid distances, the singer ranges, the phrase share, the phrases with no singer and with more than one singer | "The singer step did not run, because the option was off." or "The singer step did not run, because the run had no separated vocals." |
+| Voices | A table: the voice, its count of phrases, and "Made by the run" | "No voice holds phrases of the run." |
+| Marks | Phrases, words, estimated words, unknown words | — |
+| Notes | Each warning and failure | "The run had no warning and no failure." |
+
+The sentence of the singer step:
+
+| Result | Sentence |
+|---|---|
+| `split` | "The singer step put the phrases on <n> voices." |
+| `one-singer` | "The singer step found one singer, so all phrases stay on one voice." |
+| `capped` | "The singer step found more singers than the song has free voices." |
+| `failed` | "The singer step failed (<cause>). The phrases stay on the voice of the run." |
+| `cancelled` | "The person cancelled the singer step. The phrases stay on the voice of the run." |
+
+With no diagnostics, the sentence adds "The singer search gave no diagnostics."
+
+The buttons: "Copy report", "Download report" and "Close". After a copy, a polite
+status line shows "The report is on the clipboard." If the browser refuses the
+copy, the status line shows "Press Ctrl+C to copy."
+
 ## Behaviour rules
 
 - The default speech model is base. The app remembers the last selection.
@@ -491,6 +589,9 @@ Each base URL that the app refuses shows a message:
   - An error message never holds the API key or the text of the response.
 
 ## Data touched
+
+- Writes `RUN_DATA` for the song at the end of each completed run: the singer ranges
+  and the run report. A new run replaces the full record.
 
 - Reads `AUDIO_FILE`. Reads and writes `APP_SETTINGS.speechModelId`.
 - Reads and writes `APP_SETTINGS.transcribeSource` and
@@ -764,6 +865,43 @@ from 0 to 1.
 | Singer step: more singers than free voices, and the song has room for some singers | The app adds a voice for each free voice. The toast adds "The song has room for <k> more voices. The other singers stay on <voice name>." |
 | Remote endpoint: the browser asks for the permission to reach the local network | The run waits for the answer of the person. If the person refuses, the dialog shows the message for no connection. |
 
+## Run report
+
+The report has these sections. `reportToText` writes them in this order. Each
+section starts with a heading line in brackets.
+
+| Section | Facts |
+|---|---|
+| Header | "Transcribe run report", the start time of the run (ISO 8601) |
+| `[Run]` | The build of the app, source (`browser` or `remote`), the host of the remote endpoint, the mode, the speech model, the device, the range in ms, the frame size in ms |
+| `[Vocal separation]` | The separation model of the vocals (`spleeter`, `demucs` or `none`), "Changed to the fast model" (`yes` or `no`) |
+| `[Counts]` | Phrases, words, estimated words, unknown words |
+| `[Voices]` | Each voice that holds phrases of the run, with its count of phrases. A voice that the singer step made has ", made by the run". |
+| `[Singers]` | The result of the singer step, the singer diagnostics, the singer ranges, the phrase share, the singers with one phrase or more, the phrases with no singer range, the phrases with more than one singer, the voices made |
+| `[Step times]` | The time of each step that ran, in ms |
+| `[Warnings and failures]` | One line for each warning or failure, for example "separation failed: memory; continued with the fast model" |
+
+### Singer diagnostics
+
+The singer search counts these numbers with no extra model call:
+
+- The audio time, the count of windows, the frames with a singer and the sung time.
+- The count of embeddings, and the embeddings with a value that is not finite.
+- The settings in force: the merge threshold, the minimum group size, the highest
+  count of singers, and the two limits of the rule for short singers.
+- The raw groups: the groups after the threshold merge, before each later join.
+- For each raw group: its sung time, its count of embeddings, and its result. A raw
+  group stays as a singer, or joins another raw group for one of these reasons:
+  - "fewer than <n> embeddings"
+  - "over the highest count"
+  - "under <p>% of the sung time"
+  - "under <s> seconds"
+- The smallest, the median and the largest distance between the centroids of the
+  raw groups, so that a reader can compare them with the threshold.
+- The final singers: for each, its sung time and its count of ranges.
+
+The text writes the raw groups and the final singers as tables with aligned columns.
+
 ## Acceptance criteria
 
 - The editor shows "Transcribe" when a voice is selected. (FR-transcribe-1)
@@ -863,6 +1001,26 @@ from 0 to 1.
   with the fixture worker gets 3 voices. (FR-transcribe-65)
 - After a failed singer step, the marks stay on the voice of the run, and the toast
   names the voice. (FR-transcribe-62)
+- After a run with both options on and a reload, the song has a run report with the
+  singer section and the singer diagnostics. (FR-transcribe-63, 66, 74, 75)
+- After a failed singer step, the song has a run report with the status `failed`
+  and its cause. (FR-transcribe-64, 74)
+- After a cancelled run, the song keeps the earlier run report. (FR-transcribe-65)
+- The stored report and its text hold no word of the lyrics. (FR-transcribe-67, 79)
+- Deleting a song removes its run report. (FR-transcribe-63)
+- A full browser storage gives a completed run. (FR-transcribe-80)
+- After a run with both options on, the run report panel shows the groups after the
+  clustering and the separation model. (FR-transcribe-85, 86, 89)
+- The counts in the panel equal the counts in the stored report.
+  (FR-transcribe-86)
+- A song with no run report shows "Run report" disabled with the tooltip "No
+  transcribe run for this song yet." (FR-transcribe-82)
+- The link in the toast opens the run report panel. (FR-transcribe-83)
+- "Copy report" puts text with the singer section and no word of the lyrics on the
+  clipboard. (FR-transcribe-90, 95)
+- "Download report" gives the file "<song name> - run report.txt".
+  (FR-transcribe-93)
+- A new report shows in the open panel. (FR-transcribe-94)
 
 ## Out of scope
 

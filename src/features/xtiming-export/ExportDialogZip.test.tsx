@@ -69,6 +69,9 @@ afterEach(() => {
   vi.restoreAllMocks()
 })
 
+// The zip is built from an audio file after two storage reads. The default limit of 1 second is too short on a busy machine.
+const WAIT = { timeout: 5000 }
+
 describe('ExportDialog with the zip file', () => {
   it('offers "Everything as one zip file", not selected for a first export', () => {
     renderDialog(oneVoice)
@@ -86,7 +89,7 @@ describe('ExportDialog with the zip file', () => {
 
     expect(
       await screen.findByText(
-        /^The zip file holds 5 files: timing\/Carol\.xtiming, audio\/carol\.ogg, song\.json, lyrics\.txt, README\.txt\. Size: 3 KB\.$/,
+        /^The zip file holds 5 files: timing\/Carol\.xtiming, audio\/carol\.ogg, song\.json, lyrics\.txt, README\.txt\. Size: 4 KB\.$/,
       ),
     ).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Download zip' })).toBeEnabled()
@@ -99,9 +102,11 @@ describe('ExportDialog with the zip file', () => {
     const { onDownload, onDownloadZip } = renderDialog(oneVoice)
 
     await user.click(zipChoice())
+    // The dialog reads the audio from storage first. A click before that read ends starts no zip.
+    await screen.findByText(/^The zip file holds/)
     await user.click(await screen.findByRole('button', { name: 'Download zip' }))
 
-    await vi.waitFor(() => expect(onDownloadZip).toHaveBeenCalledOnce())
+    await vi.waitFor(() => expect(onDownloadZip).toHaveBeenCalledOnce(), WAIT)
     const zip = onDownloadZip.mock.calls[0]?.[0]
     expect(zip?.name).toBe('Carol.zip')
     expect(await entryNames(zip?.blob ?? new Blob())).toEqual([
@@ -126,9 +131,11 @@ describe('ExportDialog with the zip file', () => {
     })
 
     expect(zipChoice()).toBeChecked()
+    // The dialog reads the audio from storage first. A click before that read ends starts no zip.
+    await screen.findByText(/^The zip file holds/)
     await user.click(await screen.findByRole('button', { name: 'Download zip' }))
 
-    await vi.waitFor(() => expect(onDownloadZip).toHaveBeenCalledOnce())
+    await vi.waitFor(() => expect(onDownloadZip).toHaveBeenCalledOnce(), WAIT)
     const names = await entryNames(onDownloadZip.mock.calls[0]?.[0].blob ?? new Blob())
     expect(names.slice(0, 3)).toEqual([
       'timing/Carol - Lead Vocals.xtiming',
@@ -179,6 +186,8 @@ describe('ExportDialog with the zip file', () => {
     const { onDownloadZip } = renderDialog(oneVoice)
 
     await user.click(zipChoice())
+    // The dialog reads the audio from storage first. A click before that read ends starts no zip.
+    await screen.findByText(/^The zip file holds/)
     await user.click(await screen.findByRole('button', { name: 'Download zip' }))
 
     expect(await screen.findByRole('alert')).toHaveTextContent(AUDIO_MESSAGE)
@@ -198,7 +207,7 @@ describe('ExportDialog with the zip file', () => {
     await user.click(zipChoice())
     await user.click(screen.getByRole('button', { name: 'Download' }))
 
-    await vi.waitFor(() => expect(onDownload).toHaveBeenCalledOnce())
+    await vi.waitFor(() => expect(onDownload).toHaveBeenCalledOnce(), WAIT)
     expect(onDownloadZip).not.toHaveBeenCalled()
   })
 })

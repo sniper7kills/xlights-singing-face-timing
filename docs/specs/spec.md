@@ -82,6 +82,8 @@ The user's request, verbatim:
 | CORS | noun | Cross-Origin Resource Sharing: the HTTP headers that let a server accept a request from a page of another origin. A remote endpoint needs them for the app. | cross-site permission |
 | API key | noun | The secret text that a remote endpoint can ask for. The app sends it only to the base URL of the remote endpoint. | token, password, secret |
 | device | noun | The part of the computer that runs the speech model: the graphics card (`webgpu`) or the CPU (`wasm`). | backend, processor, hardware |
+| run report | noun | The record of what the last transcribe run of a song did: the source, the models, the counts, the time of each step, the singer diagnostics, and each warning and failure. It holds no lyrics. | debug info, log, run log |
+| build | noun | The short git commit of the version of the app, for example `abc1234`. The run report and the song library show it. | version number, release |
 | vocal separation | noun | The step that removes the instruments from the audio before a transcribe run. | stem split, demix, isolation |
 | transcribe | verb | To run the speech model on the audio file and get words with times. | recognise, sync, analyse |
 | align | verb | To match the transcribed words with lyrics that the person supplies. | reconcile, merge |
@@ -91,6 +93,7 @@ The user's request, verbatim:
 | export | verb | To write an `.xtiming` file and give it to the person as a download. | save, generate, publish |
 | zip file | noun | One `.zip` file from the export dialog that holds the timing files, the audio file and the song data of one song. | archive, bundle, package |
 | face model | noun | The xLights model that shows a singing face. | prop, face |
+| face definition | noun | The part of a face model in xLights that gives the nodes or the picture for each phoneme label and each eye state. | face map, mouth map |
 | editor | noun | The screen that shows the waveform and the layers of the selected voice. | timeline, workspace |
 
 ## Goals
@@ -260,6 +263,7 @@ erDiagram
   VOICE ||--o{ MARK : has
   MARK ||--o{ MARK : "parent of"
   CUSTOM_ENTRY }o--|| APP_SETTINGS : "stored beside"
+  SONG ||--o| RUN_DATA : "last run"
   SONG {
     string id PK
     string name
@@ -304,6 +308,11 @@ erDiagram
     string symbols
     string updatedAt
   }
+  RUN_DATA {
+    string songId PK
+    object singerSegments
+    object report
+  }
   APP_SETTINGS {
     string speechModelId
     int defaultFrameMs
@@ -329,6 +338,10 @@ erDiagram
   mark by hand.
 - **Custom entry.** `word` is upper case. `symbols` is a list of CMU symbols
   separated by spaces. Custom entries belong to the browser, not to one song.
+- **Run data.** One record for each song, in the object store `runs` (database
+  version 3). It holds the singer ranges and the run report of the last completed
+  transcribe run. A new run replaces the full record. Deleting the song deletes it in
+  the same transaction. It holds no lyrics, no label of a mark and no API key.
 - **App settings.** One record. `speechModelId` is one of the three supported speech
   models. The app does not store `device`. The app derives the device from the
   browser on each visit. `transcribeSource` is `browser` or `remote`, and the
@@ -566,6 +579,11 @@ None of these blocks approval. Each one names the epic that settles it.
   ability to get a zip of everything" (issue #132). The export dialog has the
   check box "Everything as one zip file". The app writes the zip file in the
   browser with no compression and no library.
+
+- 2026-11-24 — The maintainer said: "they should be shown as seperate tracks in the
+  GUI as seperate waveforms and the ability to play/mute each track. additionally
+  some debug info should be visable" (epic #128). Each completed transcribe run
+  stores a run report for the song, with the singer diagnostics first (issue #129).
 
 ## Issue map
 

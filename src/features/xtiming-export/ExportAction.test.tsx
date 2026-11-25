@@ -1,4 +1,4 @@
-import { act, render, screen } from '@testing-library/react'
+import { act, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import * as db from '../../store/db.ts'
@@ -54,13 +54,19 @@ describe('ExportAction', () => {
     await user.click(screen.getByRole('button', { name: 'Export' }))
     // The dialog opens after a read of the stored options from IndexedDB and a full build of the checks.
     // A loaded machine that runs the full parallel suite can need more than the default 1000 ms for this path.
-    expect(
-      await screen.findByRole('dialog', { name: 'Export to xLights' }, { timeout: 5000 }),
-    ).toHaveFocus()
+    const dialog = await screen.findByRole(
+      'dialog',
+      { name: 'Export to xLights' },
+      { timeout: 5000 },
+    )
+    // The dialog takes the focus in an effect after it mounts, so the focus can arrive one render later.
+    await waitFor(() => expect(dialog).toHaveFocus(), { timeout: 5000 })
     await user.keyboard('{Escape}')
 
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Export' })).toHaveFocus()
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Export' })).toHaveFocus(), {
+      timeout: 5000,
+    })
   })
 
   it('opens the dialog with the options of the previous export of the song', async () => {
