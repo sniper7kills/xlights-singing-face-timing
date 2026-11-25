@@ -325,7 +325,9 @@ describe('runTranscription with vocal separation and a remote endpoint', () => {
     expect(FakeXhr.last().body?.get('file')).toMatchObject({ size: 44 + VOCALS.length * 2 })
     expect(client.load).not.toHaveBeenCalled()
   })
+})
 
+describe('runTranscription with a separation model', () => {
   it('passes the separation model of the request to the separation', async () => {
     await runTranscription(
       { ...separatedRequest, separationModel: 'demucs' },

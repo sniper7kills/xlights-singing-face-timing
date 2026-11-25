@@ -167,6 +167,19 @@ test('a remote run with the option on sends one upload after the separation step
 })
 
 const FAST = 'Fast (Spleeter, 79 MB)'
+// Reads `separationModel` of the settings record. The E2E tests compile with no DOM types, so the script is a string.
+const STORED_SEPARATION_MODEL = `new Promise((resolve, reject) => {
+  const open = indexedDB.open('singing-face-timing')
+  open.onerror = () => reject(open.error)
+  open.onsuccess = () => {
+    const read = open.result.transaction('settings').objectStore('settings').get('app')
+    read.onerror = () => reject(read.error)
+    read.onsuccess = () => {
+      open.result.close()
+      resolve(read.result?.separationModel ?? null)
+    }
+  }
+})`
 const DEMUCS = 'Demucs, experimental (181 MB, much slower)'
 
 /** Returns the contents of each built file in `dist/assets` whose name starts with the prefix. The web server builds `dist` before the tests. */
@@ -213,6 +226,8 @@ test('the dialog keeps the separation model after a reload', async ({ page }) =>
     dialog.getByText('downloads a model of 181 MB one time', { exact: false }),
   ).toBeVisible()
 
+  // The dialog writes the choice to IndexedDB after the click, so the reload waits for the write.
+  await expect.poll(() => page.evaluate(STORED_SEPARATION_MODEL)).toBe('demucs')
   await page.reload()
   await expect(page.getByRole('heading', { level: 2, name: 'silent-night' })).toBeVisible()
   dialog = await openDialog(page)
