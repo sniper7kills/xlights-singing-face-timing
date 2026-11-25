@@ -54,6 +54,10 @@ These values come from the outputs of the hosting stack.
 ## Third-party sources
 
 - Speech model files: the Hugging Face Hub, downloaded by the browser at run time.
+- Vocal separation model: the Spleeter 2-stem files of
+  `csukuangfj/sherpa-onnx-spleeter-2stems` on the Hugging Face Hub, downloaded by
+  the browser at the first run with the option on. The licence notes are in
+  `docs/licences/README.md`.
 - Dictionary: `cmudict.dict` from https://github.com/cmusphinx/cmudict, commit
   `74790861f652b15e4ac49015a90074ad62a27690` (2025-10-24). The licence is a
   BSD-2-Clause style licence, copyright Carnegie Mellon University. The copy is in

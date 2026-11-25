@@ -81,6 +81,7 @@ The user's request, verbatim:
 | CORS | noun | Cross-Origin Resource Sharing: the HTTP headers that let a server accept a request from a page of another origin. A remote endpoint needs them for the app. | cross-site permission |
 | API key | noun | The secret text that a remote endpoint can ask for. The app sends it only to the base URL of the remote endpoint. | token, password, secret |
 | device | noun | The part of the computer that runs the speech model: the graphics card (`webgpu`) or the CPU (`wasm`). | backend, processor, hardware |
+| vocal separation | noun | The step that removes the instruments from the audio before a transcribe run. | stem split, demix, isolation |
 | transcribe | verb | To run the speech model on the audio file and get words with times. | recognise, sync, analyse |
 | align | verb | To match the transcribed words with lyrics that the person supplies. | reconcile, merge |
 | break down | verb | To convert a word into phonemes. | split, expand, decompose |
@@ -107,7 +108,8 @@ The user's request, verbatim:
 
 - The app does not edit xLights sequences (`.xsq`), layouts or face definitions.
 - The app does not place Faces effects on models. The person does that in xLights.
-- The app does not separate vocals from instruments in v1.
+- The app does not separate the vocals on a server, and it does not separate
+  stems other than the vocals.
 - The app does not have accounts, a server database or shared songs.
 - The app does not read or write Papagayo `.pgo` files in v1.
 - The app does not support phone-size screens in v1. The minimum width is 1024 px.
@@ -459,8 +461,7 @@ None of these blocks approval. Each one names the epic that settles it.
    Epic 2 measured the demo song: the base speech model returned 15 words for the
    choir clip, with one wrong line. The spec has no accuracy criterion for a
    song. Vocal separation (to transcribe the voice without the instruments) is an
-   accepted later option. It is not in v1. A spec update adds it if real songs
-   show the need.
+   option in the transcribe dialog, off by default (issue #117).
 2. **Word times need the right model export.** The docs confirm
    `return_timestamps: 'word'`. They do not state which model repositories support
    it. The `onnx-community/whisper-*_timestamped` repositories are the candidates.
@@ -545,6 +546,11 @@ None of these blocks approval. Each one names the epic that settles it.
   selects a remote endpoint, and the app shows the host first. The
   Content-Security-Policy `connect-src` allows any `https` address and `http` on
   `localhost` (`docs/adr/0007`).
+- 2026-11-24 — The maintainer asked to "file the Demucs issue; allow it to be an
+  optional addition" (issue #117). The transcribe dialog has the check box
+  "Separate the vocals first", off by default. The vocal separation runs in the
+  browser before the speech model or the remote endpoint reads the audio. A
+  failure lets the person continue with no separation.
 
 ## Issue map
 

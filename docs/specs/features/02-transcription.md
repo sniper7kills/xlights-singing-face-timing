@@ -95,6 +95,25 @@ leaves the browser, and the app shows the host before each run.
 - FR-transcribe-34 — "Cancel" stops the request of a remote run.
 - FR-transcribe-35 — The dialog disables "Start" when the browser blocks the call to
   the remote endpoint as mixed content.
+- FR-transcribe-36 — The transcribe dialog has the check box "Separate the vocals
+  first". It is off by default.
+- FR-transcribe-37 — The app remembers the last choice of "Separate the vocals
+  first".
+- FR-transcribe-38 — The dialog hides "Separate the vocals first" for "Lyrics only".
+- FR-transcribe-39 — With the option on, the vocal separation runs before the speech
+  model or the remote endpoint reads the audio.
+- FR-transcribe-40 — The vocal separation runs in a Web Worker in the browser. It
+  sends no audio out of the browser.
+- FR-transcribe-41 — With the option off, the app loads no file of the vocal
+  separation.
+- FR-transcribe-42 — A range run separates only the audio of the range.
+- FR-transcribe-43 — A remote run with the option on sends the vocals as its WAV
+  file.
+- FR-transcribe-44 — The dialog shows the download progress of the vocal separation
+  model and the progress of the vocal separation.
+- FR-transcribe-45 — "Cancel" stops the vocal separation.
+- FR-transcribe-46 — After a failed vocal separation, the person continues the run
+  with no separation, or cancels it.
 
 ## User flows
 
@@ -183,6 +202,22 @@ sequenceDiagram
 9. The app aligns, groups and breaks down the words, as for a run in the browser.
 10. The app closes the dialog and shows the layers.
 
+### Transcribe with vocal separation
+
+1. The person selects "Separate the vocals first" in the transcribe dialog.
+2. The person selects "Start".
+3. The app decodes the audio of the song or the range as two channels at 44.1 kHz.
+4. The separate worker downloads the vocal separation model if the browser does not
+   have it.
+5. The separate worker removes the instruments and returns the vocals as one
+   channel.
+6. The app converts the vocals to 16 kHz.
+7. The speech model or the remote endpoint reads the vocals, as for a run with no
+   separation.
+8. If the vocal separation fails, the dialog shows the message with "Continue with
+   no separation" and "Cancel". "Continue with no separation" goes on with the audio
+   of the song.
+
 ### Create phrases from lyrics without a speech model
 
 1. The person selects "Lyrics only" in the transcribe dialog.
@@ -232,6 +267,26 @@ available. Transcription is slower on this browser."
 
 If the person selects "Lyrics only" and the lyrics field has no word, the app
 disables "Start". The hint reads "Paste the lyrics to use Lyrics only."
+
+**Separate the vocals first.** The check box comes after "Lyrics only". "Lyrics
+only" hides it, because a lyrics-only run reads no audio. The note under the check
+box reads "The app removes the instruments before it finds the words. This step
+downloads a model of 79 MB one time and adds time to the run. The audio stays in this
+browser." For a remote run, the third sentence reads "The app separates the vocals
+in this browser, and then sends the vocals to <host>."
+
+The states of the vocal separation come after preparing and before the states of
+the speech model or the remote endpoint:
+
+- separation loading: "Loading vocal separation model, 0:03 elapsed" with a bar
+  that has no end. "Cancel" enabled.
+- separation downloading: "Downloading vocal separation model, 42%" with a bar.
+  "Cancel" enabled.
+- separating: "Separating vocals, 1:12 of 3:40, 0:45 elapsed" with a bar. Before
+  the first progress, "Separating vocals, 0:12 elapsed" with a bar that has no end.
+  "Cancel" enabled. The elapsed time shows the time that the step adds to the run.
+- separation failed: the message of the failure, with "Continue with no
+  separation" and "Cancel".
 
 **Where to transcribe.** The choice "Where to transcribe" comes first in the
 dialog, with "In this browser" and "Remote endpoint". "Lyrics only" disables the
@@ -340,6 +395,8 @@ Each base URL that the app refuses shows a message:
 - Reads and writes `APP_SETTINGS.transcribeSource` and
   `APP_SETTINGS.remoteEndpoint` (`baseUrl`, `apiKey`, `model`). The API key stays in
   IndexedDB and goes only to the base URL.
+- Reads and writes `APP_SETTINGS.separateVocals`, the last choice of "Separate the
+  vocals first".
 - Reads and writes `APP_SETTINGS.deviceSpeeds`: for each speech model, the measured
   speed of each device and the time of the last `webgpu` failure. The app selects
   the device from these values.
@@ -486,6 +543,31 @@ type ErrorKind = 'download' | 'device' | 'memory' | 'unknown'
 run by terminating the worker, and the next run loads the speech model again from
 the browser cache.
 
+**Vocal separation, `src/workers/separate.worker.ts`.** The types are in
+`src/features/vocal-separation/protocol.ts`. The client
+`separateVocals(audio, { onDownload, onProgress, signal })` starts one worker for
+each run and terminates it at the end or at "Cancel".
+
+```ts
+interface StereoAudio { left: Float32Array; right: Float32Array; sampleRate: 44100 }
+// to worker (SeparateRequest)
+{ type: 'separate'; runId: number; audio: StereoAudio }
+// from worker (SeparateMessage)
+{ type: 'download'; runId: number; loadedBytes: number; totalBytes: number }
+{ type: 'progress'; runId: number; doneMs: number; totalMs: number }
+{ type: 'result'; runId: number; vocals: Float32Array } // one channel, 44.1 kHz, the length of the input
+{ type: 'error'; runId: number; kind: 'download' | 'memory' | 'model' | 'unknown'; detail: string }
+```
+
+The app converts the vocals to 16 kHz in an `OfflineAudioContext` at 16 000 Hz: a
+buffer source plays a buffer at 44 100 Hz, and `startRendering()` returns the
+resampled `AudioBuffer`. A buffer can have a sample rate that is not the rate of the
+context, and the browser resamples it. Sources:
+https://developer.mozilla.org/en-US/docs/Web/API/OfflineAudioContext/startRendering,
+https://developer.mozilla.org/en-US/docs/Web/API/BaseAudioContext/createBuffer and
+https://developer.mozilla.org/en-US/docs/Web/API/AudioBuffer/copyToChannel
+(retrieved 2026-11-24).
+
 **Pure functions, `src/features/transcription/`:**
 
 ```ts
@@ -523,6 +605,11 @@ from 0 to 1.
 | Remote endpoint: the response has no `words` list | "<host> returned no word times. Use a server and a speech model that return the words field of verbose_json." |
 | Remote endpoint: the response has an empty `words` list | "No words were found. Paste the lyrics and use Lyrics only." |
 | Remote endpoint: the person selects "Cancel" | The app stops the request. No mark changes. The dialog goes back to idle with no message. |
+| Vocal separation: the model does not download | "The app could not download the vocal separation model. Check the connection. Then try again, or continue with no separation." with "Continue with no separation" and "Cancel". |
+| Vocal separation: out of memory | "This browser does not have enough memory to separate the vocals of this song. Select a shorter time range, or continue with no separation." with "Continue with no separation" and "Cancel". |
+| Vocal separation: the model fails, or another failure | "The vocal separation did not work. Continue with no separation, or cancel." with "Continue with no separation" and "Cancel". |
+| Vocal separation: the person selects "Cancel" during the step | The app stops the worker. No mark changes. The dialog goes back to idle with no message. |
+| Vocal separation: the person selects "Continue with no separation" | The run goes on with the audio of the song, as with the option off. |
 | Remote endpoint: the browser asks for the permission to reach the local network | The run waits for the answer of the person. If the person refuses, the dialog shows the message for no connection. |
 
 ## Acceptance criteria
@@ -570,10 +657,31 @@ from 0 to 1.
   (FR-transcribe-34)
 - On an `https` page, an `http` base URL on the local network disables "Start".
   (FR-transcribe-35)
+- The dialog opens with "Separate the vocals first" off when the person has made no
+  choice. (FR-transcribe-36)
+- The dialog opens with the last choice of "Separate the vocals first".
+  (FR-transcribe-37)
+- With "Lyrics only" selected, the dialog shows no "Separate the vocals first".
+  (FR-transcribe-38)
+- With the option on, the progress text shows "Separating vocals" before
+  "Transcribing". (FR-transcribe-39, 44)
+- With the option on, no request carries audio for the vocal separation.
+  (FR-transcribe-40)
+- With the option off, the browser requests no file of the separate worker. An E2E
+  test checks the requests of a run. (FR-transcribe-41)
+- A range run sends the audio of the range only to the separate worker.
+  (FR-transcribe-42)
+- A remote run with the option on sends one WAV file, after the vocal separation.
+  (FR-transcribe-43)
+- "Cancel" during the vocal separation stops the worker, and no mark changes.
+  (FR-transcribe-45)
+- After a failed vocal separation, "Continue with no separation" creates the marks
+  from the audio of the song. (FR-transcribe-46)
 
 ## Out of scope
 
-- Separating vocals from instruments.
+- Separation of stems other than the vocals.
+- Vocal separation on a server.
 - Detecting which singer sings a word.
 - Languages other than English.
 - Speech models larger than small.

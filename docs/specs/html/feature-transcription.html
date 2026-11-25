@@ -319,6 +319,52 @@ body.rv-open .layout { padding-right:21rem; }
 </li>
 </ul>
 <p>the remote endpoint as mixed content.</p>
+<ul>
+<li>FR-transcribe-36 — The transcribe dialog has the check box "Separate the vocals
+</li>
+</ul>
+<p>first". It is off by default.</p>
+<ul>
+<li>FR-transcribe-37 — The app remembers the last choice of "Separate the vocals
+</li>
+</ul>
+<p>first".</p>
+<ul>
+<li>FR-transcribe-38 — The dialog hides "Separate the vocals first" for "Lyrics only".
+</li>
+<li>FR-transcribe-39 — With the option on, the vocal separation runs before the speech
+</li>
+</ul>
+<p>model or the remote endpoint reads the audio.</p>
+<ul>
+<li>FR-transcribe-40 — The vocal separation runs in a Web Worker in the browser. It
+</li>
+</ul>
+<p>sends no audio out of the browser.</p>
+<ul>
+<li>FR-transcribe-41 — With the option off, the app loads no file of the vocal
+</li>
+</ul>
+<p>separation.</p>
+<ul>
+<li>FR-transcribe-42 — A range run separates only the audio of the range.
+</li>
+<li>FR-transcribe-43 — A remote run with the option on sends the vocals as its WAV
+</li>
+</ul>
+<p>file.</p>
+<ul>
+<li>FR-transcribe-44 — The dialog shows the download progress of the vocal separation
+</li>
+</ul>
+<p>model and the progress of the vocal separation.</p>
+<ul>
+<li>FR-transcribe-45 — "Cancel" stops the vocal separation.
+</li>
+<li>FR-transcribe-46 — After a failed vocal separation, the person continues the run
+</li>
+</ul>
+<p>with no separation, or cancels it.</p>
 <h3 id="transcription-user-flows">User flows</h3>
 <h4 id="transcription-transcribe-a-song">Transcribe a song</h4>
 <div class="diagram"><pre class="mermaid">sequenceDiagram
@@ -418,6 +464,35 @@ body.rv-open .layout { padding-right:21rem; }
 <li>The app closes the dialog and shows the layers.
 </li>
 </ol>
+<h4 id="transcription-transcribe-with-vocal-separation">Transcribe with vocal separation</h4>
+<ol>
+<li>The person selects "Separate the vocals first" in the transcribe dialog.
+</li>
+<li>The person selects "Start".
+</li>
+<li>The app decodes the audio of the song or the range as two channels at 44.1 kHz.
+</li>
+<li>The separate worker downloads the vocal separation model if the browser does not
+</li>
+</ol>
+<p>have it.</p>
+<ol>
+<li>The separate worker removes the instruments and returns the vocals as one
+</li>
+</ol>
+<p>channel.</p>
+<ol>
+<li>The app converts the vocals to 16 kHz.
+</li>
+<li>The speech model or the remote endpoint reads the vocals, as for a run with no
+</li>
+</ol>
+<p>separation.</p>
+<ol>
+<li>If the vocal separation fails, the dialog shows the message with "Continue with
+</li>
+</ol>
+<p>no separation" and "Cancel". "Continue with no separation" goes on with the audio of the song.</p>
 <h4 id="transcription-create-phrases-from-lyrics-without-a-speech-model">Create phrases from lyrics without a speech model</h4>
 <ol>
 <li>The person selects "Lyrics only" in the transcribe dialog.
@@ -496,6 +571,28 @@ body.rv-open .layout { padding-right:21rem; }
 </ul>
 <p>card was too slow. The run continues on the CPU." one time.</p>
 <p>If the person selects "Lyrics only" and the lyrics field has no word, the app disables "Start". The hint reads "Paste the lyrics to use Lyrics only."</p>
+<p><strong>Separate the vocals first.</strong> The check box comes after "Lyrics only". "Lyrics only" hides it, because a lyrics-only run reads no audio. The note under the check box reads "The app removes the instruments before it finds the words. This step downloads a model of 79 MB one time and adds time to the run. The audio stays in this browser." For a remote run, the third sentence reads "The app separates the vocals in this browser, and then sends the vocals to &lt;host&gt;."</p>
+<p>The states of the vocal separation come after preparing and before the states of the speech model or the remote endpoint:</p>
+<ul>
+<li>separation loading: "Loading vocal separation model, 0:03 elapsed" with a bar
+</li>
+</ul>
+<p>that has no end. "Cancel" enabled.</p>
+<ul>
+<li>separation downloading: "Downloading vocal separation model, 42%" with a bar.
+</li>
+</ul>
+<p>"Cancel" enabled.</p>
+<ul>
+<li>separating: "Separating vocals, 1:12 of 3:40, 0:45 elapsed" with a bar. Before
+</li>
+</ul>
+<p>the first progress, "Separating vocals, 0:12 elapsed" with a bar that has no end. "Cancel" enabled. The elapsed time shows the time that the step adds to the run.</p>
+<ul>
+<li>separation failed: the message of the failure, with "Continue with no
+</li>
+</ul>
+<p>separation" and "Cancel".</p>
 <p><strong>Where to transcribe.</strong> The choice "Where to transcribe" comes first in the dialog, with "In this browser" and "Remote endpoint". "Lyrics only" disables the choice, because a lyrics-only run sends no audio.</p>
 <p>With "Remote endpoint" selected:</p>
 <ul>
@@ -698,6 +795,11 @@ body.rv-open .layout { padding-right:21rem; }
 </ul>
 <p><code>APP_SETTINGS.remoteEndpoint</code> (<code>baseUrl</code>, <code>apiKey</code>, <code>model</code>). The API key stays in IndexedDB and goes only to the base URL.</p>
 <ul>
+<li>Reads and writes <code>APP_SETTINGS.separateVocals</code>, the last choice of "Separate the
+</li>
+</ul>
+<p>vocals first".</p>
+<ul>
 <li>Reads and writes <code>APP_SETTINGS.deviceSpeeds</code>: for each speech model, the measured
 </li>
 </ul>
@@ -852,6 +954,16 @@ type ErrorKind = 'download' | 'device' | 'memory' | 'unknown'
 { type: 'result'; runId: string; words: TimedWord[] }
 { type: 'error'; runId?: string; kind: ErrorKind; detail: string }</code></pre>
 <p><code>TimedWord</code> is <code>{ text: string; startMs: number; endMs: number }</code>. The client stops a run by terminating the worker, and the next run loads the speech model again from the browser cache.</p>
+<p><strong>Vocal separation, <code>src/workers/separate.worker.ts</code>.</strong> The types are in <code>src/features/vocal-separation/protocol.ts</code>. The client <code>separateVocals(audio, { onDownload, onProgress, signal })</code> starts one worker for each run and terminates it at the end or at "Cancel".</p>
+<pre class="code"><code>interface StereoAudio { left: Float32Array; right: Float32Array; sampleRate: 44100 }
+// to worker (SeparateRequest)
+{ type: 'separate'; runId: number; audio: StereoAudio }
+// from worker (SeparateMessage)
+{ type: 'download'; runId: number; loadedBytes: number; totalBytes: number }
+{ type: 'progress'; runId: number; doneMs: number; totalMs: number }
+{ type: 'result'; runId: number; vocals: Float32Array } // one channel, 44.1 kHz, the length of the input
+{ type: 'error'; runId: number; kind: 'download' | 'memory' | 'model' | 'unknown'; detail: string }</code></pre>
+<p>The app converts the vocals to 16 kHz in an <code>OfflineAudioContext</code> at 16 000 Hz: a buffer source plays a buffer at 44 100 Hz, and <code>startRendering()</code> returns the resampled <code>AudioBuffer</code>. A buffer can have a sample rate that is not the rate of the context, and the browser resamples it. Sources: https://developer.mozilla.org/en-US/docs/Web/API/OfflineAudioContext/startRendering, https://developer.mozilla.org/en-US/docs/Web/API/BaseAudioContext/createBuffer and https://developer.mozilla.org/en-US/docs/Web/API/AudioBuffer/copyToChannel (retrieved 2026-11-24).</p>
 <p><strong>Pure functions, <code>src/features/transcription/</code>:</strong></p>
 <pre class="code"><code>alignLyrics(transcribed: TimedWord[], lyrics: string): AlignResult
 groupIntoPhrases(words: TimedWord[]): AlignedPhrase[]
@@ -882,6 +994,11 @@ spreadLyrics(lyrics: string, startMs: number, endMs: number): AlignedPhrase[]</c
 <tr><td>Remote endpoint: the response has no <code>words</code> list</td><td>"&lt;host&gt; returned no word times. Use a server and a speech model that return the words field of verbose_json."</td></tr>
 <tr><td>Remote endpoint: the response has an empty <code>words</code> list</td><td>"No words were found. Paste the lyrics and use Lyrics only."</td></tr>
 <tr><td>Remote endpoint: the person selects "Cancel"</td><td>The app stops the request. No mark changes. The dialog goes back to idle with no message.</td></tr>
+<tr><td>Vocal separation: the model does not download</td><td>"The app could not download the vocal separation model. Check the connection. Then try again, or continue with no separation." with "Continue with no separation" and "Cancel".</td></tr>
+<tr><td>Vocal separation: out of memory</td><td>"This browser does not have enough memory to separate the vocals of this song. Select a shorter time range, or continue with no separation." with "Continue with no separation" and "Cancel".</td></tr>
+<tr><td>Vocal separation: the model fails, or another failure</td><td>"The vocal separation did not work. Continue with no separation, or cancel." with "Continue with no separation" and "Cancel".</td></tr>
+<tr><td>Vocal separation: the person selects "Cancel" during the step</td><td>The app stops the worker. No mark changes. The dialog goes back to idle with no message.</td></tr>
+<tr><td>Vocal separation: the person selects "Continue with no separation"</td><td>The run goes on with the audio of the song, as with the option off.</td></tr>
 <tr><td>Remote endpoint: the browser asks for the permission to reach the local network</td><td>The run waits for the answer of the person. If the person refuses, the dialog shows the message for no connection.</td></tr>
 </table></div>
 <h3 id="transcription-acceptance-criteria">Acceptance criteria</h3>
@@ -986,9 +1103,61 @@ spreadLyrics(lyrics: string, startMs: number, endMs: number): AlignedPhrase[]</c
 </li>
 </ul>
 <p>(FR-transcribe-35)</p>
+<ul>
+<li>The dialog opens with "Separate the vocals first" off when the person has made no
+</li>
+</ul>
+<p>choice. (FR-transcribe-36)</p>
+<ul>
+<li>The dialog opens with the last choice of "Separate the vocals first".
+</li>
+</ul>
+<p>(FR-transcribe-37)</p>
+<ul>
+<li>With "Lyrics only" selected, the dialog shows no "Separate the vocals first".
+</li>
+</ul>
+<p>(FR-transcribe-38)</p>
+<ul>
+<li>With the option on, the progress text shows "Separating vocals" before
+</li>
+</ul>
+<p>"Transcribing". (FR-transcribe-39, 44)</p>
+<ul>
+<li>With the option on, no request carries audio for the vocal separation.
+</li>
+</ul>
+<p>(FR-transcribe-40)</p>
+<ul>
+<li>With the option off, the browser requests no file of the separate worker. An E2E
+</li>
+</ul>
+<p>test checks the requests of a run. (FR-transcribe-41)</p>
+<ul>
+<li>A range run sends the audio of the range only to the separate worker.
+</li>
+</ul>
+<p>(FR-transcribe-42)</p>
+<ul>
+<li>A remote run with the option on sends one WAV file, after the vocal separation.
+</li>
+</ul>
+<p>(FR-transcribe-43)</p>
+<ul>
+<li>"Cancel" during the vocal separation stops the worker, and no mark changes.
+</li>
+</ul>
+<p>(FR-transcribe-45)</p>
+<ul>
+<li>After a failed vocal separation, "Continue with no separation" creates the marks
+</li>
+</ul>
+<p>from the audio of the song. (FR-transcribe-46)</p>
 <h3 id="transcription-out-of-scope">Out of scope</h3>
 <ul>
-<li>Separating vocals from instruments.
+<li>Separation of stems other than the vocals.
+</li>
+<li>Vocal separation on a server.
 </li>
 <li>Detecting which singer sings a word.
 </li>
