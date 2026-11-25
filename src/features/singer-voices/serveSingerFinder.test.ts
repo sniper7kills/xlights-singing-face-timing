@@ -1,5 +1,10 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { createFixtureSingerFinder, fixtureSegments } from './engine/fixtureSingerFinder.ts'
+import type { SingerDiagnostics } from '../../lib/singers/diagnostics.ts'
+import {
+  createFixtureSingerFinder,
+  fixtureDiagnostics,
+  fixtureSegments,
+} from './engine/fixtureSingerFinder.ts'
 import { createSingerFinder } from './engine/index.ts'
 import type { SingersMessage } from './protocol.ts'
 import { SingerFailure, singerFailureKind } from './singerFailure.ts'
@@ -37,6 +42,28 @@ describe('serveSingerFinder', () => {
       { type: 'progress', runId: 7, doneMs: 3, totalMs: 4 },
       { type: 'result', runId: 7, segments },
     ])
+  })
+
+  it('posts the diagnostics in the result when the engine gives them', async () => {
+    const diagnostics = fixtureDiagnostics(1000, [])
+    const { handle, posted } = serve({
+      find: async (_vocals, on) => {
+        on.diagnostics?.(diagnostics)
+        return []
+      },
+    })
+
+    await handle({ type: 'find-singers', runId: 8, vocals })
+
+    expect(posted).toEqual([{ type: 'result', runId: 8, segments: [], diagnostics }])
+  })
+
+  it('posts a result with no diagnostics property when the engine gives none', async () => {
+    const { handle, posted } = serve({ find: async () => [] })
+
+    await handle({ type: 'find-singers', runId: 9, vocals })
+
+    expect(posted[0]).not.toHaveProperty('diagnostics')
   })
 
   it('makes the engine at the first request and keeps it for the next request', async () => {
@@ -114,6 +141,25 @@ describe('createFixtureSingerFinder', () => {
     expect(download).toHaveBeenLastCalledWith(3_000_000, 3_000_000)
     expect(progress).toHaveBeenNthCalledWith(1, 0, 4000)
     expect(progress).toHaveBeenLastCalledWith(4000, 4000)
+  })
+
+  it('sends diagnostics with 2 final singers and 3 raw groups', async () => {
+    vi.useFakeTimers()
+    const diagnostics = vi.fn<(numbers: SingerDiagnostics) => void>()
+
+    const result = createFixtureSingerFinder().find(new Float32Array(16_000 * 4), {
+      download: vi.fn(),
+      progress: vi.fn(),
+      diagnostics,
+    })
+    await vi.runAllTimersAsync()
+    const segments = await result
+
+    expect(diagnostics).toHaveBeenCalledWith(fixtureDiagnostics(4000, segments))
+    expect(diagnostics.mock.calls[0]?.[0]).toMatchObject({
+      finalSingerCount: 2,
+      rawGroupCount: 3,
+    })
   })
 
   it('is the engine of the seam until the real engine exists', () => {

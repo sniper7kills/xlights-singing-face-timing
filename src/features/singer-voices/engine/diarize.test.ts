@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
+import type { SingerDiagnostics } from '../../../lib/singers/diagnostics.ts'
 import { diarize, type DiarizeModels } from './diarize.ts'
 
 const FRAME = 100
@@ -162,5 +163,86 @@ describe('diarize', () => {
     await expect(diarize(audio([1, 1000]), models, settings, () => {})).rejects.toThrow(
       'no session',
     )
+  })
+})
+
+describe('diarize diagnostics', () => {
+  async function diagnose(
+    vocals: Float32Array,
+    over: Partial<typeof settings> = {},
+    models: DiarizeModels = fakeModels(),
+  ) {
+    const received: SingerDiagnostics[] = []
+    const ranges = await diarize(
+      vocals,
+      models,
+      { ...settings, ...over },
+      () => {},
+      (numbers) => received.push(numbers),
+    )
+    return { ranges, received, numbers: received[0] }
+  }
+
+  it('gives the diagnostics once, with the counts of windows and embeddings', async () => {
+    const { received, numbers } = await diagnose(audio([-1, 1500], [1, 1500]))
+    expect(received).toHaveLength(1)
+    expect(numbers?.audioMs).toBe(3000)
+    expect(numbers?.windowCount).toBe(5)
+    expect(numbers?.embeddingCount).toBeGreaterThan(0)
+    expect(numbers?.droppedEmbeddings).toBe(0)
+    expect(numbers?.rawGroupCount).toBe(2)
+    expect(numbers?.rawGroups).toHaveLength(2)
+  })
+
+  it('counts the embeddings that are not finite as dropped', async () => {
+    const fake = fakeModels()
+    const models = {
+      ...fake,
+      embed: async (samples: Float32Array) =>
+        samples.includes(-1) ? Float32Array.from([Number.NaN, 0]) : fake.embed(samples),
+    }
+    const { numbers } = await diagnose(audio([1, 1500], [-1, 1500]), {}, models)
+    expect(numbers?.droppedEmbeddings).toBeGreaterThan(0)
+    expect(numbers?.embeddingCount).toBeGreaterThan(numbers?.droppedEmbeddings ?? 0)
+    expect(numbers?.rawGroupCount).toBe(1)
+  })
+
+  it('gives the fate joined with the reason time to a short singer that folds', async () => {
+    const vocals = audio([1, 3000], [-1, 500], [1, 3000])
+    const { numbers } = await diagnose(vocals, { minSingerMs: 1000 })
+    expect(numbers?.rawGroupCount).toBe(2)
+    expect(numbers?.rawGroups.map((group) => group.fate)).toEqual([
+      { kind: 'kept', singer: 0 },
+      { kind: 'joined', into: 0, reason: 'time' },
+    ])
+    expect(numbers?.settings.minSingerMs).toBe(1000)
+  })
+
+  it('gives the reason share when the limit of the share is the larger limit', async () => {
+    const vocals = audio([1, 3000], [-1, 500], [1, 3000])
+    const { numbers } = await diagnose(vocals, { minSingerShare: 0.1 })
+    expect(numbers?.rawGroups[1]?.fate).toEqual({ kind: 'joined', into: 0, reason: 'share' })
+  })
+
+  it('gives a final singer count equal to the distinct singers of the result', async () => {
+    const vocals = audio([1, 3000], [-1, 500], [1, 3000])
+    const { ranges, numbers } = await diagnose(vocals)
+    expect(numbers?.finalSingerCount).toBe(new Set(ranges.map((range) => range.singer)).size)
+    expect(numbers?.finalSingerCount).toBe(2)
+  })
+
+  it('gives the count of ranges and the sung time of each singer', async () => {
+    const vocals = audio([1, 3000], [-1, 500], [1, 3000])
+    const { numbers } = await diagnose(vocals)
+    expect(numbers?.singers.map((singer) => singer.rangeCount)).toEqual([2, 1])
+    expect(numbers?.singers[1]?.sungMs).toBe(500)
+  })
+
+  it('gives zero raw groups and zero singers for audio with no voice', async () => {
+    const { received, numbers } = await diagnose(audio([0, 3000]))
+    expect(received).toHaveLength(1)
+    expect(numbers?.rawGroupCount).toBe(0)
+    expect(numbers?.finalSingerCount).toBe(0)
+    expect(numbers?.centroidDistances).toBeNull()
   })
 })

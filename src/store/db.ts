@@ -4,6 +4,7 @@ import type {
   AudioFile,
   CustomEntry,
   Mark,
+  RunData,
   Section,
   Song,
   SongContent,
@@ -11,7 +12,7 @@ import type {
 } from './types.ts'
 
 const DATABASE_NAME = 'singing-face-timing'
-const DATABASE_VERSION = 2
+const DATABASE_VERSION = 3
 
 /** The key of the one record in the `settings` object store. */
 export const SETTINGS_KEY = 'app'
@@ -25,6 +26,7 @@ export type StoreRecords = {
   marks: Mark
   customEntries: CustomEntry
   settings: AppSettings
+  runs: RunData
 }
 
 export type StoreName = keyof StoreRecords
@@ -38,6 +40,7 @@ const STORES: Record<StoreName, { keyPath: string | null; indexes: string[] }> =
   customEntries: { keyPath: 'word', indexes: [] },
   // AppSettings has no key field, so the one record uses SETTINGS_KEY as an out-of-line key.
   settings: { keyPath: null, indexes: [] },
+  runs: { keyPath: 'songId', indexes: [] },
 }
 
 const SONG_STORES: StoreName[] = ['songs', 'audioFiles', 'voices', 'sections', 'marks']
@@ -53,8 +56,9 @@ export class StorageFullError extends Error {
 let connection: Promise<IDBDatabase> | undefined
 
 /**
- * Returns the one shared connection to the app database, at version 2.
+ * Returns the one shared connection to the app database, at version 3.
  * The first call opens the database and creates the object stores that are missing.
+ * Version 3 adds the `runs` object store, and the upgrade keeps each record of the other object stores.
  * Rejects if the browser has no IndexedDB or refuses the open request.
  */
 export function openDatabase(): Promise<IDBDatabase> {
@@ -104,7 +108,7 @@ function requestDatabase(): Promise<IDBDatabase> {
   })
 }
 
-// Version 1 has no object stores, so the upgrade from version 0 and from version 1 is the same.
+// Version 1 has no object stores, and each later version only adds object stores, so one upgrade serves each earlier version.
 function createMissingStores(database: IDBDatabase): void {
   for (const [name, { keyPath, indexes }] of Object.entries(STORES)) {
     if (database.objectStoreNames.contains(name)) continue
@@ -333,15 +337,43 @@ export function renameSong(songId: string, name: string): Promise<Song | undefin
 }
 
 /**
- * Deletes the song, its audio file, its voices, its sections, their marks and its export options
- * in one transaction.
+ * Deletes the song, its audio file, its voices, its sections, their marks, its export options
+ * and the data of its last run in one transaction.
  */
 export function deleteSong(songId: string): Promise<void> {
-  return transact([...SONG_STORES, 'settings'], 'readwrite', (transaction) => {
+  return transact([...SONG_STORES, 'settings', 'runs'], 'readwrite', (transaction) => {
     transaction.objectStore('songs').delete(songId)
     transaction.objectStore('audioFiles').delete(songId)
+    transaction.objectStore('runs').delete(songId)
     transaction.objectStore('settings').delete(exportOptionsKey(songId))
     deleteStaleChildren(transaction, songId, new Set())
     return nothing
   })
+}
+
+/** The functions that hear of each new run data. */
+const runDataListeners = new Set<(songId: string) => void>()
+
+/**
+ * Calls `listener` with the song id after each write of `saveRunData` completes.
+ * Returns the function that stops the calls.
+ */
+export function onRunDataSaved(listener: (songId: string) => void): () => void {
+  runDataListeners.add(listener)
+  return () => runDataListeners.delete(listener)
+}
+
+/** Returns the data of the last completed run of the song, or undefined if the song has no run data. */
+export function loadRunData(songId: string): Promise<RunData | undefined> {
+  return getRecord('runs', songId)
+}
+
+/**
+ * Writes the data of a run in one transaction, and replaces the singer ranges and the report of the earlier run.
+ * After the write, each listener of `onRunDataSaved` hears of it.
+ * Rejects with StorageFullError when the browser storage is full. The earlier run data then stays.
+ */
+export async function saveRunData(data: RunData): Promise<void> {
+  await putRecord('runs', data)
+  for (const listener of runDataListeners) listener(data.songId)
 }

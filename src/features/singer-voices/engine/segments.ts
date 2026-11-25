@@ -62,10 +62,21 @@ export function activityToRanges(
  * @param ranges The ranges of all singers.
  */
 export function renumberByFirstRange(ranges: readonly SingerSegment[]): SingerSegment[] {
-  const sorted = [...ranges].sort((a, b) => a.startMs - b.startMs || a.singer - b.singer)
+  const numbers = firstRangeNumbers(ranges)
+  return sortedRanges(ranges).map((range) => ({ ...range, singer: numbers.get(range.singer) ?? 0 }))
+}
+
+function sortedRanges(ranges: readonly SingerSegment[]): SingerSegment[] {
+  return [...ranges].sort((a, b) => a.startMs - b.startMs || a.singer - b.singer)
+}
+
+/**
+ * Returns the new number of each singer that `renumberByFirstRange` gives: 0, 1, 2… in the order of the first range.
+ * @param ranges The ranges of all singers.
+ */
+export function firstRangeNumbers(ranges: readonly SingerSegment[]): Map<number, number> {
   const numbers = new Map<number, number>()
-  return sorted.map((range) => {
+  for (const range of sortedRanges(ranges))
     if (!numbers.has(range.singer)) numbers.set(range.singer, numbers.size)
-    return { ...range, singer: numbers.get(range.singer) ?? 0 }
-  })
+  return numbers
 }
