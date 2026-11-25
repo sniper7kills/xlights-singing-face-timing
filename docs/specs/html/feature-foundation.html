@@ -347,7 +347,7 @@ body.rv-open .layout { padding-right:21rem; }
 <p><strong>Deploy commands.</strong> Verified against <code>aws s3 sync help</code> and <code>aws cloudfront create-invalidation help</code> (aws-cli/2.37.9):</p>
 <pre class="code"><code>aws s3 sync dist/ s3://$SITE_BUCKET --delete
 aws cloudfront create-invalidation --distribution-id $CLOUDFRONT_DISTRIBUTION_ID --paths "/*"</code></pre>
-<p>The deploy role needs permission to list, put and delete objects in the bucket and to create an invalidation on the distribution. The engineer confirms the exact IAM action names from the IAM reference before the role is written.</p>
+<p>The deploy role needs permission to list, put and delete objects in the bucket and to create and read an invalidation on the distribution. The engineer confirms the exact IAM action names from the IAM reference before the role is written.</p>
 <p>Files with a content hash in the name get a long cache time with the <code>--cache-control</code> option of <code>aws s3 sync</code>. <code>index.html</code> gets no cache.</p>
 <p>Headers that the response headers policy sets on every response:</p>
 <div class="table-wrap"><table>

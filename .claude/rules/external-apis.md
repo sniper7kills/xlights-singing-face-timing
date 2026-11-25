@@ -27,7 +27,8 @@ Do not reconcile by guess.
 | xLights `.xtiming` format | commit `99a289bf` | https://github.com/xLightsSequencer/xLights — `src-core/render/Element.cpp`, `src-ui-wx/sequencer/RowHeading.cpp`, `src-core/render/SequenceFile.cpp`, `src-core/effects/FacesEffect.cpp` |
 | xLights manual | current | https://manual.xlights.org/xlights/chapters/chapter-four-sequencer/singing-faces.md |
 | AWS CloudFormation (S3, CloudFront, IAM) | current | https://docs.aws.amazon.com/AWSCloudFormation/latest/TemplateReference/ |
-| AWS CLI | 2.x | `aws s3 sync help`, `aws cloudfront create-invalidation help` |
+| AWS CLI | 2.x | `aws s3 sync help`, `aws cloudfront create-invalidation help`, `aws cloudfront wait invalidation-completed help` |
+| IAM actions for CloudFront | current | https://docs.aws.amazon.com/service-authorization/latest/reference/list_amazoncloudfront.html |
 | GitHub OIDC with AWS | current | https://docs.aws.amazon.com/IAM/latest/UserGuide/id_roles_create_for-idp_oidc.html |
 | ONNX Runtime Web (`onnxruntime-web`) | 1.31.0-dev.20260914, from `@huggingface/transformers` | https://onnxruntime.ai/docs/tutorials/web/env-flags-and-session-options.html |
 | Cross-origin isolation headers | browser | https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Cross-Origin-Embedder-Policy , https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Cross-Origin-Opener-Policy |
@@ -275,6 +276,23 @@ Confirmed on 2026-11-24 from the first stack in a real account (issue #7):
   `gh api repos/<owner>/<name>/actions/oidc/customization/sub`. A role that trusts
   the other form refuses the token: "Not authorized to perform
   sts:AssumeRoleWithWebIdentity".
+
+Confirmed on 2026-11-24 for the CloudFront invalidation wait, from
+`aws cloudfront wait invalidation-completed help` and
+`aws cloudfront create-invalidation help` (aws-cli/2.37.9), the pages
+https://docs.aws.amazon.com/cli/latest/reference/cloudfront/wait/invalidation-completed.html
+and https://docs.aws.amazon.com/cli/latest/reference/cloudfront/create-invalidation.html,
+and the service authorization reference above (issue #54):
+
+- `create-invalidation` returns before the invalidation is complete. The
+  invalidation id is at `Invalidation.Id` of the output.
+- `wait invalidation-completed` needs `--distribution-id` and `--id`. It polls
+  every 20 seconds and exits with code 255 after 30 failed checks, about 10
+  minutes. It calls `GetInvalidation`.
+- `cloudfront:GetInvalidation` has the access level Read and the required
+  resource type `distribution`. `cloudfront:CreateInvalidation` has the access
+  level Write and the same resource type.
+- AWS has not validated the new permission on the stack.
 
 Evidence format:
 

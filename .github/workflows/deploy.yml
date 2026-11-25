@@ -24,7 +24,8 @@ jobs:
   deploy:
     name: Build and deploy to production
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    # The invalidation wait alone can take 10 minutes, so the job gets 30 minutes.
+    timeout-minutes: 30
     # FR-foundation-18: the job gets AWS credentials through GitHub OIDC, so it needs an ID token.
     permissions:
       id-token: write
@@ -82,13 +83,30 @@ jobs:
           --cache-control "no-cache"
 
       # GitHub Actions skips this step if an upload step fails. The bucket then still holds every old file.
+      # create-invalidation returns before the invalidation is complete, so this step gives the invalidation id to the next step.
       - name: Invalidate the CloudFront cache
-        run: >-
-          aws cloudfront create-invalidation
-          --distribution-id "$CLOUDFRONT_DISTRIBUTION_ID"
-          --paths "/*"
+        id: invalidation
+        run: |
+          invalidation_id="$(aws cloudfront create-invalidation \
+            --distribution-id "$CLOUDFRONT_DISTRIBUTION_ID" \
+            --paths "/*" \
+            --query Invalidation.Id \
+            --output text)"
+          echo "id=$invalidation_id" >> "$GITHUB_OUTPUT"
 
-      # This step comes last, so CloudFront gets the invalidation request before a file that the old index.html uses goes away.
+      # Until the invalidation is complete, CloudFront can serve the old index.html, and that file needs the old hashed files.
+      # The wait checks the invalidation every 20 seconds and fails after 30 checks, about 10 minutes.
+      # If the wait fails or the job times out, the job stops before the delete step, so the bucket keeps every old file.
+      - name: Wait for the invalidation to complete
+        env:
+          INVALIDATION_ID: ${{ steps.invalidation.outputs.id }}
+        run: >-
+          aws cloudfront wait invalidation-completed
+          --distribution-id "$CLOUDFRONT_DISTRIBUTION_ID"
+          --id "$INVALIDATION_ID"
+
+      # This step comes last and runs only after the invalidation is complete.
+      # CloudFront then serves the new index.html, which needs no file that this step deletes.
       # A failure here leaves a correct site with unused files, and the next deploy removes them.
       # The upload steps put every file of dist/ in the bucket, so this pass uploads nothing and needs no cache-control value.
       - name: Delete the files that are not in dist/
