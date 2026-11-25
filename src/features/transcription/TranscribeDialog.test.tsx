@@ -547,12 +547,18 @@ describe('TranscribeDialog', () => {
     await user.click(start)
 
     await act(async () =>
-      lastRun().resolve({ wordCount: 16, estimatedCount: 0, runData: 'stored', breakDownFailure: null }),
+      lastRun().resolve({
+        wordCount: 16,
+        estimatedCount: 0,
+        runData: 'stored',
+        breakDownFailure: null,
+      }),
     )
 
     expect(onDone).toHaveBeenCalledExactlyOnceWith({
       wordCount: 16,
-      estimatedCount: 0, runData: 'stored',
+      estimatedCount: 0,
+      runData: 'stored',
       breakDownFailure: null,
     })
     expect(onClose).not.toHaveBeenCalled()
@@ -582,7 +588,12 @@ describe('TranscribeDialog', () => {
 
     act(() => cancelled.handlers.onProgress(10_000, 220_000))
     await act(async () =>
-      cancelled.resolve({ wordCount: 1, estimatedCount: 0, runData: 'stored', breakDownFailure: null }),
+      cancelled.resolve({
+        wordCount: 1,
+        estimatedCount: 0,
+        runData: 'stored',
+        breakDownFailure: null,
+      }),
     )
 
     expect(progress()).toHaveTextContent('')

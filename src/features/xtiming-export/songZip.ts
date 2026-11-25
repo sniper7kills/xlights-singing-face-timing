@@ -57,10 +57,12 @@ function trackBytes(source: ZipSource): number {
 export function zipNote(zipExport: ZipExport, state: ZipSourceState): string {
   if (state === 'loading') return 'The app reads the audio file of the song.'
   if (state === 'failed') return AUDIO_READ_MESSAGE
-  const list = entries(zipExport, state, new Uint8Array(0), () => new Uint8Array(0)).map((entry) => ({
-    name: entry.name,
-    size: entry.data.length,
-  }))
+  const list = entries(zipExport, state, new Uint8Array(0), () => new Uint8Array(0)).map(
+    (entry) => ({
+      name: entry.name,
+      size: entry.data.length,
+    }),
+  )
   const size = zipLength(list) + state.audio.byteLength + trackBytes(state)
   const names = list.map((entry) => entry.name).join(', ')
   return `The zip file holds ${list.length} files: ${names}. Size: ${formatSize(size)}.`

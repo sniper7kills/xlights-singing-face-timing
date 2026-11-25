@@ -70,7 +70,9 @@ export function onDatabaseBlocked(listener: () => void): () => void {
 
 /** Returns true when the open failed because a newer version of the app wrote the database. */
 export function isNewerDatabaseError(error: unknown): boolean {
-  return typeof error === 'object' && error !== null && 'name' in error && error.name === 'VersionError'
+  return (
+    typeof error === 'object' && error !== null && 'name' in error && error.name === 'VersionError'
+  )
 }
 
 /**

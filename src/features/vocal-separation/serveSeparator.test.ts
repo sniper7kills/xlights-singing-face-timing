@@ -71,7 +71,9 @@ describe('serveSeparator', () => {
   })
 
   it('makes the engine at the first request and keeps it for the next request', async () => {
-    const { handle, createEngine } = serve({ separate: async () => ({ vocals: new Float32Array(1) }) })
+    const { handle, createEngine } = serve({
+      separate: async () => ({ vocals: new Float32Array(1) }),
+    })
 
     await handle({ type: 'separate', runId: 1, audio })
     await handle({ type: 'separate', runId: 2, audio })
@@ -80,7 +82,9 @@ describe('serveSeparator', () => {
   })
 
   it('makes the engine of the model of the request', async () => {
-    const { handle, createEngine } = serve({ separate: async () => ({ vocals: new Float32Array(1) }) })
+    const { handle, createEngine } = serve({
+      separate: async () => ({ vocals: new Float32Array(1) }),
+    })
 
     await handle({ type: 'separate', runId: 1, audio, model: 'demucs' })
 
@@ -88,7 +92,9 @@ describe('serveSeparator', () => {
   })
 
   it('makes the Spleeter engine for a request with no model', async () => {
-    const { handle, createEngine } = serve({ separate: async () => ({ vocals: new Float32Array(1) }) })
+    const { handle, createEngine } = serve({
+      separate: async () => ({ vocals: new Float32Array(1) }),
+    })
 
     await handle({ type: 'separate', runId: 1, audio })
 
@@ -96,7 +102,9 @@ describe('serveSeparator', () => {
   })
 
   it('ignores a message that is not a request', async () => {
-    const { handle, posted, createEngine } = serve({ separate: async () => ({ vocals: new Float32Array(1) }) })
+    const { handle, posted, createEngine } = serve({
+      separate: async () => ({ vocals: new Float32Array(1) }),
+    })
 
     await handle({ cmd: 'thread' })
     await handle(null)

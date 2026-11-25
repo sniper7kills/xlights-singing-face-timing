@@ -281,7 +281,8 @@ export function TranscribeDialog({
             onModelChange={selectSeparationModel}
           />
           <KeepTracksChoice
-            shown={!lyricsOnly && separate}
+            shown={!lyricsOnly}
+            separate={separate}
             checked={keepTracks}
             range={range}
             onChange={selectKeepTracks}
@@ -436,8 +437,10 @@ function SeparationModelChoice({ model, webgpu, onChange }: SeparationModelChoic
 }
 
 type KeepTracksChoiceProps = {
-  /** True when "Separate the vocals first" is on and the run reads audio. */
+  /** False for a lyrics-only run, which reads no audio. */
   shown: boolean
+  /** True when "Separate the vocals first" is on. The tracks come from the separation. */
+  separate: boolean
   checked: boolean
   /** The range of the run. Undefined is the full song. */
   range: TimeRange | undefined
@@ -445,10 +448,10 @@ type KeepTracksChoiceProps = {
 }
 
 /** Shows the check box "Keep the separated tracks" and the note with the bytes that the tracks use. */
-function KeepTracksChoice({ shown, checked, range, onChange }: KeepTracksChoiceProps) {
+function KeepTracksChoice({ shown, separate, checked, range, onChange }: KeepTracksChoiceProps) {
   const noteId = useId()
   const songMs = useSongStore((state) => state.current?.song.durationMs ?? 0)
-  if (!shown) return null
+  if (!shown || !separate) return null
   const durationMs = range === undefined ? songMs : range.endMs - range.startMs
   return (
     <>

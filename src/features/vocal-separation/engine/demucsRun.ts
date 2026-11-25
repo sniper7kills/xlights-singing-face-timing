@@ -10,7 +10,12 @@ export type DemucsDevice = 'webgpu' | 'wasm'
 export type StereoStem = { left: Float32Array; right: Float32Array }
 
 /** The four stems of `DemucsProcessor.separate`. */
-export type DemucsStems = { vocals: StereoStem; drums: StereoStem; bass: StereoStem; other: StereoStem }
+export type DemucsStems = {
+  vocals: StereoStem
+  drums: StereoStem
+  bass: StereoStem
+  other: StereoStem
+}
 
 /** The part of `DemucsProcessor` of `demucs-web` that the engine calls. Tests supply a fake. */
 export type DemucsProcessorLike = {

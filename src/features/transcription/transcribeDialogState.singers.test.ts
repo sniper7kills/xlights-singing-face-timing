@@ -133,6 +133,8 @@ describe('outcomeText with the singer step', () => {
   })
 
   it('keeps the text of a run without the option', () => {
-    expect(outcomeText({ wordCount: 1, estimatedCount: 0, runData: 'stored' })).toBe('1 word, 0 estimated')
+    expect(outcomeText({ wordCount: 1, estimatedCount: 0, runData: 'stored' })).toBe(
+      '1 word, 0 estimated',
+    )
   })
 })
