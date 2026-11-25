@@ -3,10 +3,12 @@ import { joinReasonText, type RawGroup, type SingerDiagnostics } from '../singer
 import { safeFileName } from '../xtiming/names.ts'
 import {
   divisionRuleText,
+  knownYesNo,
   phraseRuleText,
   type ReportSeparationModel,
   type RunReport,
   type SingerSection,
+  selectedSingersText,
   type StepDurations,
   stepTimes,
 } from './runReport.ts'
@@ -133,6 +135,8 @@ function separationSection(report: RunReport): PanelSection {
     facts: [
       { label: 'Separation model', value: SEPARATION_TEXT[report.separationModel] },
       { label: 'Changed to the fast model', value: report.separationFallback ? 'yes' : 'no' },
+      { label: 'Audio tracks', value: String(report.trackCount ?? 'not known') },
+      { label: 'Tracks kept', value: knownYesNo(report.tracksKept) },
     ],
   })
 }
@@ -220,6 +224,7 @@ function diagnosticFacts(diagnostics: SingerDiagnostics): PanelFact[] {
 
 function assignmentFacts(singers: SingerSection): PanelFact[] {
   return [
+    { label: 'Singers selected', value: selectedSingersText(singers.selected) },
     { label: 'Singer ranges', value: countText(singers.rangeCount) },
     { label: 'Phrase rule', value: phraseRuleText(singers.rule) },
     { label: 'Phrase division', value: divisionRuleText(singers.rule) },

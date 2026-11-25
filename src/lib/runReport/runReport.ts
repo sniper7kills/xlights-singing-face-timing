@@ -43,7 +43,7 @@ export type StepDurations = Partial<Record<RunStep, number>>
  * - `text`: one line, for example "separation failed: memory; continued with the fast model".
  */
 export type RunNote = {
-  step: 'separation' | 'singers' | 'break-down'
+  step: 'separation' | 'singers' | 'break-down' | 'storage'
   kind: string
   text: string
 }
@@ -104,6 +104,17 @@ export type SingerSection = {
   phrasesWithMoreSingers: number | null
   /** The voices that hold the phrases of the run after the step. */
   voicesMade: number | null
+  /**
+   * The choice of "Singers" in the transcribe dialog: `automatic`, or the count that the person gave.
+   * A report from before the field, or of a run with the singer option off, has no value.
+   */
+  selected?: number | 'automatic'
+}
+
+/** Returns the text of the choice of "Singers" of a report: "Automatic", the count, or "not recorded". */
+export function selectedSingersText(selected: SingerSection['selected']): string {
+  if (selected === undefined) return 'not recorded'
+  return selected === 'automatic' ? 'Automatic' : String(selected)
 }
 
 /** What one transcribe run did. The app keeps the report of the last run of each song. */
@@ -125,6 +136,13 @@ export type RunReport = {
   separationModel: ReportSeparationModel
   /** True when a Demucs run failed and the person selected "Use the fast model". */
   separationFallback: boolean
+  /**
+   * The count of audio tracks that the vocal separation gave: 2 (the vocals and the instruments), or 0 with no separation.
+   * A report of an earlier version of the app has no value.
+   */
+  trackCount?: number
+  /** True when the app stored the audio tracks of the run. A report of an earlier version of the app has no value. */
+  tracksKept?: boolean
   singers: SingerSection
   /** Each voice that holds phrases of the run, with its count of phrases. */
   voices: VoicePhrases[]
@@ -176,6 +194,8 @@ export function buildRunReport(facts: RunFacts): RunReport {
     device: facts.device,
     separationModel: facts.separationModel,
     separationFallback: facts.separationFallback,
+    ...(facts.trackCount === undefined ? {} : { trackCount: facts.trackCount }),
+    ...(facts.tracksKept === undefined ? {} : { tracksKept: facts.tracksKept }),
     singers: facts.singers,
     voices: facts.voices,
     phraseCount: facts.marks.filter((mark) => mark.layer === 'phrase').length,
@@ -193,8 +213,13 @@ function yesNo(value: boolean): string {
   return value ? 'yes' : 'no'
 }
 
-function countText(value: number | null): string {
-  return value === null ? 'not known' : String(value)
+function countText(value: number | null | undefined): string {
+  return value == null ? 'not known' : String(value)
+}
+
+/** Returns the text of a yes or no fact, or 'not known' for a report of an earlier version of the app. */
+export function knownYesNo(value: boolean | undefined): string {
+  return value === undefined ? 'not known' : yesNo(value)
 }
 
 /**
@@ -300,6 +325,7 @@ function singerLines(singers: SingerSection): string[] {
   return [
     '[Singers]',
     `Step: ${status}`,
+    `Singers selected: ${selectedSingersText(singers.selected)}`,
     ...diagnosticLines(singers.diagnostics),
     `Singer ranges: ${countText(singers.rangeCount)}`,
     `Phrase rule: ${phraseRuleText(singers.rule)}`,
@@ -328,6 +354,8 @@ function runLines(report: RunReport): string[] {
     '[Vocal separation]',
     `Separation model: ${report.separationModel}`,
     `Changed to the fast model: ${yesNo(report.separationFallback)}`,
+    `Audio tracks: ${countText(report.trackCount)}`,
+    `Tracks kept: ${knownYesNo(report.tracksKept)}`,
   ]
 }
 

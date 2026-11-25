@@ -327,10 +327,15 @@ one file, `<song name>.zip`. It holds these entries, in this order:
 | `song.json` | Always | The song data. See [Interfaces](#interfaces). |
 | `lyrics.txt` | A voice has a phrase | For each voice in order: the voice name as a heading line, then one line for each phrase label in time order. A blank line separates two voices. |
 | `custom-dictionary.txt` | The custom dictionary has an entry | The custom dictionary in the format of its export. |
+| `tracks/vocals.wav` | The last run kept the audio tracks | The vocals of the last vocal separation: a WAV file of 16-bit PCM in one channel, at the stored sample rate. |
+| `tracks/instruments.wav` | The last run kept the audio tracks | The instruments of the last vocal separation, in the same form. |
+| `report.txt` | The song has a run report | The text of the run report, as "Copy report" gives it. |
 | `README.txt` | Always | One line for each entry of this zip file, then the import steps text and the steps for several face models. |
 
-- Issue #129 adds the separated tracks `tracks/vocals.wav` and
-  `tracks/instruments.wav`, and the run report `report.txt`, before `README.txt`.
+- The `README.txt` line of each audio track states its sample rate and the song
+  time of its first sample. A range run gives the start of the range.
+- The note under "Everything as one zip file" counts the bytes of the two WAV files
+  with no conversion of the audio.
 - The zip file stores each entry with no compression. Audio files are compressed
   already.
 - In an entry name the app replaces each of these with `_`: a control
@@ -601,6 +606,9 @@ importStepsText(frameMs: number): string
   (FR-export-28 to 31)
 - With the zip file selected, the note lists the files and the size.
   (FR-export-32)
+- After a transcribe run with the audio tracks kept, the zip file also holds
+  `tracks/vocals.wav`, `tracks/instruments.wav` and `report.txt`. A song with no
+  run holds none of them. (FR-export-32)
 - **Manual check.** xLights imports the two-voice export of the demo song with no
   error message. A Faces effect on each of two face models animates from its timing
   track. The check records the xLights version. A real import into xLights 2026.21

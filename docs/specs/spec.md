@@ -6,7 +6,7 @@ status: approved
 spec_version: 2
 created: 2026-11-24
 approved: 2026-11-24
-html_generated: 2026-11-24
+html_generated: 2026-11-25
 branch_model: trunk
 visibility: public
 features:
@@ -63,6 +63,9 @@ The user's request, verbatim:
 | person | noun | The human who uses the app. | user, sequencer, customer |
 | song | noun | One audio file plus all voices, sections and marks that belong to it. The app saves a song in the browser. | project, session, document |
 | audio file | noun | The file that the person loads. It holds the recording. | track, media, upload |
+| audio track | noun | One audio signal of a song: the song audio, the vocals or the instruments. A timing track is a different term: it holds marks, not audio. | stem, channel |
+| track row | noun | One row of the stage under the waveform that shows one audio track, with "Mute" and "Solo". A layer is a different term: it holds marks. | lane, strip |
+| solo | verb | To make one track row or more the only rows that sound. | isolate |
 | voice | noun | One singer or one vocal part in a song. One voice becomes one timing track. | singer, face, character, part |
 | singer | noun | A person who sings in the audio of a song. The app estimates the singers and gives each one a voice. A singer is the person in the audio, and a voice is the row in the app, so a voice is never called a singer. | speaker, vocalist, performer |
 | section | noun | A named time range of the song, for example "Chorus 1". | segment, region, part |
@@ -310,6 +313,7 @@ erDiagram
   }
   RUN_DATA {
     string songId PK
+    object tracks
     object singerSegments
     object report
   }
@@ -339,9 +343,15 @@ erDiagram
 - **Custom entry.** `word` is upper case. `symbols` is a list of CMU symbols
   separated by spaces. Custom entries belong to the browser, not to one song.
 - **Run data.** One record for each song, in the object store `runs` (database
-  version 3). It holds the singer ranges and the run report of the last completed
-  transcribe run. A new run replaces the full record. Deleting the song deletes it in
-  the same transaction. It holds no lyrics, no label of a mark and no API key.
+  version 3). It holds the audio tracks, the singer ranges and the run report of
+  the last completed transcribe run. A new run replaces the full record. Deleting
+  the song deletes it in the same transaction. It holds no lyrics, no label of a
+  mark and no API key.
+  `tracks` holds `vocals` and `instruments`, each `{ startMs, sampleRate, samples }`
+  with 16-bit PCM samples in one channel at 22 050 Hz. A run with no kept tracks,
+  and a record from before issue #129, have no `tracks`. The storage meter of the
+  song library counts the tracks, because `navigator.storage.estimate()` counts the
+  full storage of the app.
 - **App settings.** One record. `speechModelId` is one of the three supported speech
   models. The app does not store `device`. The app derives the device from the
   browser on each visit. `transcribeSource` is `browser` or `remote`, and the
@@ -584,6 +594,12 @@ None of these blocks approval. Each one names the epic that settles it.
   GUI as seperate waveforms and the ability to play/mute each track. additionally
   some debug info should be visable" (epic #128). Each completed transcribe run
   stores a run report for the song, with the singer diagnostics first (issue #129).
+- 2026-11-24 — A transcribe run with the vocal separation keeps the vocals and the
+  instruments as audio tracks of the song, with the check box "Keep the separated
+  tracks" on by default (issue #129). The zip file holds them and `report.txt`.
+- 2026-11-24 — The editor shows each kept audio track as a track row with "Mute"
+  and "Solo" (issue #130). Each track plays in its own media element that follows
+  the song audio, so the play speed keeps the pitch (`docs/adr/0010`).
 - 2026-11-24 — The export checks warn when the xLights import changes a timing
   track name, and the name fields show the name after the import (issue #143).
 

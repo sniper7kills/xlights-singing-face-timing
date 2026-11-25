@@ -8,6 +8,7 @@ import {
   demucsDoneSamples,
   demucsFailure,
   type DemucsProcessorLike,
+  monoSum,
   monoVocals,
   runDemucs,
 } from './demucsRun.ts'
@@ -29,7 +30,8 @@ function workingProcessor(onSegment: (segments: number) => void): DemucsProcesso
     separate: async (left, right) => {
       onSegment(1)
       onSegment(2)
-      return { vocals: { left, right } }
+      const silent = { left: new Float32Array(left.length), right: new Float32Array(right.length) }
+      return { vocals: { left, right }, drums: silent, bass: silent, other: silent }
     },
   }
 }
@@ -105,6 +107,31 @@ describe('monoVocals', () => {
   )
 })
 
+describe('monoSum', () => {
+  const stem = (left: number[], right: number[]) => ({
+    left: new Float32Array(left),
+    right: new Float32Array(right),
+  })
+
+  it('gives the sum of the mean of the two channels of each stem', () => {
+    const sum = monoSum([stem([1, 0], [0, 0]), stem([0.5, 0.25], [0.5, 0.25])], 2, 'stems')
+
+    expect(Array.from(sum)).toEqual([1, 0.25])
+  })
+
+  it('names the result in the failure for a stem with another length', () => {
+    expect(() => monoSum([stem([0, 0, 0], [0, 0, 0])], 2, 'instruments')).toThrowError(
+      /Demucs instruments/,
+    )
+  })
+
+  it('names the result in the failure for a value that is not finite', () => {
+    expect(() => monoSum([stem([0, Number.NaN], [0, 0])], 2, 'instruments')).toThrowError(
+      /Demucs instruments have a value that is not finite/,
+    )
+  })
+})
+
 describe('demucsFailure', () => {
   it.each<[unknown, 'load' | 'run', string]>([
     [
@@ -135,7 +162,13 @@ describe('runDemucs', () => {
     const progress = vi.fn()
     const create = vi.fn<CreateDemucsProcessor>((_device, onSegment) => workingProcessor(onSegment))
 
-    const vocals = await runDemucs(model, audio, { download: vi.fn(), progress }, ['wasm'], create)
+    const { vocals } = await runDemucs(
+      model,
+      audio,
+      { download: vi.fn(), progress },
+      ['wasm'],
+      create,
+    )
 
     expect(vocals).toHaveLength(441_000)
     expect(vocals[0]).toBe(0.5)
@@ -167,7 +200,7 @@ describe('runDemucs', () => {
 
   it('goes on with wasm after a webgpu failure', async () => {
     const devices: string[] = []
-    const vocals = await runDemucs(
+    const { vocals } = await runDemucs(
       model,
       stereo(4),
       { download: vi.fn(), progress: vi.fn() },
@@ -182,6 +215,46 @@ describe('runDemucs', () => {
 
     expect(devices).toEqual(['webgpu', 'wasm'])
     expect(vocals).toHaveLength(4)
+  })
+
+  it('returns the sum of the drums, bass and other stems as the instruments', async () => {
+    const stem = (value: number) => ({
+      left: new Float32Array(2).fill(value),
+      right: new Float32Array(2).fill(value),
+    })
+    const processor: DemucsProcessorLike = {
+      loadModel: async () => undefined,
+      separate: async () => ({
+        vocals: stem(1),
+        drums: stem(0.25),
+        bass: stem(0.5),
+        other: stem(0.125),
+      }),
+    }
+
+    const result = await runDemucs(
+      model,
+      stereo(2),
+      { download: vi.fn(), progress: vi.fn() },
+      ['wasm'],
+      () => processor,
+      true,
+    )
+
+    expect(Array.from(result.vocals)).toEqual([1, 1])
+    expect(Array.from(result.instruments ?? [])).toEqual([0.875, 0.875])
+  })
+
+  it('returns no instruments field without the instruments flag', async () => {
+    const result = await runDemucs(
+      model,
+      stereo(2),
+      { download: vi.fn(), progress: vi.fn() },
+      ['wasm'],
+      (_device, onSegment) => workingProcessor(onSegment),
+    )
+
+    expect(result).not.toHaveProperty('instruments')
   })
 
   it('rejects with the kind memory when the last device fails with bad_alloc', async () => {

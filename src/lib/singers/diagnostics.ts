@@ -66,7 +66,7 @@ export type SingerDiagnostics = {
 
 /** The group of each embedding after each step of the clustering and the join of short singers. */
 export type GroupStages = {
-  /** At the selected merge round: the raw groups. */
+  /** The groups of the selected merge round: the raw groups. */
   merged: readonly number[]
   /** After the join of small groups. */
   joinedSmall: readonly number[]

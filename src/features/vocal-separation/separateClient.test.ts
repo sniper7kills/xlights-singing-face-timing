@@ -64,6 +64,18 @@ describe('separateVocals', () => {
     expect(worker.received[0]?.message.model).toBe('demucs')
   })
 
+  it('posts the instruments flag and resolves with the vocals and the instruments', async () => {
+    const worker = new FakeWorker()
+    const result = separateVocals(stereo(), { instruments: true }, () => worker)
+    const vocals = new Float32Array([0.5])
+    const instruments = new Float32Array([0.25])
+
+    worker.reply({ type: 'result', runId: worker.runId(), vocals, instruments })
+
+    expect(worker.received[0]?.message.instruments).toBe(true)
+    await expect(result).resolves.toEqual({ vocals, instruments })
+  })
+
   it('names a buffer one time when both channels share it', () => {
     const channel = new Float32Array(4)
     const { worker } = start({ left: channel, right: channel, sampleRate: 44100 })
@@ -80,7 +92,7 @@ describe('separateVocals', () => {
     worker.reply({ type: 'progress', runId, doneMs: 500, totalMs: 1000 })
     worker.reply({ type: 'result', runId, vocals })
 
-    await expect(result).resolves.toBe(vocals)
+    await expect(result).resolves.toEqual({ vocals })
     expect(onDownload).toHaveBeenCalledWith(10, 40)
     expect(onProgress).toHaveBeenCalledWith(500, 1000)
     expect(worker.terminated).toBe(true)
@@ -95,7 +107,7 @@ describe('separateVocals', () => {
     worker.reply({ type: 'result', runId, vocals: new Float32Array(2) })
 
     expect(onProgress).not.toHaveBeenCalled()
-    expect(await result).toHaveLength(2)
+    expect((await result).vocals).toHaveLength(2)
   })
 
   it.each(['download', 'memory', 'model', 'unknown'] as const)(

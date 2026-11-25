@@ -243,6 +243,32 @@ Confirmed on 2026-11-24 for wavesurfer.js 8.1.1, from the typed API in
   (https://html.spec.whatwg.org/multipage/media.html#reaches-the-end). wavesurfer.js
   emits `pause` on the media `pause` event and `finish` on the media `ended` event.
 
+Confirmed on 2026-11-24 for the track rows (issue #130), from MDN and the typed API
+and code of wavesurfer.js 8.1.1. The design is in
+`docs/adr/0010-track-rows-follow-the-song-audio.md`.
+
+- `HTMLMediaElement.preservesPitch` is `true` by default. It keeps the pitch at a
+  different `playbackRate`. Baseline since December 2023. Source:
+  https://developer.mozilla.org/en-US/docs/Web/API/HTMLMediaElement/preservesPitch
+  and https://developer.mozilla.org/en-US/docs/Web/API/HTMLMediaElement/playbackRate .
+- `AudioBufferSourceNode.playbackRate` resamples the audio, so the pitch changes
+  with the speed. The page names no setting that keeps the pitch. Source:
+  https://developer.mozilla.org/en-US/docs/Web/API/AudioBufferSourceNode/playbackRate .
+- `timeupdate` comes "between about 4Hz and 66Hz". Source:
+  https://developer.mozilla.org/en-US/docs/Web/API/HTMLMediaElement/timeupdate_event .
+- `seeking` comes when a seek starts. Source:
+  https://developer.mozilla.org/en-US/docs/Web/API/HTMLMediaElement/seeking_event .
+- `play()` rejects with `NotAllowedError` when the autoplay policy blocks it. A
+  muted element, and a page after an action of the person, may play. Source: the
+  Autoplay guide in the table above.
+- wavesurfer.js plays in a media element unless `backend` is `'WebAudio'`.
+  `getMediaElement(): HTMLMediaElement | null` returns it, and null for the Web
+  Audio backend. `setTime` sets `currentTime` of the element.
+  `setPlaybackRate(rate, preservePitch)` sets `preservesPitch`, then
+  `playbackRate`. `destroy()` removes its own element from the page.
+- The Content-Security-Policy in `infra/hosting.yml` has `media-src 'self' blob:`,
+  so a Blob URL of a WAV file plays.
+
 Confirmed on 2026-11-24 for the OpenAI transcription API, from the API reference
 and the speech-to-text guide above (issue #101):
 

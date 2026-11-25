@@ -130,7 +130,7 @@ beforeEach(async () => {
     separateHandlers?.onDownload?.(1, 2)
     separateHandlers?.onProgress?.(0, 1000)
     separateHandlers?.onProgress?.(1000, 1000)
-    return VOCALS_44K
+    return { vocals: VOCALS_44K }
   })
   vi.mocked(vocalsForSpeech).mockImplementation(async () => {
     steps.push('resample vocals')
@@ -280,7 +280,7 @@ describe('runTranscription with vocal separation', () => {
     const controller = new AbortController()
     vi.mocked(separateVocals).mockImplementation(async () => {
       controller.abort()
-      return VOCALS_44K
+      return { vocals: VOCALS_44K }
     })
     const run = handlers(controller)
 

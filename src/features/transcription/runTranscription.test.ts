@@ -127,7 +127,12 @@ describe('runTranscription with the speech model', () => {
 
     const outcome = await runTranscription(modelRequest, client, run)
 
-    expect(outcome).toEqual({ wordCount: 2, estimatedCount: 0, breakDownFailure: null })
+    expect(outcome).toEqual({
+      wordCount: 2,
+      estimatedCount: 0,
+      breakDownFailure: null,
+      runData: 'stored',
+    })
     expect(client.load).toHaveBeenCalledWith('whisper-base', run.onDownload)
     expect(run.onDownload).toHaveBeenCalledWith(500_000, 1_000_000)
     expect(run.onProgress).toHaveBeenCalledExactlyOnceWith(20_000, 30_000)
@@ -192,7 +197,12 @@ describe('runTranscription with the speech model', () => {
 
     expect(labels('phrase')).toEqual(['SILENT night, holy night'])
     expect(labels('word')).toEqual(['SILENT', 'night', 'holy', 'night'])
-    expect(outcome).toEqual({ wordCount: 4, estimatedCount: 2, breakDownFailure: null })
+    expect(outcome).toEqual({
+      wordCount: 4,
+      estimatedCount: 2,
+      breakDownFailure: null,
+      runData: 'stored',
+    })
     expect(run.confirmLowMatch).not.toHaveBeenCalled()
   })
 
@@ -482,7 +492,12 @@ describe('runTranscription with lyrics only', () => {
 
     const outcome = await runTranscription(lyricsOnly, client, handlers())
 
-    expect(outcome).toEqual({ wordCount: 7, estimatedCount: 7, breakDownFailure: null })
+    expect(outcome).toEqual({
+      wordCount: 7,
+      estimatedCount: 7,
+      breakDownFailure: null,
+      runData: 'stored',
+    })
     expect(labels('phrase')).toEqual(['Silent night, holy night', 'All is calm'])
     expect(labels('word')).toEqual(['Silent', 'night', 'holy', 'night', 'All', 'is', 'calm'])
     const phrases = marks().filter((mark) => mark.layer === 'phrase')

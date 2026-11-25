@@ -15,11 +15,20 @@ type SongLibraryPageProps = {
   databaseStatus: DatabaseStatus
 }
 
+/** The message for each database status that keeps the song library closed. */
+const DATABASE_MESSAGE: Partial<Record<DatabaseStatus, string>> = {
+  unavailable: 'This browser cannot store songs. Use a current Chrome, Edge or Firefox.',
+  newer:
+    'This browser holds data from a newer version of the app. Reload the page. If the message stays, close the other tabs of the app and reload.',
+  blocked: 'Close the other tabs of the app. Then reload this page.',
+}
+
 export function SongLibraryPage({ databaseStatus }: SongLibraryPageProps) {
-  if (databaseStatus === 'unavailable') {
+  const message = DATABASE_MESSAGE[databaseStatus]
+  if (message !== undefined) {
     return (
       <p className="message" role="alert">
-        This browser cannot store songs. Use a current Chrome, Edge or Firefox.
+        {message}
       </p>
     )
   }

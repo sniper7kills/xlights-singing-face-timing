@@ -100,4 +100,17 @@ describe('loadSettings of an earlier record', () => {
 
     expect(await loadSettings()).toEqual({ ...DEFAULT_SETTINGS, device: 'wasm', theme: 'light' })
   })
+
+  it('gives the default kept tracks and singer count to a record with neither field', async () => {
+    const earlier: Partial<typeof DEFAULT_SETTINGS> = { ...DEFAULT_SETTINGS, singerVoices: true }
+    delete earlier.keepTracks
+    delete earlier.singerCount
+    await putRecord('settings', earlier as typeof DEFAULT_SETTINGS)
+
+    expect(await loadSettings()).toMatchObject({
+      singerVoices: true,
+      keepTracks: true,
+      singerCount: 'automatic',
+    })
+  })
 })

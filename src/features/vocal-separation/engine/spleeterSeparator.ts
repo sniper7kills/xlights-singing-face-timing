@@ -2,7 +2,7 @@ import * as ort from 'onnxruntime-web/wasm'
 // The runtime fetches its WASM file from cdn.jsdelivr.net by default, and the CSP blocks that host.
 import ortWasmUrl from 'onnxruntime-web/ort-wasm-simd-threaded.wasm?url'
 import { wasmThreads } from '../../transcription/threads.ts'
-import type { StereoAudio } from '../protocol.ts'
+import type { SeparatedAudio, StereoAudio } from '../protocol.ts'
 import { SeparationFailure } from '../separationFailure.ts'
 import type { Separator, SeparatorEvents } from '../separator.ts'
 import { magnitudeInput, vocalsMask } from './layout.ts'
@@ -53,12 +53,42 @@ async function runModel(session: ort.InferenceSession, input: ort.Tensor): Promi
   return tensor.data
 }
 
-/** Returns the mono vocals of one segment: the mean of the two masked channels. */
+/** Returns the mask of the accompaniment: 1 minus the vocals mask, as Spleeter computes a² / (v² + a²). */
+function accompanimentMask(vocalsMask: Float32Array): Float32Array {
+  return vocalsMask.map((value) => 1 - value)
+}
+
+/**
+ * Adds one masked channel to the mono output, as the mean of the channels.
+ * @param channels The count of channels of the mean.
+ * Throws a `SeparationFailure` of kind 'model' at the first sample that is not finite.
+ */
+function addMasked(mono: Float32Array, masked: Float32Array, channels: number): void {
+  masked.forEach((value, index) => {
+    // NaN or Infinity vocals would reach the speech model, so the run stops at the first bad sample.
+    if (!Number.isFinite(value)) {
+      throw new SeparationFailure(
+        'model',
+        'The vocal separation model gave a sample that is not a number.',
+      )
+    }
+    mono[index] = (mono[index] ?? 0) + value / channels
+  })
+}
+
+/** The mono output of one segment. */
+type SegmentOutput = { vocals: Float32Array; instruments: Float32Array | null }
+
+/**
+ * Returns the mono vocals of one segment: the mean of the two masked channels.
+ * With `instruments`, also returns the mono accompaniment: the same channels with the accompaniment mask.
+ */
 async function separateSegment(
   sessions: Sessions,
   stft: Stft,
   channels: readonly Float32Array[],
-): Promise<Float32Array> {
+  instruments: boolean,
+): Promise<SegmentOutput> {
   const spectra = channels.map((channel) => stft.forward(channel))
   const shape = [2, 1, SPLEETER.frames, SPLEETER.modelBins]
   const input = new ort.Tensor('float32', magnitudeInput(spectra, SPLEETER.modelBins), shape)
@@ -69,25 +99,18 @@ async function separateSegment(
     throw new SeparationFailure('model', 'The vocal separation needs two models.')
   }
   const size = SPLEETER.frames * SPLEETER.modelBins
-  const mono = new Float32Array(stft.segmentLength)
+  const output: SegmentOutput = {
+    vocals: new Float32Array(stft.segmentLength),
+    instruments: instruments ? new Float32Array(stft.segmentLength) : null,
+  }
   spectra.forEach((spectrum, channel) => {
-    const masked = stft.inverse(
-      spectrum,
-      vocalsMask(vocals, accompaniment, channel, size),
-      SPLEETER.modelBins,
-    )
-    masked.forEach((value, index) => {
-      // NaN or Infinity vocals would reach the speech model, so the run stops at the first bad sample.
-      if (!Number.isFinite(value)) {
-        throw new SeparationFailure(
-          'model',
-          'The vocal separation model gave a sample that is not a number.',
-        )
-      }
-      mono[index] = (mono[index] ?? 0) + value / spectra.length
-    })
+    const mask = vocalsMask(vocals, accompaniment, channel, size)
+    addMasked(output.vocals, stft.inverse(spectrum, mask, SPLEETER.modelBins), spectra.length)
+    if (output.instruments === null) return
+    const rest = stft.inverse(spectrum, accompanimentMask(mask), SPLEETER.modelBins)
+    addMasked(output.instruments, rest, spectra.length)
   })
-  return mono
+  return output
 }
 
 /** Returns the samples of one channel in one segment, padded with zeros to the full segment length. */
@@ -106,38 +129,38 @@ async function separate(
   sessions: Sessions,
   audio: StereoAudio,
   on: SeparatorEvents,
-): Promise<Float32Array> {
+  instruments: boolean,
+): Promise<SeparatedAudio> {
   const stft = createStft(SPLEETER)
   const total = audio.left.length
   const toMs = (samples: number) => (samples / audio.sampleRate) * 1000
   const vocals = new Float32Array(total)
+  const rest = instruments ? new Float32Array(total) : null
   on.progress(0, toMs(total))
   for (const segment of planSegments(total, stft.segmentLength, SPLEETER.overlap)) {
     const channels = [audio.left, audio.right].map((channel) =>
       segmentSamples(channel, segment.start, segment.length, stft.segmentLength),
     )
-    addSegment(
-      vocals,
-      await separateSegment(sessions, stft, channels),
-      segment,
-      SPLEETER.overlap,
-      total,
-    )
+    const output = await separateSegment(sessions, stft, channels, instruments)
+    addSegment(vocals, output.vocals, segment, SPLEETER.overlap, total)
+    if (rest !== null && output.instruments !== null)
+      addSegment(rest, output.instruments, segment, SPLEETER.overlap, total)
     on.progress(toMs(segment.start + segment.length), toMs(total))
   }
-  return vocals
+  return rest === null ? { vocals } : { vocals, instruments: rest }
 }
 
 /**
  * Returns the Spleeter engine. It downloads the two model files at the first run and keeps them in the browser cache.
  * The engine reads the audio in segments of about 12 s, so the memory does not grow with the song length.
+ * The instruments are the accompaniment stem of Spleeter: the input with the accompaniment mask. They cost one more inverse STFT and no model run.
  */
 export function createSpleeterSeparator(): Separator {
   let sessions: Promise<Sessions> | null = null
   return {
-    async separate(audio, on) {
+    async separate(audio, on, instruments) {
       sessions ??= createSessions(on)
-      return separate(await sessions, audio, on)
+      return separate(await sessions, audio, on, instruments)
     },
   }
 }

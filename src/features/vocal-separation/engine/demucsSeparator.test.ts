@@ -34,7 +34,8 @@ vi.mock('demucs-web', () => ({
     }
     async separate(left: Float32Array, right: Float32Array) {
       this.options.onProgress({ progress: 1, currentSegment: 1, totalSegments: 1 })
-      return { vocals: { left, right } }
+      const silent = { left: new Float32Array(left.length), right: new Float32Array(right.length) }
+      return { vocals: { left, right }, drums: silent, bass: { left, right }, other: silent }
     }
   },
 }))
@@ -56,7 +57,7 @@ describe('createDemucsSeparator', () => {
     vi.mocked(hasWebGpu).mockResolvedValue(false)
     const download = vi.fn()
 
-    await createDemucsSeparator().separate(audio, { download, progress: vi.fn() })
+    await createDemucsSeparator().separate(audio, { download, progress: vi.fn() }, false)
 
     expect(loadModelFiles).toHaveBeenCalledWith(
       DEMUCS_MODEL_FILES,
@@ -68,10 +69,11 @@ describe('createDemucsSeparator', () => {
   it('runs on wasm only when the browser gives no WebGPU adapter', async () => {
     vi.mocked(hasWebGpu).mockResolvedValue(false)
 
-    const vocals = await createDemucsSeparator().separate(audio, {
-      download: vi.fn(),
-      progress: vi.fn(),
-    })
+    const { vocals } = await createDemucsSeparator().separate(
+      audio,
+      { download: vi.fn(), progress: vi.fn() },
+      false,
+    )
 
     expect(fake.made.map((options) => options.sessionOptions.executionProviders)).toEqual([
       ['wasm'],
@@ -82,7 +84,7 @@ describe('createDemucsSeparator', () => {
   it('runs on webgpu when the browser gives an adapter', async () => {
     vi.mocked(hasWebGpu).mockResolvedValue(true)
 
-    await createDemucsSeparator().separate(audio, { download: vi.fn(), progress: vi.fn() })
+    await createDemucsSeparator().separate(audio, { download: vi.fn(), progress: vi.fn() }, false)
 
     expect(fake.made.map((options) => options.sessionOptions.executionProviders)).toEqual([
       ['webgpu'],
@@ -93,10 +95,11 @@ describe('createDemucsSeparator', () => {
     vi.mocked(hasWebGpu).mockResolvedValue(true)
     fake.failingDevices.add('webgpu')
 
-    const vocals = await createDemucsSeparator().separate(audio, {
-      download: vi.fn(),
-      progress: vi.fn(),
-    })
+    const { vocals } = await createDemucsSeparator().separate(
+      audio,
+      { download: vi.fn(), progress: vi.fn() },
+      false,
+    )
 
     expect(fake.made.map((options) => options.sessionOptions.executionProviders)).toEqual([
       ['webgpu'],
@@ -105,12 +108,24 @@ describe('createDemucsSeparator', () => {
     expect(vocals).toHaveLength(2)
   })
 
+  it('returns the instruments when the request asks for them', async () => {
+    vi.mocked(hasWebGpu).mockResolvedValue(false)
+
+    const result = await createDemucsSeparator().separate(
+      audio,
+      { download: vi.fn(), progress: vi.fn() },
+      true,
+    )
+
+    expect(Array.from(result.instruments ?? [])).toEqual([0.5, 0.5])
+  })
+
   it('rejects with the kind model when the download gives no file', async () => {
     vi.mocked(hasWebGpu).mockResolvedValue(false)
     vi.mocked(loadModelFiles).mockResolvedValue([])
 
     await expect(
-      createDemucsSeparator().separate(audio, { download: vi.fn(), progress: vi.fn() }),
+      createDemucsSeparator().separate(audio, { download: vi.fn(), progress: vi.fn() }, false),
     ).rejects.toMatchObject({ kind: 'model' })
   })
 })

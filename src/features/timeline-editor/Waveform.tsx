@@ -9,6 +9,8 @@ import {
 } from 'react'
 import { formatTime } from '../../lib/time/formatTime.ts'
 import { getAudioFile, putRecord, StorageFullError } from '../../store/db.ts'
+import { SONG_ROW } from '../../lib/audio/trackMix.ts'
+import { useTrackMixStore } from '../../store/trackMixStore.ts'
 import { useViewStore } from '../../store/viewStore.ts'
 import {
   ACCEPTED_EXTENSIONS,
@@ -18,8 +20,10 @@ import {
 import { SectionBand } from '../voices-sections/SectionBand.tsx'
 import { pauseOnRefusal } from './playerStore.ts'
 import { PlayCursor } from './PlayCursor.tsx'
+import { RowControls } from './RowControls.tsx'
 import { TimeRuler } from './TimeRuler.tsx'
 import { TimeSelection } from './TimeSelection.tsx'
+import { TrackRows } from './TrackRows.tsx'
 import {
   followCursor,
   makeTimeScale,
@@ -61,8 +65,8 @@ function readColors(element: HTMLElement): WaveformColors {
 
 /**
  * Shows the waveform region of the editor: the stage and the transport.
- * The stage holds the section band, the time ruler, the waveform of the song, the children, the time selection
- * and the play cursor, on one time scale. The transport holds a play button and the play time.
+ * The stage holds the section band, the time ruler, the waveform of the song, the track rows, the children,
+ * the time selection and the play cursor, on one time scale. The transport holds a play button and the play time.
  * If the song has no audio file, it asks the person for the file again.
  */
 export function Waveform({ songId, durationMs, children }: WaveformProps) {
@@ -78,6 +82,7 @@ export function Waveform({ songId, durationMs, children }: WaveformProps) {
   // A new audio file for a song without one starts the load again.
   const [loadCount, setLoadCount] = useState(0)
   const playTimeMs = useViewStore((view) => view.playTimeMs)
+  const hasTracks = useTrackMixStore((state) => state.hasTracks)
   const { input, scale } = useStageScale(durationMs)
 
   useLayoutEffect(() => {
@@ -300,7 +305,9 @@ export function Waveform({ songId, durationMs, children }: WaveformProps) {
               Drawing waveform
             </div>
           )}
+          {hasTracks && <RowControls rowId={SONG_ROW} name="Song" />}
         </div>
+        <TrackRows songId={songId} durationMs={durationMs} />
         {children}
         <TimeSelection durationMs={durationMs} />
         <PlayCursor durationMs={durationMs} />

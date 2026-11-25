@@ -13,6 +13,7 @@ import { endpointHost, isMixedContent, type RemoteEndpoint } from '../../lib/rem
 import { formatTime } from '../../lib/time/formatTime.ts'
 import type { TimeRange } from '../../lib/time/timeRange.ts'
 import { DEFAULT_SETTINGS, loadSettings, updateSettings } from '../../store/settings.ts'
+import { useSongStore } from '../../store/songStore.ts'
 import type { AppSettings, DeviceSpeeds, TranscribeSource } from '../../store/types.ts'
 import { hasWebGpu, pickDevice, withFailureTimes, withSpeed } from './device.ts'
 import { parseLyrics, parseSectionTags } from './phrases.ts'
@@ -50,6 +51,7 @@ import {
   isCancel,
   isQuestion,
   isRunState,
+  keepTracksNote,
   lowMatchMessage,
   MIXED_CONTENT_MESSAGE,
   progressText,
@@ -109,6 +111,7 @@ export function TranscribeDialog({
   const [separate, setSeparate] = useState(DEFAULT_SETTINGS.separateVocals)
   const [separationModel, setSeparationModel] = useState(DEFAULT_SETTINGS.separationModel)
   const [singers, setSingers] = useState(DEFAULT_SETTINGS.singerVoices)
+  const [keepTracks, setKeepTracks] = useState(DEFAULT_SETTINGS.keepTracks)
   const [singerCount, setSingerCount] = useState(DEFAULT_SETTINGS.singerCount)
   const [range, setRange] = useState<TimeRange | undefined>(undefined)
   const remote = useRemoteChoice()
@@ -138,6 +141,7 @@ export function TranscribeDialog({
         if (isSeparationModelId(settings.separationModel))
           setSeparationModel(settings.separationModel)
         setSingers(settings.singerVoices)
+        setKeepTracks(settings.keepTracks)
         if (isSingerCountChoice(settings.singerCount)) setSingerCount(settings.singerCount)
         restore(settings)
       })
@@ -174,6 +178,12 @@ export function TranscribeDialog({
     void updateSettings({ separationModel: model }).catch(() => undefined)
   }
 
+  function selectKeepTracks(checked: boolean) {
+    setKeepTracks(checked)
+    // The choice applies to this run even when the browser storage is full.
+    void updateSettings({ keepTracks: checked }).catch(() => undefined)
+  }
+
   function selectSingers(checked: boolean) {
     setSingers(checked)
     // The choice applies to this run even when the browser storage is full.
@@ -197,6 +207,7 @@ export function TranscribeDialog({
       addSections: hasTags && tagSections,
       separateVocals: !lyricsOnly && separate,
       separationModel,
+      keepTracks: !lyricsOnly && separate && keepTracks,
       singerVoices: !lyricsOnly && separate && singers,
       singerCount: singerCountOf(singerCount),
     })
@@ -287,6 +298,13 @@ export function TranscribeDialog({
             model={separationModel}
             webgpu={run.webgpu}
             onModelChange={selectSeparationModel}
+          />
+          <KeepTracksChoice
+            shown={!lyricsOnly}
+            separate={separate}
+            checked={keepTracks}
+            range={range}
+            onChange={selectKeepTracks}
           />
           <SingerChoice
             shown={!lyricsOnly}
@@ -436,6 +454,41 @@ function SeparationModelChoice({ model, webgpu, onChange }: SeparationModelChoic
       {model === 'demucs' && webgpu === false && (
         <p className="dialog-confirm">{DEMUCS_WASM_WARNING}</p>
       )}
+    </>
+  )
+}
+
+type KeepTracksChoiceProps = {
+  /** False for a lyrics-only run, which reads no audio. */
+  shown: boolean
+  /** True when "Separate the vocals first" is on. The tracks come from the separation. */
+  separate: boolean
+  checked: boolean
+  /** The range of the run. Undefined is the full song. */
+  range: TimeRange | undefined
+  onChange: (checked: boolean) => void
+}
+
+/** Shows the check box "Keep the separated tracks" and the note with the bytes that the tracks use. */
+function KeepTracksChoice({ shown, separate, checked, range, onChange }: KeepTracksChoiceProps) {
+  const noteId = useId()
+  const songMs = useSongStore((state) => state.current?.song.durationMs ?? 0)
+  if (!shown || !separate) return null
+  const durationMs = range === undefined ? songMs : range.endMs - range.startMs
+  return (
+    <>
+      <label className="choice">
+        <input
+          type="checkbox"
+          checked={checked}
+          aria-describedby={noteId}
+          onChange={(event) => onChange(event.target.checked)}
+        />
+        Keep the separated tracks
+      </label>
+      <p id={noteId} className="dialog-note">
+        {keepTracksNote(durationMs)}
+      </p>
     </>
   )
 }

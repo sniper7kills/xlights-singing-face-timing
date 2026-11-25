@@ -13,6 +13,7 @@ import {
   makeVoice,
 } from './exportFixtures.test-helpers.ts'
 import type { ZipDownload } from './songZip.ts'
+import { makeReport, makeTrack } from '../../lib/runReport/report.test-helpers.ts'
 
 const lead = makeVoice('v1', 'Lead Vocals', 0)
 const santa = makeVoice('v2', 'Santa', 1)
@@ -94,6 +95,39 @@ describe('ExportDialog with the zip file', () => {
     ).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Download zip' })).toBeEnabled()
     expect(screen.getByText('1 timing track · 1 file')).toBeInTheDocument()
+  })
+
+  it('adds the kept tracks and the run report to the list, the size and the zip file', async () => {
+    const user = userEvent.setup()
+    vi.spyOn(db, 'getAudioFile').mockResolvedValue(audioFile())
+    // 1 MB for each track, so the size shows the bytes of the tracks.
+    const tracks = { vocals: makeTrack(524_288), instruments: makeTrack(524_288) }
+    vi.spyOn(db, 'loadRunData').mockResolvedValue({
+      songId: 'song-1',
+      tracks,
+      singerSegments: [],
+      report: makeReport(),
+    })
+    const { onDownloadZip } = renderDialog(oneVoice)
+
+    await user.click(zipChoice())
+    await screen.findByText(
+      /^The zip file holds 8 files: timing\/Carol\.xtiming, audio\/carol\.ogg, song\.json, lyrics\.txt, tracks\/vocals\.wav, tracks\/instruments\.wav, report\.txt, README\.txt\. Size: 2\.0 MB\.$/,
+    )
+    await user.click(await screen.findByRole('button', { name: 'Download zip' }))
+
+    await vi.waitFor(() => expect(onDownloadZip).toHaveBeenCalledOnce(), WAIT)
+    const blob = onDownloadZip.mock.calls[0]?.[0].blob ?? new Blob()
+    expect(await entryNames(blob)).toEqual([
+      'timing/Carol.xtiming',
+      'audio/carol.ogg',
+      'song.json',
+      'lyrics.txt',
+      'tracks/vocals.wav',
+      'tracks/instruments.wav',
+      'report.txt',
+      'README.txt',
+    ])
   })
 
   it('gives <song name>.zip with the entries to the download and stores the choice', async () => {
