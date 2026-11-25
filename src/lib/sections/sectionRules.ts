@@ -1,4 +1,5 @@
 import type { Mark, Section } from '../../store/types.ts'
+import { formatTime } from '../time/formatTime.ts'
 import { snap } from '../time/snap.ts'
 import type { TimeRange } from '../time/timeRange.ts'
 
@@ -210,4 +211,29 @@ export function phrasesOfSection(section: TimeRange, marks: readonly Mark[]): Ma
   return marks
     .filter((mark) => mark.layer === 'phrase' && phraseInSection(section, mark))
     .toSorted((a, b) => a.startMs - b.startMs)
+}
+
+/**
+ * Returns the status text for a new section that the app made shorter than the time selection, or null.
+ * The text names the section that the new section starts after or ends before.
+ * A range that only snaps to the frame size or stops at the song end gets no text.
+ * @param sections The sections of the song before the add.
+ * @param requested The time selection.
+ * @param added The range of the new section, from `fitSection`.
+ * @param frameMs The frame size of the song.
+ */
+export function sectionTrimNote(
+  sections: readonly Section[],
+  requested: TimeRange,
+  added: TimeRange,
+  frameMs: number,
+): string | null {
+  const notes: string[] = []
+  const before = sections.find((section) => section.endMs === added.startMs)
+  if (before && added.startMs > snap(requested.startMs, frameMs))
+    notes.push(`The section starts at ${formatTime(added.startMs)}, after "${before.name}".`)
+  const after = sections.find((section) => section.startMs === added.endMs)
+  if (after && added.endMs < snap(requested.endMs, frameMs))
+    notes.push(`The section ends at ${formatTime(added.endMs)}, before "${after.name}".`)
+  return notes.length === 0 ? null : notes.join(' ')
 }

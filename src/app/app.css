@@ -354,10 +354,10 @@ button {
 
 .voice-select {
   display: grid;
-  grid-template-columns: 12px minmax(0, 1fr);
-  gap: 6px;
+  grid-template-columns: auto 12px minmax(0, 1fr);
+  gap: 4px;
   align-items: center;
-  padding: 7px 6px;
+  padding: 7px 3px;
   border: 1px solid transparent;
   border-radius: 8px;
   background: none;
@@ -365,7 +365,18 @@ button {
   text-align: left;
 }
 
-/* The selected row has a border, a background and a bold name, so the rail does not show it by colour alone. */
+/* The shown voice has a bar at its left edge, a border, a background and a bold name, so the rail does not show it by colour alone. */
+.voice-row[aria-current='true']::before {
+  position: absolute;
+  top: 4px;
+  bottom: 4px;
+  left: -8px;
+  width: 4px;
+  border-radius: 2px;
+  background: var(--amber);
+  content: '';
+}
+
 .voice-select[aria-pressed='true'] {
   border-color: var(--line);
   background: var(--panel2);
@@ -375,15 +386,31 @@ button {
   font-weight: 700;
 }
 
+/* The muted text on --panel2 is under 4.5:1 in the light theme, so the shown row uses the ink colour. */
+.voice-select[aria-pressed='true'] .voice-number,
+.voice-select[aria-pressed='true'] .voice-count {
+  color: var(--ink);
+}
+
 .voice-select:hover {
   border-color: var(--line);
 }
 
+/* The number tells apart two voice names that the rail cuts at the same place. */
+.voice-number {
+  min-width: 2ch;
+  color: var(--mute);
+  font: 10px var(--mono);
+  text-align: right;
+}
+
+/* The border has a contrast of 3:1 or more on the panel in both themes, also for a light voice colour. */
 .voice-chip {
   display: inline-block;
+  flex: none;
   width: 12px;
   height: 12px;
-  border: 1px solid var(--line);
+  border: 1px solid var(--mute);
   border-radius: 50%;
 }
 
@@ -450,18 +477,26 @@ button {
   border-color: var(--line);
 }
 
-/* A muted voice has a dimmed glyph as well as the crossed glyph, so the state does not rely on colour alone. */
+/* A muted voice has the crossed glyph, a border and a background, so the state does not rely on colour alone. */
 .voice-mute-button[aria-pressed='true'] {
+  border-color: var(--mute);
+  background: var(--panel2);
   color: var(--mute);
 }
 
+/* A menu of the editor is in a portal with a fixed position. `FloatingMenu` sets its top and left. */
+.floating-menu {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 20;
+}
+
 .voice-menu {
-  position: absolute;
-  top: 100%;
-  right: 0;
-  z-index: 5;
   display: grid;
   min-width: 150px;
+  max-height: calc(100vh - 8px);
+  overflow-y: auto;
   padding: 4px;
   border: 1px solid var(--line);
   border-radius: 8px;
@@ -752,12 +787,7 @@ button {
   position: relative;
 }
 
-/* The toolbar is at the bottom of the editor, so the menu opens above the button. */
 .action-menu {
-  position: absolute;
-  bottom: 100%;
-  left: 0;
-  z-index: 5;
   display: grid;
   min-width: 170px;
   max-height: 320px;
@@ -1108,12 +1138,6 @@ button {
   color: var(--ink);
 }
 
-/* The band is at the top of the stage, and the stage clips its content, so a section menu opens below the block. */
-.section-band .action-menu {
-  top: 100%;
-  bottom: auto;
-}
-
 .section-edge {
   position: absolute;
   top: 0;
@@ -1410,6 +1434,28 @@ button {
 .mark-phoneme[data-label='WQ'],
 .phoneme-option[data-label='WQ'] {
   background: var(--p-WQ);
+}
+
+/* The heading names the shown voice on the line of the phrase layer name, so the layers keep their height. */
+.layers-voice {
+  position: absolute;
+  top: 0;
+  right: 6px;
+  z-index: 1;
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  max-width: 70%;
+  height: 17px;
+  margin: 0;
+  color: var(--ink);
+  font: 600 11px var(--body);
+}
+
+.layers-voice-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .layers-empty {

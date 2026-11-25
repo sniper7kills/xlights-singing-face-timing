@@ -1,9 +1,11 @@
 import { useMemo } from 'react'
 import { blockText } from '../../lib/marks/editBlocks.ts'
 import { findMark } from '../../lib/marks/family.ts'
+import { otherVoiceHasPhrases } from '../../lib/voices/voiceRules.ts'
 import { useSongStore } from '../../store/songStore.ts'
 import type { Layer, Mark, SongContent } from '../../store/types.ts'
 import { selectedVoice, useViewStore } from '../../store/viewStore.ts'
+import { VoiceHeading } from '../voices-sections/VoiceHeading.tsx'
 import { LayerRow } from './LayerRow.tsx'
 import { editLabel, selectAndReveal, stepSelection } from './markCommands.ts'
 import { PhraseLabelDialog } from './PhraseLabelDialog.tsx'
@@ -86,6 +88,13 @@ const MARK_KEYS = {
   Escape: clearSelection,
 }
 
+/** The empty state of a voice when no voice of the song has phrases. */
+const EMPTY_TEXT = 'No marks yet. Select Transcribe to find the words.'
+
+/** The empty state of a voice when a different voice of the song has phrases. */
+const EMPTY_VOICE_TEXT =
+  'This voice has no marks. Select phrases of a different voice, then select "Phrase" and "Move to voice". Or select "Transcribe".'
+
 const ROWS: { layer: Layer; name: string }[] = [
   { layer: 'phrase', name: 'Phrases' },
   { layer: 'word', name: 'Words' },
@@ -95,14 +104,16 @@ const ROWS: { layer: Layer; name: string }[] = [
 /**
  * Shows the phrase layer, the word layer and the phoneme layer of the selected voice.
  * The layers use the time scale of the stage.
- * A voice with no marks shows the empty state.
+ * A heading above the layers names the shown voice.
+ * A voice with no marks shows the empty state. When a different voice has phrases, the text names "Move to voice".
  */
 export function Layers({ onTranscribe, content }: LayersProps) {
   const selectedVoiceId = useViewStore((view) => view.selectedVoiceId)
   const { input, scale } = useStageScale(content.song.durationMs)
   useEditorKeys(MARK_KEYS)
 
-  const voiceId = selectedVoice(content.voices, selectedVoiceId)?.id
+  const voice = selectedVoice(content.voices, selectedVoiceId)
+  const voiceId = voice?.id
   const marksByLayer = useMemo(() => {
     const groups: Record<Layer, Mark[]> = { phrase: [], word: [], phoneme: [] }
     for (const mark of content.marks) if (mark.voiceId === voiceId) groups[mark.layer].push(mark)
@@ -117,9 +128,14 @@ export function Layers({ onTranscribe, content }: LayersProps) {
 
   return (
     <section className="layers" aria-label="Layers">
+      {voice !== undefined && <VoiceHeading voice={voice} />}
       {empty || voiceId === undefined ? (
         <div className="layers-empty">
-          <p>No marks yet. Select Transcribe to find the words.</p>
+          <p>
+            {voiceId !== undefined && otherVoiceHasPhrases(content.marks, voiceId)
+              ? EMPTY_VOICE_TEXT
+              : EMPTY_TEXT}
+          </p>
           {onTranscribe !== undefined && (
             <button type="button" className="button primary" onClick={onTranscribe}>
               Transcribe

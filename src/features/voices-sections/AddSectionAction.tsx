@@ -1,45 +1,66 @@
 import { type KeyboardEvent, useRef, useState } from 'react'
 import { blockText } from '../../lib/marks/editBlocks.ts'
-import { MAX_SECTION_NAME, nextSectionName } from '../../lib/sections/sectionRules.ts'
+import {
+  MAX_SECTION_NAME,
+  nextSectionName,
+  sectionTrimNote,
+} from '../../lib/sections/sectionRules.ts'
+import type { TimeRange } from '../../lib/time/timeRange.ts'
 import { addSection } from '../../store/actions/sections.ts'
 import { useSongStore } from '../../store/songStore.ts'
 import { useViewStore } from '../../store/viewStore.ts'
+import { reportStatus } from '../timeline-editor/statusStore.ts'
 import { ReasonButton } from '../timeline-editor/ReasonButton.tsx'
 
 const NO_ROOM_MESSAGE = 'No room for a section here. Select a free range of 1 second or more.'
 
 /**
+ * Adds a section for `range` as one undo step, and returns the note under the button.
+ * When the app makes the section shorter than the range, the status line names the section in the way.
+ */
+function add(name: string, range: TimeRange): string | null {
+  const content = useSongStore.getState().current
+  if (!content) return null
+  const added = addSection(content.song.id, name, range.startMs, range.endMs)
+  if (added === null) return NO_ROOM_MESSAGE
+  const note = sectionTrimNote(content.sections, range, added, content.song.frameMs)
+  if (note !== null) reportStatus(note)
+  return null
+}
+
+/**
  * Shows the "Add section" button of the editor toolbar. With no time selection it does not act, and its tooltip states the cause.
- * A click opens the field "Section name" with the default "Section N". `Enter` adds the section from the time
- * selection as one undo step, and `Escape` or a lost focus closes the field.
+ * A click opens the field "Section name" with the default "Section N", for the time selection at the click.
+ * `Enter` or a lost focus adds the section as one undo step. `Escape` closes the field and adds nothing.
+ * A lost focus with a name of only spaces adds nothing.
  * With no free range of 1 second or more, the action shows a message and adds nothing.
  */
 export function AddSectionAction() {
   const selection = useViewStore((view) => view.selection)
-  const [naming, setNaming] = useState(false)
+  // The range of the open field. A click on the stage can change the time selection before the field closes.
+  const [range, setRange] = useState<TimeRange | null>(null)
   const [message, setMessage] = useState<string | null>(null)
   const button = useRef<HTMLButtonElement>(null)
+  // A save or a cancel removes the field, and the removal can blur it, so the field reports one result only.
+  const finished = useRef(false)
 
-  function close(refocus: boolean) {
-    setNaming(false)
+  /** Closes the field. With a name, it adds the section. */
+  function finish(name: string | null, refocus: boolean) {
+    if (finished.current || range === null) return
+    finished.current = true
+    setRange(null)
     if (refocus) button.current?.focus()
+    if (name !== null && name.trim() !== '') setMessage(add(name, range))
   }
 
   function onKeyDown(event: KeyboardEvent<HTMLInputElement>) {
     if (event.key === 'Escape') {
       event.preventDefault()
-      close(true)
-      return
+      finish(null, true)
+    } else if (event.key === 'Enter' && event.currentTarget.value.trim() !== '') {
+      event.preventDefault()
+      finish(event.currentTarget.value, true)
     }
-    const name = event.currentTarget.value
-    const content = useSongStore.getState().current
-    if (event.key !== 'Enter' || name.trim() === '') return
-    event.preventDefault()
-    close(true)
-    // A click on the stage can clear the time selection while the field is open. Then the field adds nothing.
-    if (!content || !selection) return
-    const added = addSection(content.song.id, name, selection.startMs, selection.endMs)
-    setMessage(added === null ? NO_ROOM_MESSAGE : null)
   }
 
   return (
@@ -49,13 +70,15 @@ export function AddSectionAction() {
         reason={selection === null ? blockText('select-range') : null}
         hint="Add a section for the time selection"
         onAct={() => {
+          if (selection === null) return
+          finished.current = false
           setMessage(null)
-          setNaming(true)
+          setRange(selection)
         }}
       >
         Add section
       </ReasonButton>
-      {naming && (
+      {range !== null && (
         <input
           className="label-editor"
           aria-label="Section name"
@@ -65,7 +88,7 @@ export function AddSectionAction() {
           autoFocus
           onFocus={(event) => event.currentTarget.select()}
           onKeyDown={onKeyDown}
-          onBlur={() => close(false)}
+          onBlur={(event) => finish(event.currentTarget.value, false)}
         />
       )}
       {message !== null && (

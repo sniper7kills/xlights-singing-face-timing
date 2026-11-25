@@ -3,7 +3,10 @@ import type { Mark, Voice } from '../../store/types.ts'
 /** The first preset colour: the colour of "Lead Vocals" in the editor mockup. A new song gives it to its one voice. */
 export const FIRST_VOICE_COLOR = '#ffb238'
 
-/** The 8 preset colours of a voice, in the order that new voices get them. */
+/**
+ * The 12 preset colours of a voice, in the order that new voices get them. A song has 12 voices at most,
+ * so each voice can have its own colour. The measured contrast of each colour is in `05-voices-sections.md`.
+ */
 export const VOICE_COLORS: readonly string[] = [
   FIRST_VOICE_COLOR,
   '#4cc9f0',
@@ -13,6 +16,10 @@ export const VOICE_COLORS: readonly string[] = [
   '#f87171',
   '#2dd4bf',
   '#c0ca33',
+  '#5b8cff',
+  '#e05ad8',
+  '#c3c9d6',
+  '#b5835a',
 ]
 
 /** The name of each preset colour. The colour menu shows it, so a colour is not shown by its hue alone. */
@@ -25,6 +32,10 @@ export const VOICE_COLOR_NAMES: Readonly<Record<string, string>> = {
   '#f87171': 'Red',
   '#2dd4bf': 'Teal',
   '#c0ca33': 'Lime',
+  '#5b8cff': 'Blue',
+  '#e05ad8': 'Magenta',
+  '#c3c9d6': 'Silver',
+  '#b5835a': 'Brown',
 }
 
 /** The most voices that a song has. */
@@ -62,7 +73,7 @@ export function nextVoiceName(voices: readonly Voice[], base = 'Voice'): string 
 
 /**
  * Returns the colour of a new voice: the first preset colour that no voice of the song has.
- * When each preset colour is in use, returns the colour at the index of the voice count, modulo 8.
+ * When each preset colour is in use, returns the colour at the index of the voice count, modulo 12.
  * @param voices The voices of the song.
  */
 export function nextVoiceColor(voices: readonly Voice[]): string {
@@ -72,6 +83,17 @@ export function nextVoiceColor(voices: readonly Voice[]): string {
     VOICE_COLORS[voices.length % VOICE_COLORS.length] ??
     FIRST_VOICE_COLOR
   )
+}
+
+/**
+/**
+ * Returns true when a voice other than `voiceId` has a phrase.
+ * The empty state of the layers then names "Move to voice".
+ * @param marks The marks of the song.
+ * @param voiceId The id of the shown voice.
+ */
+export function otherVoiceHasPhrases(marks: readonly Mark[], voiceId: string): boolean {
+  return marks.some((mark) => mark.layer === 'phrase' && mark.voiceId !== voiceId)
 }
 
 /**

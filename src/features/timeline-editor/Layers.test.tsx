@@ -202,4 +202,34 @@ describe('Layers', () => {
 
     expect(screen.getByRole('button', { name: 'Transcribe' })).toBeInTheDocument()
   })
+
+  it('names "Move to voice" in the empty state when a different voice has phrases', () => {
+    const content = songWith(MARKS)
+    const [voice] = content.voices
+    if (!voice) throw new Error('The fixture has no voice.')
+    content.voices.push({ ...voice, id: 'voice-3', name: 'Santa', order: 1 })
+    useViewStore.getState().selectVoice('voice-3')
+
+    render(<Layers content={content} onTranscribe={() => undefined} />)
+
+    expect(
+      screen.getByText(
+        'This voice has no marks. Select phrases of a different voice, then select "Phrase" and "Move to voice". Or select "Transcribe".',
+      ),
+    ).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Transcribe' })).toBeInTheDocument()
+  })
+
+  it('shows the name of the shown voice in a heading above the layers, and follows a new selection', () => {
+    const content = songWith(MARKS)
+    const [voice] = content.voices
+    if (!voice) throw new Error('The fixture has no voice.')
+    content.voices.push({ ...voice, id: 'voice-2', name: 'Santa', order: 1 })
+
+    render(<Layers content={content} onTranscribe={() => undefined} />)
+    expect(screen.getByRole('heading', { name: `Voice: ${voice.name}` })).toBeInTheDocument()
+
+    act(() => useViewStore.getState().selectVoice('voice-2'))
+    expect(screen.getByRole('heading', { name: 'Voice: Santa' })).toBeInTheDocument()
+  })
 })

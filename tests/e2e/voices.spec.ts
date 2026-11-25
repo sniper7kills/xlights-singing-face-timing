@@ -21,7 +21,8 @@ async function menuItem(page: Page, voice: string, item: string) {
   await rail(page)
     .getByRole('button', { name: `Actions for ${voice}`, exact: true })
     .click()
-  await rail(page)
+  // The menu is in a portal at the end of the page, outside the rail.
+  await page
     .getByRole('menu', { name: `Actions for ${voice}` })
     .getByRole('menuitem', { name: item, exact: true })
     .click()
@@ -46,7 +47,12 @@ test('adds "Voice 2" to the demo song and shows each voice on the layers after a
   const layers = page.getByRole('region', { name: 'Layers' })
   await voiceButton(page, 'Voice 2').click()
   await expect(voiceButton(page, 'Voice 2')).toHaveAttribute('aria-pressed', 'true')
-  await expect(layers.getByText('No marks yet. Select Transcribe to find the words.')).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Voice: Voice 2' })).toBeVisible()
+  await expect(
+    layers.getByText(
+      'This voice has no marks. Select phrases of a different voice, then select "Phrase" and "Move to voice". Or select "Transcribe".',
+    ),
+  ).toBeVisible()
 
   await voiceButton(page, 'Lead Vocals').click()
   await expect(page.getByRole('list', { name: 'Phrases' }).getByRole('listitem')).toHaveCount(3)
@@ -71,7 +77,7 @@ test('shows a changed colour on the chip of the row', async ({ page }) => {
   await openDemoSong(page)
 
   await menuItem(page, 'Lead Vocals', 'Colour')
-  await rail(page).getByRole('menuitemradio', { name: 'Sky' }).click()
+  await page.getByRole('menuitemradio', { name: 'Sky' }).click()
 
   await expect(voiceButton(page, 'Lead Vocals').locator('.voice-chip')).toHaveCSS(
     'background-color',
@@ -108,4 +114,35 @@ test('deletes a voice after the confirm dialog, and Ctrl+Z restores it with its 
   await expect(voiceButton(page, 'Lead Vocals')).toBeVisible()
   await expect(page.getByRole('list', { name: 'Phrases' }).getByRole('listitem')).toHaveCount(3)
   await expect(page.getByRole('list', { name: 'Words' }).getByRole('listitem')).toHaveCount(16)
+})
+
+test('numbers the rows of 12 voices, names the shown voice above the layers and marks its row', async ({
+  page,
+}) => {
+  await openDemoSong(page)
+  const hint = rail(page).getByText(
+    'Use one voice for each group of face models that sing together.',
+  )
+  await expect(hint).toHaveCount(0)
+  await expect(page.getByRole('heading', { name: 'Voice: Lead Vocals' })).toBeVisible()
+
+  const add = rail(page).getByRole('button', { name: 'Add voice' })
+  for (let n = 2; n <= 12; n += 1) {
+    await add.click()
+    await expect(rail(page).getByRole('listitem')).toHaveCount(n)
+  }
+  await expect(hint).toBeVisible()
+  await expect(rail(page).locator('.voice-number')).toHaveText(
+    Array.from({ length: 12 }, (_, index) => String(index + 1)),
+  )
+  await expect(voiceButton(page, 'Voice 10')).toHaveAttribute('title', 'Voice 10')
+  const colours = await rail(page)
+    .locator('.voice-select .voice-chip')
+    .evaluateAll((chips) => chips.map((chip) => chip.getAttribute('style')))
+  expect(new Set(colours).size).toBe(12)
+
+  await voiceButton(page, 'Voice 10').click()
+  await expect(page.getByRole('heading', { name: 'Voice: Voice 10' })).toBeVisible()
+  await expect(rail(page).getByRole('listitem').nth(9)).toHaveAttribute('aria-current', 'true')
+  await expect(rail(page).locator('[aria-current="true"]')).toHaveCount(1)
 })

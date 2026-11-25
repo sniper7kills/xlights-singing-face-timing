@@ -8,6 +8,7 @@ import {
   nextVoiceColor,
   nextVoiceName,
   numbered,
+  otherVoiceHasPhrases,
   phraseCounts,
   reorderedVoices,
   VOICE_COLOR_NAMES,
@@ -22,8 +23,8 @@ function voice(id: string, name: string, order: number, color = '#ffb238'): Voic
 const LEAD = voice('a', 'Lead Vocals', 0)
 
 describe('VOICE_COLORS', () => {
-  it('has 8 colours with a name each, and Amber first', () => {
-    expect(VOICE_COLORS).toHaveLength(8)
+  it('has 12 different colours with a name each, and Amber first', () => {
+    expect(new Set(VOICE_COLORS).size).toBe(12)
     expect(VOICE_COLORS[0]).toBe('#ffb238')
     expect(VOICE_COLORS.map((color) => VOICE_COLOR_NAMES[color])).toEqual([
       'Amber',
@@ -34,6 +35,10 @@ describe('VOICE_COLORS', () => {
       'Red',
       'Teal',
       'Lime',
+      'Blue',
+      'Magenta',
+      'Silver',
+      'Brown',
     ])
   })
 })
@@ -59,10 +64,42 @@ describe('nextVoiceColor', () => {
     expect(nextVoiceColor([LEAD, voice('b', 'B', 1, '#7ae582')])).toBe('#4cc9f0')
   })
 
-  it('gives the colour at the voice count modulo 8 when each colour is in use', () => {
+  it('gives 12 different colours to 12 voices that each take the next colour', () => {
+    const voices: Voice[] = []
+    for (let index = 0; index < 12; index += 1)
+      voices.push(voice(`v${index}`, `V${index}`, index, nextVoiceColor(voices)))
+    expect(new Set(voices.map((item) => item.color)).size).toBe(12)
+  })
+
+  it('gives the colour at the voice count modulo 12 when each colour is in use', () => {
     const voices = VOICE_COLORS.map((color, index) => voice(`v${index}`, `V${index}`, index, color))
     expect(nextVoiceColor(voices)).toBe(VOICE_COLORS[0])
-    expect(nextVoiceColor([...voices, voice('x', 'X', 8, '#ffb238')])).toBe(VOICE_COLORS[1])
+    expect(nextVoiceColor([...voices, voice('x', 'X', 12, '#ffb238')])).toBe(VOICE_COLORS[1])
+  })
+
+  it('skips a stored colour that is not a preset colour', () => {
+    expect(nextVoiceColor([voice('a', 'A', 0, '#123456')])).toBe(VOICE_COLORS[0])
+  })
+})
+
+describe('otherVoiceHasPhrases', () => {
+  const mark = (voiceId: string, layer: Mark['layer']): Mark => ({
+    id: `${voiceId}-${layer}`,
+    voiceId,
+    layer,
+    label: 'x',
+    startMs: 0,
+    endMs: 100,
+    parentId: null,
+    edited: false,
+  })
+
+  it('is true when another voice has a phrase', () => {
+    expect(otherVoiceHasPhrases([mark('b', 'phrase')], 'a')).toBe(true)
+  })
+
+  it('is false when only the shown voice has phrases, or another voice has only words', () => {
+    expect(otherVoiceHasPhrases([mark('a', 'phrase'), mark('b', 'word')], 'a')).toBe(false)
   })
 })
 

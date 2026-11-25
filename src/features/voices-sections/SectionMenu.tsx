@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useRef, useState } from 'react'
 import { phrasesOfSection } from '../../lib/sections/sectionRules.ts'
 import { deleteSection, phrasesInSection } from '../../store/actions/sections.ts'
 import { useSongStore } from '../../store/songStore.ts'
@@ -38,16 +38,6 @@ export function SectionMenu({ section, onRename }: SectionMenuProps) {
       section,
       (marks ?? []).filter((mark) => mark.voiceId === voiceId),
     ).length > 0
-
-  useEffect(() => {
-    if (open === null) return
-    // A press outside the menu closes it. The menu button toggles the menu itself.
-    function onPointerDown(event: PointerEvent) {
-      if (event.target instanceof Node && !wrapper.current?.contains(event.target)) setOpen(null)
-    }
-    document.addEventListener('pointerdown', onPointerDown)
-    return () => document.removeEventListener('pointerdown', onPointerDown)
-  }, [open])
 
   function close(refocus: boolean) {
     setOpen(null)
@@ -92,6 +82,7 @@ export function SectionMenu({ section, onRename }: SectionMenuProps) {
               },
             },
           ]}
+          anchor={button}
           onClose={close}
         />
       )}
@@ -99,6 +90,7 @@ export function SectionMenu({ section, onRename }: SectionMenuProps) {
         <VoiceTargetList
           label={MOVE_LABEL}
           excludeVoiceId={voiceId}
+          anchor={button}
           onChoose={(target) => {
             close(true)
             const ids = phrasesInSection(voiceId, section.id).map((phrase) => phrase.id)

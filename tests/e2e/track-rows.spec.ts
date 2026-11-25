@@ -264,7 +264,8 @@ async function stableImages(page: Page): Promise<Record<string, string>> {
 async function voiceMenu(page: Page, voice: string, item: string) {
   const rail = page.getByRole('complementary', { name: 'Voices' })
   await rail.getByRole('button', { name: `Actions for ${voice}`, exact: true }).click()
-  await rail
+  // The menu is in a portal at the end of the page, outside the rail.
+  await page
     .getByRole('menu', { name: `Actions for ${voice}` })
     .getByRole('menuitem', { name: item, exact: true })
     .click()
