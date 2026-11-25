@@ -97,6 +97,21 @@ face that sings during play, so the person sees the result before xLights does.
 - FR-editor-52 — The heading of the group "Audio tracks" names the rows that sound.
 - FR-editor-53 — The editor tells the person when it cannot read the run data of
   the song.
+- FR-editor-54 — A phrase label change gives each new word 3 frame sizes or more
+  when the phrase has room.
+- FR-editor-55 — A mark that a double-click adds is 10 frame sizes long, or the
+  length of the empty range when it is shorter.
+- FR-editor-56 — A mark never draws over the next mark of its layer.
+- FR-editor-57 — A selected mark of any width has two edge handles that the person
+  can drag.
+- FR-editor-58 — A phrase or a word shorter than 3 frame sizes has the "short"
+  style.
+- FR-editor-59 — A zoom with the slider or a key keeps the selected mark, the play
+  cursor or the centre of the stage in place.
+- FR-editor-60 — "Zoom to selection" shows the selected marks or the time
+  selection.
+- FR-editor-61 — "Fit song" shows the full song.
+- FR-editor-62 — The person folds the voice rail and the inspector.
 
 ## User flows
 
@@ -145,7 +160,11 @@ flowchart TD
 2. The person types the new text and presses `Enter`.
 3. If the words changed, the app asks for confirmation.
 4. The app aligns the new words with the old words of the phrase.
-5. The app breaks down each new or changed word.
+5. The app gives each new word a time. See "Words of a changed phrase" in
+   [Behaviour rules](#behaviour-rules).
+6. The app breaks down each new or changed word, and each unedited word that changed
+   length.
+7. The app records one undo step.
 
 ## Screens & states
 
@@ -158,18 +177,19 @@ Regions:
   "Shortcuts" has the tooltip "Show the keyboard shortcuts (?)" and opens the
   shortcut list.
 - **Voice rail** (left). The voices of the song. Defined in
-  [05-voices-sections.md](05-voices-sections.md).
+  [05-voices-sections.md](05-voices-sections.md). A fold button "Voices" on its
+  right edge folds it.
 - **Stage** (centre). From top to bottom: the section band, the time ruler, the
   waveform, the group "Audio tracks" with the track rows, the phrase layer, the
   word layer, the phoneme layer. A song with no kept audio tracks has no group.
 - **Transport** (below the stage). Play, loop, speed, play time, zoom slider,
-  frame size selector, the group "Mark", undo, redo, unknown-word counter.
+  "Zoom to selection", "Fit song", frame size selector, the group "Mark", undo, redo, unknown-word counter.
 - **Help line** (under the stage). One line of help for the selection. See
   [Behaviour rules](#behaviour-rules).
 - **Status line** (under the help line). A polite live region with the reason
   that the last action did nothing.
 - **Inspector** (right). The face preview at the top. Under it, the fields of the
-  selected mark.
+  selected mark. A fold button "Inspector" on its left edge folds it.
 
 States:
 
@@ -189,6 +209,20 @@ tooltip of a mark shows the full label on the first line and "<start> to <end>"
 on the second line, for example "0:01.200 to 0:01.650". An "unknown" word has a dotted border. An
 "estimated" word has a dashed inner frame, and a screen reader gets the text
 "(estimated time)".
+
+The drawn width of a mark (FR-editor-56 to 58):
+
+- A mark draws from its start to its end on the time scale, and no wider. So it
+  never covers the next mark of its layer, at any zoom.
+- A mark narrower than 16 px shows no label and no border. The tooltip and a screen
+  reader give the label.
+- A selected mark of 28 px or more has its edge handles inside the mark. A narrower
+  selected mark has its handles under the bar, outside the mark, 10 px wide each.
+  They do not cover the bar of the adjacent mark. A narrow selected mark shows an
+  amber fill in place of the outline.
+- A phrase or a word shorter than 3 frame sizes has the "short" style: a lower bar
+  with stripes. A screen reader gets the text "(short mark)". A phoneme is often one
+  frame size long, so a phoneme has no "short" style.
 
 Controls on the layers:
 
@@ -288,7 +322,7 @@ Track rows (FR-editor-31 to 37, 51 to 53):
   and `Down` move the selection between layers. `Left` and `Right` nudge the selected
   mark by one frame size. `Alt+Left` and `Alt+Right` nudge the start only.
   `Shift+Alt+Left` and `Shift+Alt+Right` nudge the end only. `Ctrl+Z` undo.
-  `Ctrl+Shift+Z` redo. `+` and `-` zoom. `?` shortcut list. On macOS, `Cmd`
+  `Ctrl+Shift+Z` redo. `+` and `-` zoom. `Z` zoom to the selection. `?` shortcut list. On macOS, `Cmd`
   replaces `Ctrl`. With no selected mark, `Left` and `Right` move the play cursor
   by one frame size. `S`, `M`, the nudge keys, `Up` and `Down` act when exactly
   one mark is selected. `Up` selects the parent, and `Down` selects the first
@@ -348,6 +382,30 @@ Track rows (FR-editor-31 to 37, 51 to 53):
   | "Phrase" | The selection is not only phrases | "Select a phrase first." |
   | "Add section" | No time range is selected | "Drag on the waveform to select a time range first." |
 
+- **Zoom.** The zoom slider, `+` and `-` keep one time in place on the stage
+  (FR-editor-59):
+  1. The middle of the selected marks, when a part of them is in view. A middle
+     outside the view moves to the nearest edge of the view.
+  2. Else the play cursor, when it is in view.
+  3. Else the centre of the stage.
+
+  An arrow key on the slider changes the zoom by 10% for each press. `Page Up` and
+  `Page Down` change it by 5 presses. `Ctrl` with the mouse wheel zooms at the
+  pointer. A song that opens for the first time shows the full song.
+- **Zoom buttons.** "Zoom to selection" has the tooltip "Show the selected marks
+  or the time selection (Z)". It shows the selected marks, else the time selection,
+  in the middle of the stage, with 10% of the stage width free on each side. The
+  zoom stops at 1 000 pixels for each second. With nothing selected, it cannot act,
+  and its reason is "Select a mark or a time range first." "Fit song" has the
+  tooltip "Show the full song". It shows the full song in the stage.
+- **Side panels.** The voice rail and the inspector each have a fold button with
+  `aria-expanded` (FR-editor-62). A folded panel keeps only its fold button, and the
+  stage takes the width. The arrow on the button points to the side where the panel
+  moves, and the tooltip is "Hide the voices panel" or "Show the voices panel" (or
+  the inspector panel). In a window narrower than 1280 px, a panel starts folded
+  until the person opens it. The browser keeps the choice of the person in
+  `localStorage`. A fold is view state, not an undo step. A folded inspector hides
+  the face preview too.
 - **Help line.** The text depends on the selection:
   - No selected mark: "Click a mark to select it. Double-click a mark to change
     its label. Double-click an empty place to add a mark."
@@ -356,6 +414,8 @@ Track rows (FR-editor-31 to 37, 51 to 53):
   - One selected phoneme: "Click the phoneme again to choose a mouth shape."
   - With no selected mark or one selected mark, the line adds "Hold Shift and
     click to select more than one mark."
+  - With one selected phoneme narrower than 12 px, the line adds "Zoom in to edit
+    short marks. Press Z."
 - **Status line.** A key, a button or a drag that does nothing shows its reason
   in the status line. The reasons of the buttons are in the table above. The
   nudge keys and a drag add "The mark has no room to move." and "The edge of the
@@ -390,6 +450,31 @@ Track rows (FR-editor-31 to 37, 51 to 53):
   marks that exist.
 - `Ctrl` with the mouse wheel zooms at the pointer. The wheel alone scrolls in
   time.
+- **Add a mark.** A double-click in an empty range of a layer adds a mark of 10
+  frame sizes that starts at the pointer (FR-editor-55). A mark that would end
+  after the empty range moves earlier, so it keeps its length. An empty range
+  shorter than 10 frame sizes gets a mark of its full length. A word outside any
+  phrase also adds a phrase with the same range and the same label.
+- **Words of a changed phrase** (FR-editor-54). When a phrase label changes the
+  words:
+  1. A new word that matches an old word keeps the time of the old word.
+  2. A run of new words between two matched words shares the free time between
+     them evenly, in whole frame sizes.
+  3. If the run has less than 3 frame sizes for each word, the matched word before
+     the run ends earlier. That word keeps 3 frame sizes or more.
+  4. If the run still has less, the matched word after the run starts later. That
+     word keeps 3 frame sizes or more.
+  5. If the run still has less than 1 frame size for each word, steps 3 and 4 go
+     down to 1 frame size for each matched word.
+  6. If the phrase has less than 3 frame sizes for each word, or step 5 is not
+     enough, each word of the phrase gets an equal part of the phrase.
+  7. If the phrase has fewer frame sizes than words, the last words go.
+
+  Example, with a frame size of 50 ms: "All is calm, all is bright" (9.800 s to
+  18.700 s) becomes "All is calm and all is bright tonight". "and" has 50 ms of
+  free time, so "calm" ends 100 ms earlier, at 14.150 s, and "and" goes from
+  14.150 s to 14.300 s. "tonight" has no free time, so "bright" ends at 18.550 s,
+  and "tonight" goes from 18.550 s to 18.700 s.
 - A click on the ruler or the waveform moves the play cursor.
 - A drag on the waveform makes a time selection.
 - The shortest mark is one frame size.
@@ -569,6 +654,23 @@ scroll methods before use. Those names are not verified in this spec.
 - No row name covers a waveform. (FR-editor-31)
 - A failed read of the run data shows its cause in the place of the group.
   (FR-editor-53)
+- After "All is calm, all is bright" becomes "All is calm and all is bright
+  tonight" on the demo song, "and" and "tonight" are each 3 frame sizes or longer.
+  (FR-editor-54)
+- A double-click in an empty range of 1 second adds a mark of 10 frame sizes, also
+  near the end of the range. (FR-editor-55)
+- No two marks of a layer draw over each other at any zoom, with marks of one frame
+  size. (FR-editor-56)
+- A selected mark of one frame size has two handles of 10 px under its bar.
+  (FR-editor-57)
+- A word of 2 frame sizes shows the "short" style. (FR-editor-58)
+- After a zoom with the slider, the selected mark is in view. (FR-editor-59)
+- Five arrow keys on the zoom slider change the zoom by 40% or more. (FR-editor-59)
+- "Zoom to selection" shows a selected phoneme of 50 ms at 40 px wide or more.
+  (FR-editor-60)
+- "Fit song" shows the full song. (FR-editor-61)
+- In a window of 1024 px with both side panels folded, the stage is 700 px wide or
+  more. (FR-editor-62)
 - A changed phrase label shows the confirm dialog, and confirm rebuilds the words.
   (FR-editor-30)
 
