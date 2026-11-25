@@ -150,3 +150,22 @@ for (const viewport of [
     await expect(start).toBeInViewport({ ratio: 1 })
   })
 }
+
+test('asks before a run whose first lyrics line alone does not fit, and names line 1', async ({
+  page,
+}) => {
+  const dialog = await openDialog(page)
+  const words = Array.from({ length: 700 }, (_, i) => `word${i}`)
+  await dialog.getByLabel('Lyrics (optional)').fill(words.join(' & '))
+  await dialog.getByRole('checkbox', { name: 'Lyrics only' }).check()
+
+  await dialog.getByRole('button', { name: 'Start' }).click()
+
+  // The "&" parts are not words, so the count is 700.
+  await expect(
+    dialog.getByText(
+      /^The lyrics have 700 words\. This song has room for about \d+ words\. The app leaves out the words of line 1 that do not fit\.$/,
+    ),
+  ).toBeVisible({ timeout: 20_000 })
+  await dialog.getByRole('button', { name: 'Cancel' }).click()
+})
