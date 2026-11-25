@@ -4,6 +4,7 @@ import { makeSongContent } from '../fixtures.test-helpers.ts'
 import { useSongStore } from '../songStore.ts'
 import type { Mark, SongContent } from '../types.ts'
 import { hasMarksInRange, replaceMarksInRange } from './replaceMarksInRange.ts'
+import { deleteVoice } from './voices.ts'
 
 const VOICE = 'song-1-voice'
 const OTHER_VOICE = 'other-voice'
@@ -138,6 +139,21 @@ describe('replaceMarksInRange', () => {
 
     useSongStore.getState().undo()
     expect(useSongStore.getState().current).toStrictEqual(before)
+  })
+
+  it('writes no mark and records no step for a voice that the person deleted', () => {
+    deleteVoice(OTHER_VOICE)
+    const before = useSongStore.getState().current
+
+    const written = replaceMarksInRange(OTHER_VOICE, { startMs: 0, endMs: 20_000 }, NEW_MARKS)
+
+    expect(written).toBe(false)
+    expect(useSongStore.getState().current).toBe(before)
+    expect(useSongStore.getState().history.past).toHaveLength(1)
+  })
+
+  it('returns true for a voice of the song', () => {
+    expect(replaceMarksInRange(VOICE, { startMs: 0, endMs: 20_000 }, NEW_MARKS)).toBe(true)
   })
 
   it('records no undo step when the range has no mark and the run has no mark', () => {

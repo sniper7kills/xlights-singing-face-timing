@@ -187,7 +187,7 @@ describe('snapSections', () => {
   it('snaps each time and keeps 1 second and no overlap', () => {
     const sections = [section('a', 1025, 2025), section('b', 2025, 3100), section('c', 4000, 5000)]
 
-    const snapped = snapSections(sections, 50)
+    const snapped = snapSections(sections, 50, DURATION_MS)
 
     expect(snapped.map((s) => [s.startMs, s.endMs])).toEqual([
       [1050, 2050],
@@ -196,5 +196,36 @@ describe('snapSections', () => {
     ])
     for (const s of snapped) expect(s.endMs - s.startMs).toBeGreaterThanOrEqual(1000)
     expect(snapped[2]).toBe(sections[2])
+  })
+
+  it('stops an end at the last frame of a song that is not a multiple of the frame size', () => {
+    const snapped = snapSections([section('a', 8000, 10_025)], 50, 10_040)
+
+    expect(snapped.map((s) => [s.startMs, s.endMs])).toEqual([[8000, 10_000]])
+  })
+
+  it('moves the start earlier when the stop at the song end leaves less than 1 second', () => {
+    const snapped = snapSections([section('a', 9025, 10_025)], 50, 10_040)
+
+    expect(snapped.map((s) => [s.startMs, s.endMs])).toEqual([[9000, 10_000]])
+  })
+
+  it('keeps two sections that touch near the song end inside the song with no overlap', () => {
+    const sections = [section('a', 8000, 9025), section('b', 9025, 10_025)]
+
+    const snapped = snapSections(sections, 50, 10_040)
+
+    expect(snapped.map((s) => [s.id, s.startMs, s.endMs])).toEqual([
+      ['a', 8000, 9000],
+      ['b', 9000, 10_000],
+    ])
+  })
+
+  it('removes a section that cannot stay 1 second long in the song', () => {
+    const sections = [section('a', 0, 1000), section('b', 1000, 2025)]
+
+    const snapped = snapSections(sections, 50, 1040)
+
+    expect(snapped.map((s) => [s.id, s.startMs, s.endMs])).toEqual([['b', 0, 1000]])
   })
 })

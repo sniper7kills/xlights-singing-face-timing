@@ -57,6 +57,35 @@ describe('setFrameMs', () => {
     expect(content()?.sections).toEqual([section])
   })
 
+  it('keeps the sections inside a song of 10040 ms from 25 to 50 to 25 ms, and undo restores them', () => {
+    const first = {
+      ...testContent(),
+      song: { ...testContent().song, frameMs: 25 as const, durationMs: 10_040 },
+      sections: [
+        { id: 'a', songId: 'song-1', name: 'Verse', startMs: 8000, endMs: 9025 },
+        { id: 'b', songId: 'song-1', name: 'Chorus', startMs: 9025, endMs: 10_025 },
+      ],
+    }
+    useSongStore.setState({ current: first })
+    const ranges = () => content()?.sections.map((s) => [s.id, s.startMs, s.endMs])
+
+    setFrameMs('song-1', 50)
+    expect(ranges()).toEqual([
+      ['a', 8000, 9000],
+      ['b', 9000, 10_000],
+    ])
+    setFrameMs('song-1', 25)
+    expect(ranges()).toEqual([
+      ['a', 8000, 9000],
+      ['b', 9000, 10_000],
+    ])
+
+    expect(steps()).toBe(2)
+    useSongStore.getState().undo()
+    useSongStore.getState().undo()
+    expect(content()).toEqual(first)
+  })
+
   it('records no step for the frame size that the song has', () => {
     setFrameMs('song-1', 50)
 

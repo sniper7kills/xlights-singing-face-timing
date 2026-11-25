@@ -143,6 +143,41 @@ describe('checkTracks', () => {
       ])
     })
 
+    it('gives an error for two default voice-section names that are the same because both names hold " - "', () => {
+      const named: Voice[] = [
+        { id: 'lead', songId: 'song-1', name: 'A', order: 0, color: '#e05d5d' },
+        { id: 'harmony', songId: 'song-1', name: 'A - B', order: 1, color: '#5d8de0' },
+      ]
+      const sections = [
+        { id: 's1', songId: 'song-1', name: 'B - Unsectioned', startMs: 10_000, endMs: 20_000 },
+      ]
+      const harmony = cleanMarks().map((mark) => ({
+        ...mark,
+        id: `h-${mark.id}`,
+        voiceId: 'harmony',
+        parentId: mark.parentId === null ? null : `h-${mark.parentId}`,
+        startMs: mark.startMs + 20_000,
+        endMs: mark.endMs + 20_000,
+      }))
+      const marks = [...cleanMarks(), ...harmony]
+      const opts = options({ voiceIds: ['lead', 'harmony'], grouping: 'voice-section' })
+
+      const tracks = buildTracks(song, named, sections, marks, opts)
+
+      expect(tracks.map((track) => track.name)).toEqual([
+        'A - B - Unsectioned',
+        'A - B - Unsectioned',
+      ])
+      expect(checkTracks(tracks, song, named, marks, opts)).toEqual([
+        {
+          type: 'error',
+          check: 'duplicate-name',
+          message: 'Two timing tracks have the name “A - B - Unsectioned”.',
+          voiceId: 'harmony',
+        },
+      ])
+    })
+
     it('gives an error for an empty timing track name', () => {
       const marks = cleanMarks()
       const opts = options({ trackNames: { lead: '' } })

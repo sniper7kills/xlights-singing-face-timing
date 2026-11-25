@@ -39,7 +39,13 @@ function replaceStep(
  * @param voiceId The voice that receives the marks.
  * @param range The target range. For a full-song run, the range is the full song.
  * @param newMarks The marks that the run creates, inside the range, with their phrase, word and phoneme parents set.
+ * Returns false when the open song has no voice with the id. The marks then do not change and the store records no step.
  */
-export function replaceMarksInRange(voiceId: string, range: TimeRange, newMarks: Mark[]): void {
-  useSongStore.getState().apply((content) => replaceStep(content, voiceId, range, newMarks))
+export function replaceMarksInRange(voiceId: string, range: TimeRange, newMarks: Mark[]): boolean {
+  let voiceExists = false
+  useSongStore.getState().apply((content) => {
+    voiceExists = content.voices.some((voice) => voice.id === voiceId)
+    return voiceExists ? replaceStep(content, voiceId, range, newMarks) : content
+  })
+  return voiceExists
 }
