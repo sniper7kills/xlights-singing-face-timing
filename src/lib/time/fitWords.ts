@@ -2,6 +2,18 @@ import { snap } from './snap.ts'
 import type { TimeRange } from './timeRange.ts'
 
 /**
+ * Returns the count of words that fit in the range at one frame size for each word.
+ * `fitWords` keeps only this count of words, so the lyrics check before a run uses the same rule.
+ * @param frameMs The frame size of the song.
+ * @param range The target range of the run.
+ */
+export function wordRoom(frameMs: number, range: TimeRange): number {
+  const firstMs = Math.ceil(range.startMs / frameMs) * frameMs
+  const lastMs = Math.floor(range.endMs / frameMs) * frameMs
+  return Math.max(0, Math.round((lastMs - firstMs) / frameMs))
+}
+
+/**
  * Returns the words with times that are multiples of the frame size, one frame size long or more, with no overlap.
  * Every time lies from the first frame multiple at or after `range.startMs` to the last frame multiple at or before `range.endMs`.
  * A word that overlaps the next word ends where the next word starts.
@@ -20,7 +32,7 @@ export function fitWords<T extends TimeRange>(
   // A mark that crosses an edge of the range survives the replace step of the next run, and the next run then adds it again.
   const firstMs = Math.ceil(range.startMs / frameMs) * frameMs
   const lastMs = Math.floor(range.endMs / frameMs) * frameMs
-  const kept = words.slice(0, Math.max(0, Math.round((lastMs - firstMs) / frameMs)))
+  const kept = words.slice(0, wordRoom(frameMs, range))
 
   const fitted: T[] = []
   let previousEndMs = firstMs

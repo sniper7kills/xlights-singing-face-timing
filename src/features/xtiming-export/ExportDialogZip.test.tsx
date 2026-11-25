@@ -130,6 +130,25 @@ describe('ExportDialog with the zip file', () => {
     ])
   })
 
+  it('states that the zip file holds no tracks and no report when the read of the run data fails', async () => {
+    const user = userEvent.setup()
+    vi.spyOn(db, 'getAudioFile').mockResolvedValue(audioFile())
+    vi.spyOn(db, 'loadRunData').mockRejectedValue(new Error('read failed'))
+    const { onDownloadZip } = renderDialog(oneVoice)
+
+    await user.click(zipChoice())
+
+    expect(
+      await screen.findByText(
+        /^The app could not read the separated tracks and the run report of this song\. The zip file does not hold them\. The zip file holds 5 files: timing\/Carol\.xtiming, audio\/carol\.ogg, song\.json, lyrics\.txt, README\.txt\. Size: 4 KB\.$/,
+      ),
+    ).toBeInTheDocument()
+    await user.click(await screen.findByRole('button', { name: 'Download zip' }))
+    await vi.waitFor(() => expect(onDownloadZip).toHaveBeenCalledOnce(), WAIT)
+    const blob = onDownloadZip.mock.calls[0]?.[0].blob ?? new Blob()
+    expect(await entryNames(blob)).not.toContain('report.txt')
+  })
+
   it('gives <song name>.zip with the entries to the download and stores the choice', async () => {
     const user = userEvent.setup()
     vi.spyOn(db, 'getAudioFile').mockResolvedValue(audioFile())
@@ -193,7 +212,10 @@ describe('ExportDialog with the zip file', () => {
   it('disables "Download zip" while an error finding exists', async () => {
     const user = userEvent.setup()
     vi.spyOn(db, 'getAudioFile').mockResolvedValue(audioFile())
-    renderDialog(makeContent([lead, santa], makeSungPhrase('v1', 1000)))
+    const badLabel = makeSungPhrase('v1', 1000).map((mark) =>
+      mark.layer === 'phoneme' ? { ...mark, label: 'X' } : mark,
+    )
+    renderDialog(makeContent([lead], badLabel))
 
     await user.click(zipChoice())
 

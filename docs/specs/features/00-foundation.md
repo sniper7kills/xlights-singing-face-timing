@@ -52,6 +52,9 @@ beyond an app shell.
 - FR-foundation-17 — The S3 bucket blocks all public access.
 - FR-foundation-18 — The deploy workflow gets AWS credentials through GitHub OIDC.
 - FR-foundation-16 — The repository contains a `LICENSE` file with the MIT licence.
+- FR-foundation-19 — The browser keeps the theme that the person selects.
+- FR-foundation-20 — A route to a song that does not exist shows the song library
+  with a message.
 
 ## User flows
 
@@ -96,7 +99,21 @@ area. States:
 - error: if the browser has no IndexedDB, the main area shows "This browser cannot
   store songs. Use a current Chrome, Edge or Firefox."
 
+**Routes of the app shell.**
+
+- `#/` shows the song library.
+- `#/song/<song id>` shows the editor of the song.
+- A route to a song that does not exist shows the song library with the message
+  "The app did not find this song. It is possible that the song was deleted."
+- An unknown route shows the song library with no message.
+
 ## Behaviour rules
+
+- The theme follows the operating system setting, and it changes with that
+  setting. After the person uses the theme switch, the app keeps the selected
+  theme in `localStorage`. The stored theme wins over the system setting.
+- If the browser refuses `localStorage`, for example in a private window, the
+  selected theme lasts until the page closes.
 
 - The ESLint configuration fails a function with cyclomatic complexity above 10.
 - The ESLint configuration fails a block nested deeper than 4 levels.
@@ -209,6 +226,8 @@ no custom error response.
   (FR-foundation-13)
 - The theme switch changes the page between the light theme and the dark theme.
   (FR-foundation-13)
+- A selected theme stays after a reload. (FR-foundation-19)
+- `#/song/<unknown id>` shows the song library with the message. (FR-foundation-20)
 - `public/demo/` contains one audio file shorter than 30 seconds and one JSON file
   of marks. (FR-foundation-14)
 - A response from the production URL carries the three headers in the table.

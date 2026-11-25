@@ -51,6 +51,7 @@ async function tryBuildZip(
 
 type DownloadButtonInput = {
   empty: boolean
+  noVoice: boolean
   findings: readonly Finding[]
   /** The count of `.xtiming` files of the export options. */
   fileCount: number
@@ -59,22 +60,34 @@ type DownloadButtonInput = {
 }
 
 // The zip file needs the stored audio file, so "Download zip" waits for a good read.
-function downloadButton({ empty, findings, fileCount, zip, zipSource }: DownloadButtonInput) {
+function downloadButton({
+  empty,
+  noVoice,
+  findings,
+  fileCount,
+  zip,
+  zipSource,
+}: DownloadButtonInput) {
   const blocked = findings.some((finding) => finding.type === 'error')
   const waits = zip && typeof zipSource !== 'object'
+  let hint: string | null = null
+  if (noVoice) hint = 'Select one voice or more.'
+  else if (blocked) hint = 'Correct the errors in "Checks" first.'
   return {
     disabled: empty || blocked || fileCount === 0 || waits,
     label: zip ? 'Download zip' : 'Download',
     fileCount: zip ? 1 : fileCount,
+    hint,
   }
 }
 
 /**
  * Shows the export dialog: the voices, the grouping, the packaging, the options, the timing
  * track names, the checks, a preview of the file and the xLights import steps.
- * "Download" is disabled while an error finding exists or the export has no timing track.
+ * "Download" is disabled while an error finding exists or the export has no timing track. A text beside it states the reason.
+ * The head and the button row stay in view, and only the body scrolls.
  * With "Everything as one zip file" selected, the button reads "Download zip" and also waits for a good read of the audio file.
- * After a download the dialog stays open in the done state: a confirmation line and the import steps expanded.
+ * After a download the dialog stays open in the done state: a confirmation line in the button row and the import steps expanded.
  */
 export function ExportDialog({
   content,
@@ -91,7 +104,7 @@ export function ExportDialog({
   const dialogRef = useRef<HTMLDivElement>(null)
   const titleId = useId()
   const sectionHintId = useId()
-  const voiceHintId = useId()
+  const hintId = useId()
 
   const tracks = useMemo(
     () => buildTracks(song, voices, sections, marks, options),
@@ -118,7 +131,14 @@ export function ExportDialog({
   const empty = marks.length === 0
   const noVoice = options.voiceIds.length === 0
   const firstFile = files[0]
-  const button = downloadButton({ empty, findings, fileCount: files.length, zip, zipSource })
+  const button = downloadButton({
+    empty,
+    noVoice,
+    findings,
+    fileCount: files.length,
+    zip,
+    zipSource,
+  })
 
   useEffect(() => {
     dialogRef.current?.focus()
@@ -197,20 +217,21 @@ export function ExportDialog({
     <div className="export-backdrop">
       <div
         ref={dialogRef}
-        className="export-dialog"
+        // The head and the button row stay in view, and only the body scrolls.
+        className="export-dialog dialog-frame"
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
         tabIndex={-1}
         onKeyDown={onKeyDown}
       >
-        <div className="export-head">
+        <div className="export-head dialog-head">
           <h2 id={titleId}>Export to xLights</h2>
           <span>
             {song.name} · Frame size: {song.frameMs} ms
           </span>
         </div>
-        <div className="export-body">
+        <div className="export-body dialog-body">
           <div className="export-column">
             <fieldset className="export-group">
               <legend>Voices</legend>
@@ -307,11 +328,11 @@ export function ExportDialog({
           </div>
         </div>
         {message && (
-          <p className="message" role="alert">
+          <p className="message dialog-message" role="alert">
             {message}
           </p>
         )}
-        <div className="export-foot">
+        <div className="export-foot dialog-foot">
           <small>
             {plural(tracks.length, 'timing track')} · {plural(button.fileCount, 'file')}
           </small>
@@ -320,9 +341,9 @@ export function ExportDialog({
           <span className="export-done" role="status">
             {done}
           </span>
-          {noVoice && (
-            <small id={voiceHintId} className="export-hint">
-              Select one voice or more.
+          {button.hint !== null && (
+            <small id={hintId} className="export-hint">
+              {button.hint}
             </small>
           )}
           <button type="button" className="button" onClick={onClose}>
@@ -332,7 +353,7 @@ export function ExportDialog({
             type="button"
             className="button primary"
             disabled={button.disabled}
-            aria-describedby={noVoice ? voiceHintId : undefined}
+            aria-describedby={button.hint === null ? undefined : hintId}
             onClick={() => void download()}
           >
             {button.label}

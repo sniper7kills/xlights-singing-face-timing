@@ -48,6 +48,13 @@ let client: TranscribeClient
 let clientOptions: TranscribeClientOptions | undefined
 let runs: HeldRun[]
 
+/** The replace question of a full-song run over a voice with marks. */
+const QUESTION = {
+  markCount: 12,
+  voiceName: 'Lead Vocals',
+  range: { startMs: 0, endMs: 28_900 },
+}
+
 /** The stored speeds of the tests: WebGPU is the faster device for the base speech model. */
 const FAST_WEBGPU = { 'whisper-base': { wasm: 2, webgpu: 8 } }
 
@@ -478,14 +485,14 @@ describe('TranscribeDialog', () => {
     expect(screen.getByText('Uses your graphics card (WebGPU)')).toBeInTheDocument()
   })
 
-  it('shows the device note and no device line for a lyrics-only run', async () => {
+  it('shows no device note and no device line for a lyrics-only run', async () => {
     const { user, start } = await renderDialog()
     await user.click(screen.getByRole('checkbox', { name: 'Lyrics only' }))
     await user.type(screen.getByLabelText('Lyrics (optional)'), 'All is calm')
 
     await user.click(start)
 
-    expect(screen.getByText('Uses your graphics card (WebGPU)')).toBeInTheDocument()
+    expect(screen.queryByText('Uses your graphics card (WebGPU)')).toBeNull()
     expect(screen.queryByText('Graphics card (WebGPU)')).toBeNull()
   })
 
@@ -634,11 +641,14 @@ describe('TranscribeDialog', () => {
     let answer: Promise<boolean> = Promise.resolve(false)
 
     act(() => {
-      answer = lastRun().handlers.confirmReplace()
+      answer = lastRun().handlers.confirmReplace(QUESTION)
     })
 
-    expect(screen.getByRole('alert')).toHaveTextContent('The run replaces the marks of this voice.')
-    expect(progress()).toHaveTextContent('Preparing audio, 0:00 elapsed')
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      'The run replaces the 12 marks of "Lead Vocals" from 0:00.000 to 0:28.900.',
+    )
+    expect(progress()).toHaveTextContent('')
+    expect(document.querySelector('.dialog-progress progress')).toBeNull()
     await user.click(screen.getByRole('button', { name: 'Continue' }))
     await expect(answer).resolves.toBe(true)
     expect(screen.queryByRole('alert')).toBeNull()
@@ -650,7 +660,7 @@ describe('TranscribeDialog', () => {
     await user.click(start)
     let answer: Promise<boolean> = Promise.resolve(true)
     act(() => {
-      answer = lastRun().handlers.confirmReplace()
+      answer = lastRun().handlers.confirmReplace(QUESTION)
     })
 
     await user.click(screen.getByRole('button', { name: 'Cancel' }))
@@ -711,7 +721,7 @@ describe('TranscribeDialog', () => {
     await user.click(start)
     let answer: Promise<boolean> = Promise.resolve(true)
     act(() => {
-      answer = lastRun().handlers.confirmReplace()
+      answer = lastRun().handlers.confirmReplace(QUESTION)
     })
 
     await user.keyboard('{Escape}')

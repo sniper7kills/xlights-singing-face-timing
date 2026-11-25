@@ -2,6 +2,7 @@ import { act, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { LIBRARY_HASH } from '../../app/routes.ts'
+import { setPageNotice } from '../../app/pageNotice.ts'
 import type { RunReport } from '../../lib/runReport/runReport.ts'
 import { breakDownWords, loadDictionaries } from '../../store/actions/breakDown.ts'
 import { startAutosave, useAutosaveStore } from '../../store/autosave.ts'
@@ -518,6 +519,35 @@ describe('EditorPage', () => {
     }
   })
 
+  it('opens the song library from the back link only after the save of a pending change ends', async () => {
+    const stopAutosave = startAutosave()
+    try {
+      const { song } = await renderEditor()
+      window.location.hash = `#/song/${song.id}`
+      let endSave: () => void = () => undefined
+      const save = vi.spyOn(db, 'saveSong').mockImplementationOnce(
+        (content) =>
+          new Promise((resolve) => {
+            endSave = () => resolve(content.song)
+          }),
+      )
+      act(() =>
+        useSongStore
+          .getState()
+          .apply((content) => ({ ...content, song: { ...content.song, name: 'noel' } })),
+      )
+
+      await userEvent.click(screen.getByRole('link', { name: 'Back to song library' }))
+
+      expect(save).toHaveBeenCalledTimes(1)
+      expect(window.location.hash).toBe(`#/song/${song.id}`)
+      act(() => endSave())
+      await vi.waitFor(() => expect(window.location.hash).toBe(LIBRARY_HASH))
+    } finally {
+      stopAutosave()
+    }
+  })
+
   it('goes back to the song library for a song that does not exist', async () => {
     window.location.hash = '#/song/gone'
 
@@ -588,6 +618,38 @@ describe('EditorPage', () => {
       pxPerSecond: 250,
       scrollMs: 1200,
     })
+  })
+
+  it('shows a link to the song library in the note for a narrow window', async () => {
+    const width = window.innerWidth
+    try {
+      await renderEditor()
+      act(() => {
+        window.innerWidth = 1023
+        window.dispatchEvent(new Event('resize'))
+      })
+
+      expect(screen.getByRole('link', { name: 'Back to the song library' })).toHaveAttribute(
+        'href',
+        LIBRARY_HASH,
+      )
+    } finally {
+      window.innerWidth = width
+    }
+  })
+
+  it('shows the note of a drop with several files as a toast after the editor opens', async () => {
+    setPageNotice('one-file-added')
+
+    await renderEditor()
+
+    expect(await screen.findByText('Only one file was added.')).toBeVisible()
+  })
+
+  it('shows no toast when the editor opens after a drop with one file', async () => {
+    await renderEditor()
+
+    expect(screen.queryByText('Only one file was added.')).toBeNull()
   })
 
   it('shows the note for a window narrower than 1024 px and hides the editor', async () => {

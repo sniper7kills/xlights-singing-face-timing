@@ -47,6 +47,10 @@ export type RunRecord = {
   singers: SingerOutcome | null
   /** The ids of the voices that the singer step added. */
   singerVoiceIds: string[]
+  /** The lyrics lines that the run left out, because the range has no room for their words. */
+  linesLeftOut: number
+  /** The words that the run left out, because it cannot use them. */
+  wordsLeftOut: number
 }
 
 /** Returns the record of a run at its start. */
@@ -64,6 +68,8 @@ export function startRunRecord(now: Date = new Date()): RunRecord {
     assignment: null,
     singers: null,
     singerVoiceIds: [],
+    linesLeftOut: 0,
+    wordsLeftOut: 0,
   }
 }
 
@@ -219,6 +225,8 @@ export function finishRunRecord(record: RunRecord, end: RunEnd): RunData {
     singers: singerSection(record, end.request),
     voices: voicePhrases(voices, content?.marks ?? [], end.range, record.singerVoiceIds),
     marks: end.written,
+    linesLeftOut: record.linesLeftOut,
+    wordsLeftOut: record.wordsLeftOut,
     range: { startMs: end.range.startMs, endMs: end.range.endMs },
     frameMs: end.frameMs,
     durationsMs: record.clock.durations(),

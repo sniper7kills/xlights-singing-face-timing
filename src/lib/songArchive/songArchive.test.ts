@@ -205,7 +205,7 @@ describe('songArchiveEntries', () => {
           '- lyrics.txt: The phrases of each voice as text.',
           '- README.txt: This file: the list of the files and the xLights import steps.',
           '',
-          'To import a timing file into xLights, do these steps. The export dialog of the app shows the same steps.',
+          'To import a timing file into xLights, do these steps. The app shows the same steps after an export.',
           '1. Open the sequence in xLights. Use the same audio file, so the times match.',
         ].join('\n'),
       ),
@@ -213,6 +213,7 @@ describe('songArchiveEntries', () => {
     expect(readme).toContain(
       '7. Repeat steps 5 and 6 for each face model.\n\nUse the timing tracks with several face models:\n',
     )
+    expect(readme).not.toMatch(/dialog/i)
     expect(
       readme.endsWith(
         '5. In each of these effects, select the same timing track: the timing track of the chorus voice.\n',

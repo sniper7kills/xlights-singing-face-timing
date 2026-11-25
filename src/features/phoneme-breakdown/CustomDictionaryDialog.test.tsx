@@ -59,6 +59,7 @@ async function addBySymbols(
   symbols: string,
 ) {
   await user.type(screen.getByLabelText('Word'), word)
+  await user.click(screen.getByRole('radio', { name: 'Symbols' }))
   await user.type(screen.getByLabelText('CMU symbols'), symbols)
   await user.click(screen.getByRole('button', { name: 'Add entry' }))
 }
@@ -106,18 +107,19 @@ describe('CustomDictionaryDialog', () => {
     await user.click(screen.getByRole('button', { name: 'Add entry' }))
 
     expect(await screen.findByText('Type a word.')).toBeInTheDocument()
-    expect(screen.getByText('Type the CMU symbols.')).toBeInTheDocument()
+    expect(screen.getByText('Type a "sounds like" spelling.')).toBeInTheDocument()
 
-    await user.click(screen.getByRole('radio', { name: 'Sounds like spelling' }))
+    await user.click(screen.getByRole('radio', { name: 'Symbols' }))
     await user.click(screen.getByRole('button', { name: 'Add entry' }))
 
-    expect(await screen.findByText('Type a "sounds like" spelling.')).toBeInTheDocument()
+    expect(await screen.findByText('Type the CMU symbols.')).toBeInTheDocument()
     expect(await listCustomEntries()).toEqual([])
   })
 
   it('rejects a word with a space, a word of 41 characters and a word with only punctuation', async () => {
     const { user } = await renderDialog()
     const word = screen.getByLabelText('Word')
+    await user.click(screen.getByRole('radio', { name: 'Symbols' }))
     await user.type(screen.getByLabelText('CMU symbols'), 'R UW1')
 
     for (const typed of ['ROO DOLF', 'A'.repeat(41)]) {
@@ -275,10 +277,13 @@ describe('CustomDictionaryDialog', () => {
     )
 
     await waitFor(() =>
-      expect(screen.getByRole('status')).toHaveTextContent(
-        '2 entries imported. 2 lines skipped (lines 3, 5).',
-      ),
+      expect(screen.getByRole('status')).toHaveTextContent('2 entries imported. 2 lines skipped.'),
     )
+    expect(
+      within(screen.getByRole('status'))
+        .getAllByRole('listitem')
+        .map((item) => item.textContent),
+    ).toEqual(['Line 3: “XX” is not a symbol.', 'Line 5: no symbols.'])
     await waitFor(() =>
       expect(entryRows()).toEqual([
         ['RUDOLPH', 'R UW1 D UW0', 'etc U etc U'],
@@ -297,7 +302,7 @@ describe('CustomDictionaryDialog', () => {
 
     await waitFor(() =>
       expect(screen.getByRole('status')).toHaveTextContent(
-        '0 entries imported. 1 line skipped (line 1).',
+        '0 entries imported. 1 line skipped.Line 1: no symbols.',
       ),
     )
   })
@@ -317,7 +322,7 @@ describe('CustomDictionaryDialog', () => {
     await waitFor(() => expect(entryRows()).toEqual([['RUDOLPH', 'R UW1 D UW0', 'etc U etc U']]))
   })
 
-  it('shows the first 10 skipped line numbers and the count of the other skipped lines', async () => {
+  it('shows the cause of the first 10 skipped lines and the count of the other skipped lines', async () => {
     const { user } = await renderDialog()
     const lines = Array.from({ length: 15 }, (_, index) => (index === 0 ? 'ZXQV  Z' : 'bad'))
 
@@ -328,9 +333,17 @@ describe('CustomDictionaryDialog', () => {
 
     await waitFor(() =>
       expect(screen.getByRole('status')).toHaveTextContent(
-        '1 entry imported. 14 lines skipped (lines 2, 3, 4, 5, 6, 7, 8, 9, 10, 11 and 4 more).',
+        /^1 entry imported\. 14 lines skipped\./,
       ),
     )
+    expect(
+      within(screen.getByRole('status'))
+        .getAllByRole('listitem')
+        .map((item) => item.textContent),
+    ).toEqual([
+      ...Array.from({ length: 10 }, (_, index) => `Line ${index + 2}: no symbols.`),
+      '4 more lines skipped.',
+    ])
   })
 
   it('shows the storage failure message when the app cannot read the import file', async () => {
@@ -363,13 +376,14 @@ describe('CustomDictionaryDialog', () => {
   })
 
   it('loads the dictionary again and saves the entry on "Retry" after a failed load', async () => {
-    vi.mocked(loadDictionary).mockRejectedValueOnce(new DictionaryLoadError())
+    vi.mocked(loadDictionary).mockRejectedValue(new DictionaryLoadError())
     const { user } = await renderDialog()
     await user.type(screen.getByLabelText('Word'), 'RUDOLPH')
     await user.click(screen.getByRole('radio', { name: 'Sounds like spelling' }))
     await user.type(screen.getByLabelText('Sounds like'), 'ROO DOLF')
     await user.click(screen.getByRole('button', { name: 'Add entry' }))
     await screen.findByText('The dictionary did not load. Check the connection and retry.')
+    vi.mocked(loadDictionary).mockResolvedValue(DICTIONARY)
 
     await user.click(screen.getByRole('button', { name: 'Retry' }))
 
@@ -390,7 +404,7 @@ describe('CustomDictionaryDialog', () => {
 
     await user.type(screen.getByLabelText('Word'), 'RUDOLPH')
     await user.click(screen.getByRole('button', { name: 'Add entry' }))
-    await waitFor(() => expect(screen.getByLabelText('CMU symbols')).toHaveFocus())
+    await waitFor(() => expect(screen.getByLabelText('Sounds like')).toHaveFocus())
   })
 
   it('rejects a word of digits only', async () => {
@@ -457,11 +471,69 @@ describe('CustomDictionaryDialog', () => {
     expect(screen.getByRole('searchbox', { name: 'Search' })).toHaveFocus()
   })
 
-  it('fills the word field with the initial word and moves the focus to the CMU symbols', async () => {
+  it('fills the word field with the initial word and moves the focus to the "Sounds like" field', async () => {
     await renderDialog({ initialWord: 'Rudolph,' })
 
     expect(screen.getByLabelText('Word')).toHaveValue('RUDOLPH')
-    expect(screen.getByLabelText('CMU symbols')).toHaveFocus()
+    expect(screen.getByRole('radio', { name: 'Sounds like spelling' })).toBeChecked()
+    expect(screen.getByLabelText('Sounds like')).toHaveFocus()
+  })
+
+  it('opens a new entry on "Sounds like spelling" with the help text and the example', async () => {
+    await renderDialog()
+
+    expect(screen.getByRole('radio', { name: 'Sounds like spelling' })).toBeChecked()
+    expect(screen.getByLabelText('Sounds like')).toHaveAccessibleDescription(
+      'Type the word as it sounds, with words that you know. Example: "sore block".',
+    )
+  })
+
+  it('keeps the focus on the radio button after a change of the entry type', async () => {
+    const { user } = await renderDialog({ initialWord: 'Rudolph' })
+
+    await user.click(screen.getByRole('radio', { name: 'Symbols' }))
+
+    expect(screen.getByRole('radio', { name: 'Symbols' })).toHaveFocus()
+  })
+
+  it('shows the mouth shapes of typed CMU symbols before the save', async () => {
+    const { user } = await renderDialog()
+    await user.click(screen.getByRole('radio', { name: 'Symbols' }))
+
+    await user.type(screen.getByLabelText('CMU symbols'), 'r uw1 d aa0 l f')
+
+    expect(screen.getByText('Mouth shapes: etc U etc AI L FV')).toBeInTheDocument()
+    await user.type(screen.getByLabelText('CMU symbols'), ' XX')
+    expect(screen.queryByText(/^Mouth shapes:/)).not.toBeInTheDocument()
+  })
+
+  it('shows the mouth shapes of a "sounds like" spelling before the save', async () => {
+    const { user } = await renderDialog()
+
+    await user.type(screen.getByLabelText('Sounds like'), 'roo dolf')
+
+    expect(await screen.findByText('Mouth shapes: etc U etc AI L FV')).toBeInTheDocument()
+    await user.type(screen.getByLabelText('Sounds like'), 'xyz')
+    await waitFor(() => expect(screen.queryByText(/^Mouth shapes:/)).not.toBeInTheDocument())
+    expect(await listCustomEntries()).toEqual([])
+  })
+
+  it('opens the CMU symbol reference and shows it from the link beside the symbols field', async () => {
+    const scroll = vi.fn()
+    Element.prototype.scrollIntoView = scroll
+    const { user } = await renderDialog()
+    await user.click(screen.getByRole('radio', { name: 'Symbols' }))
+    expect(screen.getByLabelText('CMU symbols')).toHaveAccessibleDescription(
+      /The symbols come from the CMU Pronouncing Dictionary\.$/,
+    )
+
+    await user.click(screen.getByRole('button', { name: 'Show the list of symbols' }))
+
+    const summary = screen.getByText('CMU symbols', { selector: 'summary' })
+    expect(summary.closest('details')).toHaveAttribute('open')
+    expect(scroll).toHaveBeenCalledWith({ block: 'start' })
+    expect(summary).toHaveFocus()
+    expect(screen.getByRole('table', { name: 'CMU symbols' })).toBeVisible()
   })
 
   it('shows each CMU symbol with an example word and its phoneme label', async () => {

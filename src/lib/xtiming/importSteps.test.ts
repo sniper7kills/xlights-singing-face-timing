@@ -3,10 +3,20 @@ import { faceModelSteps, importSteps, importStepsText } from './importSteps.ts'
 
 describe('importSteps', () => {
   it('gives seven steps with the frame size in step 2', () => {
-    const steps = importSteps(25)
+    const steps = importSteps(25, 'dialog')
 
     expect(steps).toHaveLength(7)
     expect(steps[1]?.parts).toContainEqual({ bold: '25 ms' })
+  })
+
+  it('names the frame size of the song in step 2 of a file, with no word "dialog"', () => {
+    const step = importSteps(25, 'file')[1]?.parts.map((part) =>
+      typeof part === 'string' ? part : part.bold,
+    )
+
+    expect(step?.join('')).toBe(
+      'Check the frame size: in "Sequence Settings", the tab "Info / Media" shows "Sequence Timing". The frame size of this song is 25 ms. The frame size of the sequence must be the same.',
+    )
   })
 })
 
@@ -23,7 +33,7 @@ describe('importStepsText', () => {
     expect(importStepsText(50)).toBe(
       [
         '1. Open the sequence in xLights. Use the same audio file, so the times match.',
-        '2. Check the frame size: in "Sequence Settings", the tab "Info / Media" shows "Sequence Timing". It must match the frame size in this dialog: 50 ms.',
+        '2. Check the frame size: in "Sequence Settings", the tab "Info / Media" shows "Sequence Timing". The frame size of this song is 50 ms. The frame size of the sequence must be the same.',
         '   If the song has a frame size of 25 ms and the sequence has 50 ms, xLights moves each time down to a multiple of 50 ms.',
         '3. Right-click a timing row heading and select "Import Timing Track".',
         '4. Select the .xtiming file. If the file has several timing tracks, xLights adds one timing track for each.',

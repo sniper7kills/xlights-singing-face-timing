@@ -151,6 +151,10 @@ export type RunReport = {
   estimatedCount: number
   /** The words that no dictionary has. */
   unknownCount: number
+  /** The lyrics lines that the run left out, because the range has no room for their words. A report of an earlier version has no value. */
+  linesLeftOut?: number
+  /** The words that the run left out, because it cannot use them. A report of an earlier version has no value. */
+  wordsLeftOut?: number
   /** The part of the song that the run read. */
   range: { startMs: number; endMs: number }
   frameMs: number
@@ -202,6 +206,8 @@ export function buildRunReport(facts: RunFacts): RunReport {
     wordCount: words.length,
     estimatedCount: words.filter((mark) => mark.estimated === true).length,
     unknownCount: words.filter((mark) => mark.unknown === true).length,
+    ...(facts.linesLeftOut === undefined ? {} : { linesLeftOut: facts.linesLeftOut }),
+    ...(facts.wordsLeftOut === undefined ? {} : { wordsLeftOut: facts.wordsLeftOut }),
     range: facts.range,
     frameMs: facts.frameMs,
     durationsMs: facts.durationsMs,
@@ -366,6 +372,8 @@ function countLines(report: RunReport): string[] {
     `Words: ${report.wordCount}`,
     `Estimated words: ${report.estimatedCount}`,
     `Unknown words: ${report.unknownCount}`,
+    `Lyrics lines left out: ${countText(report.linesLeftOut)}`,
+    `Words left out: ${countText(report.wordsLeftOut)}`,
     '',
     '[Voices]',
     ...report.voices.map(

@@ -91,6 +91,7 @@ test('downloads the demo song as one zip file with the timing file, the audio an
   expect(song.version).toBe(1)
   expect(song.song.name).toBe('Silent Night')
   expect(byName.get('README.txt')?.toString('utf8')).toContain('- audio/silent-night.ogg:')
+  expect(byName.get('README.txt')?.toString('utf8')).not.toMatch(/dialog/i)
   await expect(dialog.getByRole('status')).toHaveText('1 timing track written to Silent Night.zip')
 
   // CI runs on ubuntu-latest, which has unzip. The check also runs on each machine with unzip on PATH.

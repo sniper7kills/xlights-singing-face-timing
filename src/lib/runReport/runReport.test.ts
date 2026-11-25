@@ -289,6 +289,13 @@ describe('reportToText', () => {
     expect(reportToText(buildRunReport(facts({ tracksKept: true })))).toContain('Tracks kept: yes')
   })
 
+  it('writes the counts of the lyrics lines and the words left out, or "not known" for an earlier report', () => {
+    expect(lines).toContain('Lyrics lines left out: not known')
+    expect(lines).toContain('Words left out: not known')
+    const counted = reportToText(buildRunReport(facts({ linesLeftOut: 118, wordsLeftOut: 3 })))
+    expect(counted).toMatch(/Unknown words: \d+\nLyrics lines left out: 118\nWords left out: 3\n/)
+  })
+
   it('writes the build, or "not known" for a report with no build', () => {
     expect(lines).toContain('Build: not known')
     const built = reportToText(buildRunReport(facts({ build: 'abc1234' })))

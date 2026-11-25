@@ -1,4 +1,5 @@
 import { useRef, useState, type DragEvent, type ReactNode } from 'react'
+import { setPageNotice } from '../../app/pageNotice.ts'
 import type { Song } from '../../store/types.ts'
 import {
   ACCEPTED_EXTENSIONS,
@@ -38,6 +39,8 @@ export function DropZone({ onSongCreated, compact = false, children }: DropZoneP
     try {
       const song = await createSongFromFile(file)
       setState({ name: 'empty' })
+      // The editor opens at once and replaces this page, so the editor shows the note again.
+      if (files.length > 1) setPageNotice('one-file-added')
       onSongCreated(song)
     } catch (error) {
       if (!(error instanceof ImportError)) {

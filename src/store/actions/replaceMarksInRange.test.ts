@@ -3,7 +3,7 @@ import { saveSong } from '../db.ts'
 import { makeSongContent } from '../fixtures.test-helpers.ts'
 import { useSongStore } from '../songStore.ts'
 import type { Mark, SongContent } from '../types.ts'
-import { hasMarksInRange, replaceMarksInRange } from './replaceMarksInRange.ts'
+import { countMarksInRange, hasMarksInRange, replaceMarksInRange } from './replaceMarksInRange.ts'
 import { deleteVoice } from './voices.ts'
 
 const VOICE = 'song-1-voice'
@@ -178,5 +178,30 @@ describe('hasMarksInRange', () => {
 
   it('ignores the marks of another voice', () => {
     expect(hasMarksInRange(content, 'third-voice', { startMs: 0, endMs: 20_000 })).toBe(false)
+  })
+})
+
+describe('countMarksInRange', () => {
+  it('counts the marks of the voice on each layer that overlap the range', () => {
+    expect(countMarksInRange(content.marks, VOICE, { startMs: 0, endMs: 20_000 })).toBe(6)
+  })
+
+  it('counts a mark that crosses an edge and no mark that only touches it', () => {
+    expect(countMarksInRange(content.marks, VOICE, { startMs: 10_000, endMs: 12_000 })).toBe(1)
+  })
+
+  it('counts no mark of another voice', () => {
+    expect(countMarksInRange(content.marks, OTHER_VOICE, { startMs: 5000, endMs: 20_000 })).toBe(0)
+  })
+
+  it('gives a count above 0 exactly when hasMarksInRange is true', () => {
+    for (const range of [
+      { startMs: 0, endMs: 20_000 },
+      { startMs: 14_000, endMs: 20_000 },
+      { startMs: 2000, endMs: 9000 },
+    ])
+      expect(countMarksInRange(content.marks, VOICE, range) > 0).toBe(
+        hasMarksInRange(content, VOICE, range),
+      )
   })
 })

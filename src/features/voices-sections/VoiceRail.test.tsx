@@ -110,6 +110,24 @@ describe('VoiceRail rename', () => {
     expect(voiceNames()).toEqual(['Lead', 'Backing'])
   })
 
+  it('refuses a name of 61 characters with the length message and keeps a name of 60', async () => {
+    render(<VoiceRail />)
+    await userEvent.click(
+      within(await openMenu('Backing')).getByRole('menuitem', { name: 'Rename' }),
+    )
+
+    const field = screen.getByRole('textbox', { name: 'Voice name' })
+    await userEvent.clear(field)
+    await userEvent.type(field, `${'x'.repeat(61)}{Enter}`)
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'A voice name has 1 to 60 characters.',
+    )
+    expect(voiceNames()).toEqual(['Lead', 'Backing'])
+    await userEvent.type(field, '{Backspace}{Enter}')
+    expect(voiceNames()).toEqual(['Lead', 'x'.repeat(60)])
+  })
+
   it('shows the name after the xLights import under the field and still saves the name', async () => {
     render(<VoiceRail />)
     await userEvent.click(

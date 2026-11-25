@@ -185,9 +185,12 @@ button {
   padding: 14px 18px;
 }
 
-.drop-zone.compact .drop-zone-note,
-.drop-zone.compact .drop-zone-hint {
+.drop-zone.compact .drop-zone-note {
   display: none;
+}
+
+.drop-zone.compact .drop-zone-hint {
+  font-size: 13px;
 }
 
 .drop-zone p {
@@ -266,7 +269,7 @@ button {
 
 .editor {
   display: grid;
-  grid-template-columns: 180px minmax(0, 1fr) 280px;
+  grid-template-columns: 216px minmax(0, 1fr) 280px;
   gap: 16px;
 }
 
@@ -352,9 +355,9 @@ button {
 .voice-select {
   display: grid;
   grid-template-columns: 12px minmax(0, 1fr);
-  gap: 8px;
+  gap: 6px;
   align-items: center;
-  padding: 7px 8px;
+  padding: 7px 6px;
   border: 1px solid transparent;
   border-radius: 8px;
   background: none;
@@ -396,7 +399,10 @@ button {
 }
 
 .voice-count {
+  overflow: hidden;
   color: var(--mute);
+  text-overflow: ellipsis;
+  white-space: nowrap;
   font: 11px var(--mono);
 }
 
@@ -420,7 +426,7 @@ button {
 }
 
 .voice-menu-button {
-  padding: 4px 8px;
+  padding: 4px 6px;
   border: 1px solid transparent;
   border-radius: 6px;
   background: none;
@@ -433,7 +439,7 @@ button {
 }
 
 .voice-mute-button {
-  padding: 4px 6px;
+  padding: 4px;
   border: 1px solid transparent;
   border-radius: 6px;
   background: none;
@@ -860,6 +866,10 @@ button {
   outline-offset: -2px;
 }
 
+.narrow-note p {
+  margin: 0;
+}
+
 .narrow-note[hidden] {
   display: none;
 }
@@ -867,7 +877,9 @@ button {
 .narrow-note {
   display: grid;
   min-height: 60vh;
-  place-items: center;
+  place-content: center;
+  justify-items: center;
+  gap: 16px;
   margin: 0;
   color: var(--mute);
   font: 600 18px var(--display);
@@ -1428,6 +1440,12 @@ button {
   grid-column: 1 / -1;
 }
 
+.library-intro {
+  max-width: 70ch;
+  margin: 0;
+  font-size: 17px;
+}
+
 .library-aside {
   display: grid;
   gap: 16px;
@@ -1458,6 +1476,10 @@ button {
   margin: 0;
   font: 12px var(--mono);
   color: var(--mute);
+}
+
+.card-note a {
+  color: var(--amber);
 }
 
 .card-note + .card-note {
@@ -1530,7 +1552,7 @@ button {
 .song-open {
   display: grid;
   flex: 1;
-  grid-template-columns: 1fr auto;
+  grid-template-columns: minmax(0, 1fr) auto;
   gap: 14px;
   align-items: center;
   min-width: 0;
@@ -1543,7 +1565,10 @@ button {
 .song-open b {
   display: block;
   overflow: hidden;
+  color: var(--amber);
   font: 600 16px var(--display);
+  text-decoration: underline;
+  text-underline-offset: 3px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -1560,6 +1585,7 @@ button {
 
 .song-actions {
   display: flex;
+  flex: none;
   gap: 6px;
 }
 
@@ -1575,6 +1601,10 @@ button {
 
 .song-confirm p {
   margin: 0;
+}
+
+.song-form .field-hint {
+  flex-basis: 100%;
 }
 
 .song-confirm p:nth-of-type(2) {
@@ -1626,6 +1656,33 @@ button {
   border-radius: 12px;
   background: var(--panel);
   color: var(--ink);
+}
+
+/* The title and the buttons stay in view. Only the options scroll. */
+.transcribe-dialog {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.transcribe-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  /* The focus ring of a control at the edge stays inside the scroll area. */
+  padding: 3px;
+  margin: -3px;
+}
+
+.transcribe-footer {
+  display: grid;
+  flex: none;
+  gap: 10px;
+}
+
+/* An empty line in a message starts a second paragraph. */
+.transcribe-dialog .message {
+  white-space: pre-line;
 }
 
 .phrase-label-dialog p {
@@ -1844,6 +1901,19 @@ button {
   cursor: pointer;
 }
 
+.dialog-field > .link-button {
+  justify-self: start;
+}
+
+.import-summary {
+  margin: 0;
+}
+
+.import-causes {
+  margin: 4px 0 0;
+  padding-left: 20px;
+}
+
 @media (max-width: 760px) {
   .library {
     grid-template-columns: 1fr;
@@ -1871,6 +1941,49 @@ button {
   border-radius: 14px;
   background: var(--panel);
   color: var(--ink);
+}
+
+/*
+ * A modal dialog with a fixed head, a body that scrolls, and a fixed button row.
+ * The head and the button row stay in view, so the result of an action shows beside its button.
+ */
+.dialog-frame {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  max-height: 100%;
+  min-height: 0;
+  overflow: hidden;
+  padding: 0;
+}
+
+.dialog-head,
+.dialog-foot,
+.dialog-message {
+  flex: none;
+  min-width: 0;
+  padding: 14px 20px;
+}
+
+.dialog-head {
+  border-bottom: 1px solid var(--line);
+}
+
+.dialog-body {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden auto;
+  padding: 14px 20px;
+}
+
+.dialog-message {
+  margin: 0;
+  padding-block: 8px 0;
+}
+
+.dialog-foot {
+  border-top: 1px solid var(--line);
 }
 
 .export-dialog:focus {
@@ -1904,13 +2017,16 @@ button {
   gap: 16px;
 }
 
+/* A fieldset and a grid item take the width of their content by default, which is wider than the column. */
 .export-column {
   display: grid;
   gap: 12px;
   align-content: start;
+  min-width: 0;
 }
 
 .export-group {
+  min-width: 0;
   margin: 0;
   padding: 10px 12px;
   border: 1px solid var(--line);
@@ -1962,6 +2078,22 @@ button {
   display: flex;
   align-items: center;
   gap: 10px;
+}
+
+.export-tracks input {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.export-tracks span {
+  flex: none;
+}
+
+.export-group h3,
+.finding,
+.export-steps li,
+.export-done {
+  overflow-wrap: anywhere;
 }
 
 .export-checks summary {
@@ -2023,11 +2155,13 @@ button.finding:hover {
 
 .export-foot {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 8px;
 }
 
 .export-done {
+  min-width: 0;
   font: 12px var(--mono);
   color: var(--ink);
 }

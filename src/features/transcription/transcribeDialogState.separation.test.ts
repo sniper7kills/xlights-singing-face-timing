@@ -81,7 +81,10 @@ describe('the separation states of the transcribe dialog', () => {
     })
     expect(shownRunState(state)).toEqual(running)
     expect(transcribeDialogReducer(state, { type: 'answer' })).toEqual(running)
-    expect(transcribeDialogReducer(state, { type: 'cancelled' })).toEqual(IDLE)
+    expect(transcribeDialogReducer(state, { type: 'cancelled' })).toEqual({
+      status: 'idle',
+      stopped: true,
+    })
   })
 
   it('ignores a separation event after the run stopped', () => {
@@ -92,7 +95,11 @@ describe('the separation states of the transcribe dialog', () => {
   })
 
   it('keeps the state when a failure arrives during another question', () => {
-    const question: DialogState = { status: 'confirm-replace', resume: { status: 'preparing' } }
+    const question: DialogState = {
+      status: 'confirm-replace',
+      question: { markCount: 1, voiceName: 'Lead', range: { startMs: 0, endMs: 1000 } },
+      resume: { status: 'preparing' },
+    }
 
     expect(
       transcribeDialogReducer(question, { type: 'confirm-no-separation', error: new Error('x') }),

@@ -6,14 +6,30 @@ import type { Mark, SongContent } from '../types.ts'
 import { newMarkId } from './commitMarkEdit.ts'
 
 /**
+ * Returns the count of marks of the voice that overlap the range, on all layers.
+ * A transcribe run over the range removes or shortens these marks. The replace question states the count.
+ * @param marks The marks of the song.
+ * @param voiceId The voice to read.
+ * @param range The target range of the run.
+ */
+export function countMarksInRange(
+  marks: readonly Mark[],
+  voiceId: string,
+  range: TimeRange,
+): number {
+  return marks.filter((mark) => mark.voiceId === voiceId && overlapsRange(mark, range)).length
+}
+
+/**
  * Returns true when the voice has one or more marks that overlap the range.
  * A transcribe run over the range removes or shortens these marks, so the run asks the person first.
+ * The rule is the rule of `countMarksInRange`, so the question and its count agree.
  * @param content The open song.
  * @param voiceId The voice to read.
  * @param range The target range of the run.
  */
 export function hasMarksInRange(content: SongContent, voiceId: string, range: TimeRange): boolean {
-  return content.marks.some((mark) => mark.voiceId === voiceId && overlapsRange(mark, range))
+  return countMarksInRange(content.marks, voiceId, range) > 0
 }
 
 /**

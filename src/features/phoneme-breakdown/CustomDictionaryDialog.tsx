@@ -2,6 +2,7 @@ import {
   type ChangeEvent,
   type KeyboardEvent,
   type MouseEvent,
+  type Ref,
   useCallback,
   useEffect,
   useId,
@@ -12,6 +13,7 @@ import { createPortal } from 'react-dom'
 import { keepFocusInside, tabStops } from '../../app/modalFocus.ts'
 import {
   parseCustomDictionary,
+  type SkippedLine,
   writeCustomDictionary,
 } from '../../lib/dictionary/customDictionaryFile.ts'
 import { toPhonemeLabels } from '../../lib/dictionary/toPhonemeLabels.ts'
@@ -31,8 +33,14 @@ import { DictionaryLoadError } from './loadDictionary.ts'
 
 const EXPORT_FILE_NAME = 'custom-dictionary.txt'
 const STORAGE_FAILURE = 'The app could not read or write the custom dictionary. Reload the page.'
-/** The count of skipped line numbers that the import report shows. */
+/** The count of skipped lines whose cause the import report shows. */
 const SHOWN_SKIPPED_LINES = 10
+
+/** The import report: the counts, and the cause of each of the first skipped lines. */
+type ImportReport = {
+  summary: string
+  causes: string[]
+}
 
 /** The message of a failed write. */
 type DialogError = {
@@ -44,7 +52,7 @@ type DialogError = {
 type CustomDictionaryDialogProps = {
   /**
    * The word that fills the word field of the entry form, for example the selected word of the song.
-   * The focus then starts in the CMU symbols field.
+   * The focus then starts in the "Sounds like" field.
    */
   initialWord?: string
   /** Closes the dialog for "Close" and Escape. */
@@ -56,19 +64,21 @@ function count(n: number, one: string, many: string): string {
 }
 
 /**
- * Returns the import report, for example "1 entry imported. 2 lines skipped (lines 3, 7)."
- * The report shows the first 10 line numbers, then the count of the others: "(lines 2, 5 … 22 and 4 more)".
+ * Returns the import report, for example "1 entry imported. 2 lines skipped." with the causes
+ * "Line 3: no symbols." and "Line 7: “ZZ” is not a symbol."
+ * The report gives the cause of the first 10 skipped lines, then the count of the others: "4 more lines skipped."
  * @param imported The count of distinct words that the import saved.
- * @param skippedLines The line numbers of the bad lines.
+ * @param skipped The bad lines with their causes.
  */
-function importReport(imported: number, skippedLines: readonly number[]): string {
-  const report = `${count(imported, 'entry', 'entries')} imported.`
-  if (skippedLines.length === 0) return report
-  const skipped = count(skippedLines.length, 'line', 'lines')
-  const shown = skippedLines.slice(0, SHOWN_SKIPPED_LINES).join(', ')
-  const more = skippedLines.length - SHOWN_SKIPPED_LINES
-  const numbers = `${skippedLines.length === 1 ? 'line' : 'lines'} ${shown}`
-  return `${report} ${skipped} skipped (${numbers}${more > 0 ? ` and ${more} more` : ''}).`
+function importReport(imported: number, skipped: readonly SkippedLine[]): ImportReport {
+  const summary = `${count(imported, 'entry', 'entries')} imported.`
+  if (skipped.length === 0) return { summary, causes: [] }
+  const causes = skipped
+    .slice(0, SHOWN_SKIPPED_LINES)
+    .map(({ line, reason }) => `Line ${line}: ${reason}`)
+  const more = skipped.length - SHOWN_SKIPPED_LINES
+  if (more > 0) causes.push(`${count(more, 'more line', 'more lines')} skipped.`)
+  return { summary: `${summary} ${count(skipped.length, 'line', 'lines')} skipped.`, causes }
 }
 
 /**
@@ -83,10 +93,11 @@ export function CustomDictionaryDialog({ initialWord, onClose }: CustomDictionar
   const titleId = useId()
   const dialogRef = useRef<HTMLDivElement>(null)
   const fileRef = useRef<HTMLInputElement>(null)
+  const referenceRef = useRef<HTMLDetailsElement>(null)
   const [entries, setEntries] = useState<CustomEntry[] | null>(null)
   const [search, setSearch] = useState('')
   const [editing, setEditing] = useState<CustomEntry | null>(null)
-  const [report, setReport] = useState('')
+  const [report, setReport] = useState<ImportReport | null>(null)
   const [error, setError] = useState<DialogError | null>(null)
 
   // The render runs before the entry form takes the focus, so this is still the control that opened the dialog.
@@ -145,12 +156,12 @@ export function CustomDictionaryDialog({ initialWord, onClose }: CustomDictionar
   }
 
   function save(entry: CustomEntryInput) {
-    setReport('')
+    setReport(null)
     return write(() => putCustomEntry(entry), [entry.word])
   }
 
   async function remove(word: string) {
-    setReport('')
+    setReport(null)
     if (editing?.word === word) setEditing(null)
     await write(() => deleteCustomEntry(word), [word])
   }
@@ -161,7 +172,7 @@ export function CustomDictionaryDialog({ initialWord, onClose }: CustomDictionar
     if (file === undefined) return
     // The same file can be chosen again after a fix.
     input.value = ''
-    setReport('')
+    setReport(null)
     let text: string
     try {
       text = await file.text()
@@ -176,7 +187,16 @@ export function CustomDictionaryDialog({ initialWord, onClose }: CustomDictionar
         () => putCustomEntries(parsed.entries),
         parsed.entries.map((entry) => entry.word),
       ))
-    if (saved) setReport(importReport(parsed.entries.length, parsed.skippedLines))
+    if (saved) setReport(importReport(parsed.entries.length, parsed.skipped))
+  }
+
+  function showSymbols() {
+    const reference = referenceRef.current
+    if (reference === null) return
+    reference.open = true
+    reference.scrollIntoView({ block: 'start' })
+    // The focus goes to the summary, so that Tab moves into the table and Enter closes it again.
+    reference.querySelector('summary')?.focus({ preventScroll: true })
   }
 
   function exportFile() {
@@ -233,6 +253,7 @@ export function CustomDictionaryDialog({ initialWord, onClose }: CustomDictionar
           onSave={save}
           onCancel={() => setEditing(null)}
           onStorageFailure={() => setError({ text: STORAGE_FAILURE })}
+          onShowSymbols={showSymbols}
         />
         {error !== null && (
           <p className="message" role="alert">
@@ -251,9 +272,6 @@ export function CustomDictionaryDialog({ initialWord, onClose }: CustomDictionar
             )}
           </p>
         )}
-        <p className="dialog-note" role="status">
-          {report}
-        </p>
         <input
           ref={fileRef}
           type="file"
@@ -279,7 +297,22 @@ export function CustomDictionaryDialog({ initialWord, onClose }: CustomDictionar
             Close
           </button>
         </div>
-        <SymbolReference />
+        {/* The report is under the "Import" button, so the person sees it after an import. */}
+        <div className="dialog-note" role="status">
+          {report !== null && (
+            <>
+              <p className="import-summary">{report.summary}</p>
+              {report.causes.length > 0 && (
+                <ul className="import-causes">
+                  {report.causes.map((cause) => (
+                    <li key={cause}>{cause}</li>
+                  ))}
+                </ul>
+              )}
+            </>
+          )}
+        </div>
+        <SymbolReference ref={referenceRef} />
       </div>
     </div>,
     document.body,
@@ -355,9 +388,9 @@ function EntryTable({ entries, search, onEdit, onDelete }: EntryTableProps) {
 }
 
 /** Shows the CMU symbols with an example word, the stress digits and the phoneme label of each. */
-function SymbolReference() {
+function SymbolReference({ ref }: { ref: Ref<HTMLDetailsElement> }) {
   return (
-    <details className="symbol-reference">
+    <details ref={ref} className="symbol-reference">
       <summary>CMU symbols</summary>
       <table className="dictionary-table">
         <caption className="visually-hidden">CMU symbols</caption>

@@ -315,6 +315,11 @@ body.rv-open .layout { padding-right:21rem; }
 </ul>
 <p>of the zip file.</p>
 <ul>
+<li>FR-export-37 — If the app cannot read the audio tracks and the run report, the
+</li>
+</ul>
+<p>note under the zip file choice states it.</p>
+<ul>
 <li>FR-export-33 — The app writes the zip file in the browser. No request carries
 </li>
 </ul>
@@ -334,6 +339,21 @@ body.rv-open .layout { padding-right:21rem; }
 </li>
 </ul>
 <p>face models that sing together."</p>
+<ul>
+<li>FR-export-37 — The export dialog has a fixed head, a body that scrolls, and a
+</li>
+</ul>
+<p>fixed button row.</p>
+<ul>
+<li>FR-export-38 — The content of the export dialog fits the width of the dialog.
+</li>
+<li>FR-export-39 — The done line shows in the fixed button row.
+</li>
+<li>FR-export-40 — The dialog opens with no voice selected that has no marks.
+</li>
+<li>FR-export-41 — A disabled "Download" button shows the reason beside it.
+</li>
+</ul>
 <h3 id="xtiming-export-user-flows">User flows</h3>
 <h4 id="xtiming-export-export-a-song-with-two-voices">Export a song with two voices</h4>
 <div class="diagram"><pre class="mermaid">flowchart TD
@@ -380,6 +400,7 @@ body.rv-open .layout { padding-right:21rem; }
   X--&gt;&gt;P: The face model sings</pre></div>
 <h3 id="xtiming-export-screens-states">Screens &amp; states</h3>
 <p><strong>Export dialog</strong> — mockup: <a href="../mockups/03-export.html">mockups/03-export.html</a>. Regions: voice list, grouping, packaging, options, timing track list, checks, file preview, import steps, buttons.</p>
+<p>Layout: the head with the title and the button row stay in view. Only the body between them scrolls. The body has no scroll to the side at a width of 1024 px or more. A long name or a long finding wraps. The file preview scrolls inside its own box.</p>
 <ul>
 <li>ready: no error finding. "Download" is enabled.
 </li>
@@ -398,7 +419,7 @@ body.rv-open .layout { padding-right:21rem; }
 <li>done: a confirmation line, "2 timing tracks written to carol.xtiming", and the
 </li>
 </ul>
-<p>import steps expanded.</p>
+<p>import steps expanded. The confirmation line is in the fixed button row, in a live region.</p>
 <ul>
 <li>zip file selected: the note under the check box lists the files of the zip file
 </li>
@@ -447,6 +468,11 @@ body.rv-open .layout { padding-right:21rem; }
 </li>
 <li>No voice selected, beside the disabled "Download" button: "Select one voice or more."
 </li>
+<li>An error finding, beside the disabled "Download" button: "Correct the errors in
+</li>
+</ul>
+<p>"Checks" first."</p>
+<ul>
 <li>Buttons: "Close", "Download". With the zip file selected: "Close",
 </li>
 </ul>
@@ -538,7 +564,8 @@ body.rv-open .layout { padding-right:21rem; }
 <p><strong>Checks.</strong></p>
 <div class="table-wrap"><table>
 <tr><th>Check</th><th>Type</th><th>Message</th></tr>
-<tr><td>A selected voice has no marks.</td><td>error</td><td><code>“&lt;voice name&gt;” has no marks.</code></td></tr>
+<tr><td>No selected voice has marks.</td><td>error</td><td><code>No marks to export. Select a voice with marks.</code></td></tr>
+<tr><td>A selected voice has no marks, and another selected voice has marks.</td><td>warning</td><td><code>“&lt;voice name&gt;” has no marks. Clear its check box, or add marks.</code></td></tr>
 <tr><td>Two timing tracks have the same name.</td><td>error</td><td><code>Two timing tracks have the name “&lt;timing track name&gt;”.</code></td></tr>
 <tr><td>A timing track name is empty.</td><td>error</td><td><code>A timing track of “&lt;voice name&gt;” has no name.</code></td></tr>
 <tr><td>A timing track name has only spaces after the xLights import.</td><td>error</td><td><code>xLights cannot use the timing track name “&lt;timing track name&gt;”. Use letters from A to Z, digits or spaces.</code></td></tr>
@@ -577,6 +604,27 @@ body.rv-open .layout { padding-right:21rem; }
 </li>
 </ul>
 <p>its own error. The import checks do not report it again.</p>
+<ul>
+<li>A selected voice with no marks gives a timing track with three empty
+</li>
+</ul>
+<p><code>&lt;EffectLayer&gt;</code> elements in grouping by voice. This is a legal timing track. Grouping by voice and section omits the voice.</p>
+<ul>
+<li>If no selected voice has marks, the one error replaces the warnings.
+</li>
+</ul>
+<p><strong>Voice selection.</strong> The dialog selects only voices with marks when it opens.</p>
+<ul>
+<li>First export of the song: each voice with marks is selected.
+</li>
+<li>Later export: the voices of the previous export stay selected, and each voice
+</li>
+</ul>
+<p>that the person added after it is selected. A voice with no marks is not selected, also when the previous export selected it.</p>
+<ul>
+<li>The person can select a voice with no marks. The checks then give the warning.
+</li>
+</ul>
 <p><strong>Import steps text.</strong> The dialog shows these steps. The names of the controls are the names in xLights 2026.21.</p>
 <ol>
 <li>Open the sequence in xLights. Use the same audio file, so the times match.
@@ -584,7 +632,7 @@ body.rv-open .layout { padding-right:21rem; }
 <li>Check the frame size: in "Sequence Settings", the tab "Info / Media" shows
 </li>
 </ol>
-<p>"Sequence Timing". It must match the frame size in this dialog. Note: If the song has a frame size of 25 ms and the sequence has 50 ms, xLights moves each time down to a multiple of 50 ms.</p>
+<p>"Sequence Timing". It must match the frame size in this dialog: &lt;frame size&gt; ms. Note: If the song has a frame size of 25 ms and the sequence has 50 ms, xLights moves each time down to a multiple of 50 ms.</p>
 <ol>
 <li>Right-click a timing row heading and select "Import Timing Track".
 </li>
@@ -629,7 +677,7 @@ body.rv-open .layout { padding-right:21rem; }
 </li>
 </ol>
 <p>chorus voice.</p>
-<p><code>README.txt</code> holds the same two lists as plain text. A blank line and the heading with a colon separate the two lists.</p>
+<p><code>README.txt</code> holds the same two lists as plain text. A blank line and the heading with a colon separate the two lists. A file has no dialog, so step 2 in <code>README.txt</code> ends with its own sentences: "The frame size of this song is &lt;frame size&gt; ms. The frame size of the sequence must be the same." The line before the steps reads: "To import a timing file into xLights, do these steps. The app shows the same steps after an export." <code>README.txt</code> has no word "dialog".</p>
 <p>Verified against the xLights source at tag <code>2026.21</code> (see <a href="#interfaces">Interfaces</a>), a real import into xLights 2026.21 (issue #79), and https://manual.xlights.org/xlights/chapters/chapter-four-sequencer/singing-faces.md and https://manual.xlights.org/xlights/chapters/chapter-four-sequencer/timing-tracks.md (retrieved 2026-11-24). The manual does not give the place of the frame size, the ten phoneme labels, or the rule for a model group.</p>
 <p><strong>Zip file.</strong> With "Everything as one zip file" selected, "Download zip" gives one file, <code>&lt;song name&gt;.zip</code>. It holds these entries, in this order:</p>
 <div class="table-wrap"><table>
@@ -884,6 +932,7 @@ importStepsText(frameMs: number): string</code></pre>
 <tr><td>A Faces effect on a model group</td><td>xLights draws only a face definition of the type "Matrix". The steps for several face models state this.</td></tr>
 <tr><td>Song with frame size 25 ms imported into a 50 ms sequence</td><td>xLights moves times down to 50 ms. The import steps warn about it in step 2.</td></tr>
 <tr><td>The app cannot read the audio file of the song for the zip file</td><td>The dialog shows "The app could not read the audio file of this song. Download the timing files without the zip." The dialog stays open.</td></tr>
+<tr><td>The app cannot read the separated tracks and the run report of the song for the zip file</td><td>The note under the zip file choice starts with "The app could not read the separated tracks and the run report of this song. The zip file does not hold them." The list of the note has no track and no report. "Download zip" stays enabled.</td></tr>
 <tr><td>The zip file needs ZIP64</td><td>The dialog shows "The song is too large for one zip file. Download the files one at a time." The dialog stays open.</td></tr>
 <tr><td>The audio file name has <code>/</code> or a character that is not ASCII</td><td>The entry name replaces <code>/</code> with <code>_</code> and keeps the other characters.</td></tr>
 <tr><td>The custom dictionary has no entry</td><td>The zip file has no <code>custom-dictionary.txt</code>.</td></tr>
@@ -892,7 +941,7 @@ importStepsText(frameMs: number): string</code></pre>
 <ul>
 <li>"Export" opens the dialog. (FR-export-1)
 </li>
-<li>A song with 3 voices shows 3 check boxes, all checked. (FR-export-2)
+<li>A song with 3 voices with marks shows 3 check boxes, all checked. (FR-export-2)
 </li>
 <li>Grouping by voice with 2 voices lists 2 timing tracks. (FR-export-3, 7)
 </li>
@@ -1021,6 +1070,33 @@ importStepsText(frameMs: number): string</code></pre>
 </ul>
 <p><code>tracks/vocals.wav</code>, <code>tracks/instruments.wav</code> and <code>report.txt</code>. A song with no run holds none of them. (FR-export-32)</p>
 <ul>
+<li>At 1440x900 and at 1024x768, the scroll width of the export dialog is equal to
+</li>
+</ul>
+<p>its client width, with two voices and with warnings. (FR-export-37, 38)</p>
+<ul>
+<li>After a download of two files, the confirmation line is in the viewport.
+</li>
+</ul>
+<p>(FR-export-39)</p>
+<ul>
+<li>A new voice with no marks is not selected, and "Download" stays enabled.
+</li>
+</ul>
+<p>(FR-export-40)</p>
+<ul>
+<li>A selected voice with no marks gives a warning, and "Download" stays enabled.
+</li>
+</ul>
+<p>(FR-export-16)</p>
+<ul>
+<li>An error finding shows "Correct the errors in "Checks" first." beside the
+</li>
+</ul>
+<p>disabled "Download". (FR-export-41)</p>
+<ul>
+<li><code>README.txt</code> has no word "dialog". (FR-export-35)
+</li>
 <li><strong>Manual check.</strong> xLights imports the two-voice export of the demo song with no
 </li>
 </ul>

@@ -211,6 +211,32 @@ describe('saveSong', () => {
     expect(await listRecords('marks')).toEqual([])
   })
 
+  it('commits at once and deletes the omitted records for a song that the page read before', async () => {
+    const content = makeSongContent()
+    await saveSong(makeSongContent('song-2'))
+    await saveSong(content)
+    await loadSong('song-1')
+    const commit = vi.spyOn(IDBTransaction.prototype, 'commit')
+
+    await saveSong({ ...content, sections: [], marks: content.marks.slice(1) })
+
+    // A commit in the call means that no request waits for a callback of the page.
+    expect(commit).toHaveBeenCalledTimes(1)
+    expect((await loadSong('song-1'))?.marks.map((mark) => mark.id)).toEqual(['song-1-word'])
+    expect(await listRecords('sections')).toEqual(makeSongContent('song-2').sections)
+  })
+
+  it('reads the stored records again for a song id after a delete of the song', async () => {
+    await saveSong(makeSongContent())
+    await deleteSong('song-1')
+    const commit = vi.spyOn(IDBTransaction.prototype, 'commit')
+
+    await saveSong(makeSongContent())
+
+    expect(commit).not.toHaveBeenCalled()
+    expect(await listRecords('marks')).toHaveLength(2)
+  })
+
   it('rejects with StorageFullError and saves nothing when the browser storage is full', async () => {
     await openDatabase()
     vi.spyOn(IDBObjectStore.prototype, 'put').mockImplementation(() => {

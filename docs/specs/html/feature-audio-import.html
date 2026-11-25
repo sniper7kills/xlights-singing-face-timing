@@ -230,6 +230,36 @@ body.rv-open .layout { padding-right:21rem; }
 </li>
 </ul>
 <p>storage that the browser allows.</p>
+<ul>
+<li>FR-audio-21 — The song library states the purpose of the app above the drop
+</li>
+</ul>
+<p>zone.</p>
+<ul>
+<li>FR-audio-22 — The song library credits the speech model, the vocal separation
+</li>
+</ul>
+<p>models, the singer models and the dictionary, with their licences.</p>
+<ul>
+<li>FR-audio-23 — The app starts a save of the open song 2 seconds after the first
+</li>
+</ul>
+<p>change that is not saved, also while changes continue.</p>
+<ul>
+<li>FR-audio-24 — While a change is not saved, the browser asks the person to
+</li>
+</ul>
+<p>confirm a reload or a close of the page.</p>
+<ul>
+<li>FR-audio-25 — The app starts a save of the open song when the page becomes
+</li>
+</ul>
+<p>hidden or unloads.</p>
+<ul>
+<li>FR-audio-26 — The link back to the song library opens the library after the
+</li>
+</ul>
+<p>save of the open song ends.</p>
 <h3 id="audio-import-user-flows">User flows</h3>
 <h4 id="audio-import-create-a-song">Create a song</h4>
 <div class="diagram"><pre class="mermaid">flowchart TD
@@ -276,13 +306,47 @@ body.rv-open .layout { padding-right:21rem; }
 </li>
 </ol>
 <h3 id="audio-import-screens-states">Screens &amp; states</h3>
-<p><strong>Song library</strong> — mockup: <a href="../mockups/01-song-library.html">mockups/01-song-library.html</a>. Regions: header, drop zone, song list, storage meter, "How it works" strip.</p>
+<p><strong>Song library</strong> — mockup: <a href="../mockups/01-song-library.html">mockups/01-song-library.html</a>. Regions: header, purpose text, drop zone, song list, storage meter, "How it works" strip.</p>
+<ul>
+<li>Purpose text, above the drop zone in each state: "Make the face models of your
+</li>
+</ul>
+<p>xLights show sing. Add a song, and the app finds each word and its mouth shapes, then gives you a timing file for the Faces effect."</p>
 <ul>
 <li>empty: the drop zone fills the main area. The "Try the demo song" button shows.
 </li>
 <li>loading: the drop zone shows "Decoding &lt;file name&gt;" with a progress bar.
 </li>
-<li>populated: the drop zone is a compact band above the song list.
+<li>populated: the drop zone is a compact band above the song list. The band keeps
+</li>
+</ul>
+<p>"Try the demo song" and the file limits. The song name has the style of a link. A long song name ends with an ellipsis, and its tooltip shows the full name.</p>
+<ul>
+<li>rename: under the name field, the hint "A song name has 1 to 80 characters."
+</li>
+</ul>
+<p>shows for an empty name and for a name of 80 characters.</p>
+<ul>
+<li>delete confirm: "Delete “&lt;song name&gt;”?", then "The app deletes its audio file,
+</li>
+</ul>
+<p>voices, sections and marks. You cannot undo this."</p>
+<ul>
+<li>credits, in the "How it works" strip. Each link opens in a new tab.
+<ul>
+<li>"The transcribe step uses the Whisper speech model of OpenAI (MIT), in the ONNX
+</li>
+</ul>
+</li>
+</ul>
+<p>files of onnx-community."</p>
+<ul>
+<li>"The vocal separation option uses the 2-stem model of Spleeter by Deezer and
+</li>
+</ul>
+<p>the htdemucs model of Demucs by Meta. The code of each project has the MIT licence. The licence notes state the facts about the weights."</p>
+<ul>
+<li>The CMU Pronouncing Dictionary and the singer models, as before.
 </li>
 <li>error: a message band above the drop zone shows the failure text.
 </li>
@@ -398,8 +462,10 @@ createDemoSong(): Promise&lt;Song&gt;</code></pre>
 <tr><td>The demo song files do not load</td><td>"The demo song did not load. Check the connection and retry."</td></tr>
 <tr><td>The app cannot read the audio from browser storage</td><td>"The app could not read the audio from browser storage. Reload the page."</td></tr>
 <tr><td>Persistent storage refused</td><td>A note beside the storage meter: "The browser can remove songs when disk space is low. Export your work."</td></tr>
-<tr><td>Several files dropped</td><td>The app takes the first audio file and shows "Only one file was added."</td></tr>
+<tr><td>Several files dropped</td><td>The app takes the first audio file and shows "Only one file was added." The editor shows the note again as a toast after it opens.</td></tr>
 <tr><td>Reload during decode</td><td>The song does not exist. The library shows no partial song.</td></tr>
+<tr><td>Reload or close while a change is not saved</td><td>The browser asks the person to confirm. The browser shows its own text.</td></tr>
+<tr><td>The page unloads before a save ends</td><td>The browser can stop the save. The song keeps the last save that ended.</td></tr>
 </table></div>
 <h3 id="audio-import-acceptance-criteria">Acceptance criteria</h3>
 <ul>
@@ -445,6 +511,43 @@ createDemoSong(): Promise&lt;Song&gt;</code></pre>
 <li>An edit followed by a reload 2 seconds later keeps the edit. (FR-audio-19)
 </li>
 <li>The storage meter shows used and allowed space in MB. (FR-audio-20)
+</li>
+<li>The first page states the purpose of the app above the drop zone. (FR-audio-21)
+</li>
+<li>With one song or more, the demo song and the limits are visible, and the song
+</li>
+</ul>
+<p>name has the style of a link. (FR-audio-17)</p>
+<ul>
+<li>A song name of 80 characters with no space stays inside its row at 1440 px and
+</li>
+</ul>
+<p>at 1024 px. (FR-audio-1)</p>
+<ul>
+<li>The rename field shows the hint for an empty name and for a name at the limit.
+</li>
+</ul>
+<p>(FR-audio-15)</p>
+<ul>
+<li>The delete dialog states that the delete is permanent. (FR-audio-16)
+</li>
+<li>Two dropped files show the note after the editor opens. (FR-audio-3)
+</li>
+<li>The credits name the speech model and the vocal separation models. (FR-audio-22)
+</li>
+<li>With a change each 200 ms for 10 seconds, the app saves the song 4 times or
+</li>
+</ul>
+<p>more. (FR-audio-23)</p>
+<ul>
+<li>10 edits with 100 ms between them, then a reload 300 ms after the last edit:
+</li>
+</ul>
+<p>the edits are there after the reload, or the browser asked first. (FR-audio-23, 24, 25)</p>
+<ul>
+<li>A reload with nothing to save shows no question. (FR-audio-24)
+</li>
+<li>The song library lists the saved song name after the back link. (FR-audio-26)
 </li>
 </ul>
 <h3 id="audio-import-out-of-scope">Out of scope</h3>

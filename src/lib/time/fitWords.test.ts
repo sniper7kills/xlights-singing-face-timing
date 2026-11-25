@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { fitWords } from './fitWords.ts'
+import { fitWords, wordRoom } from './fitWords.ts'
 
 const SONG = { startMs: 0, endMs: 60_000 }
 
@@ -120,5 +120,19 @@ describe('fitWords', () => {
 
   it('returns no word for no word', () => {
     expect(fit([], 50)).toEqual([])
+  })
+})
+
+describe('wordRoom', () => {
+  it('gives one word for each frame of the range', () => {
+    expect(wordRoom(50, { startMs: 0, endMs: 28_900 })).toBe(578)
+  })
+
+  it('counts only the frames inside the range', () => {
+    expect(wordRoom(50, { startMs: 1010, endMs: 2040 })).toBe(19)
+  })
+
+  it('gives 0 for a range shorter than one frame', () => {
+    expect(wordRoom(50, { startMs: 1010, endMs: 1040 })).toBe(0)
   })
 })

@@ -176,7 +176,7 @@ States:
 - error: the waveform error state from [01-audio-import.md](01-audio-import.md).
   The layers stay usable without audio.
 - narrow window (below 1024 px): a full-page note, "The editor needs a window that
-  is 1024 px wide or more."
+  is 1024 px wide or more.", and a link "Back to the song library".
 
 Mark styles on the layers: phrases are wide bars with the full text. Words are
 bars with the word. Phonemes are short blocks with the phoneme label and one colour
