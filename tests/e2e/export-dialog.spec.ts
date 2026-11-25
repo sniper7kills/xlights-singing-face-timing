@@ -93,3 +93,34 @@ test('shows no "has no phoneme" warning for the words of a transcribe run', asyn
   await expect(dialog.getByText(/has no phoneme\.$/)).toHaveCount(0)
   expect(await dialog.getByLabel('File preview').textContent()).toContain('<Effect label="')
 })
+
+test('warns about a voice name with an accented letter and still downloads', async ({ page }) => {
+  await page.goto('/')
+  await page.getByRole('button', { name: 'Try the demo song' }).click()
+  await expect(page.getByRole('heading', { level: 2, name: 'Silent Night' })).toBeVisible()
+  const rail = page.getByRole('complementary', { name: 'Voices' })
+  await rail.getByRole('button', { name: 'Actions for Lead Vocals', exact: true }).click()
+  await rail.getByRole('menuitem', { name: 'Rename', exact: true }).click()
+  const field = rail.getByRole('textbox', { name: 'Voice name' })
+  await field.fill('Noël')
+  await expect(rail.getByText('xLights shows this name as “Nol”.')).toBeVisible()
+  await field.press('Enter')
+  await expect(rail.getByRole('button', { name: 'Noël', exact: true })).toBeVisible()
+
+  await page.getByRole('button', { name: 'Export' }).click()
+  const dialog = page.getByRole('dialog', { name: 'Export to xLights' })
+  await dialog.getByText('Checks · 0 errors · 1 warning').click()
+  await expect(
+    dialog.getByText(
+      'xLights shows the timing track “Noël” as “Nol”. xLights removes = < > & " \' and characters that are not ASCII from a name.',
+    ),
+  ).toBeVisible()
+
+  const downloadEvent = page.waitForEvent('download')
+  await dialog.getByRole('button', { name: 'Download' }).click()
+  const download = await downloadEvent
+  expect(download.suggestedFilename()).toBe('Silent Night.xtiming')
+  await expect(dialog.getByRole('status')).toHaveText(
+    '1 timing track written to Silent Night.xtiming',
+  )
+})

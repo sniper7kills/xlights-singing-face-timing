@@ -541,8 +541,11 @@ body.rv-open .layout { padding-right:21rem; }
 <tr><td>A selected voice has no marks.</td><td>error</td><td><code>“&lt;voice name&gt;” has no marks.</code></td></tr>
 <tr><td>Two timing tracks have the same name.</td><td>error</td><td><code>Two timing tracks have the name “&lt;timing track name&gt;”.</code></td></tr>
 <tr><td>A timing track name is empty.</td><td>error</td><td><code>A timing track of “&lt;voice name&gt;” has no name.</code></td></tr>
+<tr><td>A timing track name has only spaces after the xLights import.</td><td>error</td><td><code>xLights cannot use the timing track name “&lt;timing track name&gt;”. Use letters from A to Z, digits or spaces.</code></td></tr>
 <tr><td>A phoneme label is not one of the ten phoneme labels.</td><td>error</td><td><code>“&lt;label&gt;” at &lt;time&gt; is not a phoneme label.</code></td></tr>
 <tr><td>A mark has an end time that is not after its start time.</td><td>error</td><td><code>“&lt;label&gt;” at &lt;time&gt; ends at or before its start.</code></td></tr>
+<tr><td>The xLights import changes a timing track name.</td><td>warning</td><td><code>xLights shows the timing track “&lt;timing track name&gt;” as “&lt;name after the import&gt;”. xLights removes = &lt; &gt; &amp; " ' and characters that are not ASCII from a name.</code></td></tr>
+<tr><td>Two different timing track names are the same after the xLights import.</td><td>warning</td><td><code>xLights gives these timing tracks almost the same name: “&lt;name after the import&gt;” and “&lt;name after the import&gt;_1”. Change a voice name or a section name.</code></td></tr>
 <tr><td>A word has no phoneme.</td><td>warning</td><td><code>“&lt;label&gt;” at &lt;time&gt; has no phoneme.</code></td></tr>
 <tr><td>A word is "unknown".</td><td>warning</td><td><code>“&lt;label&gt;” at &lt;time&gt; is an unknown word. Its phonemes are a guess.</code></td></tr>
 <tr><td>A word is "estimated".</td><td>warning</td><td><code>“&lt;label&gt;” at &lt;time&gt; has an estimated time.</code></td></tr>
@@ -559,6 +562,21 @@ body.rv-open .layout { padding-right:21rem; }
 </li>
 </ul>
 <p>and reports the warning.</p>
+<ul>
+<li>The xLights import removes each of <code>= &lt; &gt; &amp; " '</code>, each control character and
+</li>
+</ul>
+<p>each character that is not ASCII from a timing track name. It keeps the spaces. The checks compare the names after this removal.</p>
+<ul>
+<li>If two names are the same after the removal, xLights adds <code>_1</code> to the second
+</li>
+</ul>
+<p>name. The person then cannot tell the two timing tracks apart.</p>
+<ul>
+<li>An empty timing track name, or a name that is the same before the import, has
+</li>
+</ul>
+<p>its own error. The import checks do not report it again.</p>
 <p><strong>Import steps text.</strong> The dialog shows these steps. The names of the controls are the names in xLights 2026.21.</p>
 <ol>
 <li>Open the sequence in xLights. Use the same audio file, so the times match.
@@ -677,7 +695,8 @@ body.rv-open .layout { padding-right:21rem; }
 <tr><td>The import moves each time down to a multiple of the frame size.</td><td><code>src-core/render/SequenceFile.cpp:966-973</code></td><td>Confirmed</td></tr>
 <tr><td><code>XmlSafe</code> writes <code>&amp;amp;</code>, <code>&amp;lt;</code>, <code>&amp;gt;</code>, <code>&amp;apos;</code>, <code>&amp;quot;</code>, and <code>&amp;#9;</code>, <code>&amp;#10;</code>, <code>&amp;#13;</code>. It removes the other control characters and keeps UTF-8 bytes.</td><td><code>src-core/utils/UtilFunctions.cpp:179-205</code></td><td>Confirmed: the same as <code>escapeXml</code></td></tr>
 <tr><td>A timing track name that exists gets <code>_1</code>, <code>_2</code> and so on.</td><td><code>src-core/render/SequenceFile.cpp:903-926</code></td><td>Different: the spec said "renames". Now exact.</td></tr>
-<tr><td>The import removes <code>= &lt; &gt; &amp; " '</code> and each character that is not ASCII from a timing track name.</td><td><code>src-core/render/SequenceFile.cpp:905</code>, <code>src-core/utils/UtilFunctions.cpp:315-328</code></td><td>Different: not in the spec before. The import steps state it.</td></tr>
+<tr><td>The import removes <code>= &lt; &gt; &amp; " '</code> and each character that is not ASCII from a timing track name.</td><td><code>src-core/render/SequenceFile.cpp:905</code>, <code>src-core/utils/UtilFunctions.cpp:315-328</code></td><td>Different: not in the spec before. The import steps state it. The checks warn about it (issue #143).</td></tr>
+<tr><td>The removal compares each byte as a signed <code>char</code>. It removes each byte below 32 and each UTF-8 byte above 127. It keeps byte 127 and does not trim spaces. A second name that is the same after the removal gets <code>_1</code>. An empty name makes a timing track with no name.</td><td><code>src-core/utils/UtilFunctions.cpp:315-328</code>, <code>src-core/render/SequenceFile.cpp:903-936</code>, <code>src-ui-wx/sequencer/tabSequencer.cpp:3822-3836</code></td><td>Confirmed from the source for issue #143. Not confirmed by a real import.</td></tr>
 <tr><td>The "Timing Track" list of the Faces effect shows only timing tracks with exactly 3 layers.</td><td><code>src-ui-wx/effectpanels/FacesPanel.cpp:166-177</code></td><td>Confirmed: the reason for three layers</td></tr>
 <tr><td>The Faces effect reads layer index 2. With no phoneme at a time, or an empty label, it shows <code>rest</code>.</td><td><code>src-core/effects/FacesEffect.cpp:1164-1194</code></td><td>Confirmed</td></tr>
 <tr><td>The phoneme labels are <code>AI</code>, <code>E</code>, <code>FV</code>, <code>L</code>, <code>MBP</code>, <code>O</code>, <code>U</code>, <code>WQ</code>, <code>etc</code>, <code>rest</code>, and <code>(off)</code>. The comparison is case-sensitive.</td><td><code>src-core/effects/FacesEffect.cpp:609-631</code></td><td>Confirmed</td></tr>
@@ -918,6 +937,15 @@ importStepsText(frameMs: number): string</code></pre>
 <li>A click on a finding selects the mark in the editor. (FR-export-17)
 </li>
 <li>Two timing tracks with one name disable "Download". (FR-export-18)
+</li>
+<li>A timing track name <code>Café</code> gives one warning in the checks. "Download" stays
+</li>
+</ul>
+<p>enabled. (FR-export-16)</p>
+<ul>
+<li>A timing track name <code>Lead Vocals</code> gives no warning. (FR-export-16)
+</li>
+<li>A timing track name <code>Ééé</code> disables "Download". (FR-export-18)
 </li>
 <li>The dialog shows the 7 import steps after a download. (FR-export-20)
 </li>

@@ -242,8 +242,11 @@ Labels:
 | A selected voice has no marks. | error | `“<voice name>” has no marks.` |
 | Two timing tracks have the same name. | error | `Two timing tracks have the name “<timing track name>”.` |
 | A timing track name is empty. | error | `A timing track of “<voice name>” has no name.` |
+| A timing track name has only spaces after the xLights import. | error | `xLights cannot use the timing track name “<timing track name>”. Use letters from A to Z, digits or spaces.` |
 | A phoneme label is not one of the ten phoneme labels. | error | `“<label>” at <time> is not a phoneme label.` |
 | A mark has an end time that is not after its start time. | error | `“<label>” at <time> ends at or before its start.` |
+| The xLights import changes a timing track name. | warning | `xLights shows the timing track “<timing track name>” as “<name after the import>”. xLights removes = < > & " ' and characters that are not ASCII from a name.` |
+| Two different timing track names are the same after the xLights import. | warning | `xLights gives these timing tracks almost the same name: “<name after the import>” and “<name after the import>_1”. Change a voice name or a section name.` |
 | A word has no phoneme. | warning | `“<label>” at <time> has no phoneme.` |
 | A word is "unknown". | warning | `“<label>” at <time> is an unknown word. Its phonemes are a guess.` |
 | A word is "estimated". | warning | `“<label>” at <time> has an estimated time.` |
@@ -254,6 +257,13 @@ Labels:
   change.
 - If the snap makes a mark zero length, the app extends the mark to one frame size
   and reports the warning.
+- The xLights import removes each of `= < > & " '`, each control character and
+  each character that is not ASCII from a timing track name. It keeps the spaces.
+  The checks compare the names after this removal.
+- If two names are the same after the removal, xLights adds `_1` to the second
+  name. The person then cannot tell the two timing tracks apart.
+- An empty timing track name, or a name that is the same before the import, has
+  its own error. The import checks do not report it again.
 
 **Import steps text.** The dialog shows these steps. The names of the controls are
 the names in xLights 2026.21.
@@ -359,7 +369,8 @@ only the version files, so no rule changed. Paths and lines are at the tag.
 | The import moves each time down to a multiple of the frame size. | `src-core/render/SequenceFile.cpp:966-973` | Confirmed |
 | `XmlSafe` writes `&amp;`, `&lt;`, `&gt;`, `&apos;`, `&quot;`, and `&#9;`, `&#10;`, `&#13;`. It removes the other control characters and keeps UTF-8 bytes. | `src-core/utils/UtilFunctions.cpp:179-205` | Confirmed: the same as `escapeXml` |
 | A timing track name that exists gets `_1`, `_2` and so on. | `src-core/render/SequenceFile.cpp:903-926` | Different: the spec said "renames". Now exact. |
-| The import removes `= < > & " '` and each character that is not ASCII from a timing track name. | `src-core/render/SequenceFile.cpp:905`, `src-core/utils/UtilFunctions.cpp:315-328` | Different: not in the spec before. The import steps state it. |
+| The import removes `= < > & " '` and each character that is not ASCII from a timing track name. | `src-core/render/SequenceFile.cpp:905`, `src-core/utils/UtilFunctions.cpp:315-328` | Different: not in the spec before. The import steps state it. The checks warn about it (issue #143). |
+| The removal compares each byte as a signed `char`. It removes each byte below 32 and each UTF-8 byte above 127. It keeps byte 127 and does not trim spaces. A second name that is the same after the removal gets `_1`. An empty name makes a timing track with no name. | `src-core/utils/UtilFunctions.cpp:315-328`, `src-core/render/SequenceFile.cpp:903-936`, `src-ui-wx/sequencer/tabSequencer.cpp:3822-3836` | Confirmed from the source for issue #143. Not confirmed by a real import. |
 | The "Timing Track" list of the Faces effect shows only timing tracks with exactly 3 layers. | `src-ui-wx/effectpanels/FacesPanel.cpp:166-177` | Confirmed: the reason for three layers |
 | The Faces effect reads layer index 2. With no phoneme at a time, or an empty label, it shows `rest`. | `src-core/effects/FacesEffect.cpp:1164-1194` | Confirmed |
 | The phoneme labels are `AI`, `E`, `FV`, `L`, `MBP`, `O`, `U`, `WQ`, `etc`, `rest`, and `(off)`. The comparison is case-sensitive. | `src-core/effects/FacesEffect.cpp:609-631` | Confirmed |
@@ -560,6 +571,10 @@ importStepsText(frameMs: number): string
 - A song with a word that has no phoneme lists one warning. (FR-export-16)
 - A click on a finding selects the mark in the editor. (FR-export-17)
 - Two timing tracks with one name disable "Download". (FR-export-18)
+- A timing track name `Café` gives one warning in the checks. "Download" stays
+  enabled. (FR-export-16)
+- A timing track name `Lead Vocals` gives no warning. (FR-export-16)
+- A timing track name `Ééé` disables "Download". (FR-export-18)
 - The dialog shows the 7 import steps after a download. (FR-export-20)
 - The dialog shows the 5 steps for several face models under the import steps.
   (FR-export-34)
