@@ -1,8 +1,9 @@
 import { beforeEach, describe, expect, it } from 'vitest'
-import { OTHER_VOICE, testContent } from '../../lib/marks/fixtures.test-helpers.ts'
+import { OTHER_VOICE, testContent, VOICE } from '../../lib/marks/fixtures.test-helpers.ts'
 import { emptyHistory } from '../../store/history.ts'
 import { useSongStore } from '../../store/songStore.ts'
 import { useViewStore } from '../../store/viewStore.ts'
+import { layerFocusId, resetMarkUi, useMarkUiStore } from '../timeline-editor/markUiStore.ts'
 import { endTransfer, startTransfer, useTransferStore } from './transferCommands.ts'
 
 function voiceOf(id: string) {
@@ -13,6 +14,7 @@ beforeEach(() => {
   useSongStore.setState({ current: testContent(), history: emptyHistory() })
   useViewStore.getState().resetView()
   useTransferStore.setState({ pending: null })
+  resetMarkUi()
 })
 
 describe('startTransfer', () => {
@@ -35,6 +37,20 @@ describe('startTransfer', () => {
 
     expect(voiceOf('p1')).toBe(useSongStore.getState().current?.voices[2]?.id)
     expect(useViewStore.getState().selectedMarkIds).toEqual([])
+  })
+
+  it('requests the focus for the phrase track of the shown voice after a move', () => {
+    useViewStore.getState().selectMarks(['p2'])
+
+    startTransfer(['p2'], OTHER_VOICE, 'move')
+
+    expect(useMarkUiStore.getState().focusId).toBe(layerFocusId(VOICE, 'phrase'))
+  })
+
+  it('leaves the focus after a copy', () => {
+    startTransfer(['p2'], OTHER_VOICE, 'copy')
+
+    expect(useMarkUiStore.getState().focusId).toBeNull()
   })
 
   it('keeps the selection when no new voice comes', () => {
