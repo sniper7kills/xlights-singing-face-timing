@@ -226,6 +226,12 @@ describe('putSingersOnVoices with a change of singer inside a phrase', () => {
     const result = putSingersOnVoices(VOICE, ['line'], LINE_SEGMENTS, 1)
 
     expect(result).toMatchObject({ voiceCount: 1, dividedCount: 0 })
+    // The counts describe the phrase as it stays: one phrase that both singers sing.
+    expect(result.stats).toEqual({
+      singersWithPhrases: 2,
+      phrasesWithNoSinger: 0,
+      phrasesWithMoreSingers: 1,
+    })
     expect(current()).toEqual(testContent(lineMarks()))
     expect(steps()).toBe(0)
   })

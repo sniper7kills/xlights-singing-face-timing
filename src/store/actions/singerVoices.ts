@@ -158,7 +158,11 @@ function singerVoicesStep(
   const assignment = assignSingers(phrases, segments, maxSingers)
   const moved = transferStep({ ...content, marks: divided.marks }, voiceId, assignment)
   // With one voice, the division alone gives the person no gain, so the step keeps the song as it was.
-  if (moved.voiceCount === 1) return { content, result: { voiceCount: 1, dividedCount: 0, stats } }
+  if (moved.voiceCount === 1)
+    return {
+      content,
+      result: { voiceCount: 1, dividedCount: 0, stats: assignmentStats(owned, segments) },
+    }
   return {
     content: moved.content,
     result: { voiceCount: moved.voiceCount, dividedCount: divided.dividedCount, stats },
