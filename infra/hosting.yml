@@ -183,8 +183,11 @@ Resources:
                   - s3:PutObject
                   - s3:DeleteObject
                 Resource: !Sub '${SiteBucket.Arn}/*'
+              # aws cloudfront wait invalidation-completed calls GetInvalidation until the invalidation is complete.
               - Effect: Allow
-                Action: cloudfront:CreateInvalidation
+                Action:
+                  - cloudfront:CreateInvalidation
+                  - cloudfront:GetInvalidation
                 Resource: !Sub 'arn:${AWS::Partition}:cloudfront::${AWS::AccountId}:distribution/${SiteDistribution}'
 
 Outputs:

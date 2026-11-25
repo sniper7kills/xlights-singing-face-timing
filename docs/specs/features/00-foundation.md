@@ -157,7 +157,7 @@ aws cloudfront create-invalidation --distribution-id $CLOUDFRONT_DISTRIBUTION_ID
 ```
 
 The deploy role needs permission to list, put and delete objects in the bucket and
-to create an invalidation on the distribution. The engineer confirms the exact IAM
+to create and read an invalidation on the distribution. The engineer confirms the exact IAM
 action names from the IAM reference before the role is written.
 
 Files with a content hash in the name get a long cache time with the
