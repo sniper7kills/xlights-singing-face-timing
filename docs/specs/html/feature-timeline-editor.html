@@ -333,6 +333,10 @@ body.rv-open .layout { padding-right:21rem; }
 </li>
 </ul>
 <p>the song.</p>
+<ul>
+<li>FR-editor-54 — A heading above the phrase layer names the shown voice.
+</li>
+</ul>
 <h3 id="timeline-editor-user-flows">User flows</h3>
 <h4 id="timeline-editor-correct-the-time-of-a-word">Correct the time of a word</h4>
 <div class="diagram"><pre class="mermaid">flowchart TD
@@ -430,7 +434,12 @@ body.rv-open .layout { padding-right:21rem; }
 <li>empty: the layers show "No marks yet. Select Transcribe to find the words." with
 </li>
 </ul>
-<p>a "Transcribe" button.</p>
+<p>a "Transcribe" button. When a different voice of the song has phrases, the text is "This voice has no marks. Select phrases of a different voice, then select "Phrase" and "Move to voice". Or select "Transcribe"."</p>
+<ul>
+<li>each state with a voice: the heading "Voice: &lt;voice name&gt;", with the colour
+</li>
+</ul>
+<p>chip of the voice, is above the phrase layer. It changes with the shown voice. See <a href="feature-voices-sections.html#behaviour-rules">05-voices-sections.md</a>.</p>
 <ul>
 <li>loading: skeleton layers while the song opens.
 </li>
@@ -1032,6 +1041,11 @@ formatTime(ms: number): string                   // m:ss.mmm</code></pre>
 </li>
 </ul>
 <p>(FR-editor-53)</p>
+<ul>
+<li>After a click on a voice, the heading above the phrase layer is "Voice: &lt;voice
+</li>
+</ul>
+<p>name&gt;". (FR-editor-54)</p>
 <ul>
 <li>A changed phrase label shows the confirm dialog, and confirm rebuilds the words.
 </li>

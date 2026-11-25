@@ -97,6 +97,7 @@ face that sings during play, so the person sees the result before xLights does.
 - FR-editor-52 — The heading of the group "Audio tracks" names the rows that sound.
 - FR-editor-53 — The editor tells the person when it cannot read the run data of
   the song.
+- FR-editor-54 — A heading above the phrase layer names the shown voice.
 
 ## User flows
 
@@ -174,7 +175,12 @@ Regions:
 States:
 
 - empty: the layers show "No marks yet. Select Transcribe to find the words." with
-  a "Transcribe" button.
+  a "Transcribe" button. When a different voice of the song has phrases, the text
+  is "This voice has no marks. Select phrases of a different voice, then select
+  "Phrase" and "Move to voice". Or select "Transcribe"."
+- each state with a voice: the heading "Voice: <voice name>", with the colour
+  chip of the voice, is above the phrase layer. It changes with the shown voice.
+  See [05-voices-sections.md](05-voices-sections.md#behaviour-rules).
 - loading: skeleton layers while the song opens.
 - populated: all regions as described.
 - error: the waveform error state from [01-audio-import.md](01-audio-import.md).
@@ -569,6 +575,8 @@ scroll methods before use. Those names are not verified in this spec.
 - No row name covers a waveform. (FR-editor-31)
 - A failed read of the run data shows its cause in the place of the group.
   (FR-editor-53)
+- After a click on a voice, the heading above the phrase layer is "Voice: <voice
+  name>". (FR-editor-54)
 - A changed phrase label shows the confirm dialog, and confirm rebuilds the words.
   (FR-editor-30)
 
