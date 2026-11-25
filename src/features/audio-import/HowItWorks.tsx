@@ -36,6 +36,17 @@ export function HowItWorks() {
         <a href="https://github.com/cmusphinx/cmudict">CMU Pronouncing Dictionary</a> of Carnegie
         Mellon University (<a href="dict/cmudict-LICENSE.txt">licence</a>).
       </p>
+      {/* CC BY 4.0 requires this attribution. See docs/licences/singer-models.md. */}
+      <p className="card-note">
+        The singer option uses the{' '}
+        <a href="https://huggingface.co/pyannote/wespeaker-voxceleb-resnet34-LM">
+          wespeaker-voxceleb-resnet34-LM
+        </a>{' '}
+        model of the WeSpeaker project (
+        <a href="https://creativecommons.org/licenses/by/4.0/">CC BY 4.0</a>) and the{' '}
+        <a href="https://huggingface.co/pyannote/segmentation-3.0">segmentation-3.0</a> model of
+        pyannote (MIT).
+      </p>
     </section>
   )
 }

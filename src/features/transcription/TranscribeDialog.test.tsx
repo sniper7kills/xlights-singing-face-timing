@@ -335,6 +335,7 @@ describe('TranscribeDialog', () => {
       addSections: false,
       separateVocals: false,
       separationModel: 'spleeter',
+      singerVoices: false,
     })
     expect(progress()).toHaveTextContent('Preparing audio, 0:00 elapsed')
     expect(onActiveChange).toHaveBeenLastCalledWith(true)

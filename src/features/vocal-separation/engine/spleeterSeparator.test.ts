@@ -7,6 +7,19 @@ import { createSpleeterSeparator } from './spleeterSeparator.ts'
 const output = vi.hoisted(() => ({ value: 1 }))
 
 vi.mock('onnxruntime-web/ort-wasm-simd-threaded.wasm?url', () => ({ default: '/ort.wasm' }))
+// A small transform keeps each test fast. The real 512 frames of a 4096-point FFT take about 1 s for each segment.
+vi.mock('./spleeterModel.ts', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('./spleeterModel.ts')>()),
+  SPLEETER: {
+    fftSize: 64,
+    hop: 16,
+    frames: 32,
+    modelBins: 32,
+    overlap: 4 * 16,
+    inputName: 'x',
+    outputName: 'y',
+  },
+}))
 vi.mock('./modelFiles.ts', () => ({
   loadModelFiles: async () => [new ArrayBuffer(1), new ArrayBuffer(1)],
 }))

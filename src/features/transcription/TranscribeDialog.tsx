@@ -53,6 +53,8 @@ import {
   separationModelLabel,
   separationNote,
   runSpeed,
+  SINGER_HINT,
+  SINGER_NOTE,
   shownRunState,
   SLOW_GPU_MESSAGE,
   stateLabel,
@@ -96,6 +98,7 @@ export function TranscribeDialog({
   const [tagSections, setTagSections] = useState(true)
   const [separate, setSeparate] = useState(DEFAULT_SETTINGS.separateVocals)
   const [separationModel, setSeparationModel] = useState(DEFAULT_SETTINGS.separationModel)
+  const [singers, setSingers] = useState(DEFAULT_SETTINGS.singerVoices)
   const [range, setRange] = useState<TimeRange | undefined>(undefined)
   const remote = useRemoteChoice()
   const { restore } = remote
@@ -123,6 +126,7 @@ export function TranscribeDialog({
         setSeparate(settings.separateVocals)
         if (isSeparationModelId(settings.separationModel))
           setSeparationModel(settings.separationModel)
+        setSingers(settings.singerVoices)
         restore(settings)
       })
     if (dialogRef.current !== null) tabStops(dialogRef.current)[0]?.focus()
@@ -158,6 +162,12 @@ export function TranscribeDialog({
     void updateSettings({ separationModel: model }).catch(() => undefined)
   }
 
+  function selectSingers(checked: boolean) {
+    setSingers(checked)
+    // The choice applies to this run even when the browser storage is full.
+    void updateSettings({ singerVoices: checked }).catch(() => undefined)
+  }
+
   function start() {
     void run.start({
       voiceId,
@@ -169,6 +179,7 @@ export function TranscribeDialog({
       addSections: hasTags && tagSections,
       separateVocals: !lyricsOnly && separate,
       separationModel,
+      singerVoices: !lyricsOnly && separate && singers,
     })
   }
 
@@ -257,6 +268,12 @@ export function TranscribeDialog({
             model={separationModel}
             webgpu={run.webgpu}
             onModelChange={selectSeparationModel}
+          />
+          <SingerChoice
+            shown={!lyricsOnly}
+            enabled={separate}
+            checked={singers}
+            onChange={selectSingers}
           />
           <fieldset className="choice-group">
             <legend>Range</legend>
@@ -397,6 +414,44 @@ function SeparationModelChoice({ model, webgpu, onChange }: SeparationModelChoic
       {model === 'demucs' && webgpu === false && (
         <p className="dialog-confirm">{DEMUCS_WASM_WARNING}</p>
       )}
+    </>
+  )
+}
+
+type SingerChoiceProps = {
+  /** False for a lyrics-only run, which reads no audio. */
+  shown: boolean
+  /** True when "Separate the vocals first" is on, because the step reads the separated vocals. */
+  enabled: boolean
+  checked: boolean
+  onChange: (checked: boolean) => void
+}
+
+/** Shows the check box "Put each singer on its own voice", its note, and the hint while it is disabled. */
+function SingerChoice({ shown, enabled, checked, onChange }: SingerChoiceProps) {
+  const noteId = useId()
+  const hintId = useId()
+  if (!shown) return null
+  return (
+    <>
+      <label className="choice">
+        <input
+          type="checkbox"
+          checked={enabled && checked}
+          disabled={!enabled}
+          aria-describedby={enabled ? noteId : `${hintId} ${noteId}`}
+          onChange={(event) => onChange(event.target.checked)}
+        />
+        Put each singer on its own voice (experimental)
+      </label>
+      {!enabled && (
+        <p id={hintId} className="dialog-note">
+          {SINGER_HINT}
+        </p>
+      )}
+      <p id={noteId} className="dialog-note">
+        {SINGER_NOTE}
+      </p>
     </>
   )
 }
@@ -558,6 +613,19 @@ type RunMeter = {
   separationModel: SeparationModelId
 }
 
+/** Returns the meter of a run at the "Start" click. */
+function meterAtStart(request: TranscribeRequest): RunMeter {
+  return {
+    mode: request.mode,
+    host: request.remote === undefined ? null : endpointHost(request.remote.baseUrl),
+    startedAtMs: Date.now(),
+    runAtMs: null,
+    speed: null,
+    slowDevice: false,
+    separationModel: request.separationModel ?? 'spleeter',
+  }
+}
+
 /** Returns the meter after a step of the run. A new start of the run in the worker measures the speed again. */
 function meterAfterStage(meter: RunMeter | null, stage: RunStage): RunMeter | null {
   if (meter === null || stage !== 'transcribing') return meter
@@ -651,15 +719,7 @@ function useTranscribeRun(onDone: (outcome: TranscribeOutcome) => void) {
           send(event)
         })
       const ask = (event: DialogEvent) => askAnswer(event).then((value) => value === true)
-      setMeter({
-        mode: request.mode,
-        host: request.remote === undefined ? null : endpointHost(request.remote.baseUrl),
-        startedAtMs: Date.now(),
-        runAtMs: null,
-        speed: null,
-        slowDevice: false,
-        separationModel: request.separationModel ?? 'spleeter',
-      })
+      setMeter(meterAtStart(request))
       send({ type: 'start', mode: request.mode })
       try {
         const outcome = await runTranscription(request, client, {
@@ -672,6 +732,10 @@ function useTranscribeRun(onDone: (outcome: TranscribeOutcome) => void) {
             send({ type: 'separation-progress', doneMs, totalMs }),
           confirmNoSeparation: (error, model) =>
             askAnswer({ type: 'confirm-no-separation', error, model }),
+          onSingersDownload: (loaded, total) =>
+            send({ type: 'singers-download', percent: downloadPercent(loaded, total) }),
+          onSingersProgress: (doneMs, totalMs) =>
+            send({ type: 'singers-progress', doneMs, totalMs }),
           onUpload: (loaded, total) =>
             send({ type: 'upload', percent: downloadPercent(loaded, total) }),
           onStage: (stage) => {
@@ -688,8 +752,9 @@ function useTranscribeRun(onDone: (outcome: TranscribeOutcome) => void) {
           confirmReplace: () => ask({ type: 'confirm-replace' }),
           confirmLowMatch: (ratio) => ask({ type: 'confirm-low-match', ratio }),
         })
-        if (controller.signal.aborted) return
-        send({ type: 'done' })
+        // A cancel during the singer step keeps the marks of the run, so the run ends as done and the toast says so.
+        if (controller.signal.aborted && outcome.singers?.status !== 'cancelled') return
+        dispatch({ type: 'done' })
         onDone(outcome)
       } catch (error) {
         send(isCancel(error) ? { type: 'cancelled' } : { type: 'failed', error })
@@ -708,6 +773,11 @@ function useTranscribeRun(onDone: (outcome: TranscribeOutcome) => void) {
   }
 
   function cancel() {
+    // The marks of the run exist during the singer step, so a cancel stops only the step and the run ends as done.
+    if (SINGER_STATES.has(state.status)) {
+      runRef.current?.abort()
+      return
+    }
     answer(false)
     runRef.current?.abort()
     clientRef.current?.cancel()
@@ -716,6 +786,14 @@ function useTranscribeRun(onDone: (outcome: TranscribeOutcome) => void) {
 
   return { state, webgpu, device, meter, start, answer, cancel }
 }
+
+/** The run states of the singer step, after the run wrote its marks. */
+const SINGER_STATES: ReadonlySet<DialogState['status']> = new Set([
+  'singers-loading',
+  'singers-downloading',
+  'singers-started',
+  'finding-singers',
+])
 
 /** Returns `Date.now()`, updated each second while `ticking` is true. */
 function useNow(ticking: boolean): number {

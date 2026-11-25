@@ -107,6 +107,8 @@ export type AppSettings = {
   remoteEndpoint: RemoteEndpoint
   /** The last choice of the check box "Separate the vocals first" of the transcribe dialog. */
   separateVocals: boolean
+  /** The last choice of the check box "Put each singer on its own voice" of the transcribe dialog. */
+  singerVoices: boolean
   /** The last choice of "Separation model" of the transcribe dialog. */
   separationModel: SeparationModelId
 }

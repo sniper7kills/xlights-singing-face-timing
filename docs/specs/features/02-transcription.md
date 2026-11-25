@@ -3,7 +3,7 @@ id: transcription
 feature: Transcription
 epic: "Epic 2: Transcription"
 status: built
-issues: [14, 15, 16, 17, 18, 23, 77, 29, 30, 91, 93, 97, 101]
+issues: [14, 15, 16, 17, 18, 23, 77, 29, 30, 91, 93, 97, 101, 117, 119]
 mockups: []
 ---
 
@@ -125,6 +125,25 @@ leaves the browser, and the app shows the host before each run.
   memory and time warning before the run.
 - FR-transcribe-52 — After a memory failure of Demucs, the person can run the
   vocal separation again with the fast model.
+- FR-transcribe-53 — The transcribe dialog has the check box "Put each singer on its
+  own voice (experimental)". It is off by default.
+- FR-transcribe-54 — The app remembers the last choice of "Put each singer on its own
+  voice".
+- FR-transcribe-55 — The dialog disables "Put each singer on its own voice" while
+  "Separate the vocals first" is off.
+- FR-transcribe-56 — The dialog hides "Put each singer on its own voice" for "Lyrics
+  only".
+- FR-transcribe-57 — With the option on, the singer step runs after the run writes
+  its marks. It reads the separated vocals of the run at 16 kHz.
+- FR-transcribe-58 — The singer step runs in a Web Worker in the browser. It sends no
+  audio out of the browser.
+- FR-transcribe-59 — With the option off, the app loads no file of the singer step.
+- FR-transcribe-60 — The dialog shows the download progress of the singer model and
+  the progress of the singer step.
+- FR-transcribe-61 — "Cancel" during the singer step stops the step and keeps the
+  marks of the run.
+- FR-transcribe-62 — After a failed singer step, the marks of the run stay on the
+  voice of the run, and the toast states the failure.
 
 ## User flows
 
@@ -231,6 +250,21 @@ sequenceDiagram
 9. If Demucs fails for memory, the dialog also shows "Use the fast model". "Use the
    fast model" runs the vocal separation again with Spleeter.
 
+### Put each singer on its own voice
+
+1. The person selects "Separate the vocals first".
+2. The person selects "Put each singer on its own voice (experimental)".
+3. The person selects "Start".
+4. The run separates the vocals, finds the words and writes the marks, as for a run
+   with vocal separation.
+5. The singers worker downloads the singer model if the browser does not have it.
+6. The singers worker finds the time ranges of each singer in the separated vocals.
+7. The app gives each phrase of the run to its singers, and puts each singer on its
+   own voice. See the singer rules in
+   [05-voices-sections.md](05-voices-sections.md#behaviour-rules).
+8. The app closes the dialog. The toast names the count of voices, for example "214
+   words on 3 voices, 9 estimated".
+
 ### Create phrases from lyrics without a speech model
 
 1. The person selects "Lyrics only" in the transcribe dialog.
@@ -318,6 +352,28 @@ the warning "Demucs needs about 4 GB of memory and several minutes for a song on
 this browser." before the run. After a memory failure of Demucs, the separation
 failed state has three actions: "Use the fast model", "Continue with no separation"
 and "Cancel".
+
+**Put each singer on its own voice.** The label of the check box is "Put each singer
+on its own voice (experimental)". The check box comes after "Separate the vocals
+first" and its "Separation model" choice. "Lyrics only" hides it. While "Separate the vocals first" is off, the check
+box is disabled, and the hint under it reads "Select "Separate the vocals first" to
+use this option." The note under the check box reads "The app estimates which singer
+sings each phrase, and makes one voice for each singer. Check the result. Use "Move
+to voice" to correct a phrase. The app can find too many singers. This step
+downloads models of 33 MB one time."
+
+The states of the singer step come after finishing, because the step starts after
+the run writes its marks:
+
+- singers loading: "Loading singer model, 0:03 elapsed" with a bar that has no end.
+  "Cancel" enabled.
+- singers downloading: "Downloading singer model, 42%" with a bar. "Cancel" enabled.
+- finding singers: "Finding the singers, 1:12 of 3:40" with a bar. Before the first
+  progress, "Finding the singers, 0:12 elapsed" with a bar that has no end. "Cancel"
+  enabled.
+- done: the dialog closes. With two voices or more, the toast reads "214 words on 3
+  voices, 9 estimated". Otherwise, the toast adds the message of the outcome to
+  "214 words, 9 estimated". See [Edge cases & failures](#edge-cases--failures).
 
 **Where to transcribe.** The choice "Where to transcribe" comes first in the
 dialog, with "In this browser" and "Remote endpoint". "Lyrics only" disables the
@@ -431,6 +487,8 @@ Each base URL that the app refuses shows a message:
 - Reads and writes `APP_SETTINGS.separationModel` (`'spleeter' | 'demucs'`), the
   last choice of "Separation model". A value that the app does not know gives
   `'spleeter'`.
+- Reads and writes `APP_SETTINGS.singerVoices`, the last choice of "Put each singer
+  on its own voice".
 - Reads and writes `APP_SETTINGS.deviceSpeeds`: for each speech model, the measured
   speed of each device and the time of the last `webgpu` failure. The app selects
   the device from these values.
@@ -604,6 +662,35 @@ https://developer.mozilla.org/en-US/docs/Web/API/BaseAudioContext/createBuffer a
 https://developer.mozilla.org/en-US/docs/Web/API/AudioBuffer/copyToChannel
 (retrieved 2026-11-24).
 
+**Singer step, `src/workers/singers.worker.ts`.** The types are in
+`src/features/singer-voices/protocol.ts`. The client
+`findSingers(vocals, { onDownload, onProgress, signal })` starts one worker for each
+run and terminates it at the end or at "Cancel". The worker calls the engine of
+`createSingerFinder()` in `src/features/singer-voices/engine/index.ts`. When
+`__SINGERS_FIXTURE__` is true, the client starts `singersFixture.worker.ts`, which
+downloads no model.
+
+```ts
+interface SingerSegment { startMs: number; endMs: number; singer: number } // singer 0, 1, 2 … in order of first appearance
+// to worker (SingersRequest)
+{ type: 'find-singers'; runId: number; vocals: Float32Array } // one channel, 16 kHz
+// from worker (SingersMessage)
+{ type: 'download'; runId: number; loadedBytes: number; totalBytes: number }
+{ type: 'progress'; runId: number; doneMs: number; totalMs: number }
+{ type: 'result'; runId: number; segments: SingerSegment[] }
+{ type: 'error'; runId: number; kind: 'download' | 'memory' | 'model' | 'unknown'; detail: string }
+```
+
+The times of a segment start at the start of the vocals. A range run adds the start
+of the range.
+
+The engine uses two ONNX models from the Hugging Face Hub, through
+`@huggingface/transformers`: `onnx-community/pyannote-segmentation-3.0` (MIT) and
+`onnx-community/wespeaker-voxceleb-resnet34-LM` (CC BY 4.0), 32 522 457 bytes
+together. The accuracy on singing is not measured. See
+`docs/adr/0009-singer-voices-from-diarization.md` and
+`docs/licences/singer-models.md`.
+
 **Pure functions, `src/features/transcription/`:**
 
 ```ts
@@ -650,6 +737,15 @@ from 0 to 1.
 | Demucs: the person selects "Use the fast model" | The run separates the vocals again with Spleeter. The stored choice does not change. |
 | Demucs: the `webgpu` device fails | The engine runs the model again on the `wasm` device. The progress starts again at 0. |
 | Demucs: the model file has the wrong size or SHA-256 | The message for a failed download. The browser cache keeps no copy. |
+| Singer step: one singer found | No new voice. The toast adds "The app found one singer. All phrases stay on <voice name>." |
+| Singer step: the model does not download | The marks stay. The toast adds "The app could not download the singer model. Check the connection. All phrases stay on <voice name>." |
+| Singer step: out of memory | The marks stay. The toast adds "This browser does not have enough memory to find the singers of this song. All phrases stay on <voice name>." |
+| Singer step: the model fails, or another failure | The marks stay. The toast adds "The app could not find the singers. All phrases stay on <voice name>." |
+| Singer step: the person selects "Cancel" during the step | The app stops the worker. The marks of the run stay. The dialog closes, and the toast adds "The app stopped the search for the singers. All phrases stay on <voice name>." |
+| Singer step: the vocal separation failed and the person selected "Continue with no separation" | The step does not run. The toast adds "The app finds the singers only in separated vocals. All phrases stay on <voice name>." |
+| Singer step: more singers than free voices | The song keeps 12 voices or fewer. See the singer rules in [05-voices-sections.md](05-voices-sections.md#behaviour-rules). |
+| Singer step: more singers than free voices, and the song has 12 voices | No new voice. The toast adds "The song has 12 voices, so the app cannot add a voice for each singer. All phrases stay on <voice name>." |
+| Singer step: more singers than free voices, and the song has room for some singers | The app adds a voice for each free voice. The toast adds "The song has room for <k> more voices. The other singers stay on <voice name>." |
 | Remote endpoint: the browser asks for the permission to reach the local network | The run waits for the answer of the person. If the person refuses, the dialog shows the message for no connection. |
 
 ## Acceptance criteria
@@ -728,12 +824,32 @@ from 0 to 1.
   run. (FR-transcribe-51)
 - After a memory failure of Demucs, "Use the fast model" runs the vocal separation
   with Spleeter, and the run goes on. (FR-transcribe-52)
+- The dialog opens with "Put each singer on its own voice" off when the person has
+  made no choice. (FR-transcribe-53)
+- The dialog opens with the last choice of "Put each singer on its own voice".
+  (FR-transcribe-54)
+- With "Separate the vocals first" off, "Put each singer on its own voice" is
+  disabled and shows the hint. (FR-transcribe-55)
+- With "Lyrics only" selected, the dialog shows no "Put each singer on its own
+  voice". (FR-transcribe-56)
+- With both options on, the progress text shows "Finding the singers" after
+  "Transcribing". (FR-transcribe-57, 60)
+- With both options on, the browser requests the singers worker file and sends no
+  request with audio outside the app. (FR-transcribe-58)
+- With the option off, the browser requests no file of the singers worker. An E2E
+  test checks the requests of a run. (FR-transcribe-59)
+- "Cancel" during the singer step keeps the marks of the run on the voice of the
+  run. (FR-transcribe-61)
+- After a failed singer step, the marks stay on the voice of the run, and the toast
+  names the voice. (FR-transcribe-62)
 
 ## Out of scope
 
 - Separation of stems other than the vocals.
 - Vocal separation on a server.
-- Detecting which singer sings a word.
+- Detecting which singer sings each word. The singer step gives singers to phrases.
+- Two clean audio signals for singers who sing at the same time.
+- The names of the singers.
 - Languages other than English.
 - Speech models larger than small.
 - A server or a proxy that belongs to the app.

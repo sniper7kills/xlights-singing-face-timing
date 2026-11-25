@@ -3,7 +3,7 @@ id: voices-sections
 feature: Voices and sections
 epic: "Epic 5: Voices and sections"
 status: built
-issues: [35, 36, 37, 38, 39, 40]
+issues: [35, 36, 37, 38, 39, 40, 119]
 mockups: []
 ---
 
@@ -52,6 +52,16 @@ the song at a time.
 - FR-voice-20 — The person adds sections from `[Name]` tags in pasted lyrics.
 - FR-voice-21 — The person moves every phrase of a section to another voice with
   one action.
+- FR-voice-22 — With "Put each singer on its own voice", a transcribe run gives each
+  phrase of the run to the singers who sing it.
+- FR-voice-23 — The voice of the run keeps the phrases of the first singer.
+- FR-voice-24 — The app adds one voice for each other singer, with the name "Singer
+  N" and the next unused colour.
+- FR-voice-25 — The app moves each phrase of another singer to the voice of that
+  singer, with its words and phonemes.
+- FR-voice-26 — The app copies a phrase that more than one singer sings to the voice
+  of each other singer.
+- FR-voice-27 — The singer voices are one undo step after the marks of the run.
 
 ## User flows
 
@@ -79,6 +89,20 @@ flowchart TD
 4. If the target voice has marks in the same time range, the app asks for
    confirmation.
 5. The app moves or copies the phrases with their words and phonemes.
+
+### Put each singer on its own voice
+
+1. The person selects "Separate the vocals first" and "Put each singer on its own
+   voice (experimental)" in the transcribe dialog. See
+   [02-transcription.md](02-transcription.md#put-each-singer-on-its-own-voice).
+2. The run writes the marks to the selected voice.
+3. The app finds the singers in the separated vocals.
+4. The app adds "Singer 2", "Singer 3" … and moves or copies the phrases of each
+   singer to its voice.
+5. The person checks each voice. The person corrects a wrong phrase with "Move to
+   voice" or "Copy to voice".
+6. One undo removes the singer voices and puts each phrase back on the voice of the
+   run. The marks of the run stay.
 
 ### Make sections
 
@@ -133,7 +157,8 @@ voices and "New voice".
 - The person cannot delete the last voice.
 - A copy makes new marks with new ids. The copies are independent after the copy.
 - A copied or moved phrase keeps its `edited`, `estimated` and `unknown` states.
-- "Transcribe" writes to the selected voice only.
+- "Transcribe" writes to the selected voice only. With "Put each singer on its own
+  voice", the singer step then moves or copies phrases of the run to new voices.
 - A section is 1 second long or more.
 - Sections do not overlap. Sections can have gaps between them.
 - A section name is unique in the song. A duplicate name gets a number, for example
@@ -182,6 +207,29 @@ voices and "New voice".
   shows when the lyrics have a tag and a word, and it is on by default. The
   sections are a second undo step after the marks of the run. A tag line is
   never a phrase or a word.
+- **Singer rules.** The singer step gives each phrase of the run its singers. The
+  rule is `assignSingers` in `src/lib/singers/assignSingers.ts`:
+  - The share of a singer is the time of its ranges inside the phrase, divided by
+    the length of the phrase. Ranges of one singer that overlap count one time.
+  - A singer with a share of 30% or more (`SINGER_SHARE`) sings the phrase.
+  - If no singer reaches 30%, the singer with the largest share sings the phrase.
+  - A phrase that no range of a singer touches goes to the first singer.
+  - The app numbers the singers in the order of their first phrase. The first
+    singer has the number 0.
+  - A song has 12 voices at most. If the singers need more voices than the song has
+    free, the first singer stays. The other singers with the most phrase time stay.
+    Each other singer goes to the nearest earlier singer that stays.
+- The voice of the run keeps the phrases of the first singer. Each other singer gets
+  a new voice "Singer 2", "Singer 3" …, with the lowest free number and the next
+  unused colour.
+- A phrase moves to the voice of its first singer. A phrase with more than one
+  singer goes to each other singer as a copy, with new ids. Each phrase takes its
+  words and phonemes.
+- The singer step changes only the phrases that the run wrote. Older marks of the
+  voice of the run stay.
+- A run has these undo steps, in this order: the marks of the run, the sections of
+  the `[Name]` tags, and the singer voices. One undo after the run removes the singer
+  voices only, and the marks of the run stay on the voice of the run.
 
 ## Data touched
 
@@ -194,6 +242,7 @@ voices and "New voice".
 
 ```ts
 addVoice(songId, name?): Voice
+putSingersOnVoices(voiceId, assignment: Map<phraseId, number[]>): number   // the count of voices that hold the phrases of the run
 renameVoice(id, name)            // rejects a duplicate name
 setVoiceColor(id, color)
 reorderVoices(songId, orderedIds)
@@ -218,6 +267,10 @@ No external interface.
 | Section shorter than 1 second after a drag | The edge stops at 1 second. |
 | Delete a section | The marks stay. Only the section goes. |
 | A phrase spans two sections | It belongs to the section that holds its middle. |
+| Singer step finds one singer | No new voice. The phrases stay on the voice of the run. |
+| Singer step finds more singers than free voices | The song keeps 12 voices. The singers with the least phrase time go to the nearest earlier singer. |
+| Singer step on a range run | Only the phrases of the range get singers. A new voice holds only phrases of the range. |
+| A phrase that two singers sing | The phrase is on the voice of the first singer, and a copy is on the voice of the second singer. |
 | Song has more than 4 unmuted voices | The face preview shows the first 4 in voice order and the note "+2 more". |
 
 ## Acceptance criteria
@@ -247,10 +300,18 @@ No external interface.
 - A click on a section scrolls the stage to its start. (FR-voice-19)
 - Lyrics with `[Verse 1]` and `[Chorus]` tags make two sections. (FR-voice-20)
 - "Move section to voice" moves each phrase of the section. (FR-voice-21)
+- With both options on, a song with two singers who take turns gives two voices, and
+  each phrase that one singer sings is on one voice. (FR-voice-22, 23, 24, 25)
+- A phrase that two singers sing is on both voices, and the copy has new ids.
+  (FR-voice-26)
+- The count of voices never goes above 12. (FR-voice-24)
+- One undo after the run removes "Singer 2" and puts each phrase back on the voice
+  of the run. (FR-voice-27)
 
 ## Out of scope
 
-- Detecting singers automatically.
+- The names of the singers. A singer voice has the name "Singer N".
+- Two clean audio signals for singers who sing at the same time.
 - Sections that differ for each voice.
 - Nested sections.
 - Separate audio files for each voice.
