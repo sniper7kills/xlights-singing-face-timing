@@ -125,6 +125,7 @@ describe('records', () => {
       remoteEndpoint: { baseUrl: '', apiKey: '', model: 'whisper-1' },
       separateVocals: false,
       singerVoices: false,
+      separationModel: 'spleeter',
     } as const
 
     await putRecord('settings', settings)

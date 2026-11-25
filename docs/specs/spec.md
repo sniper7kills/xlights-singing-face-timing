@@ -558,6 +558,9 @@ None of these blocks approval. Each one names the epic that settles it.
   default. It needs "Separate the vocals first". After the marks, the app estimates
   the singer of each phrase, and puts each singer on its own voice as a further
   undo step.
+- 2026-11-24 — The maintainer decided: "Demucs weights licence is acceptable, go
+  ahead with #122". The transcribe dialog has the choice "Separation model", with
+  Spleeter as the default and Demucs as an experimental second model (issue #122).
 
 ## Issue map
 

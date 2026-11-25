@@ -240,6 +240,33 @@ describe('runTranscription with singer voices', () => {
     expect(phrasesOn(VOICE)).toHaveLength(2)
   })
 
+  it('finds the singers in the Spleeter vocals after a Demucs memory failure and "Use the fast model"', async () => {
+    const spleeterStems = new Float32Array(5)
+    const spleeterVocals = new Float32Array(10 * SPEECH_SAMPLE_RATE)
+    vi.mocked(separateVocals)
+      .mockRejectedValueOnce(new SeparateError('memory', 'std::bad_alloc'))
+      .mockResolvedValueOnce(spleeterStems)
+    vi.mocked(vocalsForSpeech).mockImplementation(async (stems) =>
+      stems === spleeterStems ? spleeterVocals : VOCALS,
+    )
+    const run = handlers()
+    vi.mocked(run.confirmNoSeparation).mockResolvedValue('fast-model')
+
+    const outcome = await runTranscription(
+      { ...request, separationModel: 'demucs' },
+      fakeClient(),
+      run,
+    )
+
+    expect(run.confirmNoSeparation).toHaveBeenCalledWith(expect.any(SeparateError), 'demucs')
+    expect(vi.mocked(separateVocals).mock.calls.map((call) => call[1]?.model)).toEqual([
+      'demucs',
+      'spleeter',
+    ])
+    expect(findSingers).toHaveBeenCalledWith(spleeterVocals, expect.anything())
+    expect(outcome.singers).toEqual({ status: 'split', voiceCount: 2, voiceName: 'Lead Vocals' })
+  })
+
   it('keeps the marks on the voice when the person cancels during the step', async () => {
     const controller = new AbortController()
     vi.mocked(findSingers).mockImplementation(async () => {
