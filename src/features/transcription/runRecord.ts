@@ -148,10 +148,11 @@ function singerStatus(singers: SingerOutcome | null): SingerSection['status'] {
   return singers.status
 }
 
-/** Returns the singer section of the report. */
-function singerSection(record: RunRecord): SingerSection {
+/** Returns the singer section of the report. The request gives the choice of "Singers". */
+function singerSection(record: RunRecord, request: TranscribeRequest): SingerSection {
   const { singers } = record
   return {
+    ...(request.singerVoices === true ? { selected: request.singerCount ?? 'automatic' } : {}),
     status: singerStatus(singers),
     failureKind: singers?.status === 'failed' ? singers.kind : null,
     diagnostics: record.singerDiagnostics,
@@ -214,7 +215,7 @@ export function finishRunRecord(record: RunRecord, end: RunEnd): RunData {
     separationFallback: record.separationFallback,
     trackCount: record.trackCount,
     tracksKept: record.tracks !== null,
-    singers: singerSection(record),
+    singers: singerSection(record, end.request),
     voices: voicePhrases(voices, content?.marks ?? [], end.range, record.singerVoiceIds),
     marks: end.written,
     range: { startMs: end.range.startMs, endMs: end.range.endMs },
@@ -240,9 +241,10 @@ export const RUN_DATA_WRITE_LIMIT_MS = 5000
  * The result of the write of the run data:
  * - `stored`: the app stored all run data.
  * - `storage-full`: the browser storage was full, so the app stored the run data with no audio tracks.
- * - `failed`: the app stored no run data, or the write did not end in `RUN_DATA_WRITE_LIMIT_MS`.
+ * - `failed`: the app stored no run data.
+ * - `late`: the write did not end in `RUN_DATA_WRITE_LIMIT_MS`. The write continues, and `onRunDataSaved` tells the editor when it ends.
  */
-export type RunDataWrite = 'stored' | 'storage-full' | 'failed'
+export type RunDataWrite = 'stored' | 'storage-full' | 'failed' | 'late'
 
 /** Writes the run data, and a second time with no audio tracks when the storage is full. */
 async function writeRunData(data: RunData): Promise<RunDataWrite> {
@@ -267,13 +269,14 @@ async function writeRunData(data: RunData): Promise<RunDataWrite> {
  * Stores the run data and returns the result of the write.
  * A run must complete when the browser cannot store its data, so the function never rejects.
  * A full storage gives a second write with no audio tracks, so the singer ranges and the report stay.
- * After `RUN_DATA_WRITE_LIMIT_MS`, the function returns `failed`. The write can still end later.
+ * After `RUN_DATA_WRITE_LIMIT_MS`, the function returns `late` and the write continues.
+ * A late write that meets a full storage also writes again with no audio tracks.
  * @param data The run data of a completed run.
  */
 export function keepRunData(data: RunData): Promise<RunDataWrite> {
   let timer: ReturnType<typeof setTimeout> | undefined
   const late = new Promise<RunDataWrite>((resolve) => {
-    timer = setTimeout(() => resolve('failed'), RUN_DATA_WRITE_LIMIT_MS)
+    timer = setTimeout(() => resolve('late'), RUN_DATA_WRITE_LIMIT_MS)
   })
   return Promise.race([writeRunData(data), late]).finally(() => clearTimeout(timer))
 }

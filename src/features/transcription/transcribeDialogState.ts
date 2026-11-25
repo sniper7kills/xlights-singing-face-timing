@@ -264,11 +264,16 @@ export const TRACKS_STORAGE_FULL_MESSAGE =
 /** The toast sentence of a run whose run data the app did not store. */
 export const RUN_DATA_FAILED_MESSAGE = 'The app could not store the run report.'
 
+/** The toast sentence of a run whose write of the run data did not end in time. The write continues. */
+export const RUN_DATA_LATE_MESSAGE =
+  'The app still stores the run report. It shows in "Run report" when it is ready.'
+
 /** The toast sentence for each result of the write of the run data. A stored write adds none. */
 const RUN_DATA_MESSAGE: Record<RunDataWrite, string | null> = {
   stored: null,
   'storage-full': TRACKS_STORAGE_FULL_MESSAGE,
   failed: RUN_DATA_FAILED_MESSAGE,
+  late: RUN_DATA_LATE_MESSAGE,
 }
 
 /**
