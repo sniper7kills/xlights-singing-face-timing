@@ -185,4 +185,14 @@ describe('HelpLine', () => {
     expect(line()).toHaveTextContent(HELP_TEXTS.mark)
     expect(line()).not.toHaveTextContent(HELP_TEXTS.shift)
   })
+
+  it('offers the zoom for a selected phoneme narrower than 12 px', () => {
+    // At 0.05 px for each ms, the phoneme f1 of 1000 ms is 50 px. At 0.01 px it is 10 px.
+    select('f1')
+    expect(line()).not.toHaveTextContent(HELP_TEXTS.zoom)
+
+    act(() => useViewStore.getState().setZoom(10))
+
+    expect(line()).toHaveTextContent(HELP_TEXTS.zoom)
+  })
 })

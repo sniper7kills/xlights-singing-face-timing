@@ -2,11 +2,11 @@ import type { Mark } from '../../store/types.ts'
 import { PHONEME_LABELS } from '../dictionary/cmuSymbols.ts'
 import { matchWords } from '../text/matchWords.ts'
 import { normaliseForMatch } from '../text/normalise.ts'
-import { fitWords } from '../time/fitWords.ts'
 import { childrenOf, findMark } from './family.ts'
 import { noEdit, type MarkEdit } from './markEdit.ts'
 import { parentWordEdited } from './moveRules.ts'
 import { phonemesAfterResize } from './phonemes.ts'
+import { layoutPhraseWords } from './phraseWords.ts'
 import { guessPhonemes, type NewId } from './words.ts'
 
 /** Returns the words of a phrase label: the parts between spaces that hold a letter or a digit. */
@@ -75,37 +75,25 @@ function relabelWord(
 type PlannedWord = { text: string; startMs: number; endMs: number; old: Mark | undefined }
 
 /**
- * Returns the new words of the phrase with their times, before the fit to the frame size.
- * A word that matches an old word takes its time. The other words share the free time between matched words evenly.
+ * Returns the new words of the phrase with their times. See `layoutPhraseWords` for the time rules.
+ * A word that matches an old word takes its time. When the phrase has fewer frames than words, the last words go.
  */
-function planWords(old: readonly Mark[], texts: readonly string[], phrase: Mark): PlannedWord[] {
+function planWords(
+  old: readonly Mark[],
+  texts: readonly string[],
+  phrase: Mark,
+  frameMs: number,
+): PlannedWord[] {
   const matches = matchWords(
     old.map((word) => normaliseForMatch(word.label)),
     texts.map(normaliseForMatch),
   )
-  const planned: PlannedWord[] = []
-  let pending: string[] = []
-  let spanStartMs = phrase.startMs
-  const placePending = (spanEndMs: number) => {
-    const share = (spanEndMs - spanStartMs) / Math.max(1, pending.length)
-    pending.forEach((text, index) => {
-      const startMs = spanStartMs + index * share
-      planned.push({ text, startMs, endMs: startMs + share, old: undefined })
-    })
-    pending = []
-  }
-  texts.forEach((text, index) => {
-    const match = old[matches[index] ?? -1]
-    if (!match) {
-      pending.push(text)
-      return
-    }
-    placePending(match.startMs)
-    planned.push({ text, startMs: match.startMs, endMs: match.endMs, old: match })
-    spanStartMs = match.endMs
-  })
-  placePending(phrase.endMs)
-  return planned
+  const olds = texts.map((_, index) => old[matches[index] ?? -1])
+  return layoutPhraseWords(olds, phrase, frameMs).map((range, index) => ({
+    text: texts[index] ?? '',
+    ...range,
+    old: olds[index],
+  }))
 }
 
 /** Returns the edit of a matched word that keeps its label and gets a new time from the fit. */
@@ -169,7 +157,7 @@ function realignPhrase(
   newId: NewId,
 ): MarkEdit {
   const old = childrenOf(marks, phrase.id)
-  const fitted = fitWords(planWords(old, labelWords(label), phrase), frameMs, phrase)
+  const fitted = planWords(old, labelWords(label), phrase, frameMs)
   const kept = new Set(fitted.map((item) => item.old?.id))
   const edits = fitted.map((item) => placeWord(marks, phrase, item, frameMs, newId))
   return {
@@ -195,9 +183,10 @@ function realignPhrase(
  * - A new phrase label with the same words changes only the label. See `phraseWordsChange`.
  * - A new phrase label with other words aligns the new words with the old words, the same as the lyrics align:
  *   - A new word that matches an old word takes its time and its id. A changed spelling gets a new break down.
- *   - The other new words share the free time between matched words evenly, are estimated and get a break down.
+ *   - The other new words share the free time between matched words, are estimated and get a break down.
+ *     A short run of new words takes time from the matched words beside it. See `layoutPhraseWords`.
  *   - The old words with no match go, with their phonemes.
- *   - The words then fit to the frame size inside the phrase. If the phrase has fewer frames than words, the last words go.
+ *   - If the phrase has fewer frames than words, the last words go.
  * - A phoneme label follows `previewPhonemeLabel`.
  *
  * @param marks The marks of the song.

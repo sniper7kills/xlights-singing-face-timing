@@ -35,6 +35,7 @@ import { HelpLine } from './HelpLine.tsx'
 import { Inspector } from './Inspector.tsx'
 import { Layers } from './Layers.tsx'
 import { MarkActions } from './MarkActions.tsx'
+import { useFoldAttributes } from './PanelFold.tsx'
 import { resetMarkUi } from './markUiStore.ts'
 import { ShortcutList } from './ShortcutList.tsx'
 import { StatusLine } from './StatusLine.tsx'
@@ -125,6 +126,7 @@ export function EditorPage({ songId }: EditorPageProps) {
   const [breakDownFailure, setBreakDownFailure] = useState<BreakDownFailure | null>(null)
   const opener = useRef<HTMLElement | null>(null)
   const narrow = useSyncExternalStore(subscribeToResize, isNarrowWindow)
+  const folds = useFoldAttributes()
 
   const openTranscribeDialog = useCallback(() => {
     opener.current = document.activeElement instanceof HTMLElement ? document.activeElement : null
@@ -205,7 +207,8 @@ export function EditorPage({ songId }: EditorPageProps) {
         </a>
       </div>
       {/* The editor stays mounted in a narrow window, so the audio and the view stay loaded. */}
-      <section className="editor" aria-labelledby="editor-title" hidden={narrow}>
+      {/* A folded side panel keeps only its fold button, and CSS gives the stage the width. */}
+      <section className="editor" aria-labelledby="editor-title" hidden={narrow} {...folds}>
         <div className="editor-top">
           {/* The routes use the hash, so the link moves the focus itself and keeps the hash. */}
           <a className="skip-link" href="#transport" onClick={skipToTransport}>

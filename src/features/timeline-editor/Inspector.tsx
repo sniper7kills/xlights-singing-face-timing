@@ -4,6 +4,7 @@ import type { Voice } from '../../store/types.ts'
 import { useViewStore } from '../../store/viewStore.ts'
 import { FacePreview } from './FacePreview.tsx'
 import { MarkFields } from './MarkFields.tsx'
+import { PanelFold } from './PanelFold.tsx'
 
 /**
  * Shows the inspector on the right of the editor: the face preview at the top, and under it the fields of the
@@ -24,6 +25,7 @@ export function Inspector() {
   const faces: (Voice | undefined)[] = content.voices.length === 0 ? [undefined] : shown
   return (
     <aside className="inspector" aria-label="Inspector">
+      <PanelFold panel="inspector" />
       <h3>Face preview</h3>
       {faces.length === 0 ? (
         <p className="inspector-hint">

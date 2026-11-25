@@ -85,12 +85,13 @@ describe('previewLabel', () => {
     expect(range(childrenAfter(edit, 'p1').at(-1))).toEqual([2800, 3000])
   })
 
-  it('moves a matched word by one frame size when a new word has no free time', () => {
+  it('takes 3 frames from the matched word before a new word that has no free time', () => {
     const edit = relabel('p1', 'silent and night holy')
 
-    expect(range(after(edit).new1)).toEqual([1500, 1550])
-    expect(range(after(edit).w2)).toEqual([1550, 2000])
-    expect(childrenAfter(edit, 'w2').every((item) => item.startMs >= 1550)).toBe(true)
+    expect(range(after(edit).w1)).toEqual([1000, 1350])
+    expect(range(after(edit).new1)).toEqual([1350, 1500])
+    expect(range(after(edit).w2)).toEqual([1500, 2000])
+    expect(childrenAfter(edit, 'w1').every((item) => item.endMs <= 1350)).toBe(true)
   })
 
   it('spreads the phonemes of an edited word again when it has no frame for each phoneme', () => {
@@ -114,8 +115,8 @@ describe('previewLabel', () => {
     const words = childrenAfter(relabel('p3', 'all is bright'), 'p3')
 
     expect(words.map(range)).toEqual([
-      [6000, 6350],
-      [6350, 6650],
+      [6000, 6300],
+      [6300, 6650],
       [6650, 7000],
     ])
   })

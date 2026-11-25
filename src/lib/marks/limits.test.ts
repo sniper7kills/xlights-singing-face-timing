@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { findMark } from './family.ts'
 import { DURATION_MS, FRAME_MS, testMarks } from './fixtures.test-helpers.ts'
-import { resizeCause } from './limits.ts'
+import { isShortMark, resizeCause } from './limits.ts'
 
 const MARKS = testMarks()
 
@@ -42,5 +42,12 @@ describe('resizeCause', () => {
   it('names the first or the last word of a phrase', () => {
     expect(cause('p1', 'start', 1200)).toBe('words')
     expect(cause('p1', 'end', 2000)).toBe('words')
+  })
+})
+
+describe('isShortMark', () => {
+  it('gives true for a mark of 2 frames and false for a mark of 3 frames', () => {
+    expect(isShortMark({ startMs: 0, endMs: 2 * FRAME_MS }, FRAME_MS)).toBe(true)
+    expect(isShortMark({ startMs: 0, endMs: 3 * FRAME_MS }, FRAME_MS)).toBe(false)
   })
 })

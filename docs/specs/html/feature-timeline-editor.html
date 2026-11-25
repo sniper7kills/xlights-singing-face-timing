@@ -336,6 +336,42 @@ body.rv-open .layout { padding-right:21rem; }
 <ul>
 <li>FR-editor-54 — A heading above the phrase layer names the shown voice.
 </li>
+<li>FR-editor-55 — A phrase label change gives each new word 3 frame sizes or more
+</li>
+</ul>
+<p>when the phrase has room.</p>
+<ul>
+<li>FR-editor-56 — A mark that a double-click adds is 10 frame sizes long, or the
+</li>
+</ul>
+<p>length of the empty range when it is shorter.</p>
+<ul>
+<li>FR-editor-57 — A mark never draws over the next mark of its layer.
+</li>
+<li>FR-editor-58 — A selected mark of any width has two edge handles that the person
+</li>
+</ul>
+<p>can drag.</p>
+<ul>
+<li>FR-editor-59 — A phrase or a word shorter than 3 frame sizes has the "short"
+</li>
+</ul>
+<p>style.</p>
+<ul>
+<li>FR-editor-60 — A zoom with the slider or a key keeps the selected mark, the play
+</li>
+</ul>
+<p>cursor or the centre of the stage in place.</p>
+<ul>
+<li>FR-editor-61 — "Zoom to selection" shows the selected marks or the time
+</li>
+</ul>
+<p>selection.</p>
+<ul>
+<li>FR-editor-62 — "Fit song" shows the full song.
+</li>
+<li>FR-editor-63 — The person folds the voice rail and the inspector.
+</li>
 </ul>
 <h3 id="timeline-editor-user-flows">User flows</h3>
 <h4 id="timeline-editor-correct-the-time-of-a-word">Correct the time of a word</h4>
@@ -388,7 +424,17 @@ body.rv-open .layout { padding-right:21rem; }
 </li>
 <li>The app aligns the new words with the old words of the phrase.
 </li>
-<li>The app breaks down each new or changed word.
+<li>The app gives each new word a time. See "Words of a changed phrase" in
+</li>
+</ol>
+<p><a href="#behaviour-rules">Behaviour rules</a>.</p>
+<ol>
+<li>The app breaks down each new or changed word, and each unedited word that changed
+</li>
+</ol>
+<p>length.</p>
+<ol>
+<li>The app records one undo step.
 </li>
 </ol>
 <h3 id="timeline-editor-screens-states">Screens &amp; states</h3>
@@ -403,7 +449,7 @@ body.rv-open .layout { padding-right:21rem; }
 <li><strong>Voice rail</strong> (left). The voices of the song. Defined in
 </li>
 </ul>
-<p><a href="feature-voices-sections.html">05-voices-sections.md</a>.</p>
+<p><a href="feature-voices-sections.html">05-voices-sections.md</a>. A fold button "Voices" on its right edge folds it.</p>
 <ul>
 <li><strong>Stage</strong> (centre). From top to bottom: the section band, the time ruler, the
 </li>
@@ -413,7 +459,7 @@ body.rv-open .layout { padding-right:21rem; }
 <li><strong>Transport</strong> (below the stage). Play, loop, speed, play time, zoom slider,
 </li>
 </ul>
-<p>frame size selector, the group "Mark", undo, redo, unknown-word counter.</p>
+<p>"Zoom to selection", "Fit song", frame size selector, the group "Mark", undo, redo, unknown-word counter.</p>
 <ul>
 <li><strong>Help line</strong> (under the stage). One line of help for the selection. See
 </li>
@@ -428,7 +474,7 @@ body.rv-open .layout { padding-right:21rem; }
 <li><strong>Inspector</strong> (right). The face preview at the top. Under it, the fields of the
 </li>
 </ul>
-<p>selected mark.</p>
+<p>selected mark. A fold button "Inspector" on its left edge folds it.</p>
 <p>States:</p>
 <ul>
 <li>empty: the layers show "No marks yet. Select Transcribe to find the words." with
@@ -455,6 +501,27 @@ body.rv-open .layout { padding-right:21rem; }
 </ul>
 <p>is 1024 px wide or more.", and a link "Back to the song library".</p>
 <p>Mark styles on the layers: phrases are wide bars with the full text. Words are bars with the word. Phonemes are short blocks with the phoneme label and one colour for each phoneme label. A label that does not fit is cut with an ellipsis. The tooltip of a mark shows the full label on the first line and "&lt;start&gt; to &lt;end&gt;" on the second line, for example "0:01.200 to 0:01.650". An "unknown" word has a dotted border. An "estimated" word has a dashed inner frame, and a screen reader gets the text "(estimated time)".</p>
+<p>The drawn width of a mark (FR-editor-57 to 59):</p>
+<ul>
+<li>A mark draws from its start to its end on the time scale, and no wider. So it
+</li>
+</ul>
+<p>never covers the next mark of its layer, at any zoom.</p>
+<ul>
+<li>A mark narrower than 16 px shows no label and no border. The tooltip and a screen
+</li>
+</ul>
+<p>reader give the label.</p>
+<ul>
+<li>A selected mark of 28 px or more has its edge handles inside the mark. A narrower
+</li>
+</ul>
+<p>selected mark has its handles under the bar, outside the mark, 10 px wide each. They do not cover the bar of the adjacent mark. A narrow selected mark shows an amber fill in place of the outline.</p>
+<ul>
+<li>A phrase or a word shorter than 3 frame sizes has the "short" style: a lower bar
+</li>
+</ul>
+<p>with stripes. A screen reader gets the text "(short mark)". A phoneme is often one frame size long, so a phoneme has no "short" style.</p>
 <p>Controls on the layers:</p>
 <ul>
 <li>Label field: named "Phrase label" or "Word label". <code>Enter</code> saves, <code>Escape</code>
@@ -619,7 +686,7 @@ body.rv-open .layout { padding-right:21rem; }
 <li><strong>Shortcuts.</strong> <code>Space</code> play or pause. <code>L</code> loop the selection. <code>S</code> split at the
 </li>
 </ul>
-<p>play cursor. <code>M</code> merge with the next mark. <code>Delete</code> delete. <code>Enter</code> or <code>F2</code> edit the label. <code>[</code> and <code>]</code> select the previous or the next mark of the layer. <code>Up</code> and <code>Down</code> move the selection between layers. <code>Left</code> and <code>Right</code> nudge the selected mark by one frame size. <code>Alt+Left</code> and <code>Alt+Right</code> nudge the start only. <code>Shift+Alt+Left</code> and <code>Shift+Alt+Right</code> nudge the end only. <code>Ctrl+Z</code> undo. <code>Ctrl+Shift+Z</code> redo. <code>+</code> and <code>-</code> zoom. <code>?</code> shortcut list. On macOS, <code>Cmd</code> replaces <code>Ctrl</code>. With no selected mark, <code>Left</code> and <code>Right</code> move the play cursor by one frame size. <code>S</code>, <code>M</code>, the nudge keys, <code>Up</code> and <code>Down</code> act when exactly one mark is selected. <code>Up</code> selects the parent, and <code>Down</code> selects the first child. A shortcut does not act while the focus is in a field, a list or a dialog. The shortcut list has the title "Keyboard shortcuts", a "Close" button and the note "On macOS, use Cmd in place of Ctrl."</p>
+<p>play cursor. <code>M</code> merge with the next mark. <code>Delete</code> delete. <code>Enter</code> or <code>F2</code> edit the label. <code>[</code> and <code>]</code> select the previous or the next mark of the layer. <code>Up</code> and <code>Down</code> move the selection between layers. <code>Left</code> and <code>Right</code> nudge the selected mark by one frame size. <code>Alt+Left</code> and <code>Alt+Right</code> nudge the start only. <code>Shift+Alt+Left</code> and <code>Shift+Alt+Right</code> nudge the end only. <code>Ctrl+Z</code> undo. <code>Ctrl+Shift+Z</code> redo. <code>+</code> and <code>-</code> zoom. <code>Z</code> zoom to the selection. <code>?</code> shortcut list. On macOS, <code>Cmd</code> replaces <code>Ctrl</code>. With no selected mark, <code>Left</code> and <code>Right</code> move the play cursor by one frame size. <code>S</code>, <code>M</code>, the nudge keys, <code>Up</code> and <code>Down</code> act when exactly one mark is selected. <code>Up</code> selects the parent, and <code>Down</code> selects the first child. A shortcut does not act while the focus is in a field, a list or a dialog. The shortcut list has the title "Keyboard shortcuts", a "Close" button and the note "On macOS, use Cmd in place of Ctrl."</p>
 <ul>
 <li><strong>Keyboard order.</strong> <code>Tab</code> and <code>Shift+Tab</code> keep the browser order. Each layer is
 </li>
@@ -672,6 +739,35 @@ body.rv-open .layout { padding-right:21rem; }
 <p><code>aria-disabled="true"</code> and a dim style. Its tooltip and its description state the reason, and then the shortcut in brackets. A click does nothing. The same rule applies to "Loop", the play speed, "Undo", "Redo", "Phrase" and "Add section". The reasons:</p>
 <p>| Button | Case | Reason | |---|---|---| | "Split", "Merge with next", "Edit label" | No mark or more than one mark is selected | "Select one mark first." | | "Delete" | No mark is selected | "Select a mark first." | | "Split" | The play cursor is outside the mark | "Move the play cursor into the mark. Then press S." | | "Split" | A part would be shorter than one frame size | "Move the play cursor away from the edge of the mark. Each part needs one frame size or more." | | "Merge with next" | The mark is the last mark of its layer | "This is the last mark of the layer." | | "Merge with next" | The next word is in another phrase | "The next word is in another phrase." | | "Merge with next" | The next phoneme is in another word | "The next phoneme is in another word." | | "Delete" | The only selected mark is the last phoneme of its word | "A word needs one phoneme or more. Delete the word." | | "Loop", "50%", "75%", "100%" | The audio is not ready | "The audio is not ready." | | "Undo" | The history has no step to undo | "No step to undo." | | "Redo" | The history has no step to redo | "No step to redo." | | "Loop" | No mark and no time range is selected | "Select a mark or a time range first." | | "Phrase" | The selection is not only phrases | "Select a phrase first." | | "Add section" | No time range is selected | "Drag on the waveform to select a time range first." |</p>
 <ul>
+<li><strong>Zoom.</strong> The zoom slider, <code>+</code> and <code>-</code> keep one time in place on the stage
+</li>
+</ul>
+<p>(FR-editor-60):</p>
+<ol>
+<li>The middle of the selected marks, when a part of them is in view. A middle
+</li>
+</ol>
+<p>outside the view moves to the nearest edge of the view.</p>
+<ol>
+<li>Else the play cursor, when it is in view.
+<ol>
+<li>Else the centre of the stage.
+</li>
+</ol>
+</li>
+</ol>
+<p>An arrow key on the slider changes the zoom by 10% for each press. <code>Page Up</code> and <code>Page Down</code> change it by 5 presses. <code>Ctrl</code> with the mouse wheel zooms at the pointer. A song that opens for the first time shows the full song.</p>
+<ul>
+<li><strong>Zoom buttons.</strong> "Zoom to selection" has the tooltip "Show the selected marks
+</li>
+</ul>
+<p>or the time selection (Z)". It shows the selected marks, else the time selection, in the middle of the stage, with 10% of the stage width free on each side. The zoom stops at 1 000 pixels for each second. With nothing selected, it cannot act, and its reason is "Select a mark or a time range first." "Fit song" has the tooltip "Show the full song". It shows the full song in the stage.</p>
+<ul>
+<li><strong>Side panels.</strong> The voice rail and the inspector each have a fold button with
+</li>
+</ul>
+<p><code>aria-expanded</code> (FR-editor-63). A folded panel keeps only its fold button, and the stage takes the width. The arrow on the button points to the side where the panel moves, and the tooltip is "Hide the voices panel" or "Show the voices panel" (or the inspector panel). In a window narrower than 1280 px, a panel starts folded until the person opens it. The browser keeps the choice of the person in <code>localStorage</code>. A fold is view state, not an undo step. A folded inspector hides the face preview too.</p>
+<ul>
 <li><strong>Help line.</strong> The text depends on the selection:
 <ul>
 <li>No selected mark: "Click a mark to select it. Double-click a mark to change
@@ -694,6 +790,11 @@ body.rv-open .layout { padding-right:21rem; }
 </li>
 </ul>
 <p>click to select more than one mark."</p>
+<ul>
+<li>With one selected phoneme narrower than 12 px, the line adds "Zoom in to edit
+</li>
+</ul>
+<p>short marks. Press Z."</p>
 <ul>
 <li><strong>Status line.</strong> A key, a button or a drag that does nothing shows its reason
 </li>
@@ -737,6 +838,50 @@ body.rv-open .layout { padding-right:21rem; }
 </li>
 </ul>
 <p>time.</p>
+<ul>
+<li><strong>Add a mark.</strong> A double-click in an empty range of a layer adds a mark of 10
+</li>
+</ul>
+<p>frame sizes that starts at the pointer (FR-editor-56). A mark that would end after the empty range moves earlier, so it keeps its length. An empty range shorter than 10 frame sizes gets a mark of its full length. A word outside any phrase also adds a phrase with the same range and the same label.</p>
+<ul>
+<li><strong>Words of a changed phrase</strong> (FR-editor-55). When a phrase label changes the
+</li>
+</ul>
+<p>words:</p>
+<ol>
+<li>A new word that matches an old word keeps the time of the old word.
+<ol>
+<li>A run of new words between two matched words shares the free time between
+</li>
+</ol>
+</li>
+</ol>
+<p>them evenly, in whole frame sizes.</p>
+<ol>
+<li>If the run has less than 3 frame sizes for each word, the matched word before
+</li>
+</ol>
+<p>the run ends earlier. That word keeps 3 frame sizes or more.</p>
+<ol>
+<li>If the run still has less, the matched word after the run starts later. That
+</li>
+</ol>
+<p>word keeps 3 frame sizes or more.</p>
+<ol>
+<li>If the run still has less than 1 frame size for each word, steps 3 and 4 go
+</li>
+</ol>
+<p>down to 1 frame size for each matched word.</p>
+<ol>
+<li>If the phrase has less than 3 frame sizes for each word, or step 5 is not
+</li>
+</ol>
+<p>enough, each word of the phrase gets an equal part of the phrase.</p>
+<ol>
+<li>If the phrase has fewer frame sizes than words, the last words go.
+</li>
+</ol>
+<p>Example, with a frame size of 50 ms: "All is calm, all is bright" (9.800 s to 18.700 s) becomes "All is calm and all is bright tonight". "and" has 50 ms of free time, so "calm" ends 100 ms earlier, at 14.150 s, and "and" goes from 14.150 s to 14.300 s. "tonight" has no free time, so "bright" ends at 18.550 s, and "tonight" goes from 18.550 s to 18.700 s.</p>
 <ul>
 <li>A click on the ruler or the waveform moves the play cursor.
 </li>
@@ -1046,6 +1191,44 @@ formatTime(ms: number): string                   // m:ss.mmm</code></pre>
 </li>
 </ul>
 <p>name&gt;". (FR-editor-54)</p>
+<ul>
+<li>After "All is calm, all is bright" becomes "All is calm and all is bright
+</li>
+</ul>
+<p>tonight" on the demo song, "and" and "tonight" are each 3 frame sizes or longer. (FR-editor-55)</p>
+<ul>
+<li>A double-click in an empty range of 1 second adds a mark of 10 frame sizes, also
+</li>
+</ul>
+<p>near the end of the range. (FR-editor-56)</p>
+<ul>
+<li>No two marks of a layer draw over each other at any zoom, with marks of one frame
+</li>
+</ul>
+<p>size. (FR-editor-57)</p>
+<ul>
+<li>A selected mark of one frame size has two handles of 10 px under its bar.
+</li>
+</ul>
+<p>(FR-editor-58)</p>
+<ul>
+<li>A word of 2 frame sizes shows the "short" style. (FR-editor-59)
+</li>
+<li>After a zoom with the slider, the selected mark is in view. (FR-editor-60)
+</li>
+<li>Five arrow keys on the zoom slider change the zoom by 40% or more. (FR-editor-60)
+</li>
+<li>"Zoom to selection" shows a selected phoneme of 50 ms at 40 px wide or more.
+</li>
+</ul>
+<p>(FR-editor-61)</p>
+<ul>
+<li>"Fit song" shows the full song. (FR-editor-62)
+</li>
+<li>In a window of 1024 px with both side panels folded, the stage is 700 px wide or
+</li>
+</ul>
+<p>more. (FR-editor-63)</p>
 <ul>
 <li>A changed phrase label shows the confirm dialog, and confirm rebuilds the words.
 </li>
