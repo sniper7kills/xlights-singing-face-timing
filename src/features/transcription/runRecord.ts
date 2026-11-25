@@ -1,5 +1,6 @@
 import { floatToPcm16, KEPT_TRACK_SAMPLE_RATE, type PcmTrack } from '../../lib/audio/pcm.ts'
 import { PHRASE_RULE } from '../../lib/singers/divideAtSingers.ts'
+import { phraseRangesOf, singersOfVoices } from '../../lib/singers/singerRanges.ts'
 import type { SingerDiagnostics } from '../../lib/singers/diagnostics.ts'
 import {
   buildRunReport,
@@ -16,7 +17,7 @@ import type { TimeRange } from '../../lib/time/timeRange.ts'
 import { endpointHost } from '../../lib/remote/endpoint.ts'
 import { saveRunData, StorageFullError } from '../../store/db.ts'
 import { useSongStore } from '../../store/songStore.ts'
-import type { KeptTracks, Mark, RunData } from '../../store/types.ts'
+import type { KeptTracks, Mark, RunData, RunVoice, Voice } from '../../store/types.ts'
 import type { SeparatedAudio } from '../vocal-separation/protocol.ts'
 import { SeparateError } from '../vocal-separation/separateClient.ts'
 import { resampleSeparated } from '../vocal-separation/separationAudio.ts'
@@ -207,12 +208,34 @@ function sourceFacts(request: TranscribeRequest, device: 'webgpu' | 'wasm') {
   }
 }
 
-/** Returns the run data of a completed run: the singer ranges and the report. */
+/**
+ * Returns the voices of the run by id, each with its singers.
+ * The rows and the report find a voice by this id, so a rename does not lose it.
+ */
+function runVoicesOf(
+  record: RunRecord,
+  voices: readonly Voice[],
+  marks: readonly Mark[],
+  range: TimeRange,
+): RunVoice[] {
+  const singers = singersOfVoices(
+    record.singerSegments ?? [],
+    voices.map((voice) => ({ voiceId: voice.id, phrases: phraseRangesOf(marks, voice.id, range) })),
+  )
+  return voices.map((voice) => ({
+    voiceId: voice.id,
+    singers: singers.get(voice.id) ?? [],
+    made: record.singerVoiceIds.includes(voice.id),
+  }))
+}
+
+/** Returns the run data of a completed run: the voices of the run, the singer ranges and the report. */
 export function finishRunRecord(record: RunRecord, end: RunEnd): RunData {
   record.clock.enter(null)
   const content = useSongStore.getState().current
-  const runVoices = [end.request.voiceId, ...record.singerVoiceIds]
-  const voices = (content?.voices ?? []).filter((voice) => runVoices.includes(voice.id))
+  const runVoiceIds = [end.request.voiceId, ...record.singerVoiceIds]
+  const voices = (content?.voices ?? []).filter((voice) => runVoiceIds.includes(voice.id))
+  const marks = content?.marks ?? []
   const report = buildRunReport({
     startedAt: record.startedAt,
     build: __APP_BUILD__,
@@ -223,7 +246,7 @@ export function finishRunRecord(record: RunRecord, end: RunEnd): RunData {
     trackCount: record.trackCount,
     tracksKept: record.tracks !== null,
     singers: singerSection(record, end.request),
-    voices: voicePhrases(voices, content?.marks ?? [], end.range, record.singerVoiceIds),
+    voices: voicePhrases(voices, marks, end.range, record.singerVoiceIds),
     marks: end.written,
     linesLeftOut: record.linesLeftOut,
     wordsLeftOut: record.wordsLeftOut,
@@ -234,6 +257,7 @@ export function finishRunRecord(record: RunRecord, end: RunEnd): RunData {
   })
   return {
     songId: content?.song.id ?? '',
+    voices: runVoicesOf(record, voices, marks, end.range),
     ...(record.tracks === null ? {} : { tracks: record.tracks }),
     singerSegments: record.singerSegments ?? [],
     report,

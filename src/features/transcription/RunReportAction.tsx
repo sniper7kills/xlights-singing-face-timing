@@ -1,15 +1,24 @@
 import { useEffect, useRef } from 'react'
+import { ReasonButton } from '../timeline-editor/ReasonButton.tsx'
 import { useSongStore } from '../../store/songStore.ts'
-import { useRunData } from '../../store/useRunData.ts'
+import {
+  RUN_DATA_FAILED,
+  RUN_DATA_FAILED_NOTE,
+  runDataOf,
+  useRunData,
+} from '../../store/useRunData.ts'
 import { closeRunReport, openRunReport, useRunReportPanel } from './runReportPanelStore.ts'
 import { RunReportDialog } from './RunReportDialog.tsx'
 
-/** The tooltip of the disabled action, for a song with no stored run report. */
+/** The tooltip of the action when it opens the panel. */
+export const RUN_REPORT_HINT = 'Open the report of the last transcribe run.'
+
+/** The tooltip of the action that does not act, for a song with no stored run report. */
 export const NO_RUN_NOTE = 'No transcribe run for this song yet.'
 
 /**
  * Shows the "Run report" action of the editor top bar and the run report panel.
- * The action is disabled while the song has no stored run report.
+ * The action does not act while the song has no stored run report. It keeps the focus, and its tooltip gives the reason.
  */
 export function RunReportAction() {
   const song = useSongStore((state) => state.current?.song ?? null)
@@ -21,7 +30,8 @@ export function RunReportAction() {
   useEffect(() => closeRunReport, [])
 
   if (song === null) return null
-  const report = runData?.report
+  const report = runDataOf(runData)?.report
+  const note = runData === RUN_DATA_FAILED ? RUN_DATA_FAILED_NOTE : NO_RUN_NOTE
 
   function close() {
     // The toast that held the link can be gone, so the top bar action takes the focus then.
@@ -32,16 +42,14 @@ export function RunReportAction() {
 
   return (
     <>
-      <button
+      <ReasonButton
         ref={buttonRef}
-        type="button"
-        className="button"
-        disabled={report === undefined}
-        title={report === undefined ? NO_RUN_NOTE : undefined}
-        onClick={openRunReport}
+        reason={report === undefined ? note : null}
+        hint={RUN_REPORT_HINT}
+        onAct={openRunReport}
       >
         Run report
-      </button>
+      </ReasonButton>
       {open && report !== undefined && (
         <RunReportDialog songName={song.name} report={report} onClose={close} />
       )}

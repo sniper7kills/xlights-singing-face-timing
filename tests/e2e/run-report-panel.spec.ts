@@ -65,11 +65,20 @@ test('the run report panel shows the singers of a run, copies the report and dow
   await page.locator('.toast').getByRole('button', { name: 'Run report' }).click()
   const panel = page.getByRole('dialog', { name: 'Run report' })
   await expect(panel).toBeVisible()
+  // The toast hides while the panel is open, so it covers no button of the panel.
+  await expect(page.locator('.toast')).toBeHidden()
+  const singers = panel.getByRole('region', { name: 'Singers' })
+  await expect(singers.locator('p').first()).toHaveText(
+    /^The app found 2 singers and put the phrases on 2 voices\./,
+  )
+  const details = singers.locator('details')
+  await expect(details).not.toHaveAttribute('open')
+  await details.getByText('Details for a bug report').click()
   const groups = panel.getByRole('table', { name: 'The groups straight after the clustering' })
   await expect(groups.getByRole('columnheader')).toHaveText([
     'Group',
     'Sung time',
-    'Embeddings',
+    'Voice prints',
     'Result',
   ])
   const rows = await bodyRows(groups)
@@ -88,11 +97,39 @@ test('the run report panel shows the singers of a run, copies the report and dow
   await expect(panel.getByRole('button', { name: 'Copied' })).toBeVisible()
   await expect(panel.getByRole('status')).toHaveText('The report is on the clipboard.')
   const copied = String(await page.evaluate('navigator.clipboard.readText()'))
-  expect(copied).toContain('[Singers]\nStep: split\n')
-  expect(copied).toContain('Raw groups: 3')
+  expect(copied).toMatch(
+    /^Transcribe run report\n\n\[Summary\]\nThe app found 2 singers and put the phrases on 2 voices\.\n/,
+  )
+  expect(copied).toContain('Groups: 3\n')
+  expect(copied).toMatch(/\nStarted: .+ \(\d{4}-\d\d-\d\d \d\d:\d\d:\d\d UTC\)\n/)
+  // The panel and the copied text use the same labels and units.
+  for (const label of ['Phrases with no singer', 'Frame size', 'Range'])
+    expect(copied).toContain(`${label}: `)
   for (const word of LYRIC_WORDS) expect(copied).not.toContain(word)
 
   const download = page.waitForEvent('download')
   await panel.getByRole('button', { name: 'Download report' }).click()
   expect((await download).suggestedFilename()).toBe('silent-night - run report.txt')
+})
+
+test('the toast of a run stays until "Close", and its controls are reachable by keyboard', async ({
+  page,
+}) => {
+  await createSong(page)
+  await page.clock.install()
+  await transcribeWithBothOptions(page)
+  const toast = page.locator('.toast')
+  await expect(toast.getByText('16 words on 2 voices, 0 estimated')).toBeVisible()
+  await expect(toast.getByRole('status')).toBeVisible()
+  // The toast takes no focus when it shows.
+  expect(await page.evaluate("document.activeElement?.closest('.toast') === null")).toBe(true)
+
+  await page.clock.fastForward(25_000)
+  await expect(toast).toBeVisible()
+
+  await toast.getByRole('button', { name: 'Run report' }).focus()
+  await page.keyboard.press('Tab')
+  await expect(toast.getByRole('button', { name: 'Close' })).toBeFocused()
+  await page.keyboard.press('Enter')
+  await expect(toast).toBeHidden()
 })

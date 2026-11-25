@@ -1,5 +1,5 @@
 import { type PcmTrack, trackToWav, WAV_HEADER_BYTES } from '../audio/pcm.ts'
-import { reportToText } from '../runReport/runReport.ts'
+import { reportToText } from '../runReport/reportText.ts'
 import type { RunData } from '../../store/types.ts'
 import type { ArchiveFile } from './songArchive.ts'
 

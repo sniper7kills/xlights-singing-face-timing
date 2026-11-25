@@ -28,6 +28,117 @@ export function audibleRows(mix: TrackMix, rowIds: readonly string[]): Set<strin
   return new Set(rowIds.filter((id) => !isMuted(mix, id)))
 }
 
+/** Returns true when "Mute" of the row shows as pressed. A soloed row never shows "Mute" as pressed, because the solo wins. */
+export function isMutePressed(mix: TrackMix, rowId: string): boolean {
+  return isMuted(mix, rowId) && !mix.soloed.includes(rowId)
+}
+
+/**
+ * Returns the state after a click on "Mute" of the row.
+ * - On a soloed row, the click ends the solo and mutes the row, so the row is silent after one click.
+ * - Else the click mutes the row, or unmutes a muted row.
+ */
+export function withMuteToggled(mix: TrackMix, rowId: string): TrackMix {
+  if (mix.soloed.includes(rowId))
+    return {
+      muted: { ...mix.muted, [rowId]: true },
+      soloed: mix.soloed.filter((id) => id !== rowId),
+    }
+  return { muted: { ...mix.muted, [rowId]: !isMuted(mix, rowId) }, soloed: mix.soloed }
+}
+
+/**
+ * Returns the state after a click on "Solo" of the row.
+ * - On a soloed row, the click ends the solo.
+ * - Else the click soloes the row and unmutes it, so a row never shows "Mute" and "Solo" as pressed together.
+ */
+export function withSoloToggled(mix: TrackMix, rowId: string): TrackMix {
+  if (mix.soloed.includes(rowId))
+    return { muted: mix.muted, soloed: mix.soloed.filter((id) => id !== rowId) }
+  return { muted: { ...mix.muted, [rowId]: false }, soloed: [...mix.soloed, rowId] }
+}
+
+/** A row of the group "Audio tracks", with the name that the editor shows. */
+export type NamedRow = { id: string; name: string }
+
+/**
+ * The state that tells which rows sound now.
+ * - `rows`: the rows that the editor shows, with the "Song" row first. No rows means that the song has no kept tracks.
+ * - `blocked`: the ids of the rows whose play the browser refused.
+ */
+export type MixView = TrackMix & { rows: readonly NamedRow[]; blocked: readonly string[] }
+
+/**
+ * Whether a row sounds now, and why a silent row is silent:
+ * - `mute`: "Mute" is on for the row.
+ * - `solo`: "Solo" is on for other rows. `soloRows` holds their names.
+ * - `blocked`: the browser refused the play of the row.
+ */
+export type RowSound =
+  | { plays: true }
+  | { plays: false; reason: 'mute' | 'blocked' }
+  | { plays: false; reason: 'solo'; soloRows: string[] }
+
+/**
+ * Returns whether the row sounds now. The mixer uses the same rule through `audibleRows`.
+ * @param view The mix state, the rows and the blocked rows.
+ * @param rowId The row.
+ */
+export function rowSound(view: MixView, rowId: string): RowSound {
+  // With no row, the editor shows no "Song" controls, so the song audio sounds.
+  if (view.rows.length === 0) return { plays: true }
+  const ids = view.rows.map((row) => row.id)
+  if (!audibleRows(view, ids).has(rowId)) {
+    const soloRows = view.rows.filter((row) => view.soloed.includes(row.id))
+    return soloRows.length > 0
+      ? { plays: false, reason: 'solo', soloRows: soloRows.map((row) => row.name) }
+      : { plays: false, reason: 'mute' }
+  }
+  return view.blocked.includes(rowId) ? { plays: false, reason: 'blocked' } : { plays: true }
+}
+
+/** Returns the names as a list in words: "A", "A and B", "A, B and C". */
+function nameList(names: readonly string[]): string {
+  if (names.length <= 1) return names.join('')
+  return `${names.slice(0, -1).join(', ')} and ${names.at(-1) ?? ''}`
+}
+
+/**
+ * Returns the tooltip of the sound sign of a row, for example `Silent, because "Solo" is on for Vocals.`
+ * @param sound The sound of the row.
+ */
+export function rowSoundText(sound: RowSound): string {
+  if (sound.plays) return 'Plays.'
+  switch (sound.reason) {
+    case 'mute':
+      return 'Silent, because "Mute" is on.'
+    case 'blocked':
+      return 'Silent, because the browser did not start the sound.'
+    case 'solo':
+      return `Silent, because "Solo" is on for ${nameList(sound.soloRows)}.`
+  }
+}
+
+/**
+ * Returns the text after the heading "Audio tracks": the rows that sound now, for example `plays: Vocals`.
+ * @param view The mix state, the rows and the blocked rows.
+ */
+export function playsText(view: MixView): string {
+  const names = view.rows.filter((row) => rowSound(view, row.id).plays).map((row) => row.name)
+  return `plays: ${names.length === 0 ? 'nothing' : names.join(', ')}`
+}
+
+/** The tooltip of the play button while a mute or a solo makes the song audio silent. */
+export const SONG_MUTED_NOTE = 'The song audio is muted. See "Audio tracks".'
+
+/**
+ * Returns the tooltip of the play button: `SONG_MUTED_NOTE` while the "Song" row is silent, else undefined.
+ * @param view The mix state, the rows and the blocked rows.
+ */
+export function playButtonNote(view: MixView): string | undefined {
+  return rowSound(view, SONG_ROW).plays ? undefined : SONG_MUTED_NOTE
+}
+
 /**
  * The largest difference in milliseconds between the song audio and a track before the app moves the track.
  * 50 ms is one frame of the longer frame size. A move makes a short gap in the sound, so a smaller limit gives more gaps.

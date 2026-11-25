@@ -126,8 +126,9 @@ test('reaches "Play" with Tab only in a count that does not change with the coun
   page,
 }) => {
   await openDemoSong(page)
-  // The theme button, the skip link, 5 top bar controls, 4 controls of one voice, 3 layers, then "Play".
-  expect(await tabsToPlay(page)).toBe(15)
+  // The theme button, the skip link, 6 top bar controls, 4 controls of one voice, 3 layers, then "Play".
+  // "Run report" is a Tab stop also with no run, so its tooltip can state the reason.
+  expect(await tabsToPlay(page)).toBe(16)
 
   // Two splits add two words and their phonemes.
   for (let split = 0; split < 2; split++) {
@@ -138,15 +139,15 @@ test('reaches "Play" with Tab only in a count that does not change with the coun
   }
   await expect(layer(page, 'Words')).toHaveCount(18)
 
-  expect(await tabsToPlay(page)).toBe(15)
+  expect(await tabsToPlay(page)).toBe(16)
 })
 
 test('selects each word of the layer with the keyboard only', async ({ page }) => {
   await openDemoSong(page)
   const words = layer(page, 'Words')
   await fromPageTop(page)
-  // The theme button, the skip link, 5 top bar controls, 4 controls of the voice, the phrase layer, then the word layer.
-  for (let count = 0; count < 13; count++) await page.keyboard.press('Tab')
+  // The theme button, the skip link, 6 top bar controls, 4 controls of the voice, the phrase layer, then the word layer.
+  for (let count = 0; count < 14; count++) await page.keyboard.press('Tab')
   await expect(words.first()).toBeFocused()
 
   await page.keyboard.press(']')
