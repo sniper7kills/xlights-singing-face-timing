@@ -653,6 +653,24 @@ button {
   background: var(--panel);
 }
 
+/* The skip link shows only when it has the focus, so a mouse user does not see it. */
+.skip-link:not(:focus) {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.skip-link:focus {
+  padding: 8px 14px;
+  border: 2px solid var(--amber);
+  border-radius: 8px;
+  background: var(--panel);
+  color: var(--ink);
+}
+
 .editor-top a.button {
   color: inherit;
   text-decoration: none;

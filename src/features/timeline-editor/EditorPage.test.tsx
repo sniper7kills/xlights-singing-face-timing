@@ -376,6 +376,29 @@ describe('EditorPage', () => {
     expect(names).toEqual(['Transcribe', 'Run report', 'Custom dictionary', 'Export', 'Shortcuts'])
   })
 
+  it('makes "Skip to the transport" the first Tab stop, and moves the focus to the toolbar while the audio is not ready', async () => {
+    const user = userEvent.setup()
+    await renderEditor()
+
+    await user.tab()
+    const skip = screen.getByRole('link', { name: 'Skip to the transport' })
+    expect(skip).toHaveFocus()
+    await user.keyboard('{Enter}')
+
+    const toolbar = screen.getByRole('toolbar', { name: 'Editor tools' })
+    expect(toolbar).toContainElement(document.activeElement as HTMLElement)
+    expect(window.location.hash).not.toBe('#transport')
+  })
+
+  it('opens the shortcut list with the "Shortcuts" button of the top bar', async () => {
+    const user = userEvent.setup()
+    await renderEditor()
+
+    await user.click(screen.getByRole('button', { name: 'Shortcuts' }))
+
+    expect(screen.getByRole('dialog', { name: 'Keyboard shortcuts' })).toBeInTheDocument()
+  })
+
   it('shows no "Transcribe" button in the empty state of the layers for a song with no voice', async () => {
     const song = await storeNewSong({ name: 'carol', durationMs: 3000, audio, voices: [] })
     render(<EditorPage songId={song.id} />)

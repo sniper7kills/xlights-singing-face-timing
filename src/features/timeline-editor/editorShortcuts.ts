@@ -21,7 +21,8 @@ export type Shortcut = {
    * The key names in the format of `EditorKeyMap`, with their key functions.
    * A null function marks a key that another component registers:
    * - `TransportControls` registers `L`.
-   * - `Layers` registers `Tab`, `Enter`, `F2` and `Escape`.
+   * - `Layers` registers `[`, `]`, `Enter`, `F2` and `Escape`.
+   * An entry with no key names describes a browser key that the editor does not change, such as `Tab`.
    * - `ZoomControl` registers `+`, `=` and `-`.
    * - `ShortcutList` registers `?`, because it holds the open state of the list.
    */
@@ -34,7 +35,11 @@ export type Shortcut = {
  * `Ctrl+z` and `Ctrl+Z` both go to `undoOrRedo`, which reads Shift from the event.
  */
 export const SHORTCUTS: readonly Shortcut[] = [
-  { label: 'Space', action: 'Play or pause', keys: { ' ': togglePlay } },
+  {
+    label: 'Space',
+    action: 'Play or pause, also from a button of the toolbar. Enter presses the button',
+    keys: { ' ': togglePlay },
+  },
   { label: 'L', action: 'Play the selection in a loop', keys: { l: null, L: null } },
   {
     label: 'S',
@@ -49,9 +54,9 @@ export const SHORTCUTS: readonly Shortcut[] = [
   { label: 'Delete', action: 'Delete the selected marks', keys: { Delete: deleteSelected } },
   { label: 'Enter or F2', action: 'Edit the label', keys: { Enter: null, F2: null } },
   {
-    label: 'Tab or Shift+Tab',
-    action: 'Select the next or the previous mark',
-    keys: { Tab: null, 'Shift+Tab': null },
+    label: '[ or ]',
+    action: 'Select the previous or the next mark of the layer',
+    keys: { '[': null, ']': null },
   },
   {
     label: 'Up or Down',
@@ -84,6 +89,11 @@ export const SHORTCUTS: readonly Shortcut[] = [
   { label: '+ or -', action: 'Zoom in or out', keys: { '+': null, '=': null, '-': null } },
   { label: 'Escape', action: 'Clear the mark selection', keys: { Escape: null } },
   { label: '?', action: 'Show this list', keys: { '?': null } },
+  {
+    label: 'Tab or Shift+Tab',
+    action: 'Go to the next or the previous layer or control. Each layer is one stop',
+    keys: {},
+  },
 ]
 
 /** The key functions of `SHORTCUTS` that this table registers, for `useEditorKeys`. */

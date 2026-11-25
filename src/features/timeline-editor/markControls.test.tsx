@@ -553,29 +553,46 @@ describe('add by double-click', () => {
 })
 
 describe('mark keys', () => {
-  it('moves the selection and the focus to the next and the previous mark of the layer with Tab and Shift+Tab', async () => {
+  it('moves the selection and the focus to the next and the previous mark of the layer with ] and [', async () => {
     const user = userEvent.setup()
     renderLayers()
     await user.click(markItem('Words', 'silent'))
 
-    await user.keyboard('{Tab}')
+    await user.keyboard(']')
     expect(useViewStore.getState().selectedMarkIds).toEqual(['w2'])
     await waitFor(() => expect(markItem('Words', 'night')).toHaveFocus())
 
-    await user.keyboard('{Shift>}{Tab}{/Shift}')
+    // user-event reads `[` as the start of a key name, so `[[` types one `[`.
+    await user.keyboard('[[')
     expect(useViewStore.getState().selectedMarkIds).toEqual(['w1'])
     await waitFor(() => expect(markItem('Words', 'silent')).toHaveFocus())
   })
 
-  it('lets Tab leave the layer from the last mark', async () => {
+  it('selects each mark of a layer from the keyboard only: Tab to the layer, then ]', async () => {
     const user = userEvent.setup()
     renderLayers()
-    await user.click(markItem('Words', 'holy'))
 
-    await user.keyboard('{Tab}')
+    await user.tab()
+    await user.tab()
+    expect(markItem('Words', 'silent')).toHaveFocus()
+    await user.keyboard(']')
+    expect(useViewStore.getState().selectedMarkIds).toEqual(['w1'])
+    await user.keyboard(']')
+    await user.keyboard(']')
+    await user.keyboard(']')
 
     expect(useViewStore.getState().selectedMarkIds).toEqual(['w3'])
-    expect(markItem('Words', 'holy')).not.toHaveFocus()
+  })
+
+  it('goes from one layer to the next with Tab, so each layer is one Tab stop', async () => {
+    const user = userEvent.setup()
+    renderLayers()
+    await user.click(markItem('Words', 'silent'))
+
+    await user.tab()
+
+    expect(document.activeElement).toHaveAttribute('data-mark-id', 'f1')
+    expect(useViewStore.getState().selectedMarkIds).toEqual(['w1'])
   })
 
   it('makes one mark of each layer a Tab stop', () => {
@@ -584,6 +601,21 @@ describe('mark keys', () => {
     const stops = screen.getAllByRole('listitem').filter((item) => item.tabIndex === 0)
 
     expect(stops.map((item) => item.textContent)).toEqual(['silent night', 'silent', 'etc'])
+  })
+
+  it('makes the layer track the Tab stop when no mark of the layer is in view', () => {
+    act(() =>
+      useSongStore.setState((state) => ({
+        current: state.current && {
+          ...state.current,
+          marks: state.current.marks.filter((item) => item.layer !== 'phoneme'),
+        },
+      })),
+    )
+    renderLayers()
+
+    expect(screen.getByRole('list', { name: 'Phonemes' })).toHaveAttribute('tabindex', '0')
+    expect(screen.getByRole('list', { name: 'Words' })).toHaveAttribute('tabindex', '-1')
   })
 
   it.each(['{Enter}', '{F2}'])(

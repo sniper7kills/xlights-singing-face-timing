@@ -89,6 +89,10 @@ face that sings during play, so the person sees the result before xLights does.
 - FR-editor-44 — The person types a time as `m:ss.mmm` or as plain seconds.
 - FR-editor-45 — The status line states the rule that changed a typed time.
 - FR-editor-46 — The phoneme list opens with no scroll of the stage.
+- FR-editor-47 — Each layer is one Tab stop.
+- FR-editor-48 — The person selects each mark of a layer with the keyboard.
+- FR-editor-49 — The first Tab stop of the editor skips to the transport.
+- FR-editor-50 — `Space` plays or pauses from a button of the toolbar.
 
 ## User flows
 
@@ -239,8 +243,8 @@ Track rows (FR-editor-31 to 37):
 
 - **Shortcuts.** `Space` play or pause. `L` loop the selection. `S` split at the
   play cursor. `M` merge with the next mark. `Delete` delete. `Enter` or `F2` edit
-  the label. `Tab` and `Shift+Tab` select the next or previous mark. `Up` and
-  `Down` move the selection between layers. `Left` and `Right` nudge the selected
+  the label. `[` and `]` select the previous or the next mark of the layer. `Up`
+  and `Down` move the selection between layers. `Left` and `Right` nudge the selected
   mark by one frame size. `Alt+Left` and `Alt+Right` nudge the start only.
   `Shift+Alt+Left` and `Shift+Alt+Right` nudge the end only. `Ctrl+Z` undo.
   `Ctrl+Shift+Z` redo. `+` and `-` zoom. `?` shortcut list. On macOS, `Cmd`
@@ -250,6 +254,21 @@ Track rows (FR-editor-31 to 37):
   child. A shortcut does not act while the focus is in a field, a list or a
   dialog. The shortcut list has the title "Keyboard shortcuts", a "Close" button
   and the note "On macOS, use Cmd in place of Ctrl."
+- **Keyboard order.** `Tab` and `Shift+Tab` keep the browser order. Each layer is
+  one Tab stop: the selected mark of the layer, else its first mark in view, else
+  the layer track. So `Tab` goes from one layer to the next, then to "Play".
+  - On a mark that is not selected, `[` or `]` selects that mark. Then they move
+    the selection along the layer. At the first or the last mark, the status line
+    states "This is the first mark of the layer." or "This is the last mark of the
+    layer."
+  - The first Tab stop of the editor is the link "Skip to the transport". It shows
+    only when it has the focus. It moves the focus to "Play", or to the first
+    control of the toolbar while the audio is not ready.
+  - On a button of the toolbar or the transport other than "Play", `Space` plays
+    or pauses and does not press the button. `Enter` presses the button. A text
+    field, a select, a dialog, a menu and a list keep their own `Space`.
+  - The help line adds "Press [ or ] to select the previous or the next mark."
+    when one mark is selected.
 - **Transport.** "Loop" has the tooltip "Play the selection in a loop (L)". With
   more than one selected mark, the loop goes from the earliest start to the
   latest end. "Play speed" has "50%", "75%" and "100%", and the pitch does not
@@ -468,6 +487,14 @@ scroll methods before use. Those names are not verified in this spec.
   (FR-editor-43)
 - The scroll position of the stage is the same before and after the phoneme list
   opens. (FR-editor-46)
+- The count of `Tab` presses from the page top to "Play" does not change with the
+  count of marks. (FR-editor-47)
+- `Tab` to the word layer, then `]`, selects each word in turn. (FR-editor-48)
+- `Tab` to "Skip to the transport" and `Enter` give "Play" the focus.
+  (FR-editor-49)
+- After a click on "75%", `Space` starts the play. (FR-editor-50)
+- The shortcut list and the shortcut rules of this file name the same keys.
+  (FR-editor-29)
 - `?` opens the shortcut list, and `Escape` closes it. (FR-editor-29)
 - A person splits, merges and deletes a mark with the mouse only. (FR-editor-38)
 - A disabled "Split", "Merge with next" or "Delete" states its reason in a tooltip

@@ -62,7 +62,7 @@ export function MarkView({ mark: stored, scale, tabStop = false }: MarkViewProps
       aria-current={flag(selected)}
       data-unknown={flag(unknown)}
       data-estimated={flag(estimated)}
-      // Each mark takes the focus from a click or a key. Only one mark of each layer is a Tab stop.
+      // Each mark takes the focus from a click or a key. Only one mark of each layer is a Tab stop, and `[` and `]` move along the layer.
       tabIndex={tabStop ? 0 : -1}
       title={`${mark.label}\n${formatTime(mark.startMs)} to ${formatTime(mark.endMs)}`}
       style={{ left: `${leftPx}px`, width: `${widthPx}px` }}

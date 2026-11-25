@@ -8,7 +8,7 @@ import { useEffect, useLayoutEffect, useRef } from 'react'
  * A single character has no `Shift+` prefix, because the character already shows the Shift key:
  * `+` and `?` need Shift on most keyboards, and `Ctrl+Shift+Z` is `Ctrl+Z`.
  * A function that returns `false` does not take the key: the browser action and the next registration get it.
- * For example, `Tab` on a mark selects the next mark, and `Tab` on a button goes to the next control.
+ * For example, `Enter` on a mark opens its label control, and `Enter` on a button presses the button.
  */
 export type EditorKeyMap = Readonly<Record<string, (event: KeyboardEvent) => boolean | void>>
 

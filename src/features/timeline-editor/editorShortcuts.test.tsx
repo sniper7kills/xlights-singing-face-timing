@@ -127,7 +127,7 @@ describe('SHORTCUTS', () => {
     )
 
     expect(elsewhere.sort()).toEqual(
-      ['+', '-', '=', '?', 'Enter', 'Escape', 'F2', 'L', 'Shift+Tab', 'Tab', 'l'].sort(),
+      ['+', '-', '=', '?', 'Enter', 'Escape', 'F2', 'L', '[', ']', 'l'].sort(),
     )
     expect(Object.keys(SHORTCUT_KEYS)).toHaveLength(
       SHORTCUTS.flatMap((shortcut) => Object.keys(shortcut.keys)).length - elsewhere.length,
@@ -486,6 +486,32 @@ describe('Space', () => {
       expect(player.play).not.toHaveBeenCalled()
     } finally {
       field.remove()
+      detachPlayer(player)
+    }
+  })
+
+  it('plays from a focused button of the toolbar other than "Play", and leaves the button unpressed', () => {
+    const player = fakePlayer()
+    attachPlayer(player)
+    const toolbar = document.body.appendChild(document.createElement('div'))
+    toolbar.className = 'editor-toolbar'
+    const speed = toolbar.appendChild(document.createElement('button'))
+    const menu = toolbar.appendChild(document.createElement('div'))
+    menu.setAttribute('role', 'menu')
+    const item = menu.appendChild(document.createElement('button'))
+    const transport = document.body.appendChild(document.createElement('div'))
+    transport.className = 'transport'
+    const play = transport.appendChild(document.createElement('button'))
+    play.className = 'play'
+    try {
+      expect(press(' ', {}, speed)).toBe(true)
+      expect(player.play).toHaveBeenCalledOnce()
+      expect(press(' ', {}, item)).toBe(false)
+      expect(press(' ', {}, play)).toBe(false)
+      expect(player.pause).not.toHaveBeenCalled()
+    } finally {
+      toolbar.remove()
+      transport.remove()
       detachPlayer(player)
     }
   })

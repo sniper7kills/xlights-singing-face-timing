@@ -61,14 +61,33 @@ function onlySelected(): Mark | undefined {
   return ids.length === 1 ? marks.find((mark) => mark.id === ids[0]) : undefined
 }
 
+// The person clicks these buttons during play, for example "75%", so `Space` keeps its play meaning there.
+// `Enter` still presses the button.
+const PLAY_SPACE_SELECTOR = '.editor-toolbar button, .transport button'
+
+// "Play" plays with its own click, and a menu, a list and a dialog use the space bar themselves.
+const OWN_SPACE_SELECTOR = '.play, [role="menu"], [role="listbox"], [role="dialog"]'
+
+/** Returns true when `Space` plays from the focus of the event. */
+function spacePlays(event: KeyboardEvent): boolean {
+  if (!fromControl(event)) return true
+  const { target } = event
+  return (
+    target instanceof Element &&
+    target.closest(PLAY_SPACE_SELECTOR) !== null &&
+    target.closest(OWN_SPACE_SELECTOR) === null
+  )
+}
+
 /**
  * `Space`: plays or pauses the audio. A loop stops through the same pause.
- * It does not act on a focused button, link or field, because those controls use the space bar.
+ * On a button of the toolbar or the transport other than "Play", it plays or pauses and does not press the button.
+ * It does not act on any other focused button, link or field, because those controls use the space bar.
  * It does not act while the audio is not ready. A held key toggles one time only.
  */
 export function togglePlay(event: KeyboardEvent): boolean {
   const { player } = usePlayerStore.getState()
-  if (player === null || fromControl(event)) return false
+  if (player === null || !spacePlays(event)) return false
   if (event.repeat) return true
   if (player.isPlaying()) player.pause()
   else pauseOnRefusal(player, player.play())

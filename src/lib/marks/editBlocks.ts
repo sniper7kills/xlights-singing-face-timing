@@ -18,6 +18,7 @@ export type EditBlock =
   | 'cursor-outside'
   | 'cursor-at-edge'
   | 'last-on-layer'
+  | 'first-on-layer'
   | 'next-in-other-phrase'
   | 'next-in-other-word'
   | 'last-phoneme'
@@ -35,6 +36,7 @@ const BLOCK_TEXTS: Record<EditBlock, string> = {
   'cursor-at-edge':
     'Move the play cursor away from the edge of the mark. Each part needs one frame size or more.',
   'last-on-layer': 'This is the last mark of the layer.',
+  'first-on-layer': 'This is the first mark of the layer.',
   'next-in-other-phrase': 'The next word is in another phrase.',
   'next-in-other-word': 'The next phoneme is in another word.',
   'last-phoneme': 'A word needs one phoneme or more. Delete the word.',

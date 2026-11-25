@@ -1,4 +1,11 @@
-import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react'
+import {
+  type MouseEvent,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from 'react'
 import { LIBRARY_HASH } from '../../app/routes.ts'
 import { useAutosaveStore, useSaveState } from '../../store/autosave.ts'
 import { StorageFullError } from '../../store/db.ts'
@@ -56,6 +63,21 @@ function isNarrowWindow(): boolean {
 function loadDictionaryForWords() {
   const marks = useSongStore.getState().current?.marks ?? []
   if (marks.some((mark) => mark.layer === 'word')) void loadDictionaries().catch(() => undefined)
+}
+
+/**
+ * Moves the focus to "Play", or to the first control of the toolbar while the audio is not ready.
+ * A disabled button takes no focus, so the toolbar is the second choice.
+ */
+function skipToTransport(event: MouseEvent<HTMLAnchorElement>) {
+  event.preventDefault()
+  const editor = event.currentTarget.closest('.editor')
+  const play = editor?.querySelector<HTMLButtonElement>('.transport .play:not(:disabled)')
+  const tool = editor?.querySelector<HTMLElement>(
+    '.editor-toolbar button:not(:disabled), .editor-toolbar input',
+  )
+  const target = play ?? tool
+  target?.focus()
 }
 
 type EditorPageProps = {
@@ -151,6 +173,10 @@ export function EditorPage({ songId }: EditorPageProps) {
       {/* The editor stays mounted in a narrow window, so the audio and the view stay loaded. */}
       <section className="editor" aria-labelledby="editor-title" hidden={narrow}>
         <div className="editor-top">
+          {/* The routes use the hash, so the link moves the focus itself and keeps the hash. */}
+          <a className="skip-link" href="#transport" onClick={skipToTransport}>
+            Skip to the transport
+          </a>
           <a className="button" href={LIBRARY_HASH} aria-label="Back to song library">
             <span aria-hidden="true">←</span>
           </a>

@@ -317,6 +317,14 @@ body.rv-open .layout { padding-right:21rem; }
 </li>
 <li>FR-editor-46 — The phoneme list opens with no scroll of the stage.
 </li>
+<li>FR-editor-47 — Each layer is one Tab stop.
+</li>
+<li>FR-editor-48 — The person selects each mark of a layer with the keyboard.
+</li>
+<li>FR-editor-49 — The first Tab stop of the editor skips to the transport.
+</li>
+<li>FR-editor-50 — <code>Space</code> plays or pauses from a button of the toolbar.
+</li>
 </ul>
 <h3 id="timeline-editor-user-flows">User flows</h3>
 <h4 id="timeline-editor-correct-the-time-of-a-word">Correct the time of a word</h4>
@@ -533,7 +541,32 @@ body.rv-open .layout { padding-right:21rem; }
 <li><strong>Shortcuts.</strong> <code>Space</code> play or pause. <code>L</code> loop the selection. <code>S</code> split at the
 </li>
 </ul>
-<p>play cursor. <code>M</code> merge with the next mark. <code>Delete</code> delete. <code>Enter</code> or <code>F2</code> edit the label. <code>Tab</code> and <code>Shift+Tab</code> select the next or previous mark. <code>Up</code> and <code>Down</code> move the selection between layers. <code>Left</code> and <code>Right</code> nudge the selected mark by one frame size. <code>Alt+Left</code> and <code>Alt+Right</code> nudge the start only. <code>Shift+Alt+Left</code> and <code>Shift+Alt+Right</code> nudge the end only. <code>Ctrl+Z</code> undo. <code>Ctrl+Shift+Z</code> redo. <code>+</code> and <code>-</code> zoom. <code>?</code> shortcut list. On macOS, <code>Cmd</code> replaces <code>Ctrl</code>. With no selected mark, <code>Left</code> and <code>Right</code> move the play cursor by one frame size. <code>S</code>, <code>M</code>, the nudge keys, <code>Up</code> and <code>Down</code> act when exactly one mark is selected. <code>Up</code> selects the parent, and <code>Down</code> selects the first child. A shortcut does not act while the focus is in a field, a list or a dialog. The shortcut list has the title "Keyboard shortcuts", a "Close" button and the note "On macOS, use Cmd in place of Ctrl."</p>
+<p>play cursor. <code>M</code> merge with the next mark. <code>Delete</code> delete. <code>Enter</code> or <code>F2</code> edit the label. <code>[</code> and <code>]</code> select the previous or the next mark of the layer. <code>Up</code> and <code>Down</code> move the selection between layers. <code>Left</code> and <code>Right</code> nudge the selected mark by one frame size. <code>Alt+Left</code> and <code>Alt+Right</code> nudge the start only. <code>Shift+Alt+Left</code> and <code>Shift+Alt+Right</code> nudge the end only. <code>Ctrl+Z</code> undo. <code>Ctrl+Shift+Z</code> redo. <code>+</code> and <code>-</code> zoom. <code>?</code> shortcut list. On macOS, <code>Cmd</code> replaces <code>Ctrl</code>. With no selected mark, <code>Left</code> and <code>Right</code> move the play cursor by one frame size. <code>S</code>, <code>M</code>, the nudge keys, <code>Up</code> and <code>Down</code> act when exactly one mark is selected. <code>Up</code> selects the parent, and <code>Down</code> selects the first child. A shortcut does not act while the focus is in a field, a list or a dialog. The shortcut list has the title "Keyboard shortcuts", a "Close" button and the note "On macOS, use Cmd in place of Ctrl."</p>
+<ul>
+<li><strong>Keyboard order.</strong> <code>Tab</code> and <code>Shift+Tab</code> keep the browser order. Each layer is
+</li>
+</ul>
+<p>one Tab stop: the selected mark of the layer, else its first mark in view, else the layer track. So <code>Tab</code> goes from one layer to the next, then to "Play".</p>
+<ul>
+<li>On a mark that is not selected, <code>[</code> or <code>]</code> selects that mark. Then they move
+</li>
+</ul>
+<p>the selection along the layer. At the first or the last mark, the status line states "This is the first mark of the layer." or "This is the last mark of the layer."</p>
+<ul>
+<li>The first Tab stop of the editor is the link "Skip to the transport". It shows
+</li>
+</ul>
+<p>only when it has the focus. It moves the focus to "Play", or to the first control of the toolbar while the audio is not ready.</p>
+<ul>
+<li>On a button of the toolbar or the transport other than "Play", <code>Space</code> plays
+</li>
+</ul>
+<p>or pauses and does not press the button. <code>Enter</code> presses the button. A text field, a select, a dialog, a menu and a list keep their own <code>Space</code>.</p>
+<ul>
+<li>The help line adds "Press [ or ] to select the previous or the next mark."
+</li>
+</ul>
+<p>when one mark is selected.</p>
 <ul>
 <li><strong>Transport.</strong> "Loop" has the tooltip "Play the selection in a loop (L)". With
 </li>
@@ -847,6 +880,25 @@ formatTime(ms: number): string                   // m:ss.mmm</code></pre>
 </li>
 </ul>
 <p>opens. (FR-editor-46)</p>
+<ul>
+<li>The count of <code>Tab</code> presses from the page top to "Play" does not change with the
+</li>
+</ul>
+<p>count of marks. (FR-editor-47)</p>
+<ul>
+<li><code>Tab</code> to the word layer, then <code>]</code>, selects each word in turn. (FR-editor-48)
+</li>
+<li><code>Tab</code> to "Skip to the transport" and <code>Enter</code> give "Play" the focus.
+</li>
+</ul>
+<p>(FR-editor-49)</p>
+<ul>
+<li>After a click on "75%", <code>Space</code> starts the play. (FR-editor-50)
+</li>
+<li>The shortcut list and the shortcut rules of this file name the same keys.
+</li>
+</ul>
+<p>(FR-editor-29)</p>
 <ul>
 <li><code>?</code> opens the shortcut list, and <code>Escape</code> closes it. (FR-editor-29)
 </li>
