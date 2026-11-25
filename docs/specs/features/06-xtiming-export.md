@@ -85,6 +85,8 @@ next.
   the xLights import steps.
 - FR-export-32 — The note under the zip file choice lists the files and the size
   of the zip file.
+- FR-export-37 — If the app cannot read the audio tracks and the run report, the
+  note under the zip file choice states it.
 - FR-export-33 — The app writes the zip file in the browser. No request carries
   any part of it.
 - FR-export-34 — The export dialog shows the steps for several face models under
@@ -546,6 +548,7 @@ importStepsText(frameMs: number): string
 | A Faces effect on a model group | xLights draws only a face definition of the type "Matrix". The steps for several face models state this. |
 | Song with frame size 25 ms imported into a 50 ms sequence | xLights moves times down to 50 ms. The import steps warn about it in step 2. |
 | The app cannot read the audio file of the song for the zip file | The dialog shows "The app could not read the audio file of this song. Download the timing files without the zip." The dialog stays open. |
+| The app cannot read the separated tracks and the run report of the song for the zip file | The note under the zip file choice starts with "The app could not read the separated tracks and the run report of this song. The zip file does not hold them." The list of the note has no track and no report. "Download zip" stays enabled. |
 | The zip file needs ZIP64 | The dialog shows "The song is too large for one zip file. Download the files one at a time." The dialog stays open. |
 | The audio file name has `/` or a character that is not ASCII | The entry name replaces `/` with `_` and keeps the other characters. |
 | The custom dictionary has no entry | The zip file has no `custom-dictionary.txt`. |

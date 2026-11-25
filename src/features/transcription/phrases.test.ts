@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
+  countPartsLeftOut,
+  keepLyricsLines,
   groupIntoPhrases,
   parseLyrics,
   parseSectionTags,
@@ -194,5 +196,35 @@ describe('spreadLyrics', () => {
 
   it('returns no phrase for lyrics with no word', () => {
     expect(spreadLyrics('\n[Intro]\n', 0, 1000)).toEqual([])
+  })
+})
+
+describe('keepLyricsLines', () => {
+  const lyrics = '[Verse]\nSilent night\n\nHoly night\n[Chorus]\nAll is calm'
+
+  it('keeps the text to the end of the line with the index of the count', () => {
+    expect(keepLyricsLines(lyrics, 2)).toBe('[Verse]\nSilent night\n\nHoly night')
+  })
+
+  it('keeps all lyrics when the count is the count of lines', () => {
+    expect(keepLyricsLines(lyrics, 3)).toBe(lyrics)
+  })
+
+  it('keeps no text for a count of 0', () => {
+    expect(keepLyricsLines(lyrics, 0)).toBe('')
+  })
+})
+
+describe('countPartsLeftOut', () => {
+  it('counts each part of a lyrics line with no letter and no digit', () => {
+    expect(
+      countPartsLeftOut(
+        'Café "naïve" — <b>bold</b> & 你好 😀 \'tis\nO\'er the hill-top, 99 bottles',
+      ),
+    ).toBe(3)
+  })
+
+  it('counts no part of a tag line or an empty line', () => {
+    expect(countPartsLeftOut('[ & ]\n\n  \nSilent night')).toBe(0)
   })
 })

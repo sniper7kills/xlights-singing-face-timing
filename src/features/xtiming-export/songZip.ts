@@ -5,7 +5,12 @@ import type { ExportOptions, ExportTrack } from '../../lib/xtiming/types.ts'
 import { writeZip, zipLength } from '../../lib/zip/writeZip.ts'
 import { formatMegabytes } from '../audio-import/libraryFormat.ts'
 import type { SongContent } from '../../store/types.ts'
-import { AUDIO_READ_MESSAGE, type ZipSource, type ZipSourceState } from './useZipSource.ts'
+import {
+  AUDIO_READ_MESSAGE,
+  RUN_DATA_READ_MESSAGE,
+  type ZipSource,
+  type ZipSourceState,
+} from './useZipSource.ts'
 
 /** The zip file that the dialog gives to the browser. */
 export type ZipDownload = { name: string; blob: Blob }
@@ -50,6 +55,7 @@ function trackBytes(source: ZipSource): number {
 
 /**
  * Returns the note under "Everything as one zip file": the entries of the zip file and its size.
+ * After a failed read of the run data, the note starts with `RUN_DATA_READ_MESSAGE`, and the list has no track and no report.
  * The note uses the stored length of the audio file and of the audio tracks, so the dialog converts no audio for it.
  * @param zipExport The export that the zip file holds.
  * @param state The state of the read of the audio file and the custom entries.
@@ -65,7 +71,8 @@ export function zipNote(zipExport: ZipExport, state: ZipSourceState): string {
   )
   const size = zipLength(list) + state.audio.byteLength + trackBytes(state)
   const names = list.map((entry) => entry.name).join(', ')
-  return `The zip file holds ${list.length} files: ${names}. Size: ${formatSize(size)}.`
+  const note = `The zip file holds ${list.length} files: ${names}. Size: ${formatSize(size)}.`
+  return state.runDataUnread === true ? `${RUN_DATA_READ_MESSAGE} ${note}` : note
 }
 
 /**

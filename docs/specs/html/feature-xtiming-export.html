@@ -315,6 +315,11 @@ body.rv-open .layout { padding-right:21rem; }
 </ul>
 <p>of the zip file.</p>
 <ul>
+<li>FR-export-37 — If the app cannot read the audio tracks and the run report, the
+</li>
+</ul>
+<p>note under the zip file choice states it.</p>
+<ul>
 <li>FR-export-33 — The app writes the zip file in the browser. No request carries
 </li>
 </ul>
@@ -884,6 +889,7 @@ importStepsText(frameMs: number): string</code></pre>
 <tr><td>A Faces effect on a model group</td><td>xLights draws only a face definition of the type "Matrix". The steps for several face models state this.</td></tr>
 <tr><td>Song with frame size 25 ms imported into a 50 ms sequence</td><td>xLights moves times down to 50 ms. The import steps warn about it in step 2.</td></tr>
 <tr><td>The app cannot read the audio file of the song for the zip file</td><td>The dialog shows "The app could not read the audio file of this song. Download the timing files without the zip." The dialog stays open.</td></tr>
+<tr><td>The app cannot read the separated tracks and the run report of the song for the zip file</td><td>The note under the zip file choice starts with "The app could not read the separated tracks and the run report of this song. The zip file does not hold them." The list of the note has no track and no report. "Download zip" stays enabled.</td></tr>
 <tr><td>The zip file needs ZIP64</td><td>The dialog shows "The song is too large for one zip file. Download the files one at a time." The dialog stays open.</td></tr>
 <tr><td>The audio file name has <code>/</code> or a character that is not ASCII</td><td>The entry name replaces <code>/</code> with <code>_</code> and keeps the other characters.</td></tr>
 <tr><td>The custom dictionary has no entry</td><td>The zip file has no <code>custom-dictionary.txt</code>.</td></tr>

@@ -1622,6 +1622,33 @@ button {
   color: var(--ink);
 }
 
+/* The title and the buttons stay in view. Only the options scroll. */
+.transcribe-dialog {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.transcribe-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  /* The focus ring of a control at the edge stays inside the scroll area. */
+  padding: 3px;
+  margin: -3px;
+}
+
+.transcribe-footer {
+  display: grid;
+  flex: none;
+  gap: 10px;
+}
+
+/* An empty line in a message starts a second paragraph. */
+.transcribe-dialog .message {
+  white-space: pre-line;
+}
+
 .phrase-label-dialog p {
   margin: 0;
 }

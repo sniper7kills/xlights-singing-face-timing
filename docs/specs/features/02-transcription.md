@@ -281,6 +281,53 @@ leaves the browser, and the app shows the host before each run.
 - FR-transcribe-127 — The singer section states the count of phrases that the
   singer step divided.
 
+### Failures that the person sees (issue #153)
+
+- FR-transcribe-128 — If the browser cannot store the remote endpoint, the dialog
+  shows a message under the endpoint panel.
+- FR-transcribe-129 — If the browser cannot store a choice of the transcribe
+  dialog, the dialog shows one message for all choices.
+- FR-transcribe-130 — If the app cannot convert the audio tracks of a run, the
+  toast states it.
+
+### Lyrics limit (issue #156)
+
+- FR-transcribe-131 — The lyrics field accepts 20 000 characters at most.
+- FR-transcribe-132 — With more than 20 000 characters, the dialog shows a message
+  under the lyrics field and disables "Start".
+- FR-transcribe-133 — A paste of 1 000 000 characters returns control to the
+  person in less than 1 second.
+
+### Lyrics that do not fit (issue #163)
+
+- FR-transcribe-134 — Before a run with lyrics, the app counts the words of the
+  lyrics against the room of the range.
+- FR-transcribe-135 — If the words do not fit, the dialog asks before the run, with
+  the count of words, the room and the last kept line.
+- FR-transcribe-136 — If the app leaves out words that it cannot use, the toast
+  states the count.
+- FR-transcribe-137 — The run report states the count of lyrics lines and the count
+  of words that the run left out.
+- FR-transcribe-138 — A hint under the lyrics field states the rule for
+  characters.
+
+### Dialog layout and run messages (issue #164)
+
+- FR-transcribe-139 — The transcribe dialog keeps its title and its buttons in
+  view. Only the options scroll.
+- FR-transcribe-140 — The progress and each question of a run show outside the
+  scroll area.
+- FR-transcribe-141 — After a cancel, the dialog states that the marks did not
+  change.
+- FR-transcribe-142 — `Escape` during a run moves the focus to "Cancel" and shows a
+  hint.
+- FR-transcribe-143 — For "Lyrics only", the dialog states the reason for the
+  disabled groups.
+- FR-transcribe-144 — The replace question states the voice, the range and the
+  count of marks that the run replaces.
+- FR-transcribe-145 — While a question shows, the progress bar and the elapsed
+  time do not show.
+
 ## User flows
 
 ### Transcribe a song
@@ -410,16 +457,23 @@ sequenceDiagram
 
 1. The person selects "Lyrics only" in the transcribe dialog.
 2. The person pastes the lyrics.
-3. The app makes one phrase for each line.
-4. The app spreads the phrases evenly across the target range.
-5. The app spreads the words of each phrase evenly across the phrase.
-6. The app marks every word as "estimated".
+3. If the lyrics have more words than the range has room for, the app asks before
+   the run. See the room rule in [Behaviour rules](#behaviour-rules).
+4. The app makes one phrase for each line.
+5. The app spreads the phrases evenly across the target range.
+6. The app spreads the words of each phrase evenly across the phrase.
+7. The app marks every word as "estimated".
 
 ## Screens & states
 
 **Transcribe dialog.** Regions: "Where to transcribe" choice, speech model selector
 or endpoint panel, device note, lyrics field,
 range selector (full song or the time selection), progress area, buttons.
+
+The dialog is a column of three parts. The title stays at the top. The options
+scroll in the middle. The bottom part holds the remote warning, the progress area,
+the messages, each question and the buttons, and it does not scroll. So "Start" is
+fully visible at 1440x900 and at 1024x768 with each option on.
 
 - idle: selectors enabled, "Start" enabled.
 - preparing: "Preparing audio, 0:02 elapsed" with a bar that has no end. The app
@@ -433,7 +487,17 @@ range selector (full song or the time selection), progress area, buttons.
   audio time changes at the end of each sung segment, a few seconds apart, and not
   only at the end of each 30-second chunk.
 - finishing: "Aligning lyrics and breaking down words".
-- confirm: "The run replaces the marks of this voice." with "Continue" and "Cancel".
+- confirm: "The run replaces the <n> marks of "<voice name>" from <start> to
+  <end>." with "Continue" and "Cancel". The count is the count of marks of the
+  voice on all layers that overlap the range. The same rule decides that the
+  dialog asks. The times have the form `0:01.500`. For one mark, the text reads
+  "the 1 mark".
+- question: while the dialog asks, the progress area shows no text and no bar,
+  because the run waits for the answer.
+- stopped: after a cancel, the dialog goes back to idle and shows "The run stopped.
+  The marks did not change." for 5 seconds.
+- `Escape` during a run moves the focus to "Cancel" and shows "Select Cancel to stop
+  the run." The run goes on. `Escape` at a question answers "Cancel".
 - error: the message, with "Retry" and "Close".
 - done: the dialog closes. A toast shows "214 words, 9 estimated".
 
@@ -455,6 +519,26 @@ available. Transcription is slower on this browser."
 
 If the person selects "Lyrics only" and the lyrics field has no word, the app
 disables "Start". The hint reads "Paste the lyrics to use Lyrics only."
+
+With "Lyrics only" selected, the note "Lyrics only uses no speech model." replaces
+the device note. It describes the disabled groups "Where to transcribe" and
+"Speech model", or the endpoint panel.
+
+If the lyrics have more than 20 000 characters, the message under the lyrics field
+reads "The lyrics are too long. Use 20 000 characters at most." The app disables
+"Start" and reads no line of the lyrics until the text is shorter. No real song
+has lyrics of this length.
+
+The hint under the lyrics field reads "The app uses each word that has a letter or
+a digit. It leaves out other words, such as & or an emoji."
+
+- lyrics question: before a run with lyrics that do not fit, the dialog shows "The
+  lyrics have <n> words. This song has room for about <m> words. The app leaves out
+  the lines after line <k>." with "Continue" and "Cancel". For a run over the time
+  selection, the second sentence reads "The time selection has room for about <m>
+  words." "Continue" runs with lines 1 to <k>. "Cancel" changes no mark.
+- If the run left out words that it cannot use, the toast adds "The app left out
+  <n> words that it cannot use."
 
 **Separate the vocals first.** The check box comes after "Lyrics only". "Lyrics
 only" hides it, because a lyrics-only run reads no audio. The note under the check
@@ -582,7 +666,7 @@ it. If that control is gone, the focus goes to "Run report" in the top bar.
 | Vocal separation | The separation model, and "Changed to the fast model" | "The run did not separate the vocals." |
 | Singers | The result of the singer step in one sentence. A table of the groups after the clustering. A table of the final singers with the sung time and the count of ranges. The settings in force, the centroid distances, the singer ranges, the phrase rule, the phrase division, the phrases divided, the phrases with no singer and with more than one singer | "The singer step did not run, because the option was off." or "The singer step did not run, because the run had no separated vocals." |
 | Voices | A table: the voice, its count of phrases, and "Made by the run" | "No voice holds phrases of the run." |
-| Marks | Phrases, words, estimated words, unknown words | — |
+| Marks | Phrases, words, estimated words, unknown words, lyrics lines left out, words left out | — |
 | Notes | Each warning and failure | "The run had no warning and no failure." |
 
 The sentence of the singer step:
@@ -619,6 +703,27 @@ copy, the status line shows "Press Ctrl+C to copy."
   frame size, and moves the next word if needed.
 - Words on one layer do not overlap. If the speech model returns an overlap, the
   earlier word ends where the later word starts.
+- **Characters of the lyrics.** A lyrics word is a part of a line between spaces.
+  - The app uses a word that has a letter or a digit, in any script. For example
+    "café", "99" and "你好" are words.
+  - The app leaves out a part with no letter and no digit, for example "&", "—" or
+    an emoji, and counts it as a word that it cannot use.
+  - The label rules above then apply to each word.
+  - The dictionaries have English words only. A word that no dictionary has is an
+    unknown word, for example a word in another script.
+- **Room rule.** The room of a range is one word for each frame size of the range.
+  The app keeps a word one frame size long or more, so more words cannot fit.
+  - Before a run with lyrics, the app counts the words of each lyrics line.
+  - The app keeps the lines from line 1 while their words fit in the room. It
+    leaves out each line after the first line that does not fit.
+  - The app always keeps line 1. If line 1 alone does not fit, the app keeps its
+    earliest words that fit.
+  - At 50 ms, a song of 28.9 s has room for 578 words. 200 lines of 7 words keep
+    lines 1 to 82.
+  - More than about 4 words for each second gives words of one or two frames. The
+    face then changes too fast to read. The room rule does not warn about this.
+- A word of the speech model that has no letter and no digit after the label rules
+  gives no mark. The app counts it as a word that it cannot use.
 - **Align rules.** The app compares the transcribed words with the lyrics words as
   two sequences, without case and without punctuation.
   - A lyrics word that matches a transcribed word takes its time.
@@ -912,7 +1017,7 @@ from 0 to 1.
 | Instrumental range selected | "No words were found" for that range. Other marks stay. |
 | Lyrics contain a line with no words | The app ignores the line. |
 | Lyrics contain `[Chorus]` style tags | The app ignores a line that is only text in square brackets. |
-| Remote endpoint: no connection, or the CORS settings block the page | "The app could not connect to <host>. The server is not available, or its CORS settings block this page. Check that the server runs and sends the header Access-Control-Allow-Origin: <origin of the app>" |
+| Remote endpoint: no connection, or the CORS settings block the page | "The app could not connect to <host>. Check that the server runs and that the base URL is correct." Then a second paragraph: "If the server runs: its CORS settings can block this page. Check that the server sends the header Access-Control-Allow-Origin: <origin of the app>" |
 | Remote endpoint: HTTP 401 or 403 | "<host> refused the API key (HTTP 401). Check the API key of the remote endpoint." |
 | Remote endpoint: HTTP 404 | "<host> has no transcription service at this address (HTTP 404). Check the base URL. It usually ends with /v1." |
 | Remote endpoint: HTTP 413, or a WAV file above 25 000 000 bytes | "The audio is too large for the remote endpoint. Select a shorter part of the song in the editor, and transcribe the time selection." |
@@ -922,11 +1027,11 @@ from 0 to 1.
 | Remote endpoint: the response is not JSON | "<host> did not return JSON. Check the base URL. It usually ends with /v1." |
 | Remote endpoint: the response has no `words` list | "<host> returned no word times. Use a server and a speech model that return the words field of verbose_json." |
 | Remote endpoint: the response has an empty `words` list | "No words were found. Paste the lyrics and use Lyrics only." |
-| Remote endpoint: the person selects "Cancel" | The app stops the request. No mark changes. The dialog goes back to idle with no message. |
+| Remote endpoint: the person selects "Cancel" | The app stops the request. No mark changes. The dialog goes back to idle and shows "The run stopped. The marks did not change." |
 | Vocal separation: the model does not download | "The app could not download the vocal separation model. Check the connection. Then try again, or continue with no separation." with "Continue with no separation" and "Cancel". |
 | Vocal separation: out of memory | "This browser does not have enough memory to separate the vocals of this song. Select a shorter time range, or continue with no separation." with "Continue with no separation" and "Cancel". |
 | Vocal separation: the model fails, or another failure | "The vocal separation did not work. Continue with no separation, or cancel." with "Continue with no separation" and "Cancel". |
-| Vocal separation: the person selects "Cancel" during the step | The app stops the worker. No mark changes. The dialog goes back to idle with no message. |
+| Vocal separation: the person selects "Cancel" during the step | The app stops the worker. No mark changes. The dialog goes back to idle and shows "The run stopped. The marks did not change." |
 | Vocal separation: the person selects "Continue with no separation" | The run goes on with the audio of the song, as with the option off. |
 | Demucs: out of memory | The message for out of memory, with "Use the fast model", "Continue with no separation" and "Cancel". |
 | Demucs: the person selects "Use the fast model" | The run separates the vocals again with Spleeter. The stored choice does not change. |
@@ -942,7 +1047,9 @@ from 0 to 1.
 | Singer step: more singers than free voices, and the song has 12 voices | No new voice. The toast adds "The song has 12 voices, so the app cannot add a voice for each singer. All phrases stay on <voice name>." |
 | Singer step: more singers than free voices, and the song has room for some singers | The app adds a voice for each free voice. The toast adds "The song has room for <k> more voices. The other singers stay on <voice name>." |
 | Kept audio tracks: the browser storage is full | The run completes. The app stores the report and the singer ranges with no audio tracks. The report has the line "audio tracks not kept: the browser storage is full". The toast adds "The browser storage is full, so the app did not keep the separated tracks." |
-| Kept audio tracks: the browser cannot resample the tracks | The run completes with no audio tracks. The report has the line "audio tracks not kept: the app could not convert the tracks". |
+| Kept audio tracks: the browser cannot resample the tracks | The run completes with no audio tracks. The report has the line "audio tracks not kept: the app could not convert the tracks". The toast adds "The app could not keep the separated tracks. Run "Transcribe" again to try one more time." |
+| The browser cannot store the remote endpoint | Under the endpoint panel: "The app could not store the remote endpoint in this browser. It works until you reload the page." The run uses the endpoint. |
+| The browser cannot store a choice of the transcribe dialog | The dialog shows one message for all choices: "The app could not store the choices of this dialog in this browser. They work until you reload the page." The run uses the choices. |
 | The write of the run data does not end in 5 seconds | The run completes. The toast shows no "Run report" link and adds "The app still stores the run report. It shows in "Run report" when it is ready." When the write ends, "Run report" and the track rows show the new run. If the storage is full, the app stores the report with no audio tracks and its line "audio tracks not kept: the browser storage is full". |
 | The write of the run data fails | The run completes. The toast shows no "Run report" link and adds "The app could not store the run report." |
 | A newer version of the app wrote the database | The song library shows "This browser holds data from a newer version of the app. Reload the page. If the message stays, close the other tabs of the app and reload." |
@@ -959,7 +1066,7 @@ section starts with a heading line in brackets.
 | Header | "Transcribe run report", the start time of the run (ISO 8601) |
 | `[Run]` | The build of the app, source (`browser` or `remote`), the host of the remote endpoint, the mode, the speech model, the device, the range in ms, the frame size in ms |
 | `[Vocal separation]` | The separation model of the vocals (`spleeter`, `demucs` or `none`), "Changed to the fast model" (`yes` or `no`), "Audio tracks" (the count), "Tracks kept" (`yes` or `no`). A report from before issue #129 gives `not known` for the last two. |
-| `[Counts]` | Phrases, words, estimated words, unknown words |
+| `[Counts]` | Phrases, words, estimated words, unknown words, lyrics lines left out, words left out. A report from before issue #163 gives `not known` for the last two. |
 | `[Voices]` | Each voice that holds phrases of the run, with its count of phrases. A voice that the singer step made has ", made by the run". |
 | `[Singers]` | The result of the singer step, the choice of "Singers" ("Singers selected": `Automatic`, the count, or `not recorded`), the singer diagnostics, the singer ranges, the phrase rule, the phrase division, the phrases divided, the singers with one phrase or more, the phrases with no singer range, the phrases with more than one singer, the voices made |
 | `[Step times]` | The time of each step that ran, in ms |

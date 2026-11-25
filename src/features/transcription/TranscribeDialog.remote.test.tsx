@@ -1,7 +1,8 @@
-import { act, render, screen } from '@testing-library/react'
+import { act, getDefaultNormalizer, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { RemoteError } from '../../lib/remote/response.ts'
+import * as db from '../../store/db.ts'
 import { loadSettings, updateSettings } from '../../store/settings.ts'
 import { hasWebGpu } from './device.ts'
 import { testConnection } from './remoteClient.ts'
@@ -63,6 +64,7 @@ beforeEach(() => {
 afterEach(() => {
   vi.unstubAllGlobals()
   vi.clearAllMocks()
+  vi.restoreAllMocks()
 })
 
 function lastRun(): HeldRun {
@@ -171,6 +173,38 @@ describe('TranscribeDialog "Where to transcribe"', () => {
     expect(document.body.textContent).not.toContain(KEY)
   })
 
+  it('keeps the endpoint for this page and shows a message when the browser cannot store it', async () => {
+    const { user, start } = await renderDialog()
+    await user.click(screen.getByRole('radio', { name: 'Remote endpoint' }))
+    await fillEndpoint(user, { baseUrl: 'http://localhost:8000/v1' })
+    vi.spyOn(db, 'putRecord').mockRejectedValue(new Error('QuotaExceededError'))
+
+    await user.click(screen.getByRole('button', { name: 'Save endpoint' }))
+
+    expect(
+      await screen.findByText(
+        'The app could not store the remote endpoint in this browser. It works until you reload the page.',
+      ),
+    ).toBeInTheDocument()
+    expect(screen.getByText(WARNING)).toBeInTheDocument()
+    expect(start).toBeEnabled()
+  })
+
+  it('shows one message when the browser cannot store a choice of the dialog', async () => {
+    const { user } = await renderDialog()
+    vi.spyOn(db, 'putRecord').mockRejectedValue(new Error('QuotaExceededError'))
+
+    await user.click(screen.getByRole('radio', { name: /^small/ }))
+    await user.click(screen.getByRole('checkbox', { name: 'Separate the vocals first' }))
+
+    expect(
+      await screen.findAllByText(
+        'The app could not store the choices of this dialog in this browser. They work until you reload the page.',
+      ),
+    ).toHaveLength(1)
+    expect(screen.getByRole('radio', { name: /^small/ })).toBeChecked()
+  })
+
   it.each([
     ['', 'Type the base URL of the endpoint.'],
     [
@@ -251,7 +285,7 @@ describe('TranscribeDialog "Where to transcribe"', () => {
   it.each([
     [
       new RemoteError('network', 'localhost:8000'),
-      'The app could not connect to localhost:8000. The server is not available, or its CORS settings block this page. Check that the server runs and sends the header Access-Control-Allow-Origin: http://localhost:3000',
+      'The app could not connect to localhost:8000. Check that the server runs and that the base URL is correct.\n\nIf the server runs: its CORS settings can block this page. Check that the server sends the header Access-Control-Allow-Origin: http://localhost:3000',
     ],
     [
       new RemoteError('auth', 'localhost:8000', 401),
@@ -275,7 +309,9 @@ describe('TranscribeDialog "Where to transcribe"', () => {
 
     act(() => lastRun().reject(error))
 
-    expect(await screen.findByText(message)).toBeInTheDocument()
+    // The message keeps its empty line, which starts the second paragraph.
+    const exact = { normalizer: getDefaultNormalizer({ collapseWhitespace: false }) }
+    expect(await screen.findByText(message, exact)).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Retry' })).toBeInTheDocument()
   })
 

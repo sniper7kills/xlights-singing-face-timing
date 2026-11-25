@@ -313,6 +313,16 @@ describe('reportPanel', () => {
       { label: 'Words', value: '16' },
       { label: 'Estimated words', value: '1' },
       { label: 'Unknown words', value: '2' },
+      { label: 'Lyrics lines left out', value: 'not known' },
+      { label: 'Words left out', value: 'not known' },
+    ])
+  })
+
+  it('gives the counts of the lyrics lines and the words that the run left out', () => {
+    const marks = panel({ linesLeftOut: 115, wordsLeftOut: 3 }).get('Marks')
+    expect(marks?.facts?.slice(-2)).toEqual([
+      { label: 'Lyrics lines left out', value: '115' },
+      { label: 'Words left out', value: '3' },
     ])
   })
 

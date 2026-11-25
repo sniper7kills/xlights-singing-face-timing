@@ -281,6 +281,8 @@ function markSection(report: RunReport): PanelSection {
       { label: 'Words', value: String(report.wordCount) },
       { label: 'Estimated words', value: String(report.estimatedCount) },
       { label: 'Unknown words', value: String(report.unknownCount) },
+      { label: 'Lyrics lines left out', value: countText(report.linesLeftOut ?? null) },
+      { label: 'Words left out', value: countText(report.wordsLeftOut ?? null) },
     ],
   })
 }

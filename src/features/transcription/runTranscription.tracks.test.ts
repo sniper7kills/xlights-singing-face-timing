@@ -81,6 +81,7 @@ function handlers(controller = new AbortController()): TranscribeRunHandlers {
     onFinishing: vi.fn(),
     confirmReplace: vi.fn(async () => true),
     confirmLowMatch: vi.fn(async () => true),
+    confirmLyricsFit: vi.fn(async () => true),
     onSeparationDownload: vi.fn(),
     onSeparationProgress: vi.fn(),
     confirmNoSeparation: vi.fn(async () => true),
@@ -289,8 +290,9 @@ describe('runTranscription keeps the audio tracks', () => {
   it('keeps no tracks and adds a report line when the tracks do not convert', async () => {
     vi.mocked(resampleSeparated).mockRejectedValue(new Error('render failed'))
 
-    await runTranscription(request, fakeClient(), handlers())
+    const outcome = await runTranscription(request, fakeClient(), handlers())
 
+    expect(outcome.tracksFailed).toBe(true)
     const { tracks, report } = await savedRun()
     expect(tracks).toBeUndefined()
     expect(report.notes.map((note) => note.kind)).toEqual(['unknown'])
@@ -323,6 +325,7 @@ describe('runTranscription keeps the audio tracks', () => {
     )
 
     expect(outcome.runData).toBe('stored')
+    expect(outcome.tracksFailed).toBeUndefined()
     expect(separateVocals).not.toHaveBeenCalled()
     const { tracks, report } = await savedRun()
     expect(tracks).toBeUndefined()
