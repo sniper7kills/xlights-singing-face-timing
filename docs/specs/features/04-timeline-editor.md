@@ -308,6 +308,10 @@ Track rows (FR-editor-31 to 37, 51 to 53):
     the selection along the layer. At the first or the last mark, the status line
     states "This is the first mark of the layer." or "This is the last mark of the
     layer."
+  - `[` and `]` work on each keyboard layout. A symbol that AltGr types counts
+    as the symbol, also when Windows reports Ctrl and Alt for AltGr. A symbol
+    that the Option key of a Mac types counts as the symbol when no `Alt`
+    shortcut of that symbol exists. A letter or a digit with Alt keeps the Alt.
   - The first Tab stop of the editor is the link "Skip to the transport". It shows
     only when it has the focus. It moves the focus to "Play", or to the first
     control of the toolbar while the audio is not ready.
