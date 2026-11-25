@@ -1,20 +1,28 @@
 // The key functions of the editor shortcuts. Each reads the stores when it runs.
 // Each returns false when it does not act, so the dispatcher gives the key to the next registration or to the browser.
 
-import { findMark } from '../../lib/marks/family.ts'
+import {
+  blockText,
+  deleteBlock,
+  type EditBlock,
+  mergeBlock,
+  moveBlock,
+  resizeBlock,
+  splitBlock,
+} from '../../lib/marks/editBlocks.ts'
 import { markOnNextLayer } from '../../lib/marks/selection.ts'
 import { extendRange, stepTime } from '../../lib/time/timeSteps.ts'
-import { canDeleteMarks, deleteMarks } from '../../store/actions/deleteMarks.ts'
-import { canMergeWithNext, mergeWithNext } from '../../store/actions/mergeWithNext.ts'
+import { mergeWithNext } from '../../store/actions/mergeWithNext.ts'
 import { moveMark } from '../../store/actions/moveMark.ts'
 import { resizeMark } from '../../store/actions/resizeMark.ts'
-import { canSplitMark, splitMark } from '../../store/actions/splitMark.ts'
+import { splitMark } from '../../store/actions/splitMark.ts'
 import { useSongStore } from '../../store/songStore.ts'
-import type { Mark } from '../../store/types.ts'
+import type { Mark, SongContent } from '../../store/types.ts'
 import { useViewStore } from '../../store/viewStore.ts'
-import { selectAndReveal } from './markCommands.ts'
-import { layerFocusId, useMarkUiStore } from './markUiStore.ts'
+import { deleteSelectedMarks, selectAndReveal } from './markCommands.ts'
+import { useMarkUiStore } from './markUiStore.ts'
 import { pauseOnRefusal, usePlayerStore } from './playerStore.ts'
+import { reportStatus } from './statusStore.ts'
 import { followCursor } from './timeScale.ts'
 import { currentStageInput } from './useStageScale.ts'
 
@@ -53,62 +61,109 @@ function onlySelected(): Mark | undefined {
   return ids.length === 1 ? marks.find((mark) => mark.id === ids[0]) : undefined
 }
 
+// The person clicks these buttons during play, for example "75%", so `Space` keeps its play meaning there.
+// `Enter` still presses the button.
+const PLAY_SPACE_SELECTOR = '.editor-toolbar button, .transport button'
+
+// "Play" plays with its own click, and a menu, a list and a dialog use the space bar themselves.
+const OWN_SPACE_SELECTOR = '.play, [role="menu"], [role="listbox"], [role="dialog"]'
+
+/** Returns true when `Space` plays from the focus of the event. */
+function spacePlays(event: KeyboardEvent): boolean {
+  if (!fromControl(event)) return true
+  const { target } = event
+  return (
+    target instanceof Element &&
+    target.closest(PLAY_SPACE_SELECTOR) !== null &&
+    target.closest(OWN_SPACE_SELECTOR) === null
+  )
+}
+
 /**
  * `Space`: plays or pauses the audio. A loop stops through the same pause.
- * It does not act on a focused button, link or field, because those controls use the space bar.
+ * On a button of the toolbar or the transport other than "Play", it plays or pauses and does not press the button.
+ * It does not act on any other focused button, link or field, because those controls use the space bar.
  * It does not act while the audio is not ready. A held key toggles one time only.
  */
 export function togglePlay(event: KeyboardEvent): boolean {
   const { player } = usePlayerStore.getState()
-  if (player === null || fromControl(event)) return false
+  if (player === null || !spacePlays(event)) return false
   if (event.repeat) return true
   if (player.isPlaying()) player.pause()
   else pauseOnRefusal(player, player.play())
   return true
 }
 
+/** Returns the marks of the open song. */
+function songMarks(): readonly Mark[] {
+  return useSongStore.getState().current?.marks ?? []
+}
+
+/**
+ * Shows the reason in the status line when the cause is not null.
+ * Returns true when the cause is null, so the action runs.
+ * A key function that does not act still returns false, so the key goes on to the next registration or to the browser.
+ */
+function clear(block: EditBlock | null): boolean {
+  if (block !== null) reportStatus(blockText(block))
+  return block === null
+}
+
 /**
  * `S`: splits the only selected mark at the play cursor. The first part keeps the id, so it stays selected.
- * It does not act when the split is not possible, for example with the play cursor outside the mark.
+ * When the split is not possible, for example with the play cursor outside the mark, the status line states the reason.
  * It does not act on a focused form control, such as the zoom slider or a checkbox.
  */
 export function splitAtCursor(event: KeyboardEvent): boolean {
-  const mark = onlySelected()
-  const atMs = useViewStore.getState().playTimeMs
-  if (fromControl(event, FORM_CONTROL_SELECTOR) || editorBusy() || !mark) return false
-  if (!canSplitMark(mark.id, atMs)) return false
-  splitMark(mark.id, atMs)
+  const { selectedMarkIds, playTimeMs } = useViewStore.getState()
+  const frameMs = useSongStore.getState().current?.song.frameMs ?? 0
+  if (fromControl(event, FORM_CONTROL_SELECTOR) || editorBusy()) return false
+  if (!clear(splitBlock(songMarks(), selectedMarkIds, playTimeMs, frameMs))) return false
+  splitMark(selectedMarkIds[0] ?? '', playTimeMs)
   return true
 }
 
 /**
  * `M`: merges the only selected mark with the next mark on its layer. The merged mark keeps the id, so it stays selected.
- * It does not act on the last mark of a layer or across a parent edge.
+ * On the last mark of a layer or across a parent edge, the status line states the reason.
  * It does not act on a focused form control, such as the zoom slider or a checkbox.
  */
 export function mergeSelected(event: KeyboardEvent): boolean {
-  const mark = onlySelected()
+  const ids = useViewStore.getState().selectedMarkIds
   if (fromControl(event, FORM_CONTROL_SELECTOR) || editorBusy()) return false
-  if (!mark || !canMergeWithNext(mark.id)) return false
-  mergeWithNext(mark.id)
+  if (!clear(mergeBlock(songMarks(), ids))) return false
+  mergeWithNext(ids[0] ?? '')
   return true
 }
 
 /**
- * `Delete`: deletes the selected marks with their children, as one undo step.
- * The selection then keeps only the marks that still exist (see `keepSelectionInSong`).
- * When the selection is then empty, the focus goes to the layer track of the first deleted mark, so the focus stays in the layers.
+ * `Delete`: deletes the selected marks with their children, as one undo step. See `deleteSelectedMarks`.
+ * For the last phoneme of a word, the status line states the reason.
  * It does not act on a focused form control, such as the zoom slider or a checkbox.
  */
 export function deleteSelected(event: KeyboardEvent): boolean {
-  const ids = useViewStore.getState().selectedMarkIds
-  const first = findMark(useSongStore.getState().current?.marks ?? [], ids[0] ?? '')
   if (fromControl(event, FORM_CONTROL_SELECTOR) || editorBusy()) return false
-  if (!first || !canDeleteMarks(ids)) return false
-  deleteMarks(ids)
-  if (useViewStore.getState().selectedMarkIds.length === 0)
-    useMarkUiStore.getState().requestFocus(layerFocusId(first.voiceId, first.layer))
-  return true
+  if (!clear(deleteBlock(songMarks(), useViewStore.getState().selectedMarkIds))) return false
+  return deleteSelectedMarks()
+}
+
+/** Moves the mark or one edge by one frame size, or shows in the status line that it has no room to move. */
+function nudgeMark(
+  content: SongContent,
+  mark: Mark,
+  part: 'body' | 'start' | 'end',
+  direction: 1 | -1,
+): void {
+  const { frameMs, durationMs } = content.song
+  const deltaMs = direction * frameMs
+  if (part === 'body') {
+    if (clear(moveBlock(content.marks, mark.id, deltaMs, frameMs, durationMs)))
+      moveMark(mark.id, deltaMs)
+    return
+  }
+  const toMs = (part === 'start' ? mark.startMs : mark.endMs) + deltaMs
+  if (clear(resizeBlock(content.marks, mark.id, part, toMs, frameMs, durationMs)))
+    resizeMark(mark.id, part, toMs)
 }
 
 /**
@@ -116,6 +171,7 @@ export function deleteSelected(event: KeyboardEvent): boolean {
  * - `Left` and `Right` move the mark. With no selected mark, they move the play cursor (see `stepCursor`).
  * - `Alt+Left` and `Alt+Right` move the start. `Shift+Alt+Left` and `Shift+Alt+Right` move the end.
  * The action clamps the move to the limits of the mark, so a move past a limit changes nothing.
+ * The status line then states that the mark or the edge has no room to move.
  * The key function takes the key also when the move changes nothing, because `Alt+Left` is the browser shortcut for "back".
  * @param part The part of the mark that moves.
  * @param direction 1 moves later, -1 earlier.
@@ -126,9 +182,7 @@ export function nudge(part: 'body' | 'start' | 'end', direction: 1 | -1): KeyRun
     const content = useSongStore.getState().current
     if (part === 'body' && !mark) return stepCursor(direction, false)(event)
     if (fromControl(event) || editorBusy() || !mark || !content) return false
-    const deltaMs = direction * content.song.frameMs
-    if (part === 'body') moveMark(mark.id, deltaMs)
-    else resizeMark(mark.id, part, (part === 'start' ? mark.startMs : mark.endMs) + deltaMs)
+    nudgeMark(content, mark, part, direction)
     return true
   }
 }

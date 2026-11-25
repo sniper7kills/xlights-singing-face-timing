@@ -361,11 +361,32 @@ export function wordsLeftOutMessage(count: number): string {
   return `The app left out ${count} ${count === 1 ? 'word' : 'words'} that it cannot use.`
 }
 
-/** Returns the replace question, for example "The run replaces the 12 marks of "Lead" from 0:00.000 to 0:28.900." */
-export function replaceQuestionMessage({ markCount, voiceName, range }: ReplaceQuestion): string {
-  const marks = markCount === 1 ? 'the 1 mark' : `the ${markCount} marks`
-  return `The run replaces ${marks} of "${voiceName}" from ${formatTime(range.startMs)} to ${formatTime(range.endMs)}.`
+/** Returns the names in quotes, joined as a list: "A", "A" and "B", or "A", "B" and "C". */
+function quotedList(names: readonly string[]): string {
+  const quoted = names.map((name) => `"${name}"`)
+  const last = quoted.pop()
+  return quoted.length === 0 ? (last ?? '') : `${quoted.join(', ')} and ${last ?? ''}`
 }
+
+/**
+ * Returns the replace question, for example "The run replaces the 12 marks of "Lead" from 0:00.000 to 0:28.900."
+ * When singer voices of the last run lose marks too, the question names each voice and gives the sum of the marks:
+ * "The run replaces 20 marks from 0:00.000 to 0:28.900: the marks of "Lead", and the marks of "Singer 2" from the last run."
+ * When the run leaves the singer voices of the last run as they are, the question adds a sentence that says so.
+ */
+export function replaceQuestionMessage(question: ReplaceQuestion): string {
+  const { markCount, voiceName, range } = question
+  const names = question.singerVoiceNames ?? []
+  const where = `from ${formatTime(range.startMs)} to ${formatTime(range.endMs)}`
+  const text =
+    names.length === 0
+      ? `The run replaces ${markCount === 1 ? 'the 1 mark' : `the ${markCount} marks`} of "${voiceName}" ${where}.`
+      : `The run replaces ${markCount} ${markCount === 1 ? 'mark' : 'marks'} ${where}: the marks of "${voiceName}", and the marks of ${quotedList(names)} from the last run.`
+  return question.singerVoicesKept === true ? `${text} ${SINGER_VOICES_KEPT}` : text
+}
+
+/** The sentence of the replace question for a run that leaves the singer voices of the last run as they are. */
+export const SINGER_VOICES_KEPT = 'The voices of the last singer step do not change.'
 
 /** Returns the copy of the low-match warning for a match ratio from 0 to 1. */
 export function lowMatchMessage(ratio: number): string {

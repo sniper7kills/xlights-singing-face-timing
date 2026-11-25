@@ -262,6 +262,16 @@ body.rv-open .layout { padding-right:21rem; }
 </li>
 </ul>
 <p>long as the top singer of the phrase.</p>
+<ul>
+<li>FR-voice-30 — A new run with the singer step replaces the singer voices of the
+</li>
+</ul>
+<p>last run, so no phrase is on two voices because of an earlier run.</p>
+<ul>
+<li>FR-voice-31 — A singer voice of the last run with no mark left after the replace
+</li>
+</ul>
+<p>goes, in the undo step of the marks of the run.</p>
 <h3 id="voices-sections-user-flows">User flows</h3>
 <h4 id="voices-sections-divide-one-transcript-between-two-singers">Divide one transcript between two singers</h4>
 <div class="diagram"><pre class="mermaid">flowchart TD
@@ -448,7 +458,7 @@ body.rv-open .layout { padding-right:21rem; }
 <li>The "Phrase" button of the toolbar has "Move to voice" and "Copy to voice".
 </li>
 </ul>
-<p>Each shows the other voices and "New voice". If phrases of the target voice overlap the range, the app asks: "&lt;voice name&gt; has &lt;n&gt; phrases in this range. Replace them?" with "Continue" and "Cancel". A replace removes each such phrase with its words and phonemes. A move or a copy with its replace is one undo step.</p>
+<p>Its tooltip is "Move or copy the selected phrases to a voice". If the selection is not only phrases, the button does not act, and its tooltip is "Select a phrase first." The rule for a button that cannot act is in <a href="feature-timeline-editor.html#behaviour-rules">04-timeline-editor.md</a>. Each shows the other voices and "New voice". If phrases of the target voice overlap the range, the app asks: "&lt;voice name&gt; has &lt;n&gt; phrases in this range. Replace them?" with "Continue" and "Cancel". A replace removes each such phrase with its words and phonemes. A move or a copy with its replace is one undo step.</p>
 <ul>
 <li>The row "Other voices" shows a bar for each phrase of each other voice, in the
 </li>
@@ -463,7 +473,7 @@ body.rv-open .layout { padding-right:21rem; }
 <li>The band "Sections" is above the time ruler. "Add section" makes a section
 </li>
 </ul>
-<p>from the time selection, with the name "Section N" or a typed name of 40 characters at most. With no free range of 1 second, the note is "No room for a section here. Select a free range of 1 second or more."</p>
+<p>from the time selection, with the name "Section N" or a typed name of 40 characters at most. With no free range of 1 second, the note is "No room for a section here. Select a free range of 1 second or more." The tooltip of "Add section" is "Add a section for the time selection". With no time selection, the button does not act, and its tooltip is "Drag on the waveform to select a time range first."</p>
 <ul>
 <li>A section has the menu "Actions for &lt;section name&gt;" with "Rename", "Move
 </li>
@@ -572,6 +582,11 @@ body.rv-open .layout { padding-right:21rem; }
 </li>
 </ul>
 <p>voice of the run stay.</p>
+<ul>
+<li>A new run with the singer step first replaces the marks in the range of each
+</li>
+</ul>
+<p>singer voice of the last run, and removes such a voice with no mark left. The rules are in <a href="feature-transcription.html#behaviour-rules">02-transcription.md</a>, "Singer voices of the last run". (FR-voice-30, 31)</p>
 <ul>
 <li>A run has these undo steps, in this order: the marks of the run, the sections of
 </li>
@@ -716,6 +731,16 @@ phrasesInSection(voiceId, sectionId): Mark[]</code></pre>
 </li>
 </ul>
 <p>(FR-voice-27, 28)</p>
+<ul>
+<li>Two runs with "Singers" 2 and then 4 on the demo song give 4 voices. The voice
+</li>
+</ul>
+<p>rail, the track rows and the run report agree. (FR-voice-30, 31)</p>
+<ul>
+<li>The undo steps of the second run restore the result of the first run exactly.
+</li>
+</ul>
+<p>(FR-voice-31)</p>
 <h3 id="voices-sections-out-of-scope">Out of scope</h3>
 <ul>
 <li>The names of the singers. A singer voice has the name "Singer N".

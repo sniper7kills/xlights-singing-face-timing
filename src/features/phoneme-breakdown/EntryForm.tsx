@@ -1,4 +1,4 @@
-import { type FormEvent, useEffect, useId, useRef, useState } from 'react'
+import { type FormEvent, type ReactNode, useEffect, useId, useRef, useState } from 'react'
 import {
   entryKey,
   hasLetterOrDigit,
@@ -7,6 +7,7 @@ import {
 } from '../../lib/dictionary/customDictionaryFile.ts'
 import { normaliseWord } from '../../lib/dictionary/normaliseWord.ts'
 import { resolveSoundsLike } from '../../lib/dictionary/soundsLike.ts'
+import { toPhonemeLabels } from '../../lib/dictionary/toPhonemeLabels.ts'
 import { validateSymbols } from '../../lib/dictionary/validateSymbols.ts'
 import { loadDictionaries } from '../../store/actions/breakDown.ts'
 import type { CustomEntryInput } from '../../store/customEntries.ts'
@@ -33,12 +34,28 @@ type EntryFormProps = {
   onCancel: () => void
   /** Tells the dialog that the app cannot read the custom dictionary, so the dialog shows the message. */
   onStorageFailure: () => void
+  /** Opens the reference table of the CMU symbols and shows it. */
+  onShowSymbols: () => void
 }
+
+/** The "sounds like" spelling of a preview and its CMU symbols. */
+type ResolvedSpelling = { spelling: string; symbols: string | null }
 
 /** Returns the first text of the word field: the word of the edited entry, else the initial word as a dictionary key. */
 function firstWord(editing: CustomEntry | null, initialWord: string | undefined): string {
   if (editing !== null) return editing.word
   return initialWord === undefined ? '' : normaliseWord(initialWord)
+}
+
+/** Returns the typed CMU symbols in upper case with one space between them, the form that `validateSymbols` reads. */
+function cleanSymbols(typed: string): string {
+  return typed.trim().toUpperCase().split(/\s+/).join(' ')
+}
+
+/** Returns the phoneme labels of good CMU symbols, separated by one space, or null for symbols that are not good. */
+function mouthShapes(symbols: string | null): string | null {
+  if (symbols === null || !validateSymbols(symbols).ok) return null
+  return toPhonemeLabels(symbols.split(' ')).join(' ')
 }
 
 /** Returns the error of a typed word, or undefined for a good word. */
@@ -52,6 +69,9 @@ function wordError(typed: string): string | undefined {
 
 /**
  * Shows the entry form of the custom dictionary dialog: the word, the entry type, and the CMU symbols or the "sounds like" spelling.
+ * A new entry starts on the "sounds like" spelling, because a person can type it with no knowledge of the CMU symbols.
+ * An edit starts on the CMU symbols of the entry.
+ * Before the save, the form shows the mouth shapes of the typed entry.
  * The form validates the entry and shows each error under its field. A failed submit moves the focus to the first field with an error.
  * If the dictionary does not load for a "sounds like" spelling, "Retry" beside the message runs the submit again.
  */
@@ -61,13 +81,20 @@ export function EntryForm({
   onSave,
   onCancel,
   onStorageFailure,
+  onShowSymbols,
 }: EntryFormProps) {
   const id = useId()
   const formRef = useRef<HTMLFormElement>(null)
   const [word, setWord] = useState(() => firstWord(editing, initialWord))
-  const [entryType, setEntryType] = useState<EntryType>('symbols')
+  const [entryType, setEntryType] = useState<EntryType>(() =>
+    editing === null ? 'sounds-like' : 'symbols',
+  )
+  // An edit, or a form that opens with a word from the song, needs only the field of the entry type.
+  // A change of the entry type keeps the focus on the radio button.
+  const [focusField, setFocusField] = useState(editing !== null || initialWord !== undefined)
   const [symbols, setSymbols] = useState(() => editing?.symbols ?? '')
   const [soundsLike, setSoundsLike] = useState('')
+  const [resolved, setResolved] = useState<ResolvedSpelling | null>(null)
   const [errors, setErrors] = useState<FieldErrors>({})
   const [busy, setBusy] = useState(false)
 
@@ -76,15 +103,33 @@ export function EntryForm({
     formRef.current?.querySelector<HTMLElement>('[aria-invalid="true"]')?.focus()
   }, [errors])
 
+  useEffect(() => {
+    if (entryType !== 'sounds-like' || soundsLike.trim() === '') return
+    let current = true
+    // The preview is a help only, so a dictionary that does not load shows no preview and no message.
+    loadDictionaries().then(
+      ({ custom, cmu }) => {
+        if (!current) return
+        const result = resolveSoundsLike(soundsLike, custom, cmu)
+        setResolved({ spelling: soundsLike, symbols: result.ok ? result.symbols : null })
+      },
+      () => undefined,
+    )
+    return () => {
+      current = false
+    }
+  }, [entryType, soundsLike])
+
   function chooseEntryType(type: EntryType) {
     setEntryType(type)
+    setFocusField(false)
     setErrors({})
   }
 
   async function symbolsOfEntry(): Promise<{ symbols: string } | { errors: FieldErrors }> {
     if (entryType === 'symbols') {
       // validateSymbols reads upper case only, and the person can type lower case.
-      const text = symbols.trim().toUpperCase().split(/\s+/).join(' ')
+      const text = cleanSymbols(symbols)
       const result = validateSymbols(text)
       if (result.ok) return { symbols: text }
       return {
@@ -137,6 +182,10 @@ export function EntryForm({
     }
   }
 
+  const shapes =
+    entryType === 'symbols'
+      ? mouthShapes(cleanSymbols(symbols))
+      : mouthShapes(resolved?.spelling === soundsLike ? resolved.symbols : null)
   const text =
     editing === null
       ? { title: 'Add a word', submit: 'Add entry' }
@@ -164,42 +213,47 @@ export function EntryForm({
           <input
             type="radio"
             name={`${id}-type`}
-            checked={entryType === 'symbols'}
-            onChange={() => chooseEntryType('symbols')}
+            checked={entryType === 'sounds-like'}
+            onChange={() => chooseEntryType('sounds-like')}
           />
-          Symbols
+          Sounds like spelling
         </label>
         <label className="choice">
           <input
             type="radio"
             name={`${id}-type`}
-            checked={entryType === 'sounds-like'}
-            onChange={() => chooseEntryType('sounds-like')}
+            checked={entryType === 'symbols'}
+            onChange={() => chooseEntryType('symbols')}
           />
-          Sounds like spelling
+          Symbols
         </label>
       </fieldset>
       {entryType === 'symbols' ? (
         <TextField
           id={`${id}-symbols`}
           label="CMU symbols"
-          hint="Put one space between the symbols, for example R UW1 D AA0 L F. The app changes lower case to upper case."
+          hint="Put one space between the symbols, for example R UW1 D AA0 L F. The app changes lower case to upper case. The symbols come from the CMU Pronouncing Dictionary."
           value={symbols}
           error={errors.symbols}
-          // An edit, or a dialog that opens with a word from the song, needs only the symbols.
-          autoFocus={initialWord !== undefined || editing !== null}
+          autoFocus={focusField}
           onChange={setSymbols}
-        />
+        >
+          <button type="button" className="link-button" onClick={onShowSymbols}>
+            Show the list of symbols
+          </button>
+        </TextField>
       ) : (
         <TextField
           id={`${id}-sounds-like`}
           label="Sounds like"
-          hint="Type known words with a space between them, for example ROO DOLF."
+          hint='Type the word as it sounds, with words that you know. Example: "sore block".'
           value={soundsLike}
           error={errors.soundsLike}
+          autoFocus={focusField}
           onChange={setSoundsLike}
         />
       )}
+      {shapes !== null && <p className="dialog-note mono">Mouth shapes: {shapes}</p>}
       {errors.form !== undefined && (
         <p className="field-error" role="alert">
           {errors.form}{' '}
@@ -233,6 +287,8 @@ type TextFieldProps = {
   readOnly?: boolean
   autoFocus?: boolean
   onChange: (value: string) => void
+  /** A control under the note, for example a button that shows help. */
+  children?: ReactNode
 }
 
 /** Shows one text field of the entry form with its label, its note and its field error. */
@@ -245,6 +301,7 @@ function TextField({
   readOnly,
   autoFocus,
   onChange,
+  children,
 }: TextFieldProps) {
   const described = [
     hint === undefined ? '' : `${id}-hint`,
@@ -272,6 +329,7 @@ function TextField({
           {hint}
         </p>
       )}
+      {children}
       {error !== undefined && (
         <p id={`${id}-error`} className="field-error" role="alert">
           {error}

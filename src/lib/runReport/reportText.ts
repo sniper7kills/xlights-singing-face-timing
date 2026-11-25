@@ -7,7 +7,7 @@ import {
   type PanelTable,
   reportPanel,
 } from './reportPanel.ts'
-import { alignedTable, type RunReport } from './runReport.ts'
+import { alignedTable, type NamedVoice, type RunReport } from './runReport.ts'
 import { singerSummary } from './singerSummary.ts'
 
 function factLines(facts: readonly PanelFact[]): string[] {
@@ -44,17 +44,19 @@ function sectionLines(section: PanelSection, summary: string): string[] {
  * The text holds the names of the voices and no lyrics.
  * @param report The report of a run.
  * @param formatDate Returns the start time as a text. The default is the local time and the UTC time.
+ * @param voices The present voices of the song, so the text names each voice as the panel does.
  */
 export function reportToText(
   report: RunReport,
   formatDate: (iso: string) => string = (iso) => formatStartTime(iso),
+  voices?: readonly NamedVoice[],
 ): string {
   const summaryLines = singerSummary(report.singers)
   const summary = summaryLines.join(' ')
   const sections = [
     ['Transcribe run report'],
     ['[Summary]', ...summaryLines],
-    ...reportPanel(report, formatDate).map((section) => sectionLines(section, summary)),
+    ...reportPanel(report, formatDate, voices).map((section) => sectionLines(section, summary)),
   ]
   return `${sections.map((lines) => lines.join('\n')).join('\n\n')}\n`
 }

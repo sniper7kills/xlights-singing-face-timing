@@ -215,6 +215,29 @@ describe('replaceQuestionMessage', () => {
       'The run replaces the 1 mark of "Lead Vocals" from 0:00.000 to 0:28.900.',
     )
   })
+
+  it('names each singer voice of the last run that loses marks, with the sum of the marks', () => {
+    expect(
+      replaceQuestionMessage({ ...QUESTION, markCount: 30, singerVoiceNames: ['Singer 2'] }),
+    ).toBe(
+      'The run replaces 30 marks from 0:00.000 to 0:28.900: the marks of "Lead Vocals", and the marks of "Singer 2" from the last run.',
+    )
+    expect(
+      replaceQuestionMessage({
+        ...QUESTION,
+        markCount: 1,
+        singerVoiceNames: ['Singer 2', 'Test Alto', 'Singer 4'],
+      }),
+    ).toBe(
+      'The run replaces 1 mark from 0:00.000 to 0:28.900: the marks of "Lead Vocals", and the marks of "Singer 2", "Test Alto" and "Singer 4" from the last run.',
+    )
+  })
+
+  it('states that the singer voices of the last run do not change', () => {
+    expect(replaceQuestionMessage({ ...QUESTION, singerVoicesKept: true })).toBe(
+      'The run replaces the 12 marks of "Lead Vocals" from 0:00.000 to 0:28.900. The voices of the last singer step do not change.',
+    )
+  })
 })
 
 describe('outcomeText after a run that left out words', () => {

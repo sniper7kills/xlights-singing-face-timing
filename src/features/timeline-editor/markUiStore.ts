@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import type { MarkEdit } from '../../lib/marks/markEdit.ts'
 import type { Layer, Mark } from '../../store/types.ts'
+import { clearStatus } from './statusStore.ts'
 
 /** The mark whose label the person changes, or the empty range where the person adds a mark. */
 export type LabelTarget =
@@ -71,8 +72,9 @@ export const useMarkUiStore = create<MarkUiState>()((set) => ({
   setDragging: (dragging) => set({ dragging }),
 }))
 
-/** Closes each control and clears the preview. The editor calls it when it opens a song. */
+/** Closes each control, clears the preview and the status line. The editor calls it when it opens a song. */
 export function resetMarkUi(): void {
+  clearStatus()
   useMarkUiStore.setState({
     preview: NO_PREVIEW,
     open: null,

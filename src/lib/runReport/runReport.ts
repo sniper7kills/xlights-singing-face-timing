@@ -48,9 +48,11 @@ export type ReportSeparationModel = 'spleeter' | 'demucs' | 'none'
 
 /**
  * The count of phrases of the run on one voice.
- * `made` is true for a voice that the singer step added. A report of an earlier version of the app has no `made`.
+ * - `name`: the name of the voice at the end of the run.
+ * - `made`: true for a voice that the singer step added. A report of an earlier version of the app has no `made`.
+ * - `voiceId`: the id of the voice, so the panel can show its present name. A report from before issue #173 has no `voiceId`.
  */
-export type VoicePhrases = { name: string; phraseCount: number; made?: boolean }
+export type VoicePhrases = { name: string; phraseCount: number; made?: boolean; voiceId?: string }
 
 /**
  * The result of the singer step:
@@ -307,6 +309,7 @@ export function voicePhrases(
 ): VoicePhrases[] {
   return voices.map((voice) => ({
     name: voice.name,
+    voiceId: voice.id,
     made: madeIds.includes(voice.id),
     phraseCount: marks.filter(
       (mark) =>

@@ -1,10 +1,13 @@
 import { useState } from 'react'
+import { blockText } from '../../lib/marks/editBlocks.ts'
 import { loopRange } from '../../lib/marks/loopRange.ts'
 import { setFrameMs } from '../../store/actions/setFrameMs.ts'
 import { useSongStore } from '../../store/songStore.ts'
 import type { FrameMs } from '../../store/types.ts'
 import { useViewStore } from '../../store/viewStore.ts'
 import { FrameSizeDialog } from './FrameSizeDialog.tsx'
+import { ReasonButton } from './ReasonButton.tsx'
+import { reportStatus } from './statusStore.ts'
 import { loopSelection, PLAY_RATES, setPlayRate, usePlayerStore } from './playerStore.ts'
 import { useEditorKeys } from './useEditorKeys.ts'
 
@@ -16,25 +19,33 @@ const LOOP_KEYS = ['l', 'L'] as const
 function SegmentButton({
   label,
   pressed,
-  disabled,
+  reason = null,
   onClick,
 }: {
   label: string
   pressed: boolean
-  disabled?: boolean
+  /** The cause that keeps the button from acting, or null. */
+  reason?: string | null
   onClick: () => void
 }) {
   return (
-    <button
-      type="button"
+    <ReasonButton
       className="segment"
       aria-pressed={pressed}
-      disabled={disabled}
-      onClick={onClick}
+      reason={reason}
+      hint={label}
+      onBlocked={reportStatus}
+      onAct={onClick}
     >
       {label}
-    </button>
+    </ReasonButton>
   )
+}
+
+/** Returns the cause that keeps "Loop" from starting a loop, or null when it starts one. */
+function loopReason(audioReady: boolean, hasRange: boolean): string | null {
+  if (!audioReady) return blockText('audio-not-ready')
+  return hasRange ? null : blockText('select-mark-or-range')
 }
 
 /**
@@ -52,7 +63,7 @@ export function TransportControls() {
   useEditorKeys(Object.fromEntries(LOOP_KEYS.map((key) => [key, loopSelection])))
   if (content === null) return null
   const { song, marks } = content
-  const canLoop = player !== null && loopRange(marks, selectedMarkIds, selection) !== null
+  const canLoop = loopRange(marks, selectedMarkIds, selection) !== null
 
   function chooseFrameMs(frameMs: FrameMs) {
     if (frameMs === song.frameMs) return
@@ -62,25 +73,25 @@ export function TransportControls() {
 
   return (
     <div className="transport-controls">
-      <button
-        type="button"
-        className="button"
+      <ReasonButton
         aria-pressed={looping}
         aria-keyshortcuts="L"
         // A loop that plays stays stoppable after the person clears the selection.
-        disabled={!looping && !canLoop}
-        title="Play the selection in a loop (L)"
-        onClick={() => (looping ? player?.pause() : loopSelection())}
+        reason={looping ? null : loopReason(player !== null, canLoop)}
+        hint="Play the selection in a loop"
+        shortcut="L"
+        onBlocked={reportStatus}
+        onAct={() => (looping ? player?.pause() : loopSelection())}
       >
         Loop
-      </button>
+      </ReasonButton>
       <div className="segments" role="group" aria-label="Play speed">
         {PLAY_RATES.map((rate) => (
           <SegmentButton
             key={rate}
             label={`${rate * 100}%`}
             pressed={rate === playRate}
-            disabled={player === null}
+            reason={player === null ? blockText('audio-not-ready') : null}
             onClick={() => setPlayRate(rate)}
           />
         ))}

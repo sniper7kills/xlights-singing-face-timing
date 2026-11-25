@@ -66,6 +66,10 @@ the song at a time.
   inside it.
 - FR-voice-29 — A second singer gets a copy of a phrase only when it sings almost as
   long as the top singer of the phrase.
+- FR-voice-30 — A new run with the singer step replaces the singer voices of the
+  last run, so no phrase is on two voices because of an earlier run.
+- FR-voice-31 — A singer voice of the last run with no mark left after the replace
+  goes, in the undo step of the marks of the run.
 
 ## User flows
 
@@ -194,6 +198,10 @@ voices and "New voice".
 - A click on a voice shows its marks on the three layers and clears the mark
   selection.
 - The "Phrase" button of the toolbar has "Move to voice" and "Copy to voice".
+  Its tooltip is "Move or copy the selected phrases to a voice". If the
+  selection is not only phrases, the button does not act, and its tooltip is
+  "Select a phrase first." The rule for a button that cannot act is in
+  [04-timeline-editor.md](04-timeline-editor.md#behaviour-rules).
   Each shows the other voices and "New voice". If phrases of the target voice
   overlap the range, the app asks: "<voice name> has <n> phrases in this range.
   Replace them?" with "Continue" and "Cancel". A replace removes each such phrase
@@ -208,7 +216,10 @@ voices and "New voice".
 - The band "Sections" is above the time ruler. "Add section" makes a section
   from the time selection, with the name "Section N" or a typed name of 40
   characters at most. With no free range of 1 second, the note is "No room for a
-  section here. Select a free range of 1 second or more."
+  section here. Select a free range of 1 second or more." The tooltip of "Add
+  section" is "Add a section for the time selection". With no time selection,
+  the button does not act, and its tooltip is "Drag on the waveform to select a
+  time range first."
 - A section has the menu "Actions for <section name>" with "Rename", "Move
   section to voice" and "Delete". A delete has no confirm dialog. A click on a
   section selects its time range and scrolls the stage to its start. A dragged
@@ -263,6 +274,11 @@ voices and "New voice".
   words and phonemes.
 - The singer step changes only the phrases that the run wrote. Older marks of the
   voice of the run stay.
+- A new run with the singer step first replaces the marks in the range of each
+  singer voice of the last run, and removes such a voice with no mark left. The
+  rules are in
+  [02-transcription.md](02-transcription.md#behaviour-rules), "Singer voices of the
+  last run". (FR-voice-30, 31)
 - A run has these undo steps, in this order: the marks of the run, the sections of
   the `[Name]` tags, and the singer voices with the phrase divisions. One undo after
   the run removes the singer voices and the divisions only, and the marks of the run
@@ -359,6 +375,10 @@ No external interface.
   the voice of the top singer only. (FR-voice-29)
 - Each mark rule holds after the singer step, and one undo removes the divisions too.
   (FR-voice-27, 28)
+- Two runs with "Singers" 2 and then 4 on the demo song give 4 voices. The voice
+  rail, the track rows and the run report agree. (FR-voice-30, 31)
+- The undo steps of the second run restore the result of the first run exactly.
+  (FR-voice-31)
 
 ## Out of scope
 

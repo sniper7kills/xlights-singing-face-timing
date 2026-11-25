@@ -240,6 +240,26 @@ body.rv-open .layout { padding-right:21rem; }
 </li>
 </ul>
 <p>models, the singer models and the dictionary, with their licences.</p>
+<ul>
+<li>FR-audio-23 — The app starts a save of the open song 2 seconds after the first
+</li>
+</ul>
+<p>change that is not saved, also while changes continue.</p>
+<ul>
+<li>FR-audio-24 — While a change is not saved, the browser asks the person to
+</li>
+</ul>
+<p>confirm a reload or a close of the page.</p>
+<ul>
+<li>FR-audio-25 — The app starts a save of the open song when the page becomes
+</li>
+</ul>
+<p>hidden or unloads.</p>
+<ul>
+<li>FR-audio-26 — The link back to the song library opens the library after the
+</li>
+</ul>
+<p>save of the open song ends.</p>
 <h3 id="audio-import-user-flows">User flows</h3>
 <h4 id="audio-import-create-a-song">Create a song</h4>
 <div class="diagram"><pre class="mermaid">flowchart TD
@@ -444,6 +464,8 @@ createDemoSong(): Promise&lt;Song&gt;</code></pre>
 <tr><td>Persistent storage refused</td><td>A note beside the storage meter: "The browser can remove songs when disk space is low. Export your work."</td></tr>
 <tr><td>Several files dropped</td><td>The app takes the first audio file and shows "Only one file was added." The editor shows the note again as a toast after it opens.</td></tr>
 <tr><td>Reload during decode</td><td>The song does not exist. The library shows no partial song.</td></tr>
+<tr><td>Reload or close while a change is not saved</td><td>The browser asks the person to confirm. The browser shows its own text.</td></tr>
+<tr><td>The page unloads before a save ends</td><td>The browser can stop the save. The song keeps the last save that ended.</td></tr>
 </table></div>
 <h3 id="audio-import-acceptance-criteria">Acceptance criteria</h3>
 <ul>
@@ -512,6 +534,20 @@ createDemoSong(): Promise&lt;Song&gt;</code></pre>
 <li>Two dropped files show the note after the editor opens. (FR-audio-3)
 </li>
 <li>The credits name the speech model and the vocal separation models. (FR-audio-22)
+</li>
+<li>With a change each 200 ms for 10 seconds, the app saves the song 4 times or
+</li>
+</ul>
+<p>more. (FR-audio-23)</p>
+<ul>
+<li>10 edits with 100 ms between them, then a reload 300 ms after the last edit:
+</li>
+</ul>
+<p>the edits are there after the reload, or the browser asked first. (FR-audio-23, 24, 25)</p>
+<ul>
+<li>A reload with nothing to save shows no question. (FR-audio-24)
+</li>
+<li>The song library lists the saved song name after the back link. (FR-audio-26)
 </li>
 </ul>
 <h3 id="audio-import-out-of-scope">Out of scope</h3>

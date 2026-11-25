@@ -22,6 +22,7 @@ test('adds a custom entry, keeps it after a reload, exports it, imports it in a 
   await expect(dialog(page).getByText(/^No custom words yet\./)).toBeVisible()
 
   await dialog(page).getByRole('textbox', { name: 'Word', exact: true }).fill('RUDOLPH')
+  await dialog(page).getByRole('radio', { name: 'Symbols' }).check()
   await dialog(page).getByRole('textbox', { name: 'CMU symbols' }).fill('R UW1 D AA0 L F')
   await dialog(page).getByRole('button', { name: 'Add entry' }).click()
   await expect(entryRow(page, 'RUDOLPH')).toContainText('R UW1 D AA0 L F')
@@ -66,7 +67,10 @@ test('adds a custom entry, keeps it after a reload, exports it, imports it in a 
   ).toBeFocused()
 })
 
-test('imports the good line of a file and reports the bad line', async ({ page }) => {
+test('imports the good line of a file and reports the cause of each bad line near "Import"', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 900 })
   await page.goto('/')
   await openDialog(page)
 
@@ -75,11 +79,57 @@ test('imports the good line of a file and reports the bad line', async ({ page }
     .setInputFiles({
       name: 'words.txt',
       mimeType: 'text/plain',
-      buffer: Buffer.from(';;; carols\nBLITZEN  B L IH1 T S AH0 N\nROODOLF  R XX\n'),
+      buffer: Buffer.from(';;; carols\nBLITZEN  B L IH1 T S AH0 N\nROODOLF  R XX\nCOMET\n'),
     })
 
-  await expect(dialog(page).getByRole('status')).toContainText('1 line skipped (line 3)')
+  const status = dialog(page).getByRole('status')
+  await expect(status).toContainText('1 entry imported. 2 lines skipped.')
+  await expect(status.getByRole('listitem')).toHaveText([
+    'Line 3: “XX” is not a symbol.',
+    'Line 4: no symbols.',
+  ])
+  await expect(status).toBeInViewport()
   await expect(entryRow(page, 'BLITZEN')).toContainText('B L IH1 T S AH0 N')
+})
+
+test('starts a new entry on "Sounds like spelling" and shows the mouth shapes before the save', async ({
+  page,
+}) => {
+  await page.goto('/')
+  await openDialog(page)
+
+  await expect(dialog(page).getByRole('radio', { name: 'Sounds like spelling' })).toBeChecked()
+  const soundsLike = dialog(page).getByRole('textbox', { name: 'Sounds like' })
+  await expect(soundsLike).toHaveAccessibleDescription(
+    'Type the word as it sounds, with words that you know. Example: "sore block".',
+  )
+  await dialog(page).getByRole('textbox', { name: 'Word', exact: true }).fill('ZORBLUK')
+  await soundsLike.fill('sore block')
+
+  await expect(dialog(page).getByText('Mouth shapes: etc O etc MBP L AI etc')).toBeVisible()
+  await dialog(page).getByRole('button', { name: 'Add entry' }).click()
+  await expect(entryRow(page, 'ZORBLUK')).toContainText('S AO1 R B L AA1 K')
+})
+
+test('shows the CMU symbol reference in the window from the link beside the symbols field', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 900 })
+  await page.goto('/')
+  await openDialog(page)
+  await dialog(page).getByRole('radio', { name: 'Symbols' }).check()
+  await expect(
+    dialog(page).getByText(/The symbols come from the CMU Pronouncing Dictionary\.$/),
+  ).toBeVisible()
+
+  await dialog(page).getByRole('button', { name: 'Show the list of symbols' }).click()
+
+  const reference = dialog(page).getByRole('table', { name: 'CMU symbols' })
+  await expect(reference).toBeVisible()
+  await expect(reference).toBeInViewport()
+  await expect(
+    dialog(page).getByText('CMU symbols', { exact: true }).and(page.locator('summary')),
+  ).toBeFocused()
 })
 
 test('opens the custom dictionary from the editor top bar', async ({ page }) => {

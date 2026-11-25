@@ -155,11 +155,11 @@ describe('Layers', () => {
     expect(layer('Words').getByText('Silent').closest('li')).not.toHaveAttribute('data-label')
   })
 
-  it('gives each mark the full label as a tooltip and an element that CSS cuts', () => {
+  it('gives each mark a tooltip with the full label, the start and the end, and a label element that CSS cuts', () => {
     render(<Layers content={songWith(MARKS)} onTranscribe={() => undefined} />)
 
     const phrase = layer('Phrases').getByRole('listitem')
-    expect(phrase).toHaveAttribute('title', 'Silent night, holy night')
+    expect(phrase).toHaveAttribute('title', 'Silent night, holy night\n0:00.000 to 0:08.000')
     expect(phrase).toHaveClass('mark-phrase')
     expect(within(phrase).getByText('Silent night, holy night')).toHaveClass('mark-label')
   })

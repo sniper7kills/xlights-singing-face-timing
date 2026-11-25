@@ -11,6 +11,7 @@ import {
 } from '../../lib/runReport/reportPanel.ts'
 import { reportToText } from '../../lib/runReport/reportText.ts'
 import type { RunReport } from '../../lib/runReport/runReport.ts'
+import { useSongStore } from '../../store/songStore.ts'
 import { downloadFiles } from '../xtiming-export/download.ts'
 
 /** The time that "Copy report" says "Copied" after a copy. */
@@ -110,8 +111,9 @@ export function RunReportDialog({ songName, report, onClose }: RunReportDialogPr
   const dialogRef = useRef<HTMLDivElement>(null)
   const textRef = useRef<HTMLTextAreaElement>(null)
   const titleId = useId()
-  const sections = useMemo(() => reportPanel(report), [report])
-  const text = useMemo(() => reportToText(report), [report])
+  const voices = useSongStore((state) => state.current?.voices)
+  const sections = useMemo(() => reportPanel(report, undefined, voices), [report, voices])
+  const text = useMemo(() => reportToText(report, undefined, voices), [report, voices])
 
   useEffect(() => {
     dialogRef.current?.focus()

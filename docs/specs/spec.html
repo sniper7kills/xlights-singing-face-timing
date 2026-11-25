@@ -196,6 +196,7 @@ body.rv-open .layout { padding-right:21rem; }
 <tr><td>word</td><td>noun</td><td>A mark on the word layer. It holds one sung word.</td><td>token</td></tr>
 <tr><td>phoneme</td><td>noun</td><td>A mark on the phoneme layer. Its label is one of the ten xLights mouth shapes.</td><td>viseme, mouth shape mark</td></tr>
 <tr><td>phoneme label</td><td>noun</td><td>One of <code>AI</code>, <code>E</code>, <code>etc</code>, <code>FV</code>, <code>L</code>, <code>MBP</code>, <code>O</code>, <code>rest</code>, <code>U</code>, <code>WQ</code>.</td><td>viseme name</td></tr>
+<tr><td>mouth shape</td><td>noun</td><td>The mouth that the Faces effect of xLights shows for one phoneme label. The app names a mouth shape by its phoneme label.</td><td>viseme</td></tr>
 <tr><td>CMU symbol</td><td>noun</td><td>One sound symbol from the CMU Pronouncing Dictionary, for example <code>AY1</code>.</td><td>ARPAbet, CMU phoneme</td></tr>
 <tr><td>dictionary</td><td>noun</td><td>The table that gives the CMU symbols for a word.</td><td>lexicon</td></tr>
 <tr><td>custom dictionary</td><td>noun</td><td>The table of words that the person adds or changes. It takes priority over the dictionary.</td><td>user library, overrides</td></tr>
@@ -466,6 +467,7 @@ body.rv-open .layout { padding-right:21rem; }
   }
   RUN_DATA {
     string songId PK
+    object voices
     object tracks
     object singerSegments
     object report
@@ -508,7 +510,7 @@ body.rv-open .layout { padding-right:21rem; }
 <li><strong>Run data.</strong> One record for each song, in the object store <code>runs</code> (database
 </li>
 </ul>
-<p>version 3). It holds the audio tracks, the singer ranges and the run report of the last completed transcribe run. A new run replaces the full record. Deleting the song deletes it in the same transaction. It holds no lyrics, no label of a mark and no API key. <code>tracks</code> holds <code>vocals</code> and <code>instruments</code>, each <code>{ startMs, sampleRate, samples }</code> with 16-bit PCM samples in one channel at 22 050 Hz. A run with no kept tracks, and a record from before issue #129, have no <code>tracks</code>. The storage meter of the song library counts the tracks, because <code>navigator.storage.estimate()</code> counts the full storage of the app.</p>
+<p>version 3). It holds the audio tracks, the singer ranges and the run report of the last completed transcribe run. A new run replaces the full record. Deleting the song deletes it in the same transaction. It holds no lyrics, no label of a mark and no API key. <code>voices</code> lists each voice that the run wrote marks to as <code>{ voiceId, singers, made }</code>. <code>singers</code> holds the singer numbers of that voice, and <code>made</code> is true for a voice that the singer step added. A record from before issue #173 has no <code>voices</code>. <code>tracks</code> holds <code>vocals</code> and <code>instruments</code>, each <code>{ startMs, sampleRate, samples }</code> with 16-bit PCM samples in one channel at 22 050 Hz. A run with no kept tracks, and a record from before issue #129, have no <code>tracks</code>. The storage meter of the song library counts the tracks, because <code>navigator.storage.estimate()</code> counts the full storage of the app.</p>
 <ul>
 <li><strong>App settings.</strong> One record. <code>speechModelId</code> is one of the three supported speech
 </li>

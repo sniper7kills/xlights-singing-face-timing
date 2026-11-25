@@ -76,9 +76,26 @@ face that sings during play, so the person sees the result before xLights does.
 - FR-editor-35 — Each track that sounds plays in time with the play cursor.
 - FR-editor-36 — The person folds the group of track rows.
 - FR-editor-37 — The editor keeps the mute, the solo and the fold for each song.
-- FR-editor-38 — Each track row and the "Song" row show whether the row sounds now.
-- FR-editor-39 — The heading of the group "Audio tracks" names the rows that sound.
-- FR-editor-40 — The editor tells the person when it cannot read the run data of
+- FR-editor-38 — The toolbar has a button for each edit action: split, merge,
+  delete and edit the label.
+- FR-editor-39 — A toolbar button that cannot act states the reason in its
+  tooltip.
+- FR-editor-40 — A button in the top bar opens the shortcut list.
+- FR-editor-41 — A help line under the layers tells how to edit marks, and it
+  changes with the selection.
+- FR-editor-42 — The tooltip of a mark shows its label, its start and its end.
+- FR-editor-43 — The status line states the reason when a key, a button or a drag
+  does nothing.
+- FR-editor-44 — The person types a time as `m:ss.mmm` or as plain seconds.
+- FR-editor-45 — The status line states the rule that changed a typed time.
+- FR-editor-46 — The phoneme list opens with no scroll of the stage.
+- FR-editor-47 — Each layer is one Tab stop.
+- FR-editor-48 — The person selects each mark of a layer with the keyboard.
+- FR-editor-49 — The first Tab stop of the editor skips to the transport.
+- FR-editor-50 — `Space` plays or pauses from a button of the toolbar.
+- FR-editor-51 — Each track row and the "Song" row show whether the row sounds now.
+- FR-editor-52 — The heading of the group "Audio tracks" names the rows that sound.
+- FR-editor-53 — The editor tells the person when it cannot read the run data of
   the song.
 
 ## User flows
@@ -136,15 +153,21 @@ flowchart TD
 
 Regions:
 
-- **Top bar.** Back to the song library, song name, save state ("Saved" or
-  "Saving"), "Transcribe", "Run report", "Custom dictionary", "Export".
+- **Top bar.** Back to the song library, song name, "Transcribe", "Run report",
+  "Custom dictionary", "Export", "Shortcuts", save state ("Saved" or "Saving").
+  "Shortcuts" has the tooltip "Show the keyboard shortcuts (?)" and opens the
+  shortcut list.
 - **Voice rail** (left). The voices of the song. Defined in
   [05-voices-sections.md](05-voices-sections.md).
 - **Stage** (centre). From top to bottom: the section band, the time ruler, the
   waveform, the group "Audio tracks" with the track rows, the phrase layer, the
   word layer, the phoneme layer. A song with no kept audio tracks has no group.
 - **Transport** (below the stage). Play, loop, speed, play time, zoom slider,
-  frame size selector, undo, redo, unknown-word counter.
+  frame size selector, the group "Mark", undo, redo, unknown-word counter.
+- **Help line** (under the stage). One line of help for the selection. See
+  [Behaviour rules](#behaviour-rules).
+- **Status line** (under the help line). A polite live region with the reason
+  that the last action did nothing.
 - **Inspector** (right). The face preview at the top. Under it, the fields of the
   selected mark.
 
@@ -161,8 +184,9 @@ States:
 
 Mark styles on the layers: phrases are wide bars with the full text. Words are
 bars with the word. Phonemes are short blocks with the phoneme label and one colour
-for each phoneme label. A label that does not fit is cut with an ellipsis, and the
-full label shows in a tooltip. An "unknown" word has a dotted border. An
+for each phoneme label. A label that does not fit is cut with an ellipsis. The
+tooltip of a mark shows the full label on the first line and "<start> to <end>"
+on the second line, for example "0:01.200 to 0:01.650". An "unknown" word has a dotted border. An
 "estimated" word has a dashed inner frame, and a screen reader gets the text
 "(estimated time)".
 
@@ -179,15 +203,17 @@ Controls on the layers:
 - `Shift`+click selects the marks from the anchor to the clicked mark on one
   layer. A plain click sets the anchor.
 
-Track rows (FR-editor-31 to 40):
+Track rows (FR-editor-31 to 37, 51 to 53):
 
 - A song with kept audio tracks shows the group "Audio tracks" under the waveform.
   The group has the rows "Song", "Vocals" and "Instruments". Each row except "Song"
   draws the waveform of its audio track on the time scale of the stage. A row is
   lower than the waveform.
 - If the singer step of the last run put the singers on voices, the group also has
-  one row for each of those voices. The row name is the voice name. The row shows
-  the vocals only in the time ranges of that singer, in the colour of the voice.
+  one row for each of those voices. The row finds its voice by the voice id in
+  the run data, so the row name is the present voice name. The row shows the vocals
+  only in the time ranges of that singer, in the colour of the voice. The rows
+  follow the voice order.
   The row name has the tooltip "This row is the vocals track, limited to the times
   of this singer."
 - The row "Song" is the song audio. It has no waveform of its own, because the
@@ -258,8 +284,8 @@ Track rows (FR-editor-31 to 40):
 
 - **Shortcuts.** `Space` play or pause. `L` loop the selection. `S` split at the
   play cursor. `M` merge with the next mark. `Delete` delete. `Enter` or `F2` edit
-  the label. `Tab` and `Shift+Tab` select the next or previous mark. `Up` and
-  `Down` move the selection between layers. `Left` and `Right` nudge the selected
+  the label. `[` and `]` select the previous or the next mark of the layer. `Up`
+  and `Down` move the selection between layers. `Left` and `Right` nudge the selected
   mark by one frame size. `Alt+Left` and `Alt+Right` nudge the start only.
   `Shift+Alt+Left` and `Shift+Alt+Right` nudge the end only. `Ctrl+Z` undo.
   `Ctrl+Shift+Z` redo. `+` and `-` zoom. `?` shortcut list. On macOS, `Cmd`
@@ -269,6 +295,21 @@ Track rows (FR-editor-31 to 40):
   child. A shortcut does not act while the focus is in a field, a list or a
   dialog. The shortcut list has the title "Keyboard shortcuts", a "Close" button
   and the note "On macOS, use Cmd in place of Ctrl."
+- **Keyboard order.** `Tab` and `Shift+Tab` keep the browser order. Each layer is
+  one Tab stop: the selected mark of the layer, else its first mark in view, else
+  the layer track. So `Tab` goes from one layer to the next, then to "Play".
+  - On a mark that is not selected, `[` or `]` selects that mark. Then they move
+    the selection along the layer. At the first or the last mark, the status line
+    states "This is the first mark of the layer." or "This is the last mark of the
+    layer."
+  - The first Tab stop of the editor is the link "Skip to the transport". It shows
+    only when it has the focus. It moves the focus to "Play", or to the first
+    control of the toolbar while the audio is not ready.
+  - On a button of the toolbar or the transport other than "Play", `Space` plays
+    or pauses and does not press the button. `Enter` presses the button. A text
+    field, a select, a dialog, a menu and a list keep their own `Space`.
+  - The help line adds "Press [ or ] to select the previous or the next mark."
+    when one mark is selected.
 - **Transport.** "Loop" has the tooltip "Play the selection in a loop (L)". With
   more than one selected mark, the loop goes from the earliest start to the
   latest end. "Play speed" has "50%", "75%" and "100%", and the pitch does not
@@ -276,6 +317,68 @@ Track rows (FR-editor-31 to 40):
   "The app moves every mark of this song to a multiple of 25 ms." (or 50 ms)
   with "Continue" and "Cancel", and it is one undo step. A song with no marks
   shows no dialog. "Undo" and "Redo" are buttons in the group "Undo and redo".
+- **Mark buttons.** The toolbar group "Mark" has "Split", "Merge with next",
+  "Delete" and "Edit label". Each button runs the same action as its shortcut, on
+  the selected mark. A click on a button keeps the focus on the mark. The tooltip
+  of a button names the action and the shortcut:
+  - "Split the selected mark at the play cursor (S)"
+  - "Merge the selected mark with the next mark (M)"
+  - "Delete the selected marks (Delete)"
+  - "Edit the label (Enter or F2)"
+- **A button that cannot act.** It stays in the tab order with
+  `aria-disabled="true"` and a dim style. Its tooltip and its description state
+  the reason, and then the shortcut in brackets. A click does nothing. The same
+  rule applies to "Loop", the play speed, "Undo", "Redo", "Phrase" and "Add
+  section". The reasons:
+
+  | Button | Case | Reason |
+  |---|---|---|
+  | "Split", "Merge with next", "Edit label" | No mark or more than one mark is selected | "Select one mark first." |
+  | "Delete" | No mark is selected | "Select a mark first." |
+  | "Split" | The play cursor is outside the mark | "Move the play cursor into the mark. Then press S." |
+  | "Split" | A part would be shorter than one frame size | "Move the play cursor away from the edge of the mark. Each part needs one frame size or more." |
+  | "Merge with next" | The mark is the last mark of its layer | "This is the last mark of the layer." |
+  | "Merge with next" | The next word is in another phrase | "The next word is in another phrase." |
+  | "Merge with next" | The next phoneme is in another word | "The next phoneme is in another word." |
+  | "Delete" | The only selected mark is the last phoneme of its word | "A word needs one phoneme or more. Delete the word." |
+  | "Loop", "50%", "75%", "100%" | The audio is not ready | "The audio is not ready." |
+  | "Undo" | The history has no step to undo | "No step to undo." |
+  | "Redo" | The history has no step to redo | "No step to redo." |
+  | "Loop" | No mark and no time range is selected | "Select a mark or a time range first." |
+  | "Phrase" | The selection is not only phrases | "Select a phrase first." |
+  | "Add section" | No time range is selected | "Drag on the waveform to select a time range first." |
+
+- **Help line.** The text depends on the selection:
+  - No selected mark: "Click a mark to select it. Double-click a mark to change
+    its label. Double-click an empty place to add a mark."
+  - A selected phrase or word, or more than one selected mark: "Drag an edge to
+    change the time. Drag the mark to move it."
+  - One selected phoneme: "Click the phoneme again to choose a mouth shape."
+  - With no selected mark or one selected mark, the line adds "Hold Shift and
+    click to select more than one mark."
+- **Status line.** A key, a button or a drag that does nothing shows its reason
+  in the status line. The reasons of the buttons are in the table above. The
+  nudge keys and a drag add "The mark has no room to move." and "The edge of the
+  mark has no room to move." The text goes away after 5 seconds, or at the next
+  key or pointer press.
+- **Typed times.** The fields "Start" and "End" accept `m:ss.mmm` and plain
+  seconds, for example "0:03.500" or "3.5". Seconds of 60 or more in `m:ss.mmm`
+  add to the minutes. A wrong text shows one field error for each cause:
+  - Empty: "Type a time, for example 0:03.500 or 3.5."
+  - A negative time: "Type a time of 0 or more."
+  - Any other text: "Use m:ss.mmm or seconds, for example 0:03.500 or 3.5."
+  - A time after the end of the song: "The song ends at <time>."
+
+  After `Enter`, the wrong text and the field error stay. When the focus leaves
+  the field, the field shows the stored time again and the status line shows the
+  error. When a rule changes a typed time, the field shows the time that the app
+  stored, and the status line states "The app used <time>, <rule>." The rules:
+  "a multiple of the frame size", "the edge of the parent mark", "the last frame
+  of the song", "the shortest length of the adjacent mark", "the shortest length
+  of the mark", "the edge of the first or the last word of the phrase".
+- **Phoneme list.** The list has a fixed position in the window, under the layer
+  row, or over it when the window has no room under it. The stage does not
+  scroll when the list opens.
 - **Inspector.** The region has the name "Inspector". "Face preview" shows the
   mouth shape of the phoneme under the play time, and the closed mouth between
   words. The fields "Label", "Start", "End" and "Length" show when exactly one
@@ -362,11 +465,20 @@ scroll methods before use. Those names are not verified in this spec.
 |---|---|
 | Drag an edge past the parent edge | The edge stops at the parent edge. |
 | Drag a word body over the adjacent word | The word stops at the adjacent word. It does not jump over. |
-| Split with the play cursor outside the mark | The split action is disabled. |
-| Merge on the last mark of a layer | The merge action is disabled. |
+| Split with the play cursor outside the mark | "Split" and `S` do not act. The tooltip and the status line state "Move the play cursor into the mark. Then press S." |
+| Merge on the last mark of a layer | "Merge with next" and `M` do not act. The tooltip and the status line state "This is the last mark of the layer." |
 | Add a mark in a gap shorter than one frame size | The add action is disabled. |
 | Add a word outside any phrase | The app creates a phrase of the same range with the same label. |
-| Typed time that is not a number | Field error: "Use m:ss.mmm". The mark does not change. |
+| Typed time that is not a time | Field error: "Use m:ss.mmm or seconds, for example 0:03.500 or 3.5." The mark does not change. |
+| Typed time that is empty | Field error: "Type a time, for example 0:03.500 or 3.5." |
+| Typed time below 0 | Field error: "Type a time of 0 or more." |
+| Typed time after the end of the song | Field error: "The song ends at <time>." |
+| Wrong typed time, then the focus leaves the field | The field shows the stored time. The status line shows the field error. |
+| Typed time that is not a multiple of the frame size | The field shows the snapped time. The status line states "The app used <time>, a multiple of the frame size." |
+| Typed time past a limit of the parent or of the adjacent mark | The field shows the limit. The status line states the time and the limit. |
+| Delete the last phoneme of a word | Nothing changes. The status line states "A word needs one phoneme or more. Delete the word." |
+| Drag or nudge a mark that touches both neighbours | Nothing changes. The status line states "The mark has no room to move." |
+| Open the phoneme list | The stage keeps its scroll position. |
 | Empty label on a phrase or a word | The app keeps the old label. |
 | Audio missing | Play controls are disabled. Edits work. |
 | 3 000 marks in view | Scroll and zoom stay at 60 frames per second. The editor draws only the marks in view. |
@@ -375,7 +487,9 @@ scroll methods before use. Those names are not verified in this spec.
 | The app cannot read the run data of the song | The place of the group "Audio tracks" shows "The app could not read the run report and the separated tracks of this song. Reload the page." The "Run report" action is disabled, with the same text as its tooltip. |
 | The play of a track stops for another cause, for example a quick pause | No message. The next check starts the track again. |
 | A phrase edit changes the times of a singer row during play | The track keeps its play. The muted "Song" stays muted. The row uses the new times. |
-| A voice of a singer row has a new name or is deleted | The row of that voice does not show. |
+| A voice of a singer row has a new name | The row shows the new name with the same ranges. The other rows do not change. |
+| A voice of a singer row is deleted | The row of that voice does not show, and its ranges go to no other row. An undo of the delete brings the row back. |
+| Run data from before issue #173 and a renamed or deleted voice | The row of that voice does not show. |
 
 ## Acceptance criteria
 
@@ -412,7 +526,30 @@ scroll methods before use. Those names are not verified in this spec.
   outline, not only in colour. (FR-editor-26)
 - A typed start time of `0:12.350` with a 50 ms frame size sets the start to
   12 350 ms. (FR-editor-28)
+- A typed "3.5" sets 3 500 ms. (FR-editor-44)
+- A typed "0:99.000" on the demo song shows "The song ends at 0:28.900."
+  (FR-editor-44)
+- `S` outside the mark, `M` on the last mark, `Delete` on the last phoneme of a
+  word and a drag with no room each show their reason in the status line.
+  (FR-editor-43)
+- The scroll position of the stage is the same before and after the phoneme list
+  opens. (FR-editor-46)
+- The count of `Tab` presses from the page top to "Play" does not change with the
+  count of marks. (FR-editor-47)
+- `Tab` to the word layer, then `]`, selects each word in turn. (FR-editor-48)
+- `Tab` to "Skip to the transport" and `Enter` give "Play" the focus.
+  (FR-editor-49)
+- After a click on "75%", `Space` starts the play. (FR-editor-50)
+- The shortcut list and the shortcut rules of this file name the same keys.
+  (FR-editor-29)
 - `?` opens the shortcut list, and `Escape` closes it. (FR-editor-29)
+- A person splits, merges and deletes a mark with the mouse only. (FR-editor-38)
+- A disabled "Split", "Merge with next" or "Delete" states its reason in a tooltip
+  for the play cursor outside the mark, the last mark of a layer and the last
+  phoneme of a word. (FR-editor-39)
+- "Shortcuts" in the top bar opens the shortcut list. (FR-editor-40)
+- The help line shows its text for no selection, a selected word and a selected
+  phoneme. (FR-editor-41)
 - After a run with separation, the rows "Vocals" and "Instruments" show, each with
   a waveform at the correct times. (FR-editor-31)
 - After a run that put two singers on voices, one row for each of the two voices
@@ -426,12 +563,12 @@ scroll methods before use. Those names are not verified in this spec.
   has a name. (FR-editor-36)
 - After a reload, the mute, the solo and the fold of the song stay. (FR-editor-37)
 - With "Solo" on "Vocals", the "Song" row shows that it is silent and why.
-  (FR-editor-38)
+  (FR-editor-51)
 - No row shows "Mute" and "Solo" pressed together. (FR-editor-33, 34)
-- The folded group names the rows that sound. (FR-editor-39)
+- The folded group names the rows that sound. (FR-editor-52)
 - No row name covers a waveform. (FR-editor-31)
 - A failed read of the run data shows its cause in the place of the group.
-  (FR-editor-40)
+  (FR-editor-53)
 - A changed phrase label shows the confirm dialog, and confirm rebuilds the words.
   (FR-editor-30)
 

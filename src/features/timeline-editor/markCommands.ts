@@ -2,15 +2,20 @@
 // They read the stores when they run, so a component can call them from an event handler.
 
 import type { PhonemeLabel } from '../../lib/dictionary/cmuSymbols.ts'
+import { usedTimeText } from '../../lib/marks/editBlocks.ts'
 import { findMark, nextOnLayer, previousOnLayer } from '../../lib/marks/family.ts'
+import { resizeCause } from '../../lib/marks/limits.ts'
 import { marksBetween } from '../../lib/marks/selection.ts'
 import { addMark } from '../../store/actions/addMark.ts'
+import { canDeleteMarks, deleteMarks } from '../../store/actions/deleteMarks.ts'
+import { resizeMark } from '../../store/actions/resizeMark.ts'
 import { setMarkLabel, wordsWouldChange } from '../../store/actions/setMarkLabel.ts'
 import { setPhonemeLabel } from '../../store/actions/setPhonemeLabel.ts'
 import { useSongStore } from '../../store/songStore.ts'
 import type { Mark } from '../../store/types.ts'
 import { useViewStore } from '../../store/viewStore.ts'
 import { type LabelTarget, layerFocusId, useMarkUiStore } from './markUiStore.ts'
+import { reportStatus } from './statusStore.ts'
 import { followCursor } from './timeScale.ts'
 import { currentStageInput } from './useStageScale.ts'
 
@@ -130,6 +135,22 @@ export function endPending(confirmed: boolean): void {
 }
 
 /**
+ * Deletes the selected marks with their children, as one undo step.
+ * The selection then keeps only the marks that still exist (see `keepSelectionInSong`).
+ * When the selection is then empty, the focus goes to the layer track of the first deleted mark, so the focus stays in the layers.
+ * Returns false when the delete changes nothing, for example for the last phoneme of a word.
+ */
+export function deleteSelectedMarks(): boolean {
+  const ids = useViewStore.getState().selectedMarkIds
+  const first = findMark(songMarks(), ids[0] ?? '')
+  if (!first || !canDeleteMarks(ids)) return false
+  deleteMarks(ids)
+  if (useViewStore.getState().selectedMarkIds.length === 0)
+    useMarkUiStore.getState().requestFocus(layerFocusId(first.voiceId, first.layer))
+  return true
+}
+
+/**
  * Selects the next or the previous mark on the layer of a mark, and gives it the focus.
  * The view scrolls when that mark is out of view.
  * Returns false when no mark has the id, or when no mark is in that direction.
@@ -156,4 +177,24 @@ export function selectAndReveal(mark: Mark, durationMs: number): void {
   const scrollMs = followCursor(currentStageInput(durationMs), mark.startMs)
   if (scrollMs !== null) useViewStore.getState().setScroll(scrollMs)
   useMarkUiStore.getState().requestFocus(mark.id)
+}
+
+/**
+ * Moves one edge of a mark to a typed time, as one undo step. See `resizeMark`.
+ * When a rule changes the time, the status line states the time that the store holds and the rule.
+ * @param id The mark.
+ * @param edge The edge to move.
+ * @param ms The typed time.
+ */
+export function typeEdgeTime(id: string, edge: 'start' | 'end', ms: number): void {
+  const content = useSongStore.getState().current
+  const mark = content && findMark(content.marks, id)
+  if (!content || !mark) return
+  const { frameMs, durationMs } = content.song
+  const cause = resizeCause(content.marks, mark, edge, ms, frameMs, durationMs)
+  resizeMark(id, edge, ms)
+  const stored = findMark(songMarks(), id)
+  const usedMs = edge === 'start' ? stored?.startMs : stored?.endMs
+  if (cause !== null && usedMs !== undefined && usedMs !== ms)
+    reportStatus(usedTimeText(usedMs, cause))
 }

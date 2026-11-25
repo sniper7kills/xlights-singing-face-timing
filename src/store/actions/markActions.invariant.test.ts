@@ -54,14 +54,26 @@ function randomLabel(random: Random, layer: Layer): string {
   return Array.from({ length: count }, () => pick(random, LABELS)).join(' ')
 }
 
+/** Returns the id of the first voice. A replace with singer voices can remove the voice "lead". */
+function firstVoiceId(actions: Actions): string {
+  return actions.useSongStore.getState().current?.voices[0]?.id ?? 'lead'
+}
+
 /** Replaces a random range of the voice of the mark with the marks of a random transcribe run. */
 function randomRangeReplace(random: Random, actions: Actions, mark: Mark, call: number): void {
   const startMs = random() * DURATION_MS
   const range = { startMs, endMs: Math.min(DURATION_MS, startMs + random() * 8000) }
+  const voices = actions.useSongStore.getState().current?.voices ?? []
+  // Half of the replaces also clear the other voices, as a run that replaces the singer voices of the last run.
+  const singerVoiceIds =
+    random() < 0.5
+      ? voices.filter((voice) => voice.id !== mark.voiceId).map((voice) => voice.id)
+      : []
   actions.replaceMarksInRange(
     mark.voiceId,
     range,
     generateRunMarks(random, mark.voiceId, range, `run${call}`),
+    singerVoiceIds,
   )
 }
 
@@ -135,7 +147,7 @@ describe.each([
       const steps = () => useSongStore.getState().history.past.length
       for (let call = 0; call < CALLS_PER_ROUND && steps() < STEPS_PER_ROUND; call += 1) {
         const marks = useSongStore.getState().current?.marks ?? []
-        if (marks.length === 0) actions.addMark('lead', 'word', 1000, 2000, 'night')
+        if (marks.length === 0) actions.addMark(firstVoiceId(actions), 'word', 1000, 2000, 'night')
         else randomAction(random, actions, pick(random, marks), pick(random, marks), call)
         const current = useSongStore.getState().current
         if (current) expect(violations(current), `seed ${seed}, call ${call}`).toEqual([])

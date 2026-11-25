@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react'
+import { formatTime } from '../../lib/time/formatTime.ts'
 import type { Mark } from '../../store/types.ts'
 import { useViewStore } from '../../store/viewStore.ts'
 import { editLabel } from './markCommands.ts'
@@ -26,7 +27,7 @@ function wordStates(mark: Mark): { unknown: boolean; estimated: boolean } {
 
 /**
  * Shows one mark at its time, with the pointer controls of `useMarkDrag`.
- * CSS cuts a long label with an ellipsis, and the tooltip shows the full label.
+ * CSS cuts a long label with an ellipsis, and the tooltip shows the full label with the start and the end.
  * A selected mark has `aria-current`, and CSS gives it an outline and two edge handles.
  * An unknown word has `data-unknown`, and CSS gives it a dotted border.
  * An estimated word has `data-estimated`, and CSS gives it an inner dashed frame.
@@ -61,9 +62,9 @@ export function MarkView({ mark: stored, scale, tabStop = false }: MarkViewProps
       aria-current={flag(selected)}
       data-unknown={flag(unknown)}
       data-estimated={flag(estimated)}
-      // Each mark takes the focus from a click or a key. Only one mark of each layer is a Tab stop.
+      // Each mark takes the focus from a click or a key. Only one mark of each layer is a Tab stop, and `[` and `]` move along the layer.
       tabIndex={tabStop ? 0 : -1}
-      title={mark.label}
+      title={`${mark.label}\n${formatTime(mark.startMs)} to ${formatTime(mark.endMs)}`}
       style={{ left: `${leftPx}px`, width: `${widthPx}px` }}
       onDoubleClick={() => editLabel(mark.id)}
       {...handlers}

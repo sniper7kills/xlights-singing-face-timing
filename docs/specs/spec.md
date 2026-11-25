@@ -78,6 +78,7 @@ The user's request, verbatim:
 | word | noun | A mark on the word layer. It holds one sung word. | token |
 | phoneme | noun | A mark on the phoneme layer. Its label is one of the ten xLights mouth shapes. | viseme, mouth shape mark |
 | phoneme label | noun | One of `AI`, `E`, `etc`, `FV`, `L`, `MBP`, `O`, `rest`, `U`, `WQ`. | viseme name |
+| mouth shape | noun | The mouth that the Faces effect of xLights shows for one phoneme label. The app names a mouth shape by its phoneme label. | viseme |
 | CMU symbol | noun | One sound symbol from the CMU Pronouncing Dictionary, for example `AY1`. | ARPAbet, CMU phoneme |
 | dictionary | noun | The table that gives the CMU symbols for a word. | lexicon |
 | custom dictionary | noun | The table of words that the person adds or changes. It takes priority over the dictionary. | user library, overrides |
@@ -315,6 +316,7 @@ erDiagram
   }
   RUN_DATA {
     string songId PK
+    object voices
     object tracks
     object singerSegments
     object report
@@ -349,6 +351,10 @@ erDiagram
   the last completed transcribe run. A new run replaces the full record. Deleting
   the song deletes it in the same transaction. It holds no lyrics, no label of a
   mark and no API key.
+  `voices` lists each voice that the run wrote marks to as `{ voiceId, singers,
+  made }`. `singers` holds the singer numbers of that voice, and `made` is true for
+  a voice that the singer step added. A record from before issue #173 has no
+  `voices`.
   `tracks` holds `vocals` and `instruments`, each `{ startMs, sampleRate, samples }`
   with 16-bit PCM samples in one channel at 22 050 Hz. A run with no kept tracks,
   and a record from before issue #129, have no `tracks`. The storage meter of the

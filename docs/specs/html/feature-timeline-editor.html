@@ -287,11 +287,49 @@ body.rv-open .layout { padding-right:21rem; }
 </li>
 <li>FR-editor-37 — The editor keeps the mute, the solo and the fold for each song.
 </li>
-<li>FR-editor-38 — Each track row and the "Song" row show whether the row sounds now.
+<li>FR-editor-38 — The toolbar has a button for each edit action: split, merge,
 </li>
-<li>FR-editor-39 — The heading of the group "Audio tracks" names the rows that sound.
+</ul>
+<p>delete and edit the label.</p>
+<ul>
+<li>FR-editor-39 — A toolbar button that cannot act states the reason in its
 </li>
-<li>FR-editor-40 — The editor tells the person when it cannot read the run data of
+</ul>
+<p>tooltip.</p>
+<ul>
+<li>FR-editor-40 — A button in the top bar opens the shortcut list.
+</li>
+<li>FR-editor-41 — A help line under the layers tells how to edit marks, and it
+</li>
+</ul>
+<p>changes with the selection.</p>
+<ul>
+<li>FR-editor-42 — The tooltip of a mark shows its label, its start and its end.
+</li>
+<li>FR-editor-43 — The status line states the reason when a key, a button or a drag
+</li>
+</ul>
+<p>does nothing.</p>
+<ul>
+<li>FR-editor-44 — The person types a time as <code>m:ss.mmm</code> or as plain seconds.
+</li>
+<li>FR-editor-45 — The status line states the rule that changed a typed time.
+</li>
+<li>FR-editor-46 — The phoneme list opens with no scroll of the stage.
+</li>
+<li>FR-editor-47 — Each layer is one Tab stop.
+</li>
+<li>FR-editor-48 — The person selects each mark of a layer with the keyboard.
+</li>
+<li>FR-editor-49 — The first Tab stop of the editor skips to the transport.
+</li>
+<li>FR-editor-50 — <code>Space</code> plays or pauses from a button of the toolbar.
+</li>
+<li>FR-editor-51 — Each track row and the "Song" row show whether the row sounds now.
+</li>
+<li>FR-editor-52 — The heading of the group "Audio tracks" names the rows that sound.
+</li>
+<li>FR-editor-53 — The editor tells the person when it cannot read the run data of
 </li>
 </ul>
 <p>the song.</p>
@@ -353,10 +391,10 @@ body.rv-open .layout { padding-right:21rem; }
 <p><strong>Editor</strong> — mockup: <a href="../mockups/02-editor.html">mockups/02-editor.html</a>.</p>
 <p>Regions:</p>
 <ul>
-<li><strong>Top bar.</strong> Back to the song library, song name, save state ("Saved" or
+<li><strong>Top bar.</strong> Back to the song library, song name, "Transcribe", "Run report",
 </li>
 </ul>
-<p>"Saving"), "Transcribe", "Run report", "Custom dictionary", "Export".</p>
+<p>"Custom dictionary", "Export", "Shortcuts", save state ("Saved" or "Saving"). "Shortcuts" has the tooltip "Show the keyboard shortcuts (?)" and opens the shortcut list.</p>
 <ul>
 <li><strong>Voice rail</strong> (left). The voices of the song. Defined in
 </li>
@@ -371,7 +409,17 @@ body.rv-open .layout { padding-right:21rem; }
 <li><strong>Transport</strong> (below the stage). Play, loop, speed, play time, zoom slider,
 </li>
 </ul>
-<p>frame size selector, undo, redo, unknown-word counter.</p>
+<p>frame size selector, the group "Mark", undo, redo, unknown-word counter.</p>
+<ul>
+<li><strong>Help line</strong> (under the stage). One line of help for the selection. See
+</li>
+</ul>
+<p><a href="#behaviour-rules">Behaviour rules</a>.</p>
+<ul>
+<li><strong>Status line</strong> (under the help line). A polite live region with the reason
+</li>
+</ul>
+<p>that the last action did nothing.</p>
 <ul>
 <li><strong>Inspector</strong> (right). The face preview at the top. Under it, the fields of the
 </li>
@@ -397,7 +445,7 @@ body.rv-open .layout { padding-right:21rem; }
 </li>
 </ul>
 <p>is 1024 px wide or more.", and a link "Back to the song library".</p>
-<p>Mark styles on the layers: phrases are wide bars with the full text. Words are bars with the word. Phonemes are short blocks with the phoneme label and one colour for each phoneme label. A label that does not fit is cut with an ellipsis, and the full label shows in a tooltip. An "unknown" word has a dotted border. An "estimated" word has a dashed inner frame, and a screen reader gets the text "(estimated time)".</p>
+<p>Mark styles on the layers: phrases are wide bars with the full text. Words are bars with the word. Phonemes are short blocks with the phoneme label and one colour for each phoneme label. A label that does not fit is cut with an ellipsis. The tooltip of a mark shows the full label on the first line and "&lt;start&gt; to &lt;end&gt;" on the second line, for example "0:01.200 to 0:01.650". An "unknown" word has a dotted border. An "estimated" word has a dashed inner frame, and a screen reader gets the text "(estimated time)".</p>
 <p>Controls on the layers:</p>
 <ul>
 <li>Label field: named "Phrase label" or "Word label". <code>Enter</code> saves, <code>Escape</code>
@@ -421,7 +469,7 @@ body.rv-open .layout { padding-right:21rem; }
 </li>
 </ul>
 <p>layer. A plain click sets the anchor.</p>
-<p>Track rows (FR-editor-31 to 40):</p>
+<p>Track rows (FR-editor-31 to 37, 51 to 53):</p>
 <ul>
 <li>A song with kept audio tracks shows the group "Audio tracks" under the waveform.
 </li>
@@ -431,7 +479,7 @@ body.rv-open .layout { padding-right:21rem; }
 <li>If the singer step of the last run put the singers on voices, the group also has
 </li>
 </ul>
-<p>one row for each of those voices. The row name is the voice name. The row shows the vocals only in the time ranges of that singer, in the colour of the voice. The row name has the tooltip "This row is the vocals track, limited to the times of this singer."</p>
+<p>one row for each of those voices. The row finds its voice by the voice id in the run data, so the row name is the present voice name. The row shows the vocals only in the time ranges of that singer, in the colour of the voice. The rows follow the voice order. The row name has the tooltip "This row is the vocals track, limited to the times of this singer."</p>
 <ul>
 <li>The row "Song" is the song audio. It has no waveform of its own, because the
 </li>
@@ -562,12 +610,109 @@ body.rv-open .layout { padding-right:21rem; }
 <li><strong>Shortcuts.</strong> <code>Space</code> play or pause. <code>L</code> loop the selection. <code>S</code> split at the
 </li>
 </ul>
-<p>play cursor. <code>M</code> merge with the next mark. <code>Delete</code> delete. <code>Enter</code> or <code>F2</code> edit the label. <code>Tab</code> and <code>Shift+Tab</code> select the next or previous mark. <code>Up</code> and <code>Down</code> move the selection between layers. <code>Left</code> and <code>Right</code> nudge the selected mark by one frame size. <code>Alt+Left</code> and <code>Alt+Right</code> nudge the start only. <code>Shift+Alt+Left</code> and <code>Shift+Alt+Right</code> nudge the end only. <code>Ctrl+Z</code> undo. <code>Ctrl+Shift+Z</code> redo. <code>+</code> and <code>-</code> zoom. <code>?</code> shortcut list. On macOS, <code>Cmd</code> replaces <code>Ctrl</code>. With no selected mark, <code>Left</code> and <code>Right</code> move the play cursor by one frame size. <code>S</code>, <code>M</code>, the nudge keys, <code>Up</code> and <code>Down</code> act when exactly one mark is selected. <code>Up</code> selects the parent, and <code>Down</code> selects the first child. A shortcut does not act while the focus is in a field, a list or a dialog. The shortcut list has the title "Keyboard shortcuts", a "Close" button and the note "On macOS, use Cmd in place of Ctrl."</p>
+<p>play cursor. <code>M</code> merge with the next mark. <code>Delete</code> delete. <code>Enter</code> or <code>F2</code> edit the label. <code>[</code> and <code>]</code> select the previous or the next mark of the layer. <code>Up</code> and <code>Down</code> move the selection between layers. <code>Left</code> and <code>Right</code> nudge the selected mark by one frame size. <code>Alt+Left</code> and <code>Alt+Right</code> nudge the start only. <code>Shift+Alt+Left</code> and <code>Shift+Alt+Right</code> nudge the end only. <code>Ctrl+Z</code> undo. <code>Ctrl+Shift+Z</code> redo. <code>+</code> and <code>-</code> zoom. <code>?</code> shortcut list. On macOS, <code>Cmd</code> replaces <code>Ctrl</code>. With no selected mark, <code>Left</code> and <code>Right</code> move the play cursor by one frame size. <code>S</code>, <code>M</code>, the nudge keys, <code>Up</code> and <code>Down</code> act when exactly one mark is selected. <code>Up</code> selects the parent, and <code>Down</code> selects the first child. A shortcut does not act while the focus is in a field, a list or a dialog. The shortcut list has the title "Keyboard shortcuts", a "Close" button and the note "On macOS, use Cmd in place of Ctrl."</p>
+<ul>
+<li><strong>Keyboard order.</strong> <code>Tab</code> and <code>Shift+Tab</code> keep the browser order. Each layer is
+</li>
+</ul>
+<p>one Tab stop: the selected mark of the layer, else its first mark in view, else the layer track. So <code>Tab</code> goes from one layer to the next, then to "Play".</p>
+<ul>
+<li>On a mark that is not selected, <code>[</code> or <code>]</code> selects that mark. Then they move
+</li>
+</ul>
+<p>the selection along the layer. At the first or the last mark, the status line states "This is the first mark of the layer." or "This is the last mark of the layer."</p>
+<ul>
+<li>The first Tab stop of the editor is the link "Skip to the transport". It shows
+</li>
+</ul>
+<p>only when it has the focus. It moves the focus to "Play", or to the first control of the toolbar while the audio is not ready.</p>
+<ul>
+<li>On a button of the toolbar or the transport other than "Play", <code>Space</code> plays
+</li>
+</ul>
+<p>or pauses and does not press the button. <code>Enter</code> presses the button. A text field, a select, a dialog, a menu and a list keep their own <code>Space</code>.</p>
+<ul>
+<li>The help line adds "Press [ or ] to select the previous or the next mark."
+</li>
+</ul>
+<p>when one mark is selected.</p>
 <ul>
 <li><strong>Transport.</strong> "Loop" has the tooltip "Play the selection in a loop (L)". With
 </li>
 </ul>
 <p>more than one selected mark, the loop goes from the earliest start to the latest end. "Play speed" has "50%", "75%" and "100%", and the pitch does not change. "Frame size" has "25 ms" and "50 ms". A change of the frame size shows "The app moves every mark of this song to a multiple of 25 ms." (or 50 ms) with "Continue" and "Cancel", and it is one undo step. A song with no marks shows no dialog. "Undo" and "Redo" are buttons in the group "Undo and redo".</p>
+<ul>
+<li><strong>Mark buttons.</strong> The toolbar group "Mark" has "Split", "Merge with next",
+</li>
+</ul>
+<p>"Delete" and "Edit label". Each button runs the same action as its shortcut, on the selected mark. A click on a button keeps the focus on the mark. The tooltip of a button names the action and the shortcut:</p>
+<ul>
+<li>"Split the selected mark at the play cursor (S)"
+<ul>
+<li>"Merge the selected mark with the next mark (M)"
+</li>
+<li>"Delete the selected marks (Delete)"
+</li>
+<li>"Edit the label (Enter or F2)"
+</li>
+</ul>
+</li>
+<li><strong>A button that cannot act.</strong> It stays in the tab order with
+</li>
+</ul>
+<p><code>aria-disabled="true"</code> and a dim style. Its tooltip and its description state the reason, and then the shortcut in brackets. A click does nothing. The same rule applies to "Loop", the play speed, "Undo", "Redo", "Phrase" and "Add section". The reasons:</p>
+<p>| Button | Case | Reason | |---|---|---| | "Split", "Merge with next", "Edit label" | No mark or more than one mark is selected | "Select one mark first." | | "Delete" | No mark is selected | "Select a mark first." | | "Split" | The play cursor is outside the mark | "Move the play cursor into the mark. Then press S." | | "Split" | A part would be shorter than one frame size | "Move the play cursor away from the edge of the mark. Each part needs one frame size or more." | | "Merge with next" | The mark is the last mark of its layer | "This is the last mark of the layer." | | "Merge with next" | The next word is in another phrase | "The next word is in another phrase." | | "Merge with next" | The next phoneme is in another word | "The next phoneme is in another word." | | "Delete" | The only selected mark is the last phoneme of its word | "A word needs one phoneme or more. Delete the word." | | "Loop", "50%", "75%", "100%" | The audio is not ready | "The audio is not ready." | | "Undo" | The history has no step to undo | "No step to undo." | | "Redo" | The history has no step to redo | "No step to redo." | | "Loop" | No mark and no time range is selected | "Select a mark or a time range first." | | "Phrase" | The selection is not only phrases | "Select a phrase first." | | "Add section" | No time range is selected | "Drag on the waveform to select a time range first." |</p>
+<ul>
+<li><strong>Help line.</strong> The text depends on the selection:
+<ul>
+<li>No selected mark: "Click a mark to select it. Double-click a mark to change
+</li>
+</ul>
+</li>
+</ul>
+<p>its label. Double-click an empty place to add a mark."</p>
+<ul>
+<li>A selected phrase or word, or more than one selected mark: "Drag an edge to
+</li>
+</ul>
+<p>change the time. Drag the mark to move it."</p>
+<ul>
+<li>One selected phoneme: "Click the phoneme again to choose a mouth shape."
+<ul>
+<li>With no selected mark or one selected mark, the line adds "Hold Shift and
+</li>
+</ul>
+</li>
+</ul>
+<p>click to select more than one mark."</p>
+<ul>
+<li><strong>Status line.</strong> A key, a button or a drag that does nothing shows its reason
+</li>
+</ul>
+<p>in the status line. The reasons of the buttons are in the table above. The nudge keys and a drag add "The mark has no room to move." and "The edge of the mark has no room to move." The text goes away after 5 seconds, or at the next key or pointer press.</p>
+<ul>
+<li><strong>Typed times.</strong> The fields "Start" and "End" accept <code>m:ss.mmm</code> and plain
+</li>
+</ul>
+<p>seconds, for example "0:03.500" or "3.5". Seconds of 60 or more in <code>m:ss.mmm</code> add to the minutes. A wrong text shows one field error for each cause:</p>
+<ul>
+<li>Empty: "Type a time, for example 0:03.500 or 3.5."
+<ul>
+<li>A negative time: "Type a time of 0 or more."
+</li>
+<li>Any other text: "Use m:ss.mmm or seconds, for example 0:03.500 or 3.5."
+</li>
+<li>A time after the end of the song: "The song ends at &lt;time&gt;."
+</li>
+</ul>
+</li>
+</ul>
+<p>After <code>Enter</code>, the wrong text and the field error stay. When the focus leaves the field, the field shows the stored time again and the status line shows the error. When a rule changes a typed time, the field shows the time that the app stored, and the status line states "The app used &lt;time&gt;, &lt;rule&gt;." The rules: "a multiple of the frame size", "the edge of the parent mark", "the last frame of the song", "the shortest length of the adjacent mark", "the shortest length of the mark", "the edge of the first or the last word of the phrase".</p>
+<ul>
+<li><strong>Phoneme list.</strong> The list has a fixed position in the window, under the layer
+</li>
+</ul>
+<p>row, or over it when the window has no room under it. The stage does not scroll when the list opens.</p>
 <ul>
 <li><strong>Inspector.</strong> The region has the name "Inspector". "Face preview" shows the
 </li>
@@ -688,11 +833,20 @@ formatTime(ms: number): string                   // m:ss.mmm</code></pre>
 <tr><th>Case</th><th>Result</th></tr>
 <tr><td>Drag an edge past the parent edge</td><td>The edge stops at the parent edge.</td></tr>
 <tr><td>Drag a word body over the adjacent word</td><td>The word stops at the adjacent word. It does not jump over.</td></tr>
-<tr><td>Split with the play cursor outside the mark</td><td>The split action is disabled.</td></tr>
-<tr><td>Merge on the last mark of a layer</td><td>The merge action is disabled.</td></tr>
+<tr><td>Split with the play cursor outside the mark</td><td>"Split" and <code>S</code> do not act. The tooltip and the status line state "Move the play cursor into the mark. Then press S."</td></tr>
+<tr><td>Merge on the last mark of a layer</td><td>"Merge with next" and <code>M</code> do not act. The tooltip and the status line state "This is the last mark of the layer."</td></tr>
 <tr><td>Add a mark in a gap shorter than one frame size</td><td>The add action is disabled.</td></tr>
 <tr><td>Add a word outside any phrase</td><td>The app creates a phrase of the same range with the same label.</td></tr>
-<tr><td>Typed time that is not a number</td><td>Field error: "Use m:ss.mmm". The mark does not change.</td></tr>
+<tr><td>Typed time that is not a time</td><td>Field error: "Use m:ss.mmm or seconds, for example 0:03.500 or 3.5." The mark does not change.</td></tr>
+<tr><td>Typed time that is empty</td><td>Field error: "Type a time, for example 0:03.500 or 3.5."</td></tr>
+<tr><td>Typed time below 0</td><td>Field error: "Type a time of 0 or more."</td></tr>
+<tr><td>Typed time after the end of the song</td><td>Field error: "The song ends at &lt;time&gt;."</td></tr>
+<tr><td>Wrong typed time, then the focus leaves the field</td><td>The field shows the stored time. The status line shows the field error.</td></tr>
+<tr><td>Typed time that is not a multiple of the frame size</td><td>The field shows the snapped time. The status line states "The app used &lt;time&gt;, a multiple of the frame size."</td></tr>
+<tr><td>Typed time past a limit of the parent or of the adjacent mark</td><td>The field shows the limit. The status line states the time and the limit.</td></tr>
+<tr><td>Delete the last phoneme of a word</td><td>Nothing changes. The status line states "A word needs one phoneme or more. Delete the word."</td></tr>
+<tr><td>Drag or nudge a mark that touches both neighbours</td><td>Nothing changes. The status line states "The mark has no room to move."</td></tr>
+<tr><td>Open the phoneme list</td><td>The stage keeps its scroll position.</td></tr>
 <tr><td>Empty label on a phrase or a word</td><td>The app keeps the old label.</td></tr>
 <tr><td>Audio missing</td><td>Play controls are disabled. Edits work.</td></tr>
 <tr><td>3 000 marks in view</td><td>Scroll and zoom stay at 60 frames per second. The editor draws only the marks in view.</td></tr>
@@ -701,7 +855,9 @@ formatTime(ms: number): string                   // m:ss.mmm</code></pre>
 <tr><td>The app cannot read the run data of the song</td><td>The place of the group "Audio tracks" shows "The app could not read the run report and the separated tracks of this song. Reload the page." The "Run report" action is disabled, with the same text as its tooltip.</td></tr>
 <tr><td>The play of a track stops for another cause, for example a quick pause</td><td>No message. The next check starts the track again.</td></tr>
 <tr><td>A phrase edit changes the times of a singer row during play</td><td>The track keeps its play. The muted "Song" stays muted. The row uses the new times.</td></tr>
-<tr><td>A voice of a singer row has a new name or is deleted</td><td>The row of that voice does not show.</td></tr>
+<tr><td>A voice of a singer row has a new name</td><td>The row shows the new name with the same ranges. The other rows do not change.</td></tr>
+<tr><td>A voice of a singer row is deleted</td><td>The row of that voice does not show, and its ranges go to no other row. An undo of the delete brings the row back.</td></tr>
+<tr><td>Run data from before issue #173 and a renamed or deleted voice</td><td>The row of that voice does not show.</td></tr>
 </table></div>
 <h3 id="timeline-editor-acceptance-criteria">Acceptance criteria</h3>
 <ul>
@@ -780,8 +936,58 @@ formatTime(ms: number): string                   // m:ss.mmm</code></pre>
 </ul>
 <p>12 350 ms. (FR-editor-28)</p>
 <ul>
+<li>A typed "3.5" sets 3 500 ms. (FR-editor-44)
+</li>
+<li>A typed "0:99.000" on the demo song shows "The song ends at 0:28.900."
+</li>
+</ul>
+<p>(FR-editor-44)</p>
+<ul>
+<li><code>S</code> outside the mark, <code>M</code> on the last mark, <code>Delete</code> on the last phoneme of a
+</li>
+</ul>
+<p>word and a drag with no room each show their reason in the status line. (FR-editor-43)</p>
+<ul>
+<li>The scroll position of the stage is the same before and after the phoneme list
+</li>
+</ul>
+<p>opens. (FR-editor-46)</p>
+<ul>
+<li>The count of <code>Tab</code> presses from the page top to "Play" does not change with the
+</li>
+</ul>
+<p>count of marks. (FR-editor-47)</p>
+<ul>
+<li><code>Tab</code> to the word layer, then <code>]</code>, selects each word in turn. (FR-editor-48)
+</li>
+<li><code>Tab</code> to "Skip to the transport" and <code>Enter</code> give "Play" the focus.
+</li>
+</ul>
+<p>(FR-editor-49)</p>
+<ul>
+<li>After a click on "75%", <code>Space</code> starts the play. (FR-editor-50)
+</li>
+<li>The shortcut list and the shortcut rules of this file name the same keys.
+</li>
+</ul>
+<p>(FR-editor-29)</p>
+<ul>
 <li><code>?</code> opens the shortcut list, and <code>Escape</code> closes it. (FR-editor-29)
 </li>
+<li>A person splits, merges and deletes a mark with the mouse only. (FR-editor-38)
+</li>
+<li>A disabled "Split", "Merge with next" or "Delete" states its reason in a tooltip
+</li>
+</ul>
+<p>for the play cursor outside the mark, the last mark of a layer and the last phoneme of a word. (FR-editor-39)</p>
+<ul>
+<li>"Shortcuts" in the top bar opens the shortcut list. (FR-editor-40)
+</li>
+<li>The help line shows its text for no selection, a selected word and a selected
+</li>
+</ul>
+<p>phoneme. (FR-editor-41)</p>
+<ul>
 <li>After a run with separation, the rows "Vocals" and "Instruments" show, each with
 </li>
 </ul>
@@ -814,18 +1020,18 @@ formatTime(ms: number): string                   // m:ss.mmm</code></pre>
 <li>With "Solo" on "Vocals", the "Song" row shows that it is silent and why.
 </li>
 </ul>
-<p>(FR-editor-38)</p>
+<p>(FR-editor-51)</p>
 <ul>
 <li>No row shows "Mute" and "Solo" pressed together. (FR-editor-33, 34)
 </li>
-<li>The folded group names the rows that sound. (FR-editor-39)
+<li>The folded group names the rows that sound. (FR-editor-52)
 </li>
 <li>No row name covers a waveform. (FR-editor-31)
 </li>
 <li>A failed read of the run data shows its cause in the place of the group.
 </li>
 </ul>
-<p>(FR-editor-40)</p>
+<p>(FR-editor-53)</p>
 <ul>
 <li>A changed phrase label shows the confirm dialog, and confirm rebuilds the words.
 </li>

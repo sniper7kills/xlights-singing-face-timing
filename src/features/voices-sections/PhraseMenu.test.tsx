@@ -1,4 +1,4 @@
-import { render, screen, waitFor, within } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { OTHER_VOICE, testContent, VOICE } from '../../lib/marks/fixtures.test-helpers.ts'
@@ -53,10 +53,14 @@ beforeEach(() => {
 describe('PhraseMenu', () => {
   it('disables the button with no selection or with a selected word', () => {
     render(<PhraseMenu />)
-    expect(phraseButton()).toBeDisabled()
+    expect(phraseButton()).toHaveAttribute('aria-disabled', 'true')
+    expect(phraseButton()).toHaveAttribute('title', 'Select a phrase first.')
+    expect(phraseButton()).toHaveAccessibleDescription('Select a phrase first.')
 
-    useViewStore.getState().selectMarks(['p1', 'w1'])
-    expect(phraseButton()).toBeDisabled()
+    act(() => useViewStore.getState().selectMarks(['p1', 'w1']))
+    expect(phraseButton()).toHaveAttribute('aria-disabled', 'true')
+    fireEvent.click(phraseButton())
+    expect(screen.queryByRole('menu')).toBeNull()
   })
 
   it('lists the other voices and "New voice", with no source voice', async () => {

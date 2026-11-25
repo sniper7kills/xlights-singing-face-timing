@@ -68,6 +68,7 @@ function controlInRow(
 export function LayerRow({ name, layer, voiceId, marks, scale }: LayerRowProps) {
   const nameId = useId()
   const track = useRef<HTMLUListElement>(null)
+  const control = useRef<HTMLDivElement>(null)
   const focusTrack = useMarkUiStore((ui) => ui.focusId === layerFocusId(voiceId, layer))
 
   useEffect(() => {
@@ -82,7 +83,7 @@ export function LayerRow({ name, layer, voiceId, marks, scale }: LayerRowProps) 
     layer,
     voiceId,
   )
-  // `Tab` reaches the selected mark of the layer, or else the first mark in view.
+  // `Tab` reaches the selected mark of the layer, or else the first mark in view, so the layer is one Tab stop.
   const tabStopId = marks.find((mark) => selectedMarkIds.includes(mark.id))?.id ?? marks[0]?.id
 
   function onEmptyClick(event: MouseEvent<HTMLUListElement>) {
@@ -111,8 +112,9 @@ export function LayerRow({ name, layer, voiceId, marks, scale }: LayerRowProps) 
           ref={track}
           className="layer-track"
           aria-labelledby={nameId}
-          // A cancelled add gives the focus back to the track. The track is not a Tab stop.
-          tabIndex={-1}
+          // Each layer is one Tab stop: a mark of the layer, or the track when no mark is in view.
+          // A cancelled add also gives the focus back to the track.
+          tabIndex={tabStopId === undefined ? 0 : -1}
           onClick={onEmptyClick}
           onDoubleClick={onEmptyDoubleClick}
         >
@@ -122,6 +124,7 @@ export function LayerRow({ name, layer, voiceId, marks, scale }: LayerRowProps) 
         </ul>
         {open && (
           <div
+            ref={control}
             className="label-control"
             style={{ left: `${Math.max(0, rangeToPx(scale, open.range).leftPx)}px` }}
           >
@@ -137,6 +140,7 @@ export function LayerRow({ name, layer, voiceId, marks, scale }: LayerRowProps) 
                 current={open.label}
                 onChoose={(label) => choosePhoneme(open.target, label)}
                 onClose={(refocus) => closeLabel(open.target, refocus)}
+                anchor={control}
               />
             )}
           </div>

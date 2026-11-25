@@ -9,11 +9,18 @@ export interface CustomDictionaryLine {
   readonly symbols: string
 }
 
-/** The result of a parse: one entry for each word, in file order, and the numbers of the bad lines. */
+/** One bad line of a custom dictionary file and the cause that the import report shows. */
+export interface SkippedLine {
+  /** The line number. The first line of the file is line 1. */
+  readonly line: number
+  /** The cause, as a sentence that follows "Line <number>: ", for example `no symbols.` */
+  readonly reason: string
+}
+
+/** The result of a parse: one entry for each word, in file order, and the bad lines in file order. */
 export interface ParsedCustomDictionary {
   readonly entries: CustomDictionaryLine[]
-  /** The line numbers of the bad lines. The first line of the file is line 1. */
-  readonly skippedLines: number[]
+  readonly skipped: SkippedLine[]
 }
 
 /** The longest word that a custom entry can have. */
@@ -52,40 +59,53 @@ export function entryKey(word: string): string | undefined {
 }
 
 /**
- * Returns the custom entries of a custom dictionary file and the numbers of the lines that it skips.
+ * Returns the custom entries of a custom dictionary file and the lines that it skips, each with its cause.
  *
  * The rules:
  * - One entry for each line: the word, two spaces, then the CMU symbols separated by one space.
  * - A line that starts with `;;;` is a comment. An empty line has no entry. Neither one is a bad line.
  * - The parse changes lower case to upper case, so `rudolph  r uw1` gives `RUDOLPH  R UW1`.
  * - The parse normalises the word, so `RUDOLPH!` gives `RUDOLPH`.
- * - A line with a bad CMU symbol or other spaces is a bad line.
- * - A line is a bad line when its normalised word has no letter and no digit, has only digits, or has more than 40 characters.
+ * - A bad line has one of these causes, in this order of check:
+ *   - The line has a word and no symbols: `no symbols.`
+ *   - The line has other spaces: `use two spaces after the word and one space between the symbols.`
+ *   - The normalised word has no letter, for example `123` or `'`: `the word has no letter.`
+ *   - The normalised word has more than 40 characters: `the word has more than 40 characters.`
+ *   - An item is not a CMU symbol: `“ZZ” is not a symbol.`
  * - If two lines give the same word, the later line wins and the file has one entry for the word.
  *
  * @param text The text of the file. Lines end with LF or CR LF.
  */
 export function parseCustomDictionary(text: string): ParsedCustomDictionary {
   const symbolsByWord = new Map<string, string>()
-  const skippedLines: number[] = []
+  const skipped: SkippedLine[] = []
   text.split(/\r?\n/).forEach((line, index) => {
     if (line.trim() === '' || line.startsWith(COMMENT)) return
-    const match = ENTRY_LINE.exec(line.toUpperCase())
-    const word = match?.[1] === undefined ? undefined : entryKey(match[1])
-    const symbols = match?.[2]
-    if (
-      word === undefined ||
-      symbols === undefined ||
-      word.length > MAX_WORD_LENGTH ||
-      !validateSymbols(symbols).ok
-    ) {
-      skippedLines.push(index + 1)
-      return
-    }
-    symbolsByWord.set(word, symbols)
+    const result = parseLine(line)
+    if ('reason' in result) skipped.push({ line: index + 1, reason: result.reason })
+    else symbolsByWord.set(result.word, result.symbols)
   })
   const entries = Array.from(symbolsByWord, ([word, symbols]) => ({ word, symbols }))
-  return { entries, skippedLines }
+  return { entries, skipped }
+}
+
+/** Returns the entry of one line that is not empty and not a comment, or the cause that the line is bad. */
+function parseLine(line: string): CustomDictionaryLine | { reason: string } {
+  const upper = line.toUpperCase()
+  const match = ENTRY_LINE.exec(upper)
+  if (match?.[1] === undefined || match[2] === undefined) {
+    return {
+      reason: /^\s*\S+\s*$/.test(upper)
+        ? 'no symbols.'
+        : 'use two spaces after the word and one space between the symbols.',
+    }
+  }
+  const word = entryKey(match[1])
+  if (word === undefined) return { reason: 'the word has no letter.' }
+  if (word.length > MAX_WORD_LENGTH) return { reason: 'the word has more than 40 characters.' }
+  const symbols = match[2]
+  const valid = validateSymbols(symbols)
+  return valid.ok ? { word, symbols } : { reason: `“${valid.bad}” is not a symbol.` }
 }
 
 /**

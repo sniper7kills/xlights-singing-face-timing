@@ -236,3 +236,87 @@ test('each row shows whether it sounds, and its name sits above its waveform', a
   await expect(page.getByRole('heading', { level: 2, name: 'silent-night' })).toBeVisible()
   await expect(page.getByTestId('track-plays')).toHaveText('— plays: Vocals')
 })
+
+/** Returns the image of the waveform canvas of each singer row, by row id. */
+async function singerImages(page: Page): Promise<Record<string, string>> {
+  return (await page.evaluate(`Object.fromEntries(
+    [...document.querySelectorAll('.track-row[data-row^="singer:"]')].map((row) => [
+      row.dataset.row,
+      row.querySelector('canvas')?.toDataURL() ?? '',
+    ]),
+  )`)) as Record<string, string>
+}
+
+/** Waits until the singer rows draw the same images on two reads in a row, and returns them. */
+async function stableImages(page: Page): Promise<Record<string, string>> {
+  let last = await singerImages(page)
+  await expect
+    .poll(async () => {
+      const next = await singerImages(page)
+      const same = JSON.stringify(next) === JSON.stringify(last)
+      last = next
+      return same
+    })
+    .toBe(true)
+  return last
+}
+
+async function voiceMenu(page: Page, voice: string, item: string) {
+  const rail = page.getByRole('complementary', { name: 'Voices' })
+  await rail.getByRole('button', { name: `Actions for ${voice}`, exact: true }).click()
+  await rail
+    .getByRole('menu', { name: `Actions for ${voice}` })
+    .getByRole('menuitem', { name: item, exact: true })
+    .click()
+}
+
+async function reportVoiceNames(page: Page): Promise<string[]> {
+  await page.locator('.editor-top').getByRole('button', { name: 'Run report' }).click()
+  const panel = page.getByRole('dialog', { name: 'Run report' })
+  const table = panel.getByRole('table', { name: 'The voices that hold phrases of the run' })
+  await expect(table).toBeVisible()
+  const names = await table.locator('tbody tr > :first-child').allInnerTexts()
+  await page.keyboard.press('Escape')
+  await expect(panel).toBeHidden()
+  return names
+}
+
+test('a renamed singer voice keeps its row and its ranges, and a deleted one loses its row until an undo', async ({
+  page,
+}) => {
+  await createSong(page)
+  await transcribeSeparated(page, '2')
+  const group = page.getByRole('group', { name: 'Audio tracks' })
+  const singerRows = group.locator('.track-row[data-row^="singer:"]')
+  await expect(singerRows).toHaveCount(2, { timeout: 20_000 })
+  const before = await stableImages(page)
+
+  await voiceMenu(page, 'Singer 2', 'Rename')
+  const field = page.getByRole('textbox', { name: 'Voice name' })
+  await field.fill('Test Alto')
+  await field.press('Enter')
+
+  await expect(group.getByRole('button', { name: 'Mute Test Alto', exact: true })).toBeVisible()
+  await expect(group.getByRole('button', { name: 'Mute Lead Vocals', exact: true })).toBeVisible()
+  // The same rows draw the same ranges in the same colours: only the name changed.
+  expect(await stableImages(page)).toEqual(before)
+  expect(await reportVoiceNames(page)).toEqual(['Lead Vocals', 'Test Alto'])
+
+  await voiceMenu(page, 'Test Alto', 'Delete')
+  await page
+    .getByRole('dialog', { name: 'The app deletes “Test Alto” and its marks.' })
+    .getByRole('button', { name: 'Delete', exact: true })
+    .click()
+
+  await expect(singerRows).toHaveCount(1)
+  const afterDelete = await stableImages(page)
+  // The row of "Lead Vocals" does not take the ranges of the deleted voice.
+  expect(Object.keys(afterDelete)).toHaveLength(1)
+  for (const [id, image] of Object.entries(afterDelete)) expect(image).toBe(before[id])
+  expect(await reportVoiceNames(page)).toEqual(['Lead Vocals', 'Singer 2 (deleted)'])
+
+  await page.keyboard.press('ControlOrMeta+z')
+
+  await expect(group.getByRole('button', { name: 'Mute Test Alto', exact: true })).toBeVisible()
+  expect(await stableImages(page)).toEqual(before)
+})

@@ -14,7 +14,7 @@ describe('customDictionaryFile', () => {
   it('gives the same entries after a write and a parse', () => {
     expect(parseCustomDictionary(writeCustomDictionary(ENTRIES))).toEqual({
       entries: ENTRIES,
-      skippedLines: [],
+      skipped: [],
     })
   })
 
@@ -28,7 +28,7 @@ describe('customDictionaryFile', () => {
   it('writes only the comment line for no entries', () => {
     expect(parseCustomDictionary(writeCustomDictionary([]))).toEqual({
       entries: [],
-      skippedLines: [],
+      skipped: [],
     })
   })
 
@@ -37,7 +37,7 @@ describe('customDictionaryFile', () => {
 
     expect(parseCustomDictionary(text)).toEqual({
       entries: [ENTRIES[0]],
-      skippedLines: [],
+      skipped: [],
     })
   })
 
@@ -45,7 +45,7 @@ describe('customDictionaryFile', () => {
     expect(parseCustomDictionary('rudolph  r uw1 d aa0 l f').entries).toEqual([ENTRIES[0]])
   })
 
-  it('skips bad lines and reports their line numbers', () => {
+  it('skips bad lines and reports the line number and the cause of each', () => {
     const text = [
       ';;; comment',
       'RUDOLPH  R UW1 D AA0 L F',
@@ -55,11 +55,22 @@ describe('customDictionaryFile', () => {
       'PRANCER  P R AE1  N S ER0',
       `${'A'.repeat(41)}  AH0`,
       'ZXQV  Z',
+      'COMET',
+      'CUPID  ',
     ].join('\n')
+    const spaces = 'use two spaces after the word and one space between the symbols.'
 
     expect(parseCustomDictionary(text)).toEqual({
       entries: [ENTRIES[0], { word: 'ZXQV', symbols: 'Z' }],
-      skippedLines: [3, 4, 5, 6, 7],
+      skipped: [
+        { line: 3, reason: spaces },
+        { line: 4, reason: '“XX” is not a symbol.' },
+        { line: 5, reason: spaces },
+        { line: 6, reason: spaces },
+        { line: 7, reason: 'the word has more than 40 characters.' },
+        { line: 9, reason: 'no symbols.' },
+        { line: 10, reason: 'no symbols.' },
+      ],
     })
   })
 
@@ -69,10 +80,11 @@ describe('customDictionaryFile', () => {
 
   it('skips a line whose word has no letter and reports its line number', () => {
     const text = ['--  T', '12  T', "'  T", "''  T", 'ZXQV  Z'].join('\n')
+    const reason = 'the word has no letter.'
 
     expect(parseCustomDictionary(text)).toEqual({
       entries: [{ word: 'ZXQV', symbols: 'Z' }],
-      skippedLines: [1, 2, 3, 4],
+      skipped: [1, 2, 3, 4].map((line) => ({ line, reason })),
     })
   })
 
@@ -81,7 +93,7 @@ describe('customDictionaryFile', () => {
 
     expect(parseCustomDictionary(text)).toEqual({
       entries: [{ word: 'A'.repeat(40), symbols: 'AH0' }],
-      skippedLines: [1],
+      skipped: [{ line: 1, reason: 'the word has more than 40 characters.' }],
     })
   })
 
@@ -93,7 +105,7 @@ describe('customDictionaryFile', () => {
         { word: 'RUDOLPH', symbols: 'R UW1 D UW0' },
         { word: 'ZXQV', symbols: 'Z' },
       ],
-      skippedLines: [],
+      skipped: [],
     })
   })
 

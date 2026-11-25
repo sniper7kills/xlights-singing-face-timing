@@ -218,7 +218,10 @@ describe('EditorPage', () => {
   it('opens the run report from the link in the toast after a run', async () => {
     const user = userEvent.setup()
     const { song } = await renderEditor()
-    expect(screen.getByRole('button', { name: 'Run report' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Run report' })).toHaveAttribute(
+      'aria-disabled',
+      'true',
+    )
     vi.mocked(runTranscription).mockImplementation(async () => {
       await db.saveRunData({ songId: song.id, singerSegments: [], report: RUN_REPORT })
       return { wordCount: 214, estimatedCount: 9, runData: 'stored', breakDownFailure: null }
@@ -262,7 +265,7 @@ describe('EditorPage', () => {
       if (toast === null) throw new Error('The toast has no container.')
       // The top bar action reads the same stored report, so the read has ended when it is enabled.
       const [topBar] = screen.getAllByRole('button', { name: 'Run report' })
-      await vi.waitFor(() => expect(topBar).toBeEnabled())
+      await vi.waitFor(() => expect(topBar).not.toHaveAttribute('aria-disabled'))
       await new Promise((resolve) => setTimeout(resolve, 50))
       expect(within(toast).queryByRole('button', { name: 'Run report' })).toBeNull()
     },
@@ -391,14 +394,37 @@ describe('EditorPage', () => {
     expect(bar.getByRole('button', { name: 'Export' })).toBeInTheDocument()
   })
 
-  it('shows the "Transcribe", "Run report", "Custom dictionary" and "Export" actions in this order in the top bar', async () => {
+  it('shows the "Transcribe", "Run report", "Custom dictionary", "Export" and "Shortcuts" actions in this order in the top bar', async () => {
     await renderEditor()
     const bar = screen.getByRole('heading', { level: 2 }).parentElement ?? document.body
 
     const names = within(bar)
       .getAllByRole('button')
       .map((button) => button.textContent)
-    expect(names).toEqual(['Transcribe', 'Run report', 'Custom dictionary', 'Export'])
+    expect(names).toEqual(['Transcribe', 'Run report', 'Custom dictionary', 'Export', 'Shortcuts'])
+  })
+
+  it('makes "Skip to the transport" the first Tab stop, and moves the focus to the toolbar while the audio is not ready', async () => {
+    const user = userEvent.setup()
+    await renderEditor()
+
+    await user.tab()
+    const skip = screen.getByRole('link', { name: 'Skip to the transport' })
+    expect(skip).toHaveFocus()
+    await user.keyboard('{Enter}')
+
+    const toolbar = screen.getByRole('toolbar', { name: 'Editor tools' })
+    expect(toolbar).toContainElement(document.activeElement as HTMLElement)
+    expect(window.location.hash).not.toBe('#transport')
+  })
+
+  it('opens the shortcut list with the "Shortcuts" button of the top bar', async () => {
+    const user = userEvent.setup()
+    await renderEditor()
+
+    await user.click(screen.getByRole('button', { name: 'Shortcuts' }))
+
+    expect(screen.getByRole('dialog', { name: 'Keyboard shortcuts' })).toBeInTheDocument()
   })
 
   it('shows no "Transcribe" button in the empty state of the layers for a song with no voice', async () => {
@@ -515,6 +541,35 @@ describe('EditorPage', () => {
 
       expect(useSongStore.getState().current).toBeNull()
       await vi.waitFor(async () => expect((await loadSong(song.id))?.song.name).toBe('noel'))
+    } finally {
+      stopAutosave()
+    }
+  })
+
+  it('opens the song library from the back link only after the save of a pending change ends', async () => {
+    const stopAutosave = startAutosave()
+    try {
+      const { song } = await renderEditor()
+      window.location.hash = `#/song/${song.id}`
+      let endSave: () => void = () => undefined
+      const save = vi.spyOn(db, 'saveSong').mockImplementationOnce(
+        (content) =>
+          new Promise((resolve) => {
+            endSave = () => resolve(content.song)
+          }),
+      )
+      act(() =>
+        useSongStore
+          .getState()
+          .apply((content) => ({ ...content, song: { ...content.song, name: 'noel' } })),
+      )
+
+      await userEvent.click(screen.getByRole('link', { name: 'Back to song library' }))
+
+      expect(save).toHaveBeenCalledTimes(1)
+      expect(window.location.hash).toBe(`#/song/${song.id}`)
+      act(() => endSave())
+      await vi.waitFor(() => expect(window.location.hash).toBe(LIBRARY_HASH))
     } finally {
       stopAutosave()
     }

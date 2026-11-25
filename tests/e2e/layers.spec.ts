@@ -1,6 +1,13 @@
 import { expect, test } from '@playwright/test'
 import { makeTimeScale, msToPx } from '../../src/features/timeline-editor/timeScale.ts'
 
+/** Returns the pattern of a mark tooltip: the label on the first line, then the start and the end. */
+function markTitle(label: string): RegExp {
+  return new RegExp(
+    `^${label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\n\\d+:\\d{2}\\.\\d{3} to \\d+:\\d{2}\\.\\d{3}$`,
+  )
+}
+
 // The demo song: public/demo/silent-night.marks.json.
 const DEMO_DURATION_MS = 28_900
 const FIRST_WORD_START_MS = 100
@@ -18,7 +25,7 @@ test('shows the marks of the demo song on the three layers on the time scale of 
   await expect(phrases).toHaveCount(3)
   await expect(words).toHaveCount(16)
   await expect(phonemes).toHaveCount(51)
-  await expect(phrases.first()).toHaveAttribute('title', 'Silent night, holy night')
+  await expect(phrases.first()).toHaveAttribute('title', markTitle('Silent night, holy night'))
   await expect(words.first()).toHaveText('Silent')
 
   const region = page.getByRole('region', { name: 'Waveform' })

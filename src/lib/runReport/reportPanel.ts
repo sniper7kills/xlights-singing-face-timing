@@ -4,6 +4,7 @@ import { safeFileName } from '../xtiming/names.ts'
 import {
   divisionRuleText,
   knownYesNo,
+  type NamedVoice,
   phraseRuleText,
   type ReportSeparationModel,
   type RunReport,
@@ -11,6 +12,7 @@ import {
   selectedSingersText,
   type StepDurations,
   stepTimes,
+  type VoicePhrases,
 } from './runReport.ts'
 import { singerSummary } from './singerSummary.ts'
 
@@ -316,7 +318,17 @@ function singerSection(singers: SingerSection): PanelSection {
   })
 }
 
-function voiceSection(report: RunReport): PanelSection {
+/**
+ * Returns the name of a voice of the report as the panel shows it.
+ * A voice with an id shows its present name, or its name in the report with " (deleted)" when the song no longer has it.
+ * A report from before issue #173 has no id, so the panel shows the name in the report.
+ */
+function voiceName(voice: VoicePhrases, present: readonly NamedVoice[] | undefined): string {
+  if (voice.voiceId === undefined || present === undefined) return voice.name
+  return present.find((entry) => entry.id === voice.voiceId)?.name ?? `${voice.name} (deleted)`
+}
+
+function voiceSection(report: RunReport, present: readonly NamedVoice[] | undefined): PanelSection {
   if (report.voices.length === 0)
     return section('Voices', { text: 'No voice holds phrases of the run.' })
   return section('Voices', {
@@ -325,7 +337,7 @@ function voiceSection(report: RunReport): PanelSection {
         caption: 'The voices that hold phrases of the run',
         columns: ['Voice', 'Phrases', 'Made by the run'],
         rows: report.voices.map((voice) => [
-          voice.name,
+          voiceName(voice, present),
           String(voice.phraseCount),
           voice.made === true ? 'yes' : 'no',
         ]),
@@ -358,17 +370,20 @@ function noteSection(report: RunReport): PanelSection {
  * Each value holds its unit. The sections hold no label of a mark.
  * @param report The stored report of a run.
  * @param formatDate Returns the start time as a text. The default is the local time of the person.
+ * @param voices The present voices of the song. The Voices section shows the present name of each voice of the run.
+ * Without it, the section shows the names in the report.
  */
 export function reportPanel(
   report: RunReport,
   formatDate: (iso: string) => string = (iso) => formatStartTime(iso),
+  voices?: readonly NamedVoice[],
 ): PanelSection[] {
   return [
     runSection(report, formatDate),
     stepSection(report.durationsMs),
     separationSection(report),
     singerSection(report.singers),
-    voiceSection(report),
+    voiceSection(report, voices),
     markSection(report),
     noteSection(report),
   ]

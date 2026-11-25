@@ -176,8 +176,8 @@ describe('voicePhrases', () => {
         ['b'],
       ),
     ).toEqual([
-      { name: 'Lead', phraseCount: 1, made: false },
-      { name: 'Harmony', phraseCount: 1, made: true },
+      { name: 'Lead', voiceId: 'a', phraseCount: 1, made: false },
+      { name: 'Harmony', voiceId: 'b', phraseCount: 1, made: true },
     ])
   })
 })

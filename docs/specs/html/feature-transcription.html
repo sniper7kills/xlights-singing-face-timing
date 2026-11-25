@@ -816,23 +816,50 @@ body.rv-open .layout { padding-right:21rem; }
 </li>
 </ul>
 <p>time do not show.</p>
+<h4 id="transcription-voices-of-the-last-run-issues-173-and-174">Voices of the last run (issues #173 and #174)</h4>
 <ul>
-<li>FR-transcribe-146 — The "Singers" section of the run report starts with a
+<li>FR-transcribe-146 — The run data stores the id of each voice that the run wrote
+</li>
+</ul>
+<p>marks to, with the singer numbers of that voice.</p>
+<ul>
+<li>FR-transcribe-147 — The run report panel shows the present name of each voice of
+</li>
+</ul>
+<p>the run. It shows "&lt;name&gt; (deleted)" for a voice that the song no longer has. The stored report does not change.</p>
+<ul>
+<li>FR-transcribe-148 — A run with "Put each singer on its own voice" replaces the
+</li>
+</ul>
+<p>marks in the range of each voice that the singer step of the last run added, also after a rename.</p>
+<ul>
+<li>FR-transcribe-149 — The replace question names each voice that loses marks, and
+</li>
+</ul>
+<p>its count is the sum of the marks of those voices.</p>
+<ul>
+<li>FR-transcribe-150 — A run with no singer step leaves the singer voices of the last
+</li>
+</ul>
+<p>run as they are, and the replace question states it.</p>
+<h4 id="transcription-summary-of-the-run-report-issue-176">Summary of the run report (issue #176)</h4>
+<ul>
+<li>FR-transcribe-151 — The "Singers" section of the run report starts with a
 </li>
 </ul>
 <p>summary in plain words: the result, the most probable reason and the next action.</p>
 <ul>
-<li>FR-transcribe-147 — The numbers for a bug report are in a part that folds, with
+<li>FR-transcribe-152 — The numbers for a bug report are in a part that folds, with
 </li>
 </ul>
 <p>one sentence for each term.</p>
 <ul>
-<li>FR-transcribe-148 — The copied text of the run report starts with the summary,
+<li>FR-transcribe-153 — The copied text of the run report starts with the summary,
 </li>
 </ul>
 <p>and has the labels and the units of the panel.</p>
 <ul>
-<li>FR-transcribe-149 — The toast hides while the run report panel is open.
+<li>FR-transcribe-154 — The toast hides while the run report panel is open.
 </li>
 </ul>
 <h3 id="transcription-user-flows">User flows</h3>
@@ -1053,6 +1080,16 @@ body.rv-open .layout { padding-right:21rem; }
 </li>
 </ul>
 <p>&lt;end&gt;." with "Continue" and "Cancel". The count is the count of marks of the voice on all layers that overlap the range. The same rule decides that the dialog asks. The times have the form <code>0:01.500</code>. For one mark, the text reads "the 1 mark".</p>
+<ul>
+<li>confirm with the singer voices of the last run (FR-transcribe-149): "The run
+</li>
+</ul>
+<p>replaces &lt;n&gt; marks from &lt;start&gt; to &lt;end&gt;: the marks of "&lt;voice name&gt;", and the marks of "Singer 2" and "Singer 3" from the last run." <code>&lt;n&gt;</code> is the sum of the marks of all named voices. The text names only a singer voice with a mark that overlaps the range. Three names or more read "Singer 2", "Singer 3" and "Singer 4". For one mark, the text reads "1 mark".</p>
+<ul>
+<li>confirm for a run with no singer step on a song with singer voices of the last
+</li>
+</ul>
+<p>run (FR-transcribe-150): the text adds "The voices of the last singer step do not change."</p>
 <ul>
 <li>question: while the dialog asks, the progress area shows no text and no bar,
 </li>
@@ -1442,6 +1479,40 @@ body.rv-open .layout { padding-right:21rem; }
 </li>
 </ul>
 </li>
+<li><strong>Singer voices of the last run</strong> (issue #174):
+<ul>
+<li>The singer voices of the last run are the voices that the singer step of the
+</li>
+</ul>
+</li>
+</ul>
+<p>last run added and that the song still has. The app finds them by the voice ids of the run data, so a renamed voice is still such a voice. Run data from before issue #173 has no ids, so the app finds them by the names in the report.</p>
+<ul>
+<li>The voice of the new run is never a singer voice of the last run, also when
+</li>
+</ul>
+<p>the last run added it.</p>
+<ul>
+<li>A speech model run with "Put each singer on its own voice" replaces the marks
+</li>
+</ul>
+<p>in the range of each singer voice of the last run, by the range rules above. Marks that the person added by hand inside the range go too.</p>
+<ul>
+<li>A singer voice of the last run with no mark left after the replace goes. So
+</li>
+</ul>
+<p>the singer step of the run can use the name "Singer 2" again. A singer voice with marks outside the range stays, and the new singer voices get the next free names.</p>
+<ul>
+<li>The replace of all voices and the removed voices are one undo step with the
+</li>
+</ul>
+<p>marks of the run. The undo steps of the run in order are: the singer step, the sections of the tags, then the marks with the replace. Each undo restores the song exactly, with the ids, the order, the colours and the mute state of each voice.</p>
+<ul>
+<li>A run with no singer step leaves the singer voices of the last run as they
+</li>
+</ul>
+<p>are. A lyrics-only run has no singer step.</p>
+<ul>
 <li>The worker handles one run at a time. The "Transcribe" action is disabled during
 </li>
 </ul>
@@ -1494,10 +1565,15 @@ body.rv-open .layout { padding-right:21rem; }
 </ul>
 <h3 id="transcription-data-touched">Data touched</h3>
 <ul>
-<li>Writes <code>RUN_DATA</code> for the song at the end of each completed run: the audio
+<li>Writes <code>RUN_DATA</code> for the song at the end of each completed run: the voices of
 </li>
 </ul>
-<p>tracks, the singer ranges and the run report. A new run replaces the full record.</p>
+<p>the run, the audio tracks, the singer ranges and the run report. A new run replaces the full record.</p>
+<ul>
+<li>Reads <code>RUN_DATA</code> before the replace question, for the singer voices of the last
+</li>
+</ul>
+<p>run.</p>
 <ul>
 <li>Reads and writes <code>APP_SETTINGS.keepTracks</code>, the last choice of "Keep the separated
 </li>
@@ -2101,22 +2177,22 @@ spreadLyrics(lyrics: string, startMs: number, endMs: number): AlignedPhrase[]</c
 <li>A report of a run that gave one voice with the singer option states the probable
 </li>
 </ul>
-<p>reason and the next action in its first lines. (FR-transcribe-146)</p>
+<p>reason and the next action in its first lines. (FR-transcribe-151)</p>
 <ul>
 <li>Each term of the details part has one sentence that explains it.
 </li>
 </ul>
-<p>(FR-transcribe-147)</p>
+<p>(FR-transcribe-152)</p>
 <ul>
 <li>The labels and units of the copied text are the same as in the panel.
 </li>
 </ul>
-<p>(FR-transcribe-148)</p>
+<p>(FR-transcribe-153)</p>
 <ul>
 <li>The toast stays 20 seconds or more, and it does not cover the panel.
 </li>
 </ul>
-<p>(FR-transcribe-84, 149)</p>
+<p>(FR-transcribe-84, 154)</p>
 <ul>
 <li>"Copy report" puts text with the singer section and no word of the lyrics on the
 </li>
@@ -2179,6 +2255,21 @@ spreadLyrics(lyrics: string, startMs: number, endMs: number): AlignedPhrase[]</c
 </li>
 </ul>
 <p><code>tracks/instruments.wav</code> and <code>report.txt</code>. (FR-transcribe-115)</p>
+<ul>
+<li>After a rename of "Singer 2" to "Test Alto", the Voices table of the run report
+</li>
+</ul>
+<p>panel shows "Test Alto". After a delete, it shows "Singer 2 (deleted)". (FR-transcribe-146, 147)</p>
+<ul>
+<li>A second run with the singer step asks "The run replaces &lt;n&gt; marks from &lt;start&gt;
+</li>
+</ul>
+<p>to &lt;end&gt;: the marks of "Lead Vocals", and the marks of "Singer 2" from the last run." (FR-transcribe-148, 149)</p>
+<ul>
+<li>A second run with the singer option off asks with the sentence "The voices of the
+</li>
+</ul>
+<p>last singer step do not change." (FR-transcribe-150)</p>
 <h3 id="transcription-out-of-scope">Out of scope</h3>
 <ul>
 <li>Separation of stems other than the vocals.

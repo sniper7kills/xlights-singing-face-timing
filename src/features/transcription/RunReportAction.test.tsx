@@ -91,7 +91,7 @@ async function openPanel() {
   const user = userEvent.setup()
   await storeReport(report())
   render(<RunReportAction />)
-  await waitFor(() => expect(action()).toBeEnabled())
+  await waitFor(() => expect(action()).not.toHaveAttribute('aria-disabled'))
   await user.click(action())
   return { user, dialog: screen.getByRole('dialog', { name: 'Run report' }) }
 }
@@ -111,7 +111,7 @@ describe('RunReportAction', () => {
     render(<RunReportAction />)
 
     await waitFor(() => expect(action()).toHaveAttribute('title', NO_RUN_NOTE))
-    expect(action()).toBeDisabled()
+    expect(action()).toHaveAttribute('aria-disabled', 'true')
     expect(NO_RUN_NOTE).toBe('No transcribe run for this song yet.')
   })
 
@@ -133,7 +133,7 @@ describe('RunReportAction', () => {
         'The app could not read the run report and the separated tracks of this song. Reload the page.',
       ),
     )
-    expect(action()).toBeDisabled()
+    expect(action()).toHaveAttribute('aria-disabled', 'true')
   })
 
   it('opens the panel with a heading for each section of the report', async () => {
@@ -258,7 +258,7 @@ describe('RunReportAction', () => {
     const link = document.createElement('button')
     document.body.append(link)
     render(<RunReportAction />)
-    await waitFor(() => expect(action()).toBeEnabled())
+    await waitFor(() => expect(action()).not.toHaveAttribute('aria-disabled'))
     link.focus()
     act(() => openRunReport())
     link.remove()

@@ -189,6 +189,22 @@ describe('reportToText', () => {
     expect(one).toContain('The final singers: none\n')
   })
 
+  it('names each voice as the panel does with the present voices of the song', () => {
+    const report = buildRunReport(
+      facts({
+        voices: [
+          { name: 'Lead Vocals', phraseCount: 2, made: false, voiceId: 'v1' },
+          { name: 'Singer 2', phraseCount: 1, made: true, voiceId: 'v2' },
+        ],
+      }),
+    )
+    const voices = [{ id: 'v2', name: 'Test Alto' }]
+    const panel = reportPanel(report, () => START, voices).find((s) => s.title === 'Voices')
+    const copied = reportToText(report, () => START, voices)
+    for (const row of panel?.tables[0]?.rows ?? []) expect(copied).toContain(row[0])
+    expect(copied).toContain('Test Alto')
+  })
+
   it('writes no lyrics word, also in the summary', () => {
     const all = text()
     for (const word of LYRIC_WORDS) expect(all).not.toContain(word)

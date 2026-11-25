@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { testContent } from '../../lib/marks/fixtures.test-helpers.ts'
@@ -22,7 +22,16 @@ describe('AddSectionAction', () => {
   it('is disabled with no time selection', () => {
     render(<AddSectionAction />)
 
-    expect(addButton()).toBeDisabled()
+    expect(addButton()).toHaveAttribute('aria-disabled', 'true')
+    expect(addButton()).toHaveAttribute(
+      'title',
+      'Drag on the waveform to select a time range first.',
+    )
+    expect(addButton()).toHaveAccessibleDescription(
+      'Drag on the waveform to select a time range first.',
+    )
+    fireEvent.click(addButton())
+    expect(screen.queryByRole('textbox', { name: 'Section name' })).toBeNull()
   })
 
   it('adds a section from the time selection with the default name', async () => {

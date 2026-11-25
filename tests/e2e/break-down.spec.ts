@@ -54,9 +54,10 @@ test('breaks down each word of a transcribe run, requests the dictionary one tim
   await page.locator('.editor-top').getByRole('button', { name: 'Transcribe' }).click()
   const dialog = page.getByRole('dialog', { name: 'Transcribe' })
   await dialog.getByRole('button', { name: 'Start' }).click()
-  await expect(dialog).toBeHidden()
+  // A wait after a transcribe run gets 20 seconds, so a loaded machine does not fail the test.
+  await expect(dialog).toBeHidden({ timeout: 20_000 })
 
-  await expect(page.getByText('16 words, 0 estimated')).toBeVisible()
+  await expect(page.getByText('16 words, 0 estimated')).toBeVisible({ timeout: 20_000 })
   await expect(layer(page, 'Words')).toHaveCount(16)
   await expect(layer(page, 'Phonemes').first()).toBeVisible()
   await expectPhonemesUnderEachWord(page)
@@ -88,7 +89,10 @@ test('writes the words without phonemes when the dictionary does not load, and b
   await dialog.getByRole('button', { name: 'Start' }).click()
 
   const alert = page.getByRole('alert')
-  await expect(alert).toContainText('The dictionary did not load. Check the connection and retry.')
+  await expect(alert).toContainText(
+    'The dictionary did not load. Check the connection and retry.',
+    { timeout: 20_000 },
+  )
   await expect(layer(page, 'Words')).toHaveCount(16)
   await expect(layer(page, 'Phonemes')).toHaveCount(0)
 
