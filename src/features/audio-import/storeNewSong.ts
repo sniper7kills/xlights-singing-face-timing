@@ -1,3 +1,4 @@
+import { FIRST_VOICE_COLOR } from '../../lib/voices/voiceRules.ts'
 import { getRecord, saveSong, SETTINGS_KEY } from '../../store/db.ts'
 import type { Mark, Song, Voice } from '../../store/types.ts'
 import { requestPersistentStorageForFirstSong } from './persistentStorage.ts'
@@ -5,9 +6,8 @@ import { requestPersistentStorageForFirstSong } from './persistentStorage.ts'
 /** The name of the one voice in a new song. */
 export const DEFAULT_VOICE_NAME = 'Lead Vocals'
 
-/** The colour of the one voice in a new song. */
-// The spec has no list of the 8 preset colours yet. This is the colour of "Lead Vocals" in the editor mockup.
-export const DEFAULT_VOICE_COLOR = '#ffb238'
+/** The colour of the one voice in a new song: the first preset colour. */
+export const DEFAULT_VOICE_COLOR = FIRST_VOICE_COLOR
 
 const DEFAULT_FRAME_MS = 50
 
