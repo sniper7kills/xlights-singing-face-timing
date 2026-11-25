@@ -78,5 +78,65 @@ the maintainer stopped further measurements.
   release asset with no separate licence. The app does not bundle the files. The
   notice is in `docs/licences/`.
 - Demucs separates better on paper, but it is about 20 times slower here and needs
-  more than 4 GB in one process. A later issue can add it on the `webgpu` device or
-  on a server, if its weights get a clear licence.
+  more than 4 GB in one process. Issue #122 adds it as an experimental second
+  model. See the section of 2026-11-24 below.
+
+## 2026-11-24 — Demucs as a second model (issue #122)
+
+The maintainer asked for Demucs as a second choice after the measurements, and then
+decided: "Demucs weights licence is acceptable, go ahead with #122". The README of
+https://github.com/adefossez/demucs states: "The license of the weights is not
+clear: MusDB contains some data that were only usable for research purpose."
+
+**Decision.** The transcribe dialog has the choice "Separation model". Spleeter
+stays the default. Demucs is the second choice, with the label "experimental":
+
+- Package: `demucs-web` 1.0.2 (MIT, https://github.com/timcsy/demucs-web), pinned
+  to the exact version. It declares `onnxruntime-web` `>=1.17.0` as a peer
+  dependency, and a prerelease version does not satisfy that range. An `overrides`
+  entry in `package.json` gives it the version of the app.
+- Model: `htdemucs_embedded.onnx` of `timcsy/demucs-web-onnx` at commit
+  `92e33df61cfc9eb820272aaa62d2ef6dcf4d950d`, 180 534 758 bytes, with the SHA-256
+  `lfs.oid` of the Hub API. `loadModelFiles` downloads it, checks the size and the
+  hash, and keeps it in the same Cache API cache as Spleeter.
+- Runtime: `onnxruntime-web/webgpu`, with the `asyncify` WASM file that the
+  transcribe worker also uses. The engine uses `webgpu` when the worker gets a
+  WebGPU adapter. After a `webgpu` failure, it runs again on `wasm` with the thread
+  count of `threads.ts`. The README of `demucs-web` documents the default
+  `executionProviders` `['webgpu', 'wasm']` and the adapter check.
+- Chunk: the Demucs engine and `demucs-web` are a separate chunk
+  (`demucsSeparator-*.js`, 125 kB, 41 kB gzip) that the separate worker imports
+  only for a Demucs run. The workers now build with `worker.format` `'es'`, because
+  the default `'iife'` puts a dynamic import into the worker file. The measurement
+  build of issue #117 used `'es'` for both workers.
+- Failures: a Demucs memory failure gives the Spleeter message and the extra action
+  "Use the fast model". A sample that is not finite is a failure of kind `model`.
+
+**Measured numbers.** These come from the runs of issue #117, not from issue #122:
+https://github.com/sniper7kills/xlights-singing-face-timing/issues/117#issuecomment-7150055123 .
+Headless Chromium and Firefox 159, 12 logical cores, `wasm` with 2 threads,
+`demucs-web` 1.0.2 with the same model file:
+
+| Browser | Song | Audio | Run | Audio s / s | Peak RSS (tree / one process) |
+|---|---|---|---|---|---|
+| Chromium | Good King Wenceslas | 245.5 s | 351.2 s | 0.70 | 5.07 GB / 4.28 GB |
+| Chromium | Ain't We Got Fun | 218.9 s | 282.6 s | 0.77 | 5.21 GB / 4.46 GB |
+| Firefox | Ain't We Got Fun, first 60 s | 60 s | 109.2 s | 0.55 | 4.76 GB / 4.03 GB |
+
+The Demucs vocals gave 175 of the 254 sheet words, and the Spleeter vocals 171
+(Chromium). No browser with a WebGPU adapter was available, so the `webgpu` device
+has no measurement.
+
+**Not run.** The maintainer stopped all model runs on the development computer.
+Nobody ran the Demucs engine in the built app before the merge. The engine follows
+the calls of the #117 measurement page: `new DemucsProcessor({ ort, sessionOptions,
+onProgress })`, `loadModel(arrayBuffer)` and `separate(left, right)`. Unit tests
+replace the package with a fake.
+
+**Consequences.**
+
+- A Demucs run downloads 181 MB one time, and takes about 5 to 6 minutes for a
+  4-minute song on `wasm`. On `wasm`, its peak memory is at the 4 GB limit of
+  WASM, so the dialog warns before the run when the browser has no WebGPU adapter.
+- With the fast model selected, the browser loads no Demucs file.
+- The notices of Demucs and `demucs-web` are in `docs/licences/`.

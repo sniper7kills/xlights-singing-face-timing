@@ -1,7 +1,8 @@
 # Licences of third-party files
 
-The app does not bundle these files. The browser downloads them at run time from
-the host below. Each file keeps the licence of its source.
+The app does not bundle the model files. The browser downloads them at run time
+from the host below. The app bundles the `demucs-web` code. Each file keeps the
+licence of its source.
 
 ## Spleeter 2-stem model
 
@@ -18,3 +19,27 @@ the host below. Each file keeps the licence of its source.
   `716ba8317bb36cbcce9ac6c130396e8ec71b3c9c`.
 - The Hugging Face repository states no licence. The Spleeter repository states the
   MIT licence for its code, and it gives no separate licence for the weights.
+
+## Demucs `htdemucs` model
+
+- Use: the vocal separation step of a transcribe run with "Separation model" set
+  to Demucs. See `docs/adr/0008-vocal-separation-in-the-browser.md`.
+- File: `htdemucs_embedded.onnx` (180 534 758 bytes, SHA-256
+  `e5e425c17683f163a472462eb5f5a4ffcd11c31858d57fbd0833b012d8b88077`) from
+  https://huggingface.co/timcsy/demucs-web-onnx , commit
+  `92e33df61cfc9eb820272aaa62d2ef6dcf4d950d`. The app does not bundle the file.
+- Source of the weights: Demucs by Meta, https://github.com/adefossez/demucs . The
+  code has the MIT licence. The copy is in `demucs-LICENSE.txt` (commit
+  `829d21890023800713e5dd231c67e43ecc06069b`).
+- The README of Demucs, section "License", states: "The license of the weights is
+  not clear: MusDB contains some data that were only usable for research purpose."
+- The Hugging Face repository states no licence.
+- The maintainer accepted this state on 2026-11-24: "Demucs weights licence is
+  acceptable, go ahead with #122".
+
+## `demucs-web` 1.0.2
+
+- Use: the JavaScript that prepares the Demucs input and joins the output. The
+  app bundles it in the chunk of the Demucs engine.
+- Source: the npm package `demucs-web`, https://github.com/timcsy/demucs-web .
+- Licence: MIT. The copy is in `demucs-web-LICENSE.txt`.
