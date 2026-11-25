@@ -1,4 +1,5 @@
 // The entity types of the data model in docs/specs/spec.md. Times are whole milliseconds.
+import type { SingerCountChoice } from '../features/singer-voices/singerCount.ts'
 import type { SeparationModelId } from '../features/vocal-separation/protocol.ts'
 import type { RemoteEndpoint } from '../lib/remote/endpoint.ts'
 import type { ReportSingerRange, RunReport } from '../lib/runReport/runReport.ts'
@@ -110,6 +111,8 @@ export type AppSettings = {
   separateVocals: boolean
   /** The last choice of the check box "Put each singer on its own voice" of the transcribe dialog. */
   singerVoices: boolean
+  /** The last choice of "Singers" of the transcribe dialog. */
+  singerCount: SingerCountChoice
   /** The last choice of "Separation model" of the transcribe dialog. */
   separationModel: SeparationModelId
 }

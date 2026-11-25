@@ -208,6 +208,9 @@ const SINGER_MODEL_MB = Math.round(SINGER_MODEL_BYTES / 1_000_000)
 /** The note under the check box "Put each singer on its own voice". */
 export const SINGER_NOTE = `The app estimates which singer sings each phrase, and makes one voice for each singer. Check the result. Use "Move to voice" to correct a phrase. The app can find too many singers. This step downloads models of ${SINGER_MODEL_MB} MB one time.`
 
+/** The note of the "Singers" choice under the check box "Put each singer on its own voice". */
+export const SINGER_COUNT_NOTE = 'Select the count if you know it. The result is better.'
+
 /** The hint of the check box "Put each singer on its own voice" while "Separate the vocals first" is off. */
 export const SINGER_HINT = 'Select "Separate the vocals first" to use this option.'
 
@@ -220,7 +223,7 @@ export function singerMessage(singers: SingerOutcome): string {
   const stay = `All phrases stay on ${singers.voiceName}.`
   switch (singers.status) {
     case 'split':
-      return `The app found one singer. ${stay}`
+      return `The app found one singer. ${stay} If the song has more singers, select the count in "Singers" and run again.`
     case 'capped':
       if (singers.voiceCount === 1)
         return `The song has ${MAX_VOICES} voices, so the app cannot add a voice for each singer. ${stay}`

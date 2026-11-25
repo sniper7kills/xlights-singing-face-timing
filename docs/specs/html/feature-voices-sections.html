@@ -293,8 +293,11 @@ body.rv-open .layout { padding-right:21rem; }
 <ol>
 <li>The run writes the marks to the selected voice.
 </li>
-<li>The app finds the singers in the separated vocals.
+<li>The app finds the singers in the separated vocals. With a count in "Singers", the
 </li>
+</ol>
+<p>app finds that count of singers. With "Automatic", the app estimates the count.</p>
+<ol>
 <li>The app adds "Singer 2", "Singer 3" … and moves or copies the phrases of each
 </li>
 </ol>
@@ -463,6 +466,11 @@ body.rv-open .layout { padding-right:21rem; }
 </li>
 </ul>
 <p>shows when the lyrics have a tag and a word, and it is on by default. The sections are a second undo step after the marks of the run. A tag line is never a phrase or a word.</p>
+<ul>
+<li><strong>Singer count.</strong> With a count in "Singers", the singer step gives exactly that
+</li>
+</ul>
+<p>count of singers when the vocals have enough sung parts. A chorus that sings together counts as one singer when the count says so. With "Automatic", the step keeps two singers apart only when their voices differ enough. See <code>docs/adr/0009-singer-voices-from-diarization.md</code>.</p>
 <ul>
 <li><strong>Singer rules.</strong> The singer step gives each phrase of the run its singers. The
 </li>

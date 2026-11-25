@@ -133,6 +133,23 @@ describe('diarize', () => {
     expect(ranges).toEqual([{ startMs: 0, endMs: 6500, singer: 0 }])
   })
 
+  it('keeps a short singer of its own when the person gives a count of 2', async () => {
+    const vocals = audio([1, 3000], [-1, 500], [1, 3000])
+    const ranges = await diarize(
+      vocals,
+      fakeModels(),
+      { ...settings, minSingerMs: 1000, minSingerShare: 0.1, singerCount: 2 },
+      () => {},
+    )
+    expect(ranges.map((range) => range.singer)).toEqual([0, 1, 0])
+  })
+
+  it('gives one singer to two voices when the person gives a count of 1', async () => {
+    const vocals = audio([-1, 1500], [1, 1500])
+    const ranges = await diarize(vocals, fakeModels(), { ...settings, singerCount: 1 }, () => {})
+    expect(ranges).toEqual([{ startMs: 0, endMs: 3000, singer: 0 }])
+  })
+
   it('keeps a short singer when the limits are 0', async () => {
     const vocals = audio([1, 3000], [-1, 500], [1, 3000])
     const ranges = await diarize(vocals, fakeModels(), settings, () => {})
@@ -218,10 +235,11 @@ describe('diarize diagnostics', () => {
     expect(numbers?.settings.minSingerMs).toBe(1000)
   })
 
-  it('gives the reason share when the limit of the share is the larger limit', async () => {
+  it('gives one raw group when a singer holds less than the share of the embedding time', async () => {
     const vocals = audio([1, 3000], [-1, 500], [1, 3000])
-    const { numbers } = await diagnose(vocals, { minSingerShare: 0.1 })
-    expect(numbers?.rawGroups[1]?.fate).toEqual({ kind: 'joined', into: 0, reason: 'share' })
+    const { ranges, numbers } = await diagnose(vocals, { minSingerShare: 0.1 })
+    expect(numbers?.rawGroupCount).toBe(1)
+    expect(new Set(ranges.map((range) => range.singer)).size).toBe(1)
   })
 
   it('gives a final singer count equal to the distinct singers of the result', async () => {

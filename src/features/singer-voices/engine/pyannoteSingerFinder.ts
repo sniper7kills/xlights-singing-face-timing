@@ -112,7 +112,7 @@ function diarizeModels(models: LoadedModels): DiarizeModels {
 export function createPyannoteSingerFinder(): SingerFinder {
   let models: Promise<LoadedModels> | null = null
   return {
-    async find(vocals, on) {
+    async find(vocals, on, singerCount) {
       models ??= loadModels(on).catch((error: unknown) => {
         models = null
         throw loadFailure(error)
@@ -120,10 +120,12 @@ export function createPyannoteSingerFinder(): SingerFinder {
       const loaded = await models
       const totalMs = (vocals.length / DIARIZE_SETTINGS.sampleRate) * 1000
       on.progress(0, totalMs)
+      const settings =
+        singerCount === undefined ? DIARIZE_SETTINGS : { ...DIARIZE_SETTINGS, singerCount }
       return diarize(
         vocals,
         diarizeModels(loaded),
-        DIARIZE_SETTINGS,
+        settings,
         (done) => on.progress((done / DIARIZE_SETTINGS.sampleRate) * 1000, totalMs),
         on.diagnostics,
       ).catch((error: unknown) => {

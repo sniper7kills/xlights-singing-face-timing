@@ -37,6 +37,8 @@ export interface DiarizeSettings {
   minSingerMs: number
   minGapMs: number
   minRangeMs: number
+  /** The count of singers that the person gives. With a count, the threshold and the rule for short singers do not apply. */
+  singerCount?: number
 }
 
 /** One speaker of one window, with its frames and its embedding. */
@@ -44,6 +46,8 @@ interface LocalSpeaker {
   windowStart: number
   activity: Uint8Array
   embedding: Float32Array
+  /** The samples that the embedding model read. */
+  samples: number
 }
 
 /** Returns the samples of the frames that are set, in order. */
@@ -108,7 +112,12 @@ async function windowSpeakers(
       settings.minEmbedSamples,
     )
     if (samples.length >= settings.minEmbedSamples) {
-      speakers.push({ windowStart, activity: speaker, embedding: await models.embed(samples) })
+      speakers.push({
+        windowStart,
+        activity: speaker,
+        embedding: await models.embed(samples),
+        samples: samples.length,
+      })
     }
   }
   return speakers
@@ -224,11 +233,14 @@ export async function diarize(
   }
   const stages = clusterStages(
     found.map((speaker) => speaker.embedding),
+    found.map((speaker) => speaker.samples),
     {
       threshold: settings.threshold,
       minGroupSize: settings.minGroupSize,
       maxGroups: settings.maxSingers,
+      minShare: settings.minSingerShare,
     },
+    settings.singerCount,
   )
   const facts: SearchFacts = {
     audioMs: (vocals.length / settings.sampleRate) * 1000,
@@ -302,12 +314,16 @@ function foldAndRange(search: Search, settings: DiarizeSettings): SearchResult {
   const active = groupActivity(search, singers)
   const sungFrames = countSungFrames(active)
   const shareMs = settings.minSingerShare * sungFrames * search.frameMs
-  const folded = foldShortGroups(
-    singers,
-    search.speakers.map((speaker) => speaker.embedding),
-    active.map((frames) => frames.filter(Boolean).length * search.frameMs),
-    Math.max(shareMs, settings.minSingerMs),
-  )
+  // A count of the person is a fact, so no group joins another for its short time.
+  const folded =
+    settings.singerCount !== undefined
+      ? singers
+      : foldShortGroups(
+          singers,
+          search.speakers.map((speaker) => speaker.embedding),
+          active.map((frames) => frames.filter(Boolean).length * search.frameMs),
+          Math.max(shareMs, settings.minSingerMs),
+        )
   const rangeSettings = {
     frameMs: search.frameMs,
     minGapMs: settings.minGapMs,

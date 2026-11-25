@@ -1,4 +1,4 @@
-import { act, render, screen } from '@testing-library/react'
+import { act, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { loadSettings, updateSettings } from '../../store/settings.ts'
@@ -37,6 +37,7 @@ const SINGERS = 'Put each singer on its own voice (experimental)'
 const NOTE =
   'The app estimates which singer sings each phrase, and makes one voice for each singer. Check the result. Use "Move to voice" to correct a phrase. The app can find too many singers. This step downloads models of 33 MB one time.'
 const HINT = 'Select "Separate the vocals first" to use this option.'
+const COUNT_NOTE = 'Select the count if you know it. The result is better.'
 
 let client: TranscribeClient
 let runs: HeldRun[]
@@ -136,6 +137,48 @@ describe('TranscribeDialog and the singer voices', () => {
     await startSingerRun()
 
     expect(lastRun().request).toMatchObject({ separateVocals: true, singerVoices: true })
+  })
+
+  it('shows the "Singers" choice with its note only while the option is on, with "Automatic" first', async () => {
+    await updateSettings({ separateVocals: true })
+    const { user } = await renderDialog()
+    await vi.waitFor(() => expect(screen.getByRole('checkbox', { name: SINGERS })).toBeEnabled())
+    expect(screen.queryByRole('group', { name: 'Singers' })).toBeNull()
+
+    await user.click(screen.getByRole('checkbox', { name: SINGERS }))
+
+    const group = await screen.findByRole('group', { name: 'Singers' })
+    expect(
+      within(group)
+        .getAllByRole('radio')
+        .map((radio) => radio.getAttribute('value')),
+    ).toEqual(['automatic', '2', '3', '4'])
+    expect(within(group).getByRole('radio', { name: 'Automatic' })).toBeChecked()
+    expect(group).toHaveAccessibleDescription(COUNT_NOTE)
+  })
+
+  it('starts a run with no count for "Automatic"', async () => {
+    await startSingerRun()
+
+    expect(lastRun().request.singerCount).toBeUndefined()
+  })
+
+  it('stores the count, and starts the next run with it', async () => {
+    await updateSettings({ separateVocals: true, singerVoices: true })
+    const { user, start } = await renderDialog()
+    await user.click(await screen.findByRole('radio', { name: '2' }))
+    await vi.waitFor(async () => expect((await loadSettings()).singerCount).toBe(2))
+
+    await user.click(start)
+
+    expect(lastRun().request).toMatchObject({ singerVoices: true, singerCount: 2 })
+  })
+
+  it('opens with the stored count', async () => {
+    await updateSettings({ separateVocals: true, singerVoices: true, singerCount: 4 })
+    await renderDialog()
+
+    await vi.waitFor(() => expect(screen.getByRole('radio', { name: '4' })).toBeChecked())
   })
 
   it('starts a run without the option when the separation is off', async () => {

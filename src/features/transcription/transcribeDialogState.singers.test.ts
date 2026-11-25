@@ -76,7 +76,7 @@ describe('outcomeText with the singer step', () => {
     [
       'one singer',
       { status: 'split', voiceCount: 1, voiceName: 'Lead' },
-      'The app found one singer. All phrases stay on Lead.',
+      'The app found one singer. All phrases stay on Lead. If the song has more singers, select the count in "Singers" and run again.',
     ],
     [
       'a cancel',

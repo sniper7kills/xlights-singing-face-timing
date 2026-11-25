@@ -44,6 +44,16 @@ describe('serveSingerFinder', () => {
     ])
   })
 
+  it('gives the count of singers of the request to the engine', async () => {
+    const find = vi.fn<SingerFinder['find']>(async () => [])
+    const { handle } = serve({ find })
+
+    await handle({ type: 'find-singers', runId: 1, vocals, singerCount: 3 })
+    await handle({ type: 'find-singers', runId: 2, vocals })
+
+    expect(find.mock.calls.map((call) => call[2])).toEqual([3, undefined])
+  })
+
   it('posts the diagnostics in the result when the engine gives them', async () => {
     const diagnostics = fixtureDiagnostics(1000, [])
     const { handle, posted } = serve({
@@ -172,6 +182,14 @@ describe('fixtureSegments', () => {
     expect(fixtureSegments(10_000)).toEqual([
       { startMs: 0, endMs: 5250, singer: 0 },
       { startMs: 4750, endMs: 10_000, singer: 1 },
+    ])
+  })
+
+  it('gives each of 3 singers one third, with 500 ms in common at each border', () => {
+    expect(fixtureSegments(9000, 3)).toEqual([
+      { startMs: 0, endMs: 3250, singer: 0 },
+      { startMs: 2750, endMs: 6250, singer: 1 },
+      { startMs: 5750, endMs: 9000, singer: 2 },
     ])
   })
 })

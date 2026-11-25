@@ -75,6 +75,8 @@ export type TranscribeRequest = {
    * The step reads the separated vocals, so it needs `separateVocals`. Without it, the run makes no singer voices.
    */
   singerVoices?: boolean
+  /** The count of singers that the person gives for the singer step. Without it, the step estimates the count. */
+  singerCount?: number
 }
 
 /**
@@ -331,6 +333,7 @@ async function splitSingers(
   let searching = false
   try {
     const segments = await findSingers(vocals, {
+      singerCount: request.singerCount,
       signal: handlers.signal,
       onDownload: handlers.onSingersDownload,
       onProgress: (doneMs, totalMs) => {

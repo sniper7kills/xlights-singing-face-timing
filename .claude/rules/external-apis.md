@@ -363,6 +363,29 @@ of `@huggingface/transformers` 4.3.2 in `node_modules/@huggingface/transformers/
   `200` from `us.aws.cdn.hf.co` with `access-control-allow-origin: *`.
 - No licence was found for the weights of the karaoke models (for example
   `UVR_MDXNET_KARA_2.onnx`), and no browser path is documented for them.
+Confirmed on 2026-11-24 for the singer clustering of issue #137, from
+`src/pyannote/audio/pipelines/clustering.py` on the `develop` branch of
+https://github.com/pyannote/pyannote-audio, and from the source of
+`@huggingface/transformers` 4.3.2:
+
+- `AgglomerativeClustering.cluster` uses the small group size
+  `min(min_cluster_size, max(1, round(0.1 * num_embeddings)))`. The `centroid`
+  method scales the embeddings to unit length and uses the Euclidean distance.
+- It cuts the dendrogram at the threshold. A group with `min_cluster_size` members
+  or more is large. Each small group then joins the large group with the closest
+  centroid. With one large group only, every embedding goes to that group.
+- With `num_clusters` (the `num_speakers` of the pipeline), it walks the merges and
+  keeps the cut whose count of large groups is closest to the count. Then the small
+  groups join the closest large group.
+- `filter_embeddings` keeps a local speaker for the clustering only when its frames
+  with no other speaker are `min_active_ratio` of the window or more. The pipeline
+  then gives each local speaker of a window a different group
+  (`constrained_argmax`, `linear_sum_assignment`).
+- `WeSpeakerFeatureExtractor` scales the samples by 32768, takes 80 Kaldi mel bins
+  with a 25 ms Hamming window, a 10 ms hop, a pre-emphasis of 0.97 and no dither,
+  and subtracts the mean of each bin. This is the input of the pyannote WeSpeaker
+  wrapper. The engine gives it the mono samples at 16 000 Hz.
+
 Confirmed on 2026-11-24 for vocal separation (issue #117). The measured numbers
 are in `docs/adr/0008-vocal-separation-in-the-browser.md`.
 
