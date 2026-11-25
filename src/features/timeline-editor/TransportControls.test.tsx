@@ -43,7 +43,9 @@ describe('TransportControls', () => {
     expect(loopButton()).toHaveAttribute('aria-disabled', 'true')
     expect(loopButton()).toHaveAccessibleDescription('The audio is not ready.')
     for (const name of ['50%', '75%', '100%'])
-      expect(screen.getByRole('button', { name })).toBeDisabled()
+      expect(screen.getByRole('button', { name })).toHaveAccessibleDescription(
+        'The audio is not ready.',
+      )
     expect(screen.getByRole('button', { name: '25 ms' })).toBeEnabled()
   })
 

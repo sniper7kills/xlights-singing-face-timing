@@ -26,6 +26,8 @@ export type EditBlock =
   | 'select-range'
   | 'select-mark-or-range'
   | 'audio-not-ready'
+  | 'no-undo'
+  | 'no-redo'
   | 'no-room'
   | 'edge-no-room'
 
@@ -44,6 +46,8 @@ const BLOCK_TEXTS: Record<EditBlock, string> = {
   'select-range': 'Drag on the waveform to select a time range first.',
   'select-mark-or-range': 'Select a mark or a time range first.',
   'audio-not-ready': 'The audio is not ready.',
+  'no-undo': 'No step to undo.',
+  'no-redo': 'No step to redo.',
   'no-room': 'The mark has no room to move.',
   'edge-no-room': 'The edge of the mark has no room to move.',
 }

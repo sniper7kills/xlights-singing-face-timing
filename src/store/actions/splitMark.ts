@@ -1,4 +1,3 @@
-import { isEmptyEdit } from '../../lib/marks/markEdit.ts'
 import { previewSplit } from '../../lib/marks/splitRules.ts'
 import { useSongStore } from '../songStore.ts'
 import { commitMarkEdit, newMarkId } from './commitMarkEdit.ts'
@@ -19,19 +18,4 @@ export function splitMark(id: string, atMs: number): void {
         previewSplit(content.marks, id, atMs, content.song.frameMs, newMarkId),
       ),
     )
-}
-
-/**
- * Returns true when `splitMark` with the same arguments changes the open song.
- * Returns false when no song is open, no mark has the id, or a part would be shorter than one frame size.
- * A time outside the mark always gives false.
- * @param id The id of the mark.
- * @param atMs The time of the split.
- */
-export function canSplitMark(id: string, atMs: number): boolean {
-  const content = useSongStore.getState().current
-  return (
-    content !== null &&
-    !isEmptyEdit(previewSplit(content.marks, id, atMs, content.song.frameMs, newMarkId))
-  )
 }

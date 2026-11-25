@@ -168,18 +168,6 @@ export function stepSelection(id: string, direction: 1 | -1): boolean {
 }
 
 /**
- * Selects only the mark with the id, and keeps the focus on it. Returns false when no mark has the id.
- * @param id The mark.
- */
-export function selectMark(id: string): boolean {
-  const content = useSongStore.getState().current
-  const mark = content && findMark(content.marks, id)
-  if (!content || !mark) return false
-  selectAndReveal(mark, content.song.durationMs)
-  return true
-}
-
-/**
  * Selects only the mark, scrolls the view when the mark start is out of view, and gives the mark the focus.
  * @param mark The mark to select.
  * @param durationMs The length of the song, for the time scale of the stage.

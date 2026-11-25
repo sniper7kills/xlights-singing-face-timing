@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import { testContent } from '../../lib/marks/fixtures.test-helpers.ts'
 import { useSongStore } from '../songStore.ts'
 import { childrenIn, find, openTestSong, steps, withDictionary } from './actions.test-helpers.ts'
-import { canMergeWithNext, mergeWithNext } from './mergeWithNext.ts'
+import { mergeWithNext } from './mergeWithNext.ts'
 
 beforeEach(() => openTestSong())
 
@@ -35,23 +35,5 @@ describe('mergeWithNext', () => {
     mergeWithNext('p3')
 
     expect(steps()).toBe(0)
-  })
-})
-
-describe('canMergeWithNext', () => {
-  it('gives true for a mark with a next mark of the same parent', () => {
-    expect(canMergeWithNext('w1')).toBe(true)
-    expect(canMergeWithNext('p1')).toBe(true)
-  })
-
-  it('gives false on the last mark of a layer and across a parent edge', () => {
-    expect(canMergeWithNext('p3')).toBe(false)
-    expect(canMergeWithNext('w3')).toBe(false)
-  })
-
-  it('gives false for an unknown id and for no open song', () => {
-    expect(canMergeWithNext('nothing')).toBe(false)
-    useSongStore.setState({ current: null })
-    expect(canMergeWithNext('w1')).toBe(false)
   })
 })

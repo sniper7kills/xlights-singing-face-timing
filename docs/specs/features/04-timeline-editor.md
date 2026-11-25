@@ -287,7 +287,8 @@ Track rows (FR-editor-31 to 37):
 - **A button that cannot act.** It stays in the tab order with
   `aria-disabled="true"` and a dim style. Its tooltip and its description state
   the reason, and then the shortcut in brackets. A click does nothing. The same
-  rule applies to "Loop", "Phrase" and "Add section". The reasons:
+  rule applies to "Loop", the play speed, "Undo", "Redo", "Phrase" and "Add
+  section". The reasons:
 
   | Button | Case | Reason |
   |---|---|---|
@@ -299,7 +300,9 @@ Track rows (FR-editor-31 to 37):
   | "Merge with next" | The next word is in another phrase | "The next word is in another phrase." |
   | "Merge with next" | The next phoneme is in another word | "The next phoneme is in another word." |
   | "Delete" | The only selected mark is the last phoneme of its word | "A word needs one phoneme or more. Delete the word." |
-  | "Loop" | The audio is not ready | "The audio is not ready." |
+  | "Loop", "50%", "75%", "100%" | The audio is not ready | "The audio is not ready." |
+  | "Undo" | The history has no step to undo | "No step to undo." |
+  | "Redo" | The history has no step to redo | "No step to redo." |
   | "Loop" | No mark and no time range is selected | "Select a mark or a time range first." |
   | "Phrase" | The selection is not only phrases | "Select a phrase first." |
   | "Add section" | No time range is selected | "Drag on the waveform to select a time range first." |

@@ -19,24 +19,26 @@ const LOOP_KEYS = ['l', 'L'] as const
 function SegmentButton({
   label,
   pressed,
-  disabled,
+  reason = null,
   onClick,
 }: {
   label: string
   pressed: boolean
-  disabled?: boolean
+  /** The cause that keeps the button from acting, or null. */
+  reason?: string | null
   onClick: () => void
 }) {
   return (
-    <button
-      type="button"
+    <ReasonButton
       className="segment"
       aria-pressed={pressed}
-      disabled={disabled}
-      onClick={onClick}
+      reason={reason}
+      hint={label}
+      onBlocked={reportStatus}
+      onAct={onClick}
     >
       {label}
-    </button>
+    </ReasonButton>
   )
 }
 
@@ -89,7 +91,7 @@ export function TransportControls() {
             key={rate}
             label={`${rate * 100}%`}
             pressed={rate === playRate}
-            disabled={player === null}
+            reason={player === null ? blockText('audio-not-ready') : null}
             onClick={() => setPlayRate(rate)}
           />
         ))}

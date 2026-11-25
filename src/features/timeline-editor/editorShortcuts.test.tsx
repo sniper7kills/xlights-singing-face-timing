@@ -428,8 +428,12 @@ describe('undo and redo', () => {
 
   it('disables Undo and Redo when the history has no step in their direction', async () => {
     const user = userEvent.setup()
-    expect(screen.getByRole('button', { name: 'Undo' })).toBeDisabled()
-    expect(screen.getByRole('button', { name: 'Redo' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Undo' })).toHaveAccessibleDescription(
+      'No step to undo.',
+    )
+    expect(screen.getByRole('button', { name: 'Redo' })).toHaveAccessibleDescription(
+      'No step to redo.',
+    )
     select('w3')
     act(() => {
       press('ArrowRight')
@@ -437,15 +441,15 @@ describe('undo and redo', () => {
 
     const undo = screen.getByRole('button', { name: 'Undo' })
     const redo = screen.getByRole('button', { name: 'Redo' })
-    await waitFor(() => expect(undo).toBeEnabled())
+    await waitFor(() => expect(undo).not.toHaveAttribute('aria-disabled'))
     await user.click(undo)
     expect(stored('w3')).toMatchObject({ startMs: 10_000 })
-    await waitFor(() => expect(undo).toBeDisabled())
+    await waitFor(() => expect(undo).toHaveAttribute('aria-disabled', 'true'))
 
-    await waitFor(() => expect(redo).toBeEnabled())
+    await waitFor(() => expect(redo).not.toHaveAttribute('aria-disabled'))
     await user.click(redo)
     expect(stored('w3')).toMatchObject({ startMs: 10_050 })
-    await waitFor(() => expect(redo).toBeDisabled())
+    await waitFor(() => expect(redo).toHaveAttribute('aria-disabled', 'true'))
   })
 })
 

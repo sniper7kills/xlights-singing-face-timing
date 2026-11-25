@@ -1,9 +1,11 @@
 import { useMemo } from 'react'
 import { blockText } from '../../lib/marks/editBlocks.ts'
+import { findMark } from '../../lib/marks/family.ts'
+import { useSongStore } from '../../store/songStore.ts'
 import type { Layer, Mark, SongContent } from '../../store/types.ts'
 import { selectedVoice, useViewStore } from '../../store/viewStore.ts'
 import { LayerRow } from './LayerRow.tsx'
-import { editLabel, selectMark, stepSelection } from './markCommands.ts'
+import { editLabel, selectAndReveal, stepSelection } from './markCommands.ts'
 import { PhraseLabelDialog } from './PhraseLabelDialog.tsx'
 import { reportStatus } from './statusStore.ts'
 import { inRange, visibleRange } from './timeScale.ts'
@@ -29,6 +31,13 @@ function fromMarkOrPage(event: KeyboardEvent): boolean {
   return event.target === document.body || focusedMarkId(event) !== undefined
 }
 
+/** Selects the focused mark. The mark keeps the focus. */
+function selectFocused(id: string) {
+  const content = useSongStore.getState().current
+  const mark = content && findMark(content.marks, id)
+  if (content && mark) selectAndReveal(mark, content.song.durationMs)
+}
+
 /**
  * Selects the previous or the next mark of the layer, from the only selected mark or the focused mark.
  * A focused mark that is not selected gets the selection first, so `]` after `Tab` selects the mark that has the focus.
@@ -38,7 +47,10 @@ function step(event: KeyboardEvent, direction: 1 | -1): boolean {
   const { selectedMarkIds } = useViewStore.getState()
   const focused = focusedMarkId(event)
   if (!fromMarkOrPage(event)) return false
-  if (focused !== undefined && !selectedMarkIds.includes(focused)) return selectMark(focused)
+  if (focused !== undefined && !selectedMarkIds.includes(focused)) {
+    selectFocused(focused)
+    return true
+  }
   const id = focused ?? (selectedMarkIds.length === 1 ? selectedMarkIds[0] : undefined)
   if (id === undefined) return false
   if (!stepSelection(id, direction))
