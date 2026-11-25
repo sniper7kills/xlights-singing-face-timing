@@ -496,6 +496,35 @@ describe('EditorPage', () => {
     }
   })
 
+  it('opens the song library from the back link only after the save of a pending change ends', async () => {
+    const stopAutosave = startAutosave()
+    try {
+      const { song } = await renderEditor()
+      window.location.hash = `#/song/${song.id}`
+      let endSave: () => void = () => undefined
+      const save = vi.spyOn(db, 'saveSong').mockImplementationOnce(
+        (content) =>
+          new Promise((resolve) => {
+            endSave = () => resolve(content.song)
+          }),
+      )
+      act(() =>
+        useSongStore
+          .getState()
+          .apply((content) => ({ ...content, song: { ...content.song, name: 'noel' } })),
+      )
+
+      await userEvent.click(screen.getByRole('link', { name: 'Back to song library' }))
+
+      expect(save).toHaveBeenCalledTimes(1)
+      expect(window.location.hash).toBe(`#/song/${song.id}`)
+      act(() => endSave())
+      await vi.waitFor(() => expect(window.location.hash).toBe(LIBRARY_HASH))
+    } finally {
+      stopAutosave()
+    }
+  })
+
   it('goes back to the song library for a song that does not exist', async () => {
     window.location.hash = '#/song/gone'
 

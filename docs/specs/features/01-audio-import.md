@@ -54,6 +54,14 @@ waveform, plays the audio and keeps the song in the browser for later visits.
   zone.
 - FR-audio-22 — The song library credits the speech model, the vocal separation
   models, the singer models and the dictionary, with their licences.
+- FR-audio-23 — The app starts a save of the open song 2 seconds after the first
+  change that is not saved, also while changes continue.
+- FR-audio-24 — While a change is not saved, the browser asks the person to
+  confirm a reload or a close of the page.
+- FR-audio-25 — The app starts a save of the open song when the page becomes
+  hidden or unloads.
+- FR-audio-26 — The link back to the song library opens the library after the
+  save of the open song ends.
 
 ## User flows
 
@@ -233,6 +241,8 @@ createDemoSong(): Promise<Song>
 | Persistent storage refused | A note beside the storage meter: "The browser can remove songs when disk space is low. Export your work." |
 | Several files dropped | The app takes the first audio file and shows "Only one file was added." The editor shows the note again as a toast after it opens. |
 | Reload during decode | The song does not exist. The library shows no partial song. |
+| Reload or close while a change is not saved | The browser asks the person to confirm. The browser shows its own text. |
+| The page unloads before a save ends | The browser can stop the save. The song keeps the last save that ended. |
 
 ## Acceptance criteria
 
@@ -266,6 +276,13 @@ createDemoSong(): Promise<Song>
 - The delete dialog states that the delete is permanent. (FR-audio-16)
 - Two dropped files show the note after the editor opens. (FR-audio-3)
 - The credits name the speech model and the vocal separation models. (FR-audio-22)
+- With a change each 200 ms for 10 seconds, the app saves the song 4 times or
+  more. (FR-audio-23)
+- 10 edits with 100 ms between them, then a reload 300 ms after the last edit:
+  the edits are there after the reload, or the browser asked first. (FR-audio-23,
+  24, 25)
+- A reload with nothing to save shows no question. (FR-audio-24)
+- The song library lists the saved song name after the back link. (FR-audio-26)
 
 ## Out of scope
 
