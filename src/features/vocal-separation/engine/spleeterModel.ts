@@ -8,10 +8,21 @@ import type { ModelFile } from './modelFiles.ts'
 const REPOSITORY =
   'https://huggingface.co/csukuangfj/sherpa-onnx-spleeter-2stems/resolve/7001ba316a615cacddb3f9ef3ec416661a277e26'
 
-/** The vocals model, then the accompaniment model. The mask of the vocals needs the output of both. */
+/**
+ * The vocals model, then the accompaniment model. The mask of the vocals needs the output of both.
+ * The hashes are the Git LFS object ids of the Hub API, `https://huggingface.co/api/models/csukuangfj/sherpa-onnx-spleeter-2stems/tree/<commit>`, read on 2026-11-24.
+ */
 export const SEPARATION_MODEL_FILES: readonly ModelFile[] = [
-  { url: `${REPOSITORY}/vocals.onnx`, bytes: 39_318_336 },
-  { url: `${REPOSITORY}/accompaniment.onnx`, bytes: 39_318_343 },
+  {
+    url: `${REPOSITORY}/vocals.onnx`,
+    bytes: 39_318_336,
+    sha256: 'bdc16ab6bf6117ddd4842c19e80e40e2be188fc555295064d424616b0224ac97',
+  },
+  {
+    url: `${REPOSITORY}/accompaniment.onnx`,
+    bytes: 39_318_343,
+    sha256: '671ace17acd3720674a2bc14de32ac6292453dec20d9eb0ba4255d4ad8e3d8c0',
+  },
 ]
 
 /** The download size of the vocal separation model, in bytes. The dialog shows it before the first use. */
