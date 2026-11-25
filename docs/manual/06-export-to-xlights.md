@@ -8,7 +8,7 @@ The "Export to xLights" window writes the `.xtiming` files. You import them in x
 
    ![The Export to xLights window](images/06-export-to-xlights/01-export-window.png)
 
-2. In the group "Voices", check each voice that you want. The window checks each voice that has marks.
+2. In the group "Voices", check each voice that you want. The window checks each voice that has marks. A voice with no marks starts unchecked. It starts checked at a later export, after it gets marks, unless you cleared it.
 3. In the group "Timing tracks", select a grouping.
 4. In the group "Files", select a packaging.
 5. If you want a `rest` mouth shape in each gap, check "Write rest phonemes in gaps".
@@ -90,6 +90,7 @@ The heading shows the count, for example "Checks · 0 errors · 1 warning". An e
 | Message | What it means |
 |---|---|
 | "“<voice name>” has no marks. Clear its check box, or add marks." | The file holds a timing track with three empty layers. |
+| "“<voice name>” has marks, and it is not in this export. Select its check box to add it." | A voice with marks is not checked. The file leaves it out. |
 | "xLights shows the timing track “<timing track name>” as “<name after the import>”. xLights removes = < > & " ' and characters that are not ASCII from a name." | The name in xLights differs from the name here. |
 | "xLights gives these timing tracks almost the same name: “<name after the import>” and “<name after the import>_1”. Change a voice name or a section name." | Two names are the same after the import. |
 | "“<label>” at <time> has no phoneme." | The word gives no mouth shape. Break down the word again. |

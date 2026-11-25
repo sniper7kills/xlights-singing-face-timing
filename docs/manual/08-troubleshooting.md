@@ -17,6 +17,18 @@ The window shows the speed during a run, for example "CPU, about 3 times slower 
 
 Open each song in one tab only. Two tabs that edit the same song can overwrite each other.
 
+If a different tab saves the song that is open, the editor shows this notice: "This song is open in a different tab. The tab that saves last keeps its version. Close one of the tabs."
+
+1. Decide which tab has the version that you want.
+2. Close the other tab.
+3. In the tab that you keep, select "Close" on the notice.
+
+The tab that saves last keeps its version. A save writes the full song, so it removes marks that the other tab added.
+
+![The notice in a tab when a different tab saves the song](images/08-troubleshooting/01-song-open-in-two-tabs.png)
+
+If a save does not end, the link back to the song library shows "The app could not save the song. Try again." The editor stays open. Make a change to start a new save, then select the link again.
+
 If the library shows "Close the other tabs of the app. Then reload this page.", another tab of the app holds the database during an upgrade. Close the other tabs. Reload the page.
 
 If the library shows "This browser holds data from a newer version of the app. Reload the page. If the message stays, close the other tabs of the app and reload.", follow the message.
@@ -52,6 +64,8 @@ If the window asks "The lyrics have <n> words. This song has room for about <m> 
 1. Select "Cancel".
 2. Remove the lines that you do not need, or select a longer time range.
 3. Select "Start" again.
+
+If line 1 alone does not fit, the last sentence reads "The app leaves out the words of line 1 that do not fit." With more lines, it reads "The app leaves out the words of line 1 that do not fit, and the lines after line 1."
 
 Select "Continue" to run with the lines that fit. If the window asks "Only <n>% of the lyrics matched the audio. Check that the lyrics belong to this song.", check that the lyrics are the lyrics of this song.
 

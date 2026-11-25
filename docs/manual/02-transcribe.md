@@ -76,7 +76,7 @@ If fewer than 30% of your words match the audio, the window asks "Only <n>% of t
 
 ### Lyrics that do not fit
 
-A song has room for one word for each frame size. For example, a song of 28.9 s with a frame size of 50 ms has room for 578 words. If the lyrics have more words, the window asks before the run: "The lyrics have <n> words. This song has room for about <m> words. The app leaves out the lines after line <k>." Select "Continue" to run with the lines that fit. Select "Cancel" to change no mark. For a time selection, the second sentence reads "The time selection has room for about <m> words."
+A song has room for one word for each frame size. For example, a song of 28.9 s with a frame size of 50 ms has room for 578 words. If the lyrics have more words, the window asks before the run: "The lyrics have <n> words. This song has room for about <m> words. The app leaves out the lines after line <k>." If line 1 alone does not fit, the last sentence names the words of line 1 that the app leaves out. Select "Continue" to run with the lines that fit. Select "Cancel" to change no mark. For a time selection, the second sentence reads "The time selection has room for about <m> words."
 
 ### Lyrics only
 
@@ -152,7 +152,7 @@ A bar that has no end means that the app cannot tell the time that remains. "Can
 
 If the range has marks of the shown voice, the window asks before the run. For example, "The run replaces the 70 marks of "Lead Vocals" from 0:00.000 to 0:28.900." Select "Continue" to replace the marks. Select "Cancel" to change nothing.
 
-If the last run made singer voices, the question names those voices too. A run with no singer step leaves those voices as they are. The question then adds "The voices of the last singer step do not change."
+If the last run wrote marks to other voices, for example singer voices, the question names those voices too. It also names the voice of the last run when you run on a different voice. A run with no singer step leaves those voices as they are. The question then adds "The voices of the last singer step do not change."
 
 ![The replace question](images/02-transcribe/06-replace-question.png)
 

@@ -157,7 +157,9 @@ The top bar shows "Saved" or "Saving". The app saves the open song 1 second afte
 
 If a change is not saved, the browser asks you to confirm a reload or a close. The browser shows its own text. After a reload, the song opens with its marks, its zoom and its scroll position. The undo history is gone.
 
-The link back to the song library opens the library after the save ends.
+The link back to the song library opens the library after the save ends. If the save does not end in 3 seconds, the editor stays open and shows "The app could not save the song. Try again."
+
+If a different tab saves the open song, the editor shows "This song is open in a different tab. The tab that saves last keeps its version. Close one of the tabs." with a "Close" button. See [08 Troubleshooting](08-troubleshooting.md).
 
 ## Shortcuts
 

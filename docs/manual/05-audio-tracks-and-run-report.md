@@ -107,7 +107,7 @@ If the browser refuses, the status line shows "Press Ctrl+C to copy." Select "Do
 3. If a phrase is on the wrong voice, select the phrase. Select "Phrase". Select "Move to voice" and select the right voice.
 4. If a phrase needs both voices, select "Copy to voice".
 
-A new run with "Put each singer on its own voice" replaces the marks in the range of the singer voices of the last run. The replace question names those voices. See [02 Transcribe](02-transcribe.md).
+A new run with "Put each singer on its own voice" replaces the marks in the range of each voice of the last run. The replace question names those voices. See [02 Transcribe](02-transcribe.md).
 
 ## Notes and limits
 
