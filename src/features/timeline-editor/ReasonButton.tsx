@@ -9,8 +9,8 @@ type ReasonButtonProps = Omit<ButtonHTMLAttributes<HTMLButtonElement>, 'disabled
   shortcut?: string
   /** Receives a click only when `reason` is null. */
   onAct: () => void
-  /** Receives a click when `reason` is not null. */
-  onBlocked?: () => void
+  /** Receives the reason after a click when `reason` is not null. */
+  onBlocked?: (reason: string) => void
   ref?: Ref<HTMLButtonElement>
 }
 
@@ -44,7 +44,7 @@ export function ReasonButton({
         {...rest}
         onClick={() => {
           if (reason === null) onAct()
-          else onBlocked?.()
+          else onBlocked?.(reason)
         }}
       />
       {reason !== null && (

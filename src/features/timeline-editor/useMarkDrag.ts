@@ -1,13 +1,16 @@
 import { type PointerEvent, useEffect, useRef } from 'react'
+import { blockText, type EditBlock, moveBlock, resizeBlock } from '../../lib/marks/editBlocks.ts'
 import { findMark } from '../../lib/marks/family.ts'
 import { noEdit, type MarkEdit } from '../../lib/marks/markEdit.ts'
 import { previewMove, previewResize } from '../../lib/marks/moveRules.ts'
 import { moveMark } from '../../store/actions/moveMark.ts'
 import { resizeMark } from '../../store/actions/resizeMark.ts'
 import { useSongStore } from '../../store/songStore.ts'
+import type { Mark, SongContent } from '../../store/types.ts'
 import { useViewStore } from '../../store/viewStore.ts'
 import { clickMark } from './markCommands.ts'
 import { useMarkUiStore } from './markUiStore.ts'
+import { reportStatus } from './statusStore.ts'
 import { makeTimeScale, pxToMs } from './timeScale.ts'
 import { currentStageInput } from './useStageScale.ts'
 
@@ -44,11 +47,26 @@ function dragEdit(id: string, drag: Drag): MarkEdit {
   return previewResize(content.marks, id, drag.part, edgeMs + drag.deltaMs, frameMs, durationMs)
 }
 
-/** Calls the store action of the drag, as one undo step. */
+/** Returns the cause that keeps the drag from changing the mark, or null. */
+function dragBlock(content: SongContent, mark: Mark, drag: Drag): EditBlock | null {
+  const { frameMs, durationMs } = content.song
+  if (drag.part === 'body')
+    return moveBlock(content.marks, mark.id, drag.deltaMs, frameMs, durationMs)
+  const toMs = (drag.part === 'start' ? mark.startMs : mark.endMs) + drag.deltaMs
+  return resizeBlock(content.marks, mark.id, drag.part, toMs, frameMs, durationMs)
+}
+
+/**
+ * Calls the store action of the drag, as one undo step.
+ * A drag that has no room to move changes nothing, and the status line states the reason.
+ */
 function commitDrag(id: string, drag: Drag) {
-  const mark = findMark(useSongStore.getState().current?.marks ?? [], id)
-  if (!mark) return
-  if (drag.part === 'body') moveMark(id, drag.deltaMs)
+  const content = useSongStore.getState().current
+  const mark = content && findMark(content.marks, id)
+  if (!content || !mark) return
+  const block = dragBlock(content, mark, drag)
+  if (block !== null) reportStatus(blockText(block))
+  else if (drag.part === 'body') moveMark(id, drag.deltaMs)
   else resizeMark(id, drag.part, (drag.part === 'start' ? mark.startMs : mark.endMs) + drag.deltaMs)
 }
 

@@ -7,6 +7,7 @@ import type { FrameMs } from '../../store/types.ts'
 import { useViewStore } from '../../store/viewStore.ts'
 import { FrameSizeDialog } from './FrameSizeDialog.tsx'
 import { ReasonButton } from './ReasonButton.tsx'
+import { reportStatus } from './statusStore.ts'
 import { loopSelection, PLAY_RATES, setPlayRate, usePlayerStore } from './playerStore.ts'
 import { useEditorKeys } from './useEditorKeys.ts'
 
@@ -77,6 +78,7 @@ export function TransportControls() {
         reason={looping ? null : loopReason(player !== null, canLoop)}
         hint="Play the selection in a loop"
         shortcut="L"
+        onBlocked={reportStatus}
         onAct={() => (looping ? player?.pause() : loopSelection())}
       >
         Loop

@@ -29,6 +29,7 @@ import { Layers } from './Layers.tsx'
 import { MarkActions } from './MarkActions.tsx'
 import { resetMarkUi } from './markUiStore.ts'
 import { ShortcutList } from './ShortcutList.tsx'
+import { StatusLine } from './StatusLine.tsx'
 import { TransportControls } from './TransportControls.tsx'
 import { UndoRedoButtons } from './UndoRedoButtons.tsx'
 import { Waveform } from './Waveform.tsx'
@@ -197,6 +198,7 @@ export function EditorPage({ songId }: EditorPageProps) {
         </Waveform>
         <div className="editor-lines">
           <HelpLine />
+          <StatusLine />
         </div>
         <Inspector />
         <EditorToolbar>

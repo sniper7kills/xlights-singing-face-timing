@@ -40,7 +40,12 @@ export function Inspector() {
       {mark === undefined ? (
         <p className="inspector-hint">Select one mark to see its fields.</p>
       ) : (
-        <MarkFields key={mark.id} mark={mark} frameMs={content.song.frameMs} />
+        <MarkFields
+          key={mark.id}
+          mark={mark}
+          frameMs={content.song.frameMs}
+          durationMs={content.song.durationMs}
+        />
       )}
     </aside>
   )

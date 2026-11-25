@@ -88,3 +88,68 @@ test('changes the help line with the selection', async ({ page }) => {
   await phoneme.click()
   await expect(help).toContainText('Click the phoneme again to choose a mouth shape.')
 })
+
+function status(page: Page): Locator {
+  return page.locator('.status-line')
+}
+
+test('states the reason in the status line when a key or a drag does nothing', async ({ page }) => {
+  await openDemoSong(page)
+  const words = layer(page, 'Words')
+
+  await words.filter({ hasText: /^holy$/ }).click()
+  await page.keyboard.press('s')
+  await expect(status(page)).toHaveText('Move the play cursor into the mark. Then press S.')
+
+  await words.last().click()
+  await page.keyboard.press('m')
+  await expect(status(page)).toHaveText('This is the last mark of the layer.')
+
+  // "and" has two phonemes. After one delete, its last phoneme stays.
+  const and = words.filter({ hasText: /^and$/ })
+  await and.click()
+  await page.keyboard.press('ArrowDown')
+  await page.keyboard.press('Delete')
+  await and.click()
+  await page.keyboard.press('ArrowDown')
+  await page.keyboard.press('Delete')
+  await expect(status(page)).toHaveText('A word needs one phoneme or more. Delete the word.')
+
+  // The second "night" touches "holy" and the end of its phrase.
+  const night = words.nth(3)
+  const box = await night.boundingBox()
+  if (box === null) throw new Error('The word has no box.')
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2)
+  await page.mouse.down()
+  await page.mouse.move(box.x + box.width / 2 + 40, box.y + box.height / 2, { steps: 4 })
+  await page.mouse.up()
+  await expect(status(page)).toHaveText('The mark has no room to move.')
+})
+
+test('states the end of the song for a typed time after it', async ({ page }) => {
+  await openDemoSong(page)
+  await layer(page, 'Words').first().click()
+  const end = page
+    .getByRole('complementary', { name: 'Inspector' })
+    .getByRole('textbox', { name: 'End' })
+
+  await end.fill('0:99.000')
+  await end.press('Enter')
+
+  await expect(page.getByRole('alert')).toHaveText('The song ends at 0:28.900.')
+})
+
+test('opens the phoneme list with no scroll of the stage', async ({ page }) => {
+  await openDemoSong(page)
+  const phoneme = layer(page, 'Phonemes').first()
+  const stage = page.locator('.stage')
+  await phoneme.click()
+  const before = await stage.evaluate((element) => [element.scrollTop, element.scrollHeight])
+
+  await phoneme.click()
+
+  await expect(page.getByRole('listbox', { name: 'Phoneme label' })).toBeVisible()
+  expect(await stage.evaluate((element) => [element.scrollTop, element.scrollHeight])).toEqual(
+    before,
+  )
+})

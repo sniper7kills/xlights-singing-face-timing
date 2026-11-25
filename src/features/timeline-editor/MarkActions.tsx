@@ -14,6 +14,7 @@ import type { Mark } from '../../store/types.ts'
 import { useViewStore } from '../../store/viewStore.ts'
 import { deleteSelectedMarks, editLabel } from './markCommands.ts'
 import { ReasonButton } from './ReasonButton.tsx'
+import { reportStatus } from './statusStore.ts'
 
 const NO_MARKS: readonly Mark[] = []
 
@@ -52,6 +53,7 @@ export function MarkActions() {
         shortcut="S"
         aria-keyshortcuts="S"
         onMouseDown={keepFocus}
+        onBlocked={reportStatus}
         onAct={() => splitMark(onlyId(), useViewStore.getState().playTimeMs)}
       >
         Split
@@ -62,6 +64,7 @@ export function MarkActions() {
         shortcut="M"
         aria-keyshortcuts="M"
         onMouseDown={keepFocus}
+        onBlocked={reportStatus}
         onAct={() => mergeWithNext(onlyId())}
       >
         Merge with next
@@ -72,6 +75,7 @@ export function MarkActions() {
         shortcut="Delete"
         aria-keyshortcuts="Delete"
         onMouseDown={keepFocus}
+        onBlocked={reportStatus}
         onAct={deleteSelectedMarks}
       >
         Delete
@@ -82,6 +86,7 @@ export function MarkActions() {
         shortcut="Enter or F2"
         aria-keyshortcuts="Enter F2"
         onMouseDown={keepFocus}
+        onBlocked={reportStatus}
         onAct={() => editLabel(onlyId())}
       >
         Edit label

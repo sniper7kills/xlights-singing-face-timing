@@ -1239,7 +1239,10 @@ button {
   font: 13px var(--body);
 }
 
+/* The list is fixed in the window, so it does not change the scroll height of the stage. */
 .phoneme-menu {
+  position: fixed;
+  z-index: 20;
   display: grid;
   grid-template-columns: repeat(5, auto);
   gap: 4px;

@@ -68,6 +68,7 @@ function controlInRow(
 export function LayerRow({ name, layer, voiceId, marks, scale }: LayerRowProps) {
   const nameId = useId()
   const track = useRef<HTMLUListElement>(null)
+  const control = useRef<HTMLDivElement>(null)
   const focusTrack = useMarkUiStore((ui) => ui.focusId === layerFocusId(voiceId, layer))
 
   useEffect(() => {
@@ -122,6 +123,7 @@ export function LayerRow({ name, layer, voiceId, marks, scale }: LayerRowProps) 
         </ul>
         {open && (
           <div
+            ref={control}
             className="label-control"
             style={{ left: `${Math.max(0, rangeToPx(scale, open.range).leftPx)}px` }}
           >
@@ -137,6 +139,7 @@ export function LayerRow({ name, layer, voiceId, marks, scale }: LayerRowProps) 
                 current={open.label}
                 onChoose={(label) => choosePhoneme(open.target, label)}
                 onClose={(refocus) => closeLabel(open.target, refocus)}
+                anchor={control}
               />
             )}
           </div>

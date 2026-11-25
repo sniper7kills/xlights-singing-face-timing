@@ -2,16 +2,20 @@
 // They read the stores when they run, so a component can call them from an event handler.
 
 import type { PhonemeLabel } from '../../lib/dictionary/cmuSymbols.ts'
+import { usedTimeText } from '../../lib/marks/editBlocks.ts'
 import { findMark, nextOnLayer, previousOnLayer } from '../../lib/marks/family.ts'
+import { resizeCause } from '../../lib/marks/limits.ts'
 import { marksBetween } from '../../lib/marks/selection.ts'
 import { addMark } from '../../store/actions/addMark.ts'
 import { canDeleteMarks, deleteMarks } from '../../store/actions/deleteMarks.ts'
+import { resizeMark } from '../../store/actions/resizeMark.ts'
 import { setMarkLabel, wordsWouldChange } from '../../store/actions/setMarkLabel.ts'
 import { setPhonemeLabel } from '../../store/actions/setPhonemeLabel.ts'
 import { useSongStore } from '../../store/songStore.ts'
 import type { Mark } from '../../store/types.ts'
 import { useViewStore } from '../../store/viewStore.ts'
 import { type LabelTarget, layerFocusId, useMarkUiStore } from './markUiStore.ts'
+import { reportStatus } from './statusStore.ts'
 import { followCursor } from './timeScale.ts'
 import { currentStageInput } from './useStageScale.ts'
 
@@ -173,4 +177,24 @@ export function selectAndReveal(mark: Mark, durationMs: number): void {
   const scrollMs = followCursor(currentStageInput(durationMs), mark.startMs)
   if (scrollMs !== null) useViewStore.getState().setScroll(scrollMs)
   useMarkUiStore.getState().requestFocus(mark.id)
+}
+
+/**
+ * Moves one edge of a mark to a typed time, as one undo step. See `resizeMark`.
+ * When a rule changes the time, the status line states the time that the store holds and the rule.
+ * @param id The mark.
+ * @param edge The edge to move.
+ * @param ms The typed time.
+ */
+export function typeEdgeTime(id: string, edge: 'start' | 'end', ms: number): void {
+  const content = useSongStore.getState().current
+  const mark = content && findMark(content.marks, id)
+  if (!content || !mark) return
+  const { frameMs, durationMs } = content.song
+  const cause = resizeCause(content.marks, mark, edge, ms, frameMs, durationMs)
+  resizeMark(id, edge, ms)
+  const stored = findMark(songMarks(), id)
+  const usedMs = edge === 'start' ? stored?.startMs : stored?.endMs
+  if (cause !== null && usedMs !== undefined && usedMs !== ms)
+    reportStatus(usedTimeText(usedMs, cause))
 }
