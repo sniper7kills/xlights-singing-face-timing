@@ -13,7 +13,7 @@ export type JoinReason = 'small-group' | 'cap' | 'share' | 'time'
 export type GroupFate =
   { kind: 'kept'; singer: number | null } | { kind: 'joined'; into: number; reason: JoinReason }
 
-/** One group of the clustering after the threshold merge, before each later join. */
+/** One group of the selected merge round of the clustering, before each later join. */
 export type RawGroup = {
   /** The number of the raw group, in the order of its first embedding. */
   group: number
@@ -66,7 +66,7 @@ export type SingerDiagnostics = {
 
 /** The group of each embedding after each step of the clustering and the join of short singers. */
 export type GroupStages = {
-  /** After the threshold merge: the raw groups. */
+  /** At the selected merge round: the raw groups. */
   merged: readonly number[]
   /** After the join of small groups. */
   joinedSmall: readonly number[]

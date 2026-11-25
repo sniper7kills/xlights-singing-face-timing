@@ -22,7 +22,6 @@ function runData(songId: string, wordCount: number): RunData {
         failureKind: null,
         diagnostics: null,
         rangeCount: null,
-        shareThreshold: 0.3,
         singersWithPhrases: null,
         phrasesWithNoSinger: null,
         phrasesWithMoreSingers: null,

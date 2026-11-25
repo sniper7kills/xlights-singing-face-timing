@@ -47,7 +47,8 @@ function singers(change: Partial<SingerSection> = {}): SingerSection {
     failureKind: null,
     diagnostics: DIAGNOSTICS,
     rangeCount: 9,
-    shareThreshold: 0.3,
+    rule: { secondSingerRatio: 0.8, secondSingerMs: 1000, partMinWords: 1, partMinMs: 1000 },
+    phrasesDivided: 3,
     singersWithPhrases: 2,
     phrasesWithNoSinger: 1,
     phrasesWithMoreSingers: 0,
@@ -168,9 +169,27 @@ describe('reportToText', () => {
     expect(lines).toContain('Centroid distances (smallest / median / largest): 0.52 / 0.81 / 1.1')
     expect(lines).toContain('Raw groups: 3')
     expect(lines).toContain('Final singers: 2')
-    expect(lines).toContain('Phrase share for a singer: 30% of the phrase length')
+    expect(lines).toContain(
+      'Phrase rule: the singer with the most time; a second singer with 80% of that time and 1 s or more',
+    )
+    expect(lines).toContain(
+      'Phrase division: at a change of singer, when each part has 1 word or more and 1 s or more',
+    )
+    expect(lines).toContain('Phrases divided: 3')
+    expect(lines).toContain('Phrases with more than one singer (copied to each voice): 0')
     expect(lines).toContain('Phrases with no singer range: 1')
     expect(lines).toContain('Voices made: 2')
+  })
+
+  it('writes "not known" for the rule and the divided phrases of a report of an earlier version', () => {
+    const earlier = singers()
+    delete earlier.rule
+    delete earlier.phrasesDivided
+    const text = reportToText(buildRunReport(facts({ singers: earlier }))).split('\n')
+
+    expect(text).toContain('Phrase rule: not known')
+    expect(text).toContain('Phrase division: not known')
+    expect(text).toContain('Phrases divided: not known')
   })
 
   it('writes the raw groups as a table with aligned columns', () => {

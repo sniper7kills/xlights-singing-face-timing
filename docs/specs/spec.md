@@ -770,3 +770,8 @@ The spec has one editor epic. The tracker has two, because 30 requirements do no
 - 2026-11-24 — Batch gate of epic #35. Production exists (issue #7). The features
   00 and 02 to 05 are built. Feature 06 stays issued until the manual xLights
   import check (issue #79).
+- 2026-11-24 — Issue #148. A phrase goes to the singer with the most time, and to a
+  second singer only with 80% of that time and 1 second or more. The singer step
+  divides a phrase where the singer changes. The transcribe dialog shows a hint for
+  the tiny and base speech models. The rule came from a measurement on the song of
+  the maintainer and two controls (ADR 0009).

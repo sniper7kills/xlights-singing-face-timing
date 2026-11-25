@@ -3,7 +3,8 @@ import { expect, type Locator, type Page, test } from '@playwright/test'
 // The fixture workers download no model. The transcribe fixture returns the 16 demo song words in 3 phrases.
 // The separate fixture returns the mono mix. The singers fixture gives singer 0 the first half of the song
 // and singer 1 the second half, with 500 ms in common at the middle. The phrase
-// "All is calm all is bright" (9.8 s to 18.7 s) crosses the middle, so both singers sing it.
+// "All is calm all is bright" (9.8 s to 18.7 s) crosses the middle: singer 0 sings "All is calm",
+// and singer 1 sings "all is bright" from 14.3 s. So the singer step divides the phrase there.
 // The script also records each text of the progress area, because a polling assertion can miss a short state.
 // The E2E tests compile with no DOM types, so the script is a string.
 const INIT_SCRIPT = `
@@ -21,6 +22,8 @@ const INIT_SCRIPT = `
 const SEPARATE = 'Separate the vocals first'
 const SINGERS = 'Put each singer on its own voice (experimental)'
 const SHARED_PHRASE = 'All is calm all is bright'
+const FIRST_PART = 'All is calm'
+const SECOND_PART = 'all is bright'
 const APP_ORIGIN = 'http://localhost:4173'
 
 /** Returns the URL of each request for a file of the singers worker. */
@@ -83,7 +86,7 @@ test('a run with both options off requests no file of the singers worker', async
   expect((await progressLog(page)).some((text) => text.includes('singer'))).toBe(false)
 })
 
-test('a run with both options on puts the second singer on "Singer 2", and one undo removes it', async ({
+test('a run with both options on divides the phrase where the singer changes, puts singer 2 on "Singer 2", and one undo removes it', async ({
   page,
 }) => {
   const singerRequests = watchSingerRequests(page)
@@ -114,16 +117,19 @@ test('a run with both options on puts the second singer on "Singer 2", and one u
   await expect(rail(page).getByRole('listitem')).toHaveCount(2)
   await expect(voiceButton(page, 'Lead Vocals')).toHaveAccessibleDescription('2 phrases')
   await expect(voiceButton(page, 'Singer 2')).toHaveAccessibleDescription('2 phrases')
-  await expect(phrases(page).filter({ hasText: SHARED_PHRASE })).toHaveCount(1)
+  await expect(phrases(page).filter({ hasText: FIRST_PART })).toHaveCount(1)
+  await expect(phrases(page).filter({ hasText: SHARED_PHRASE })).toHaveCount(0)
   await voiceButton(page, 'Singer 2').click()
   await expect(phrases(page)).toHaveCount(2)
-  await expect(phrases(page).filter({ hasText: SHARED_PHRASE })).toHaveCount(1)
+  await expect(phrases(page).filter({ hasText: SECOND_PART })).toHaveCount(1)
+  await expect(phrases(page).filter({ hasText: FIRST_PART })).toHaveCount(0)
 
   await page.keyboard.press('ControlOrMeta+z')
 
   await expect(rail(page).getByRole('listitem')).toHaveCount(1)
   await expect(voiceButton(page, 'Lead Vocals')).toHaveAccessibleDescription('3 phrases')
   await expect(phrases(page)).toHaveCount(3)
+  await expect(phrases(page).filter({ hasText: SHARED_PHRASE })).toHaveCount(1)
   await expect(page.getByRole('list', { name: 'Words' }).getByRole('listitem')).toHaveCount(16)
 })
 

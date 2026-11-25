@@ -45,7 +45,8 @@ function singers(change: Partial<SingerSection> = {}): SingerSection {
     failureKind: null,
     diagnostics: DIAGNOSTICS,
     rangeCount: 9,
-    shareThreshold: 0.3,
+    rule: { secondSingerRatio: 0.8, secondSingerMs: 1000, partMinWords: 1, partMinMs: 1000 },
+    phrasesDivided: 3,
     singersWithPhrases: 2,
     phrasesWithNoSinger: 1,
     phrasesWithMoreSingers: 0,
@@ -226,9 +227,15 @@ describe('reportPanel', () => {
     expect(fact(section, 'Centroid distances (smallest / median / largest)')).toBe(
       '0.52 / 0.81 / 1.1',
     )
-    expect(fact(section, 'Phrase share for a singer')).toBe('30% of the phrase length')
+    expect(fact(section, 'Phrase rule')).toBe(
+      'the singer with the most time; a second singer with 80% of that time and 1 s or more',
+    )
+    expect(fact(section, 'Phrase division')).toBe(
+      'at a change of singer, when each part has 1 word or more and 1 s or more',
+    )
+    expect(fact(section, 'Phrases divided')).toBe('3')
     expect(fact(section, 'Phrases with no singer')).toBe('1')
-    expect(fact(section, 'Phrases with more than one singer')).toBe('0')
+    expect(fact(section, 'Phrases with more than one singer (copied to each voice)')).toBe('0')
   })
 
   it('leaves out the distances for one raw group', () => {

@@ -253,7 +253,15 @@ body.rv-open .layout { padding-right:21rem; }
 <ul>
 <li>FR-voice-27 — The singer voices are one undo step after the marks of the run.
 </li>
+<li>FR-voice-28 — The singer step divides a phrase of the run where the singer changes
+</li>
 </ul>
+<p>inside it.</p>
+<ul>
+<li>FR-voice-29 — A second singer gets a copy of a phrase only when it sings almost as
+</li>
+</ul>
+<p>long as the top singer of the phrase.</p>
 <h3 id="voices-sections-user-flows">User flows</h3>
 <h4 id="voices-sections-divide-one-transcript-between-two-singers">Divide one transcript between two singers</h4>
 <div class="diagram"><pre class="mermaid">flowchart TD
@@ -298,6 +306,11 @@ body.rv-open .layout { padding-right:21rem; }
 </ol>
 <p>app finds that count of singers. With "Automatic", the app estimates the count.</p>
 <ol>
+<li>The app divides each phrase in which the singer changes, at the word boundary
+</li>
+</ol>
+<p>nearest to the change.</p>
+<ol>
 <li>The app adds "Singer 2", "Singer 3" … and moves or copies the phrases of each
 </li>
 </ol>
@@ -308,10 +321,10 @@ body.rv-open .layout { padding-right:21rem; }
 </ol>
 <p>voice" or "Copy to voice".</p>
 <ol>
-<li>One undo removes the singer voices and puts each phrase back on the voice of the
+<li>One undo removes the singer voices and the divisions, and puts each phrase back on
 </li>
 </ol>
-<p>run. The marks of the run stay.</p>
+<p>the voice of the run. The marks of the run stay.</p>
 <h4 id="voices-sections-make-sections">Make sections</h4>
 <div class="diagram"><pre class="mermaid">flowchart TD
   A[Person drags a time selection on the waveform] --&gt; B[Person selects Add section]
@@ -477,20 +490,31 @@ body.rv-open .layout { padding-right:21rem; }
 </ul>
 <p>rule is <code>assignSingers</code> in <code>src/lib/singers/assignSingers.ts</code>:</p>
 <ul>
-<li>The share of a singer is the time of its ranges inside the phrase, divided by
+<li>The time of a singer is the time of its ranges inside the phrase. Ranges of one
 </li>
 </ul>
-<p>the length of the phrase. Ranges of one singer that overlap count one time.</p>
+<p>singer that overlap count one time.</p>
 <ul>
-<li>A singer with a share of 30% or more (<code>SINGER_SHARE</code>) sings the phrase.
-<ul>
-<li>If no singer reaches 30%, the singer with the largest share sings the phrase.
+<li>The singer with the most time sings the phrase. Two singers with the same top
 </li>
+</ul>
+<p>time both sing it.</p>
+<ul>
+<li>A second singer also sings the phrase when its time is 80% of the top time or
+</li>
+</ul>
+<p>more (<code>SECOND_SINGER_RATIO</code>), and 1 second or more (<code>SECOND_SINGER_MS</code>).</p>
+<ul>
 <li>A phrase that no range of a singer touches goes to the first singer.
-</li>
-<li>The app numbers the singers in the order of their first phrase. The first
+<ul>
+<li>Issue #148 replaced the rule of 30% of the phrase length. The measurement is in
 </li>
 </ul>
+</li>
+</ul>
+<p><code>docs/adr/0009-singer-voices-from-diarization.md</code>.</p>
+<ul>
+<li>The app numbers the singers in the order of their first phrase. The first
 </li>
 </ul>
 <p>singer has the number 0.</p>
@@ -500,6 +524,40 @@ body.rv-open .layout { padding-right:21rem; }
 </ul>
 <p>free, the first singer stays. The other singers with the most phrase time stay. Each other singer goes to the nearest earlier singer that stays.</p>
 <ul>
+<li><strong>Phrase division.</strong> Before the rule above, the singer step divides each phrase of
+</li>
+</ul>
+<p>the run in which the singer changes. The rule is <code>divideAtSingers</code> in <code>src/lib/singers/divideAtSingers.ts</code>:</p>
+<ul>
+<li>Each word gets the singer with the most time in the word.
+<ul>
+<li>Adjacent words with the same singer are one part. A word that no range touches
+</li>
+</ul>
+</li>
+</ul>
+<p>joins the part before it.</p>
+<ul>
+<li>A part with fewer than 1 word (<code>PART_MIN_WORDS</code>) or shorter than 1 second
+</li>
+</ul>
+<p>(<code>PART_MIN_MS</code>) joins its longer neighbour. The time of a part is from the start of its first word to the end of its last word.</p>
+<ul>
+<li>The phrase divides at the start of the first word of each part after the first.
+</li>
+</ul>
+<p>So a change inside a word never divides the word.</p>
+<ul>
+<li>The first part keeps the id of the phrase. Each other part is a new phrase.
+<ul>
+<li>Each word and each phoneme keeps its id and its times.
+</li>
+<li>The label of each part is the labels of its words, with one space between them.
+</li>
+<li>With one singer, the step divides no phrase.
+</li>
+</ul>
+</li>
 <li>The voice of the run keeps the phrases of the first singer. Each other singer gets
 </li>
 </ul>
@@ -518,7 +576,7 @@ body.rv-open .layout { padding-right:21rem; }
 <li>A run has these undo steps, in this order: the marks of the run, the sections of
 </li>
 </ul>
-<p>the <code>[Name]</code> tags, and the singer voices. One undo after the run removes the singer voices only, and the marks of the run stay on the voice of the run.</p>
+<p>the <code>[Name]</code> tags, and the singer voices with the phrase divisions. One undo after the run removes the singer voices and the divisions only, and the marks of the run stay on the voice of the run.</p>
 <h3 id="voices-sections-data-touched">Data touched</h3>
 <ul>
 <li>Reads and writes <code>VOICE</code>, <code>SECTION</code> and <code>MARK</code>.
@@ -529,7 +587,7 @@ body.rv-open .layout { padding-right:21rem; }
 <h3 id="voices-sections-interfaces">Interfaces</h3>
 <p><strong>Store actions, <code>src/store/</code>:</strong></p>
 <pre class="code"><code>addVoice(songId, name?): Voice
-putSingersOnVoices(voiceId, assignment: Map&lt;phraseId, number[]&gt;): number   // the count of voices that hold the phrases of the run
+putSingersOnVoices(voiceId, phraseIds, segments, maxSingers): SingerStepResult   // { voiceCount, dividedCount, stats }
 renameVoice(id, name)            // rejects a duplicate name
 setVoiceColor(id, color)
 reorderVoices(songId, orderedIds)
@@ -553,7 +611,11 @@ phrasesInSection(voiceId, sectionId): Mark[]</code></pre>
 <tr><td>Singer step finds one singer</td><td>No new voice. The phrases stay on the voice of the run.</td></tr>
 <tr><td>Singer step finds more singers than free voices</td><td>The song keeps 12 voices. The singers with the least phrase time go to the nearest earlier singer.</td></tr>
 <tr><td>Singer step on a range run</td><td>Only the phrases of the range get singers. A new voice holds only phrases of the range.</td></tr>
-<tr><td>A phrase that two singers sing</td><td>The phrase is on the voice of the first singer, and a copy is on the voice of the second singer.</td></tr>
+<tr><td>A phrase that two singers sing for the same time, or the second for 80% of the top time and 1 second or more</td><td>The phrase is on the voice of the first singer, and a copy is on the voice of the second singer.</td></tr>
+<tr><td>A second singer sings a short part of a phrase</td><td>The phrase stays on the voice of the top singer only.</td></tr>
+<tr><td>The singer changes inside a phrase, and each part is 1 second or longer</td><td>The phrase becomes one phrase for each part. Each part goes to the voice of its singer.</td></tr>
+<tr><td>The singer changes inside a word</td><td>The word stays whole. It goes to the part of the singer with the most time in it.</td></tr>
+<tr><td>A part of a phrase is shorter than 1 second</td><td>The part stays in the phrase of its longer neighbour.</td></tr>
 <tr><td>Song has more than 4 unmuted voices</td><td>The face preview shows the first 4 in voice order and the note "+2 more".</td></tr>
 </table></div>
 <h3 id="voices-sections-acceptance-criteria">Acceptance criteria</h3>
@@ -639,6 +701,21 @@ phrasesInSection(voiceId, sectionId): Mark[]</code></pre>
 </li>
 </ul>
 <p>of the run. (FR-voice-27)</p>
+<ul>
+<li>A phrase in which singer 1 sings the first two words and singer 2 the last two
+</li>
+</ul>
+<p>becomes two phrases on two voices. No word or phoneme changes its time. (FR-voice-28)</p>
+<ul>
+<li>A phrase in which a second singer sings 40% of the time of the top singer is on
+</li>
+</ul>
+<p>the voice of the top singer only. (FR-voice-29)</p>
+<ul>
+<li>Each mark rule holds after the singer step, and one undo removes the divisions too.
+</li>
+</ul>
+<p>(FR-voice-27, 28)</p>
 <h3 id="voices-sections-out-of-scope">Out of scope</h3>
 <ul>
 <li>The names of the singers. A singer voice has the name "Singer N".

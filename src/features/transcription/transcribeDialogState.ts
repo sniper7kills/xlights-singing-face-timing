@@ -214,6 +214,19 @@ export const SINGER_COUNT_NOTE = 'Select the count if you know it. The result is
 /** The hint of the check box "Put each singer on its own voice" while "Separate the vocals first" is off. */
 export const SINGER_HINT = 'Select "Separate the vocals first" to use this option.'
 
+/** The hint under the singer note while the option is on and a small speech model runs in this browser. */
+export const SINGER_MODEL_HINT = 'A larger speech model finds more of the quiet parts.'
+
+/**
+ * Returns true when the dialog shows `SINGER_MODEL_HINT`.
+ * Issue #137 measured that the base speech model wrote few of the quiet chorus lines, so those lines got no phrase.
+ * @param remote True when the run uses the remote endpoint, which has no speech model choice.
+ * @param speechModelId The selected speech model of this browser.
+ */
+export function showsSingerModelHint(remote: boolean, speechModelId: string): boolean {
+  return !remote && (speechModelId === 'whisper-tiny' || speechModelId === 'whisper-base')
+}
+
 /**
  * Returns the sentences that the toast adds when the singer step made no new voice, or found more singers than free voices.
  * The download and memory failures name their cause. Each other failure shares one message.

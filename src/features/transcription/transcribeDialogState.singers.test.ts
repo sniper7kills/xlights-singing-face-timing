@@ -6,6 +6,7 @@ import {
   progressText,
   progressValue,
   type RunState,
+  showsSingerModelHint,
   singerMessage,
   stateLabel,
   transcribeDialogReducer,
@@ -135,4 +136,18 @@ describe('outcomeText with the singer step', () => {
   it('keeps the text of a run without the option', () => {
     expect(outcomeText({ wordCount: 1, estimatedCount: 0 })).toBe('1 word, 0 estimated')
   })
+})
+
+describe('showsSingerModelHint', () => {
+  it.each([
+    { remote: false, model: 'whisper-tiny', shown: true },
+    { remote: false, model: 'whisper-base', shown: true },
+    { remote: false, model: 'whisper-small', shown: false },
+    { remote: true, model: 'whisper-base', shown: false },
+  ])(
+    'returns $shown for remote $remote and the speech model $model',
+    ({ remote, model, shown }) => {
+      expect(showsSingerModelHint(remote, model)).toBe(shown)
+    },
+  )
 })

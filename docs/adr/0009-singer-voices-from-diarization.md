@@ -197,3 +197,111 @@ extra copy, 1 misses a singer and 1 is on the wrong voice.
 - A wrong count gives wrong singers. A count of 3 on the song splits the chorus and
   puts most of it on the man.
 - One song and two controls are the whole measurement.
+
+## What a second measurement showed (2026-11-24, issue #148)
+
+Issue #137 left two causes of wrong phrases. The rule of 30% of the phrase gave an
+extra copy to a second singer with a short part. The singer step did not divide a
+phrase in which the singer changes. The maintainer allowed model runs on the
+development computer for this measurement.
+
+### Method
+
+- The built app of `main` (commit 03af71d) ran in headless Chromium on `wasm`, with
+  Spleeter and the base speech model. The song also ran with the small speech
+  model. Each run used "Automatic" and the count "2".
+- After each run, a script read the phrases, the words and the singer ranges from
+  IndexedDB. It then applied the old rule and the new rule to the same data, so
+  the only difference is the rule.
+- The true singer of a word of the song comes from a pitch track (YIN) of the
+  Spleeter vocals. A median of 225 Hz or less is the man. A median of 240 Hz or more
+  is the chorus. A word between the two limits, or with fewer than 3 voiced frames,
+  is not judged. A phrase with fewer than half of its words judged is not judged.
+- Two new controls came from the recordings of control 1 of issue #137. Turns of 5,
+  7, 9, 6, 8 and 10 s alternate between the man and the woman (125 s, 17 turns). The
+  overlap version starts each turn 1.0, 1.5 or 2.0 s before the end of the turn
+  before it (101.5 s). The true singer of a word is the turn that holds the middle of
+  the word.
+- Each phrase falls in one class:
+  - correct only: its voices are exactly the true singers of the phrase;
+  - extra copy: its voices hold the true singer and one more;
+  - wrong voice: no voice of the phrase is a true singer;
+  - mixed: a phrase with words of two singers, on one voice or on both;
+  - not judged: see the limits above.
+- The script also counts the words on exactly their true voices, and each word that
+  had its true voice before the change and lost it after.
+
+### Numbers before the change
+
+On the song with the base speech model, the man holds 72% to 100% of the time of
+his phrases. The chorus also has ranges in 14 of them, with 2% to 61% of the time,
+so 6 phrases of the man got an extra copy at 30%. The chorus answers inside a phrase
+of the man in phrases 24 and 25 (93.35 s to 95.30 s, 100.50 s to 102.65 s). Each
+answer is one or two held words, 1.3 s to 2.1 s long. Other changes are at the
+last word of a phrase.
+
+On the two new controls, singer 0 has ranges over almost all of the audio (119 of
+125 s on the turns control). This is a limit of the singer search on these mixes,
+not of the phrase rule. Issue #137 measured a cleaner result on its own cut of the
+same recordings.
+
+### Decision
+
+- A phrase goes to the singer with the most time in it. A second singer also gets
+  the phrase when its time is 80% of the top time or more, and 1 s or more
+  (`SECOND_SINGER_RATIO`, `SECOND_SINGER_MS` in `src/lib/singers/assignSingers.ts`).
+- Before that rule, the singer step divides a phrase where the singer changes
+  (`divideAtSingers` in `src/lib/singers/divideAtSingers.ts`). Each word gets the
+  singer with the most time in it. A part with fewer than 1 word or shorter than
+  1 s joins its longer neighbour (`PART_MIN_WORDS`, `PART_MIN_MS`). The division is
+  at the start of a word, so a word never divides.
+- The division, the moves, the copies and the new voices are one undo step.
+- The source of the constants, on the song with the base speech model: the shares
+  0.6 to 0.9 gave the same counts. 0.5 gave 2 extra copies. 1.0 put 2 more phrases
+  of the turns control on the wrong voice. The part limits 750 ms and 1000 ms gave
+  the same counts. 500 ms made 3 more phrases with no gain. 1500 ms gave 5 fewer
+  phrases on the correct voice only.
+
+### Results
+
+"Automatic" and "2" gave the same singer ranges on each input, because the search
+found 2 singers with "Automatic" too. So each row holds both.
+
+| Input | Phrases | Correct only | Extra copy | Wrong voice | Mixed, one voice | Mixed, both voices | Not judged | Words on exactly their voices |
+|---|---|---|---|---|---|---|---|---|
+| The song, base, before | 37 | 15 | 6 | 0 | 4 | 3 | 9 | 88 of 138 |
+| The song, base, after | 44 | 26 | 0 | 0 | 5 | 1 | 12 | 126 of 138 |
+| The song, small, before | 30 | 11 | 6 | 0 | 0 | 7 | 6 | 65 of 143 |
+| The song, small, after | 40 | 22 | 1 | 0 | 6 | 0 | 11 | 120 of 143 |
+| Turns control, before | 49 | 21 | 14 | 4 | 8 | 2 | 0 | 244 of 445 |
+| Turns control, after | 50 | 22 | 14 | 4 | 10 | 0 | 0 | 261 of 445 |
+| Overlap control, before | 37 | 14 | 2 | 7 | 11 | 3 | 0 | 172 of 354 |
+| Overlap control, after | 38 | 16 | 1 | 7 | 13 | 1 | 0 | 187 of 354 |
+
+No phrase goes to a wrong voice because of the change. The trade is in mixed
+phrases. A mixed phrase that had a copy on both voices now goes to the voice of its
+top singer when the part of the other singer is shorter than 1 s, or when the
+ranges do not show the change. Such words lose their copy on the voice of the other
+singer:
+
+- the song, base: 2 words, at 8.80 s and 118.65 s;
+- the song, small: 17 words in 9 phrases, most of them short chorus parts;
+- the turns control: 12 words in 3 phrases;
+- the overlap control: 7 words in 2 phrases.
+
+The built app with the change ran the song once more in headless Chromium, with
+both options on, "Singers: 2" and the base speech model. The toast read "214 words
+on 2 voices, 0 estimated". The step divided 5 phrases, so the run has 44 phrases:
+"Lead Vocals" holds 35 and "Singer 2" holds 11, with 2 phrases on both. Before the
+change, the same run gave 16 and 34 phrases, with 13 on both. The run took 104 s,
+and the browser used 1810 MB at most.
+
+The small speech model wrote 221 words, the base model 214. The small model made
+fewer, longer phrases, so more of its phrases hold a change of singer.
+
+### Limits that remain
+
+- The pitch limits judge the song. They cannot tell a held high note of the man
+  from the chorus, so 9 to 12 phrases of the song are not judged.
+- On the two new controls, the singer ranges limit the result, not the phrase rule.
+- A part of the other singer shorter than 1 s stays in the phrase of its neighbour.

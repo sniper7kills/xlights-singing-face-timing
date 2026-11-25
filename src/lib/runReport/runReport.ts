@@ -70,6 +70,19 @@ export type VoicePhrases = { name: string; phraseCount: number; made?: boolean }
 export type SingerStepStatus =
   'option-off' | 'split' | 'one-singer' | 'capped' | 'failed' | 'cancelled' | 'no-vocals'
 
+/**
+ * The constants of the rule that gives the phrases of a run to the singers:
+ * - `secondSingerRatio`: a second singer gets a phrase with this share of the time of the top singer or more, from 0 to 1.
+ * - `secondSingerMs`: a second singer also needs this time in the phrase, in milliseconds.
+ * - `partMinWords` and `partMinMs`: the smallest part of a divided phrase, in words and in milliseconds.
+ */
+export type SingerPhraseRule = {
+  secondSingerRatio: number
+  secondSingerMs: number
+  partMinWords: number
+  partMinMs: number
+}
+
 /** What the singer step found, and what the app did with it. A count is null when the step did not get that far. */
 export type SingerSection = {
   status: SingerStepStatus
@@ -79,8 +92,10 @@ export type SingerSection = {
   diagnostics: SingerDiagnostics | null
   /** The count of singer ranges that the search returned. */
   rangeCount: number | null
-  /** A singer gets a phrase when its ranges cover this share of the phrase, from 0 to 1. */
-  shareThreshold: number
+  /** The rule that gives the phrases to the singers. A report of an earlier version of the app has no rule. */
+  rule?: SingerPhraseRule
+  /** The phrases of the run that the step divided where the singer changes. A report of an earlier version has none. */
+  phrasesDivided?: number | null
   /** The singers that got one phrase or more, before the limit of free voices. */
   singersWithPhrases: number | null
   /** The phrases that no singer range touches. They stay on the voice of the run. */
@@ -182,6 +197,25 @@ function countText(value: number | null): string {
   return value === null ? 'not known' : String(value)
 }
 
+/**
+ * Returns the text of the rule that gives a phrase to its singers, or `not known` for a report with no rule.
+ * @param rule The rule of the report.
+ */
+export function phraseRuleText(rule: SingerPhraseRule | undefined): string {
+  if (rule === undefined) return 'not known'
+  return `the singer with the most time; a second singer with ${Math.round(rule.secondSingerRatio * 100)}% of that time and ${rule.secondSingerMs / 1000} s or more`
+}
+
+/**
+ * Returns the text of the limit of a phrase division, or `not known` for a report with no rule.
+ * @param rule The rule of the report.
+ */
+export function divisionRuleText(rule: SingerPhraseRule | undefined): string {
+  if (rule === undefined) return 'not known'
+  const words = rule.partMinWords === 1 ? '1 word' : `${rule.partMinWords} words`
+  return `at a change of singer, when each part has ${words} or more and ${rule.partMinMs / 1000} s or more`
+}
+
 /** Returns the rows as lines with each column padded to its widest cell, so a monospace font shows a table. */
 export function alignedTable(rows: readonly (readonly string[])[]): string[] {
   const widths = rows.reduce<number[]>(
@@ -268,10 +302,12 @@ function singerLines(singers: SingerSection): string[] {
     `Step: ${status}`,
     ...diagnosticLines(singers.diagnostics),
     `Singer ranges: ${countText(singers.rangeCount)}`,
-    `Phrase share for a singer: ${Math.round(singers.shareThreshold * 100)}% of the phrase length`,
+    `Phrase rule: ${phraseRuleText(singers.rule)}`,
+    `Phrase division: ${divisionRuleText(singers.rule)}`,
+    `Phrases divided: ${countText(singers.phrasesDivided ?? null)}`,
     `Singers with one phrase or more: ${countText(singers.singersWithPhrases)}`,
     `Phrases with no singer range: ${countText(singers.phrasesWithNoSinger)}`,
-    `Phrases with more than one singer: ${countText(singers.phrasesWithMoreSingers)}`,
+    `Phrases with more than one singer (copied to each voice): ${countText(singers.phrasesWithMoreSingers)}`,
     `Voices made: ${countText(singers.voicesMade)}`,
   ]
 }

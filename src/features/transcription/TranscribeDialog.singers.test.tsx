@@ -38,6 +38,7 @@ const NOTE =
   'The app estimates which singer sings each phrase, and makes one voice for each singer. Check the result. Use "Move to voice" to correct a phrase. The app can find too many singers. This step downloads models of 33 MB one time.'
 const HINT = 'Select "Separate the vocals first" to use this option.'
 const COUNT_NOTE = 'Select the count if you know it. The result is better.'
+const MODEL_HINT = 'A larger speech model finds more of the quiet parts.'
 
 let client: TranscribeClient
 let runs: HeldRun[]
@@ -242,5 +243,22 @@ describe('TranscribeDialog and the singer voices', () => {
 
     expect(onDone).not.toHaveBeenCalled()
     expect(await screen.findByRole('button', { name: 'Start' })).toBeEnabled()
+  })
+
+  it('shows the speech model hint with the option on and a tiny or base speech model only', async () => {
+    await updateSettings({ separateVocals: true })
+    const { user } = await renderDialog()
+    await vi.waitFor(() => expect(screen.getByRole('checkbox', { name: SINGERS })).toBeEnabled())
+    expect(screen.queryByText(MODEL_HINT)).toBeNull()
+
+    await user.click(screen.getByRole('checkbox', { name: SINGERS }))
+    expect(screen.getByRole('radio', { name: /^base/ })).toBeChecked()
+    expect(screen.getByText(MODEL_HINT)).toBeInTheDocument()
+
+    await user.click(screen.getByRole('radio', { name: /^small/ }))
+    expect(screen.queryByText(MODEL_HINT)).toBeNull()
+
+    await user.click(screen.getByRole('radio', { name: /^tiny/ }))
+    expect(screen.getByText(MODEL_HINT)).toBeInTheDocument()
   })
 })

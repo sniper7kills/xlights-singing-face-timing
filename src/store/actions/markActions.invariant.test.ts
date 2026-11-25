@@ -39,6 +39,7 @@ async function loadModules(withDictionary: boolean) {
     ...(await import('./setMarkLabel.ts')),
     ...(await import('./setPhonemeLabel.ts')),
     ...(await import('./replaceMarksInRange.ts')),
+    ...(await import('./singerVoices.ts')),
   }
 }
 
@@ -62,6 +63,18 @@ function randomRangeReplace(random: Random, actions: Actions, mark: Mark, call: 
     range,
     generateRunMarks(random, mark.voiceId, range, `run${call}`),
   )
+}
+
+/** Runs the singer step on the phrases of the voice of the mark, with random singer ranges and a random limit of singers. */
+function randomSingerStep(random: Random, actions: Actions, mark: Mark): void {
+  const phraseIds = (actions.useSongStore.getState().current?.marks ?? [])
+    .filter((item) => item.layer === 'phrase' && item.voiceId === mark.voiceId)
+    .map((item) => item.id)
+  const segments = Array.from({ length: 1 + Math.floor(random() * 6) }, () => {
+    const startMs = random() * DURATION_MS
+    return { singer: Math.floor(random() * 3), startMs, endMs: startMs + random() * 6000 }
+  })
+  actions.putSingersOnVoices(mark.voiceId, phraseIds, segments, 1 + Math.floor(random() * 3))
 }
 
 /** Calls one random action on a random mark, with arguments that are legal, past a limit or not possible. */
@@ -100,6 +113,7 @@ function randomAction(
       ),
     () => actions.deleteMarks([mark.id, other.id]),
     () => randomRangeReplace(random, actions, mark, call),
+    () => randomSingerStep(random, actions, mark),
   ]
   pick(random, choices)()
 }
