@@ -65,15 +65,17 @@ function randomRangeReplace(random: Random, actions: Actions, mark: Mark, call: 
   const range = { startMs, endMs: Math.min(DURATION_MS, startMs + random() * 8000) }
   const voices = actions.useSongStore.getState().current?.voices ?? []
   // Half of the replaces also clear the other voices, as a run that replaces the singer voices of the last run.
-  const singerVoiceIds =
+  const replacedVoices =
     random() < 0.5
-      ? voices.filter((voice) => voice.id !== mark.voiceId).map((voice) => voice.id)
+      ? voices
+          .filter((voice) => voice.id !== mark.voiceId)
+          .map((voice) => ({ voiceId: voice.id, removable: random() < 0.5 }))
       : []
   actions.replaceMarksInRange(
     mark.voiceId,
     range,
     generateRunMarks(random, mark.voiceId, range, `run${call}`),
-    singerVoiceIds,
+    replacedVoices,
   )
 }
 

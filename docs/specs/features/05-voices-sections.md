@@ -66,10 +66,11 @@ the song at a time.
   inside it.
 - FR-voice-29 — A second singer gets a copy of a phrase only when it sings almost as
   long as the top singer of the phrase.
-- FR-voice-30 — A new run with the singer step replaces the singer voices of the
-  last run, so no phrase is on two voices because of an earlier run.
-- FR-voice-31 — A singer voice of the last run with no mark left after the replace
-  goes, in the undo step of the marks of the run.
+- FR-voice-30 — A new run with the singer step replaces the marks of each voice of
+  the last run in its range, so no phrase is on two voices because of an earlier
+  run.
+- FR-voice-31 — A singer voice of the last run goes when the replace removes its
+  last mark, in the undo step of the marks of the run.
 - FR-voice-32 — Each row of the voice rail shows its row number before the voice
   name.
 - FR-voice-33 — The row of the shown voice has a mark that is not colour alone.
@@ -349,8 +350,8 @@ voices and "New voice".
 - The singer step changes only the phrases that the run wrote. Older marks of the
   voice of the run stay.
 - A new run with the singer step first replaces the marks in the range of each
-  singer voice of the last run, and removes such a voice with no mark left. The
-  rules are in
+  voice of the last run, and removes a singer voice from which it removed the last
+  mark. The rules are in
   [02-transcription.md](02-transcription.md#behaviour-rules), "Singer voices of the
   last run". (FR-voice-30, 31)
 - A run has these undo steps, in this order: the marks of the run, the sections of

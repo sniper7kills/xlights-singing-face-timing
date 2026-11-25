@@ -488,20 +488,23 @@ describe('runTranscription after a run with singer voices', () => {
     expect(phrasesOn(voiceNamed('Singer 2').id)).toHaveLength(1)
   })
 
-  it('treats a singer voice of the last run as the voice of the run when the person starts the run on it', async () => {
+  it('replaces the marks of the voice of the last run when the person starts the run on a singer voice', async () => {
     await runTranscription(request, fakeClient(), handlers())
     const singer = voiceNamed('Singer 2')
+    const markCount = content().marks.length
     const run = handlers()
 
     await runTranscription({ ...request, voiceId: singer.id }, fakeClient(), run)
 
-    // The voice of the run is not one of the singer voices that the run replaces, and "Lead Vocals" was not made by the run.
-    expect(vi.mocked(run.confirmReplace).mock.calls[0]?.[0]).toMatchObject({
+    // "Lead Vocals" is the voice of the last run, so it loses its marks in the range, and it stays because the run did not make it.
+    expect(run.confirmReplace).toHaveBeenCalledWith({
+      markCount,
       voiceName: 'Singer 2',
-      singerVoiceNames: [],
+      range: { startMs: 0, endMs: 30_000 },
+      singerVoiceNames: ['Lead Vocals'],
       singerVoicesKept: false,
     })
-    expect(phrasesOn(VOICE).map((phrase) => phrase.label)).toEqual(['Silent.'])
+    expect(phrasesOn(VOICE)).toEqual([])
     expect(content().voices.map((voice) => voice.name)).toEqual([
       'Lead Vocals',
       'Singer 2',

@@ -1,14 +1,18 @@
 import { tagSectionRanges } from '../../lib/sections/tagSections.ts'
 import { addSections } from '../../store/actions/addSections.ts'
 import { breakDownMarks, loadDictionaries } from '../../store/actions/breakDown.ts'
-import { countMarksInRange, replaceMarksInRange } from '../../store/actions/replaceMarksInRange.ts'
+import {
+  countMarksInRange,
+  replaceMarksInRange,
+  type ReplacedVoice,
+} from '../../store/actions/replaceMarksInRange.ts'
 import type { RemoteEndpoint } from '../../lib/remote/endpoint.ts'
 import { encodeWav } from '../../lib/remote/wav.ts'
 import { fitLyricsLines, leavesOutLines, type LyricsFit } from '../../lib/text/lyricsFit.ts'
 import { wordRoom } from '../../lib/time/fitWords.ts'
 import type { TimeRange } from '../../lib/time/timeRange.ts'
 import { getAudioFile, loadRunData } from '../../store/db.ts'
-import { lastRunSingerVoices } from '../../store/trackRows.ts'
+import { lastRunVoices } from '../../store/trackRows.ts'
 import { DictionaryLoadError } from '../phoneme-breakdown/loadDictionary.ts'
 import { MAX_VOICES } from '../../lib/voices/voiceRules.ts'
 import { putSingersOnVoices } from '../../store/actions/singerVoices.ts'
@@ -172,7 +176,7 @@ export type RunStage =
  * - `markCount`: the count of marks that the run replaces, on all voices that the question names.
  * - `voiceName`: the name of the voice of the run.
  * - `range`: the target range of the run.
- * - `singerVoiceNames`: the singer voices of the last run that lose marks too. No value or an empty list means none.
+ * - `singerVoiceNames`: the voices of the last run that lose marks too: its singer voices and the voice of the last run. No value or an empty list means none.
  * - `singerVoicesKept`: true when the song has singer voices of the last run and the run leaves them as they are.
  */
 export type ReplaceQuestion = {
@@ -278,7 +282,7 @@ export async function runTranscription(
   if (request.mode === 'lyrics-only' && parseLyrics(request.lyrics ?? '').length === 0)
     throw new NoWordsError()
   // The feature file asks before the download, so a "Cancel" costs no download and no wait.
-  const singerVoiceIds = await confirmReplace(request, content, range, handlers)
+  const replacedVoices = await confirmReplace(request, content, range, handlers)
   const { request: fitted, linesLeftOut } = await fitLyrics(request, range, song.frameMs, handlers)
   stopIfCancelled(signal)
 
@@ -295,7 +299,7 @@ export async function runTranscription(
   endBreakDown(record, breakDownFailure)
   stopIfCancelled(signal)
   // The phonemes go in the same write, so one undo removes the run and its break down.
-  if (!replaceMarksInRange(request.voiceId, range, written, singerVoiceIds))
+  if (!replaceMarksInRange(request.voiceId, range, written, replacedVoices))
     throw new TranscribeError('cancelled', 'The voice of the transcribe run no longer exists.')
   addTagSections(fitted, song.id, phraseIds, written)
   const singers = await singerStep(request, range, vocals, written, timed, record)
@@ -330,8 +334,8 @@ async function lastRunData(songId: string): Promise<RunData | undefined> {
 }
 
 /**
- * Asks the person before the run replaces marks that exist, and returns the singer voices of the last run that the run replaces.
- * A run with the singer step replaces the result of the last run: the marks of its own voice and of each singer voice of the last run in the range.
+ * Asks the person before the run replaces marks that exist, and returns the voices of the last run that the run replaces.
+ * A run with the singer step replaces the result of the last run: in the range, the marks of its own voice, of the voice of the last run and of each singer voice of the last run.
  * Another run replaces the marks of its own voice only, and the question states that the singer voices do not change.
  * The question shows only when one of those voices has a mark that overlaps the range.
  * Rejects as cancelled when the person declines.
@@ -341,16 +345,12 @@ async function confirmReplace(
   content: SongContent,
   range: TimeRange,
   handlers: TranscribeRunHandlers,
-): Promise<string[]> {
-  const lastSingers = lastRunSingerVoices(
-    await lastRunData(content.song.id),
-    content.voices,
-    request.voiceId,
-  )
-  const replaced = runsSingerStep(request) ? lastSingers : []
+): Promise<ReplacedVoice[]> {
+  const lastRun = lastRunVoices(await lastRunData(content.song.id), content.voices, request.voiceId)
+  const replaced = runsSingerStep(request) ? lastRun : []
   const count = (voiceId: string) => countMarksInRange(content.marks, voiceId, range)
-  const losing = replaced.filter((voice) => count(voice.id) > 0)
-  const markCount = [request.voiceId, ...losing.map((voice) => voice.id)].reduce(
+  const losing = replaced.filter(({ voice }) => count(voice.id) > 0)
+  const markCount = [request.voiceId, ...losing.map(({ voice }) => voice.id)].reduce(
     (sum, voiceId) => sum + count(voiceId),
     0,
   )
@@ -358,11 +358,11 @@ async function confirmReplace(
     markCount,
     voiceName: voiceNameOf(request.voiceId),
     range,
-    singerVoiceNames: losing.map((voice) => voice.name),
-    singerVoicesKept: replaced.length === 0 && lastSingers.length > 0,
+    singerVoiceNames: losing.map(({ voice }) => voice.name),
+    singerVoicesKept: replaced.length === 0 && lastRun.some(({ made }) => made),
   }
   if (markCount > 0 && !(await handlers.confirmReplace(question))) throw declined()
-  return replaced.map((voice) => voice.id)
+  return replaced.map(({ voice, made }) => ({ voiceId: voice.id, removable: made }))
 }
 
 /**
