@@ -164,12 +164,13 @@ export function finishRunRecord(record: RunRecord, end: RunEnd): RunData {
   const voices = (content?.voices ?? []).filter((voice) => runVoices.includes(voice.id))
   const report = buildRunReport({
     startedAt: record.startedAt,
+    build: __APP_BUILD__,
     ...sourceFacts(end.request, end.device),
     mode: end.request.mode,
     separationModel: record.separationModel,
     separationFallback: record.separationFallback,
     singers: singerSection(record),
-    voices: voicePhrases(voices, content?.marks ?? [], end.range),
+    voices: voicePhrases(voices, content?.marks ?? [], end.range, record.singerVoiceIds),
     marks: end.written,
     range: { startMs: end.range.startMs, endMs: end.range.endMs },
     frameMs: end.frameMs,

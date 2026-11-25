@@ -19,7 +19,7 @@ export type RunStep =
   | 'singers'
   | 'breakDown'
 
-/** The text of each step in `reportToText`, in the order of a run. */
+/** The text of each step in `reportToText` and in the run report panel, in the order of a run. */
 const STEP_TEXT: Record<RunStep, string> = {
   prepare: 'Prepare the audio',
   separationDownload: 'Load the vocal separation model',
@@ -51,8 +51,11 @@ export type RunNote = {
 /** The vocal separation model that gave the vocals of a run, or 'none' for a run with no separated vocals. */
 export type ReportSeparationModel = 'spleeter' | 'demucs' | 'none'
 
-/** The count of phrases of the run on one voice. */
-export type VoicePhrases = { name: string; phraseCount: number }
+/**
+ * The count of phrases of the run on one voice.
+ * `made` is true for a voice that the singer step added. A report of an earlier version of the app has no `made`.
+ */
+export type VoicePhrases = { name: string; phraseCount: number; made?: boolean }
 
 /**
  * The result of the singer step:
@@ -92,6 +95,8 @@ export type SingerSection = {
 export type RunReport = {
   /** The ISO 8601 date and time of the "Start" click. */
   startedAt: string
+  /** The short git commit of the app that made the run. A report of an earlier version of the app has no build. */
+  build?: string
   /** Where the words came from. A lyrics-only run has the source 'browser'. */
   source: 'browser' | 'remote'
   /** The host of the remote endpoint, for example `api.openai.com`, or null for a run in the browser. */
@@ -148,6 +153,7 @@ export function buildRunReport(facts: RunFacts): RunReport {
   const words = facts.marks.filter((mark) => mark.layer === 'word')
   return {
     startedAt: facts.startedAt,
+    ...(facts.build === undefined ? {} : { build: facts.build }),
     source: facts.source,
     endpointHost: facts.endpointHost,
     mode: facts.mode,
@@ -274,6 +280,7 @@ function runLines(report: RunReport): string[] {
   const { startMs, endMs } = report.range
   return [
     '[Run]',
+    `Build: ${report.build ?? 'not known'}`,
     `Source: ${report.source}`,
     `Remote endpoint host: ${report.endpointHost ?? 'none'}`,
     `Mode: ${report.mode === 'model' ? 'speech model' : 'lyrics only'}`,
@@ -297,15 +304,26 @@ function countLines(report: RunReport): string[] {
     `Unknown words: ${report.unknownCount}`,
     '',
     '[Voices]',
-    ...report.voices.map((voice) => `"${voice.name}": ${voice.phraseCount} phrases`),
+    ...report.voices.map(
+      (voice) =>
+        `"${voice.name}": ${voice.phraseCount} phrases${voice.made === true ? ', made by the run' : ''}`,
+    ),
   ]
 }
 
-function stepLines(durations: StepDurations): string[] {
-  const steps = (Object.keys(STEP_TEXT) as RunStep[]).flatMap((step) => {
+/**
+ * Returns the text and the time of each step that ran, in the order of a run.
+ * @param durations The time of each step of a run.
+ */
+export function stepTimes(durations: StepDurations): { text: string; ms: number }[] {
+  return (Object.keys(STEP_TEXT) as RunStep[]).flatMap((step) => {
     const ms = durations[step]
-    return ms === undefined ? [] : [`${STEP_TEXT[step]}: ${ms} ms`]
+    return ms === undefined ? [] : [{ text: STEP_TEXT[step], ms }]
   })
+}
+
+function stepLines(durations: StepDurations): string[] {
+  const steps = stepTimes(durations).map(({ text, ms }) => `${text}: ${ms} ms`)
   return ['[Step times]', ...(steps.length === 0 ? ['none'] : steps)]
 }
 
@@ -368,14 +386,17 @@ export type PlacedMark = { voiceId: string; layer: string; startMs: number }
  * @param voices The voices that hold the phrases of the run.
  * @param marks All marks of the song.
  * @param range The range of the run.
+ * @param madeIds The ids of the voices that the run added.
  */
 export function voicePhrases(
   voices: readonly NamedVoice[],
   marks: readonly PlacedMark[],
   range: { startMs: number; endMs: number },
+  madeIds: readonly string[] = [],
 ): VoicePhrases[] {
   return voices.map((voice) => ({
     name: voice.name,
+    made: madeIds.includes(voice.id),
     phraseCount: marks.filter(
       (mark) =>
         mark.voiceId === voice.id &&

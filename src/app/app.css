@@ -1939,12 +1939,119 @@ button.finding:hover {
   bottom: 20px;
   left: 50%;
   z-index: 20;
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
   margin: 0;
   padding: 10px 16px;
   border-radius: 10px;
   background: var(--panel2);
   box-shadow: 0 4px 16px rgb(0 0 0 / 35%);
   transform: translateX(-50%);
+}
+
+.toast p {
+  margin: 0;
+}
+
+.link-button {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--amber);
+  font: inherit;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.report-dialog {
+  width: min(860px, 100%);
+}
+
+.report-body {
+  display: grid;
+  gap: 12px;
+}
+
+.report-section {
+  /* The section keeps the panel colour: the muted text on --panel2 is under 4.5:1 in the light theme. */
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
+
+.report-section h3 {
+  margin: 0 0 8px;
+  font: 600 14px var(--body);
+}
+
+.report-section p,
+.report-section ul {
+  margin: 0 0 8px;
+}
+
+.report-facts {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 4px 16px;
+  margin: 0;
+}
+
+.report-facts > div {
+  display: contents;
+}
+
+.report-facts dt {
+  color: var(--mute);
+}
+
+.report-facts dd {
+  margin: 0;
+  font-family: var(--mono);
+}
+
+.report-table {
+  width: 100%;
+  margin-bottom: 10px;
+  border-collapse: collapse;
+}
+
+.report-table caption {
+  padding-bottom: 4px;
+  color: var(--mute);
+  text-align: left;
+}
+
+.report-table th,
+.report-table td {
+  padding: 4px 8px;
+  border-bottom: 1px solid var(--line);
+  text-align: left;
+}
+
+.report-table td {
+  font-family: var(--mono);
+}
+
+.report-table thead th {
+  color: var(--mute);
+  font-weight: 600;
+}
+
+.report-text {
+  width: 100%;
+  font: 12px/1.5 var(--mono);
+}
+
+.report-status {
+  font: 12px var(--mono);
+  color: var(--ink);
+}
+
+.library-foot {
+  margin-top: 24px;
+  color: var(--mute);
+  font: 12px var(--mono);
 }
 
 /* Two columns: the keys, then what they do. */

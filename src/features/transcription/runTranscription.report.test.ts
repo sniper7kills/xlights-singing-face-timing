@@ -147,6 +147,7 @@ describe('runTranscription stores the run report', () => {
       notes: [],
     })
     expect(report.singers.status).toBe('option-off')
+    expect(report.build).toBe(__APP_BUILD__)
     expect(report.durationsMs.prepare).toBeTypeOf('number')
     expect(report.durationsMs.modelLoad).toBeTypeOf('number')
     expect(singerSegments).toEqual([])
@@ -180,6 +181,10 @@ describe('runTranscription stores the run report', () => {
       voicesMade: 2,
     })
     expect(report.singers.diagnostics?.rawGroupCount).toBe(3)
+    expect(report.voices.map((voice) => [voice.name, voice.made])).toEqual([
+      ['Lead Vocals', false],
+      ['Singer 2', true],
+    ])
     expect(report.durationsMs.singers).toBeUndefined()
   })
 

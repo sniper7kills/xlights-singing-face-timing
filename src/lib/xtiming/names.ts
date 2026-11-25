@@ -43,12 +43,20 @@ export function defaultTrackNames(
 const UNSAFE_FILE_CHARACTERS = /[\\/:*?"<>|]/g
 
 /**
+ * Returns a file name with each of `\ / : * ? " < > |` replaced with `_`.
+ * @param name The file name, from text that the person supplies.
+ */
+export function safeFileName(name: string): string {
+  return name.replace(UNSAFE_FILE_CHARACTERS, '_')
+}
+
+/**
  * Returns the name of the file that holds all timing tracks: `<song name>.xtiming`.
  * The function replaces each of `\ / : * ? " < > |` with `_`.
  * @param songName The name of the song.
  */
 export function songFileName(songName: string): string {
-  return `${songName}.xtiming`.replace(UNSAFE_FILE_CHARACTERS, '_')
+  return safeFileName(`${songName}.xtiming`)
 }
 
 /**
@@ -58,5 +66,5 @@ export function songFileName(songName: string): string {
  * @param trackName The name of the timing track.
  */
 export function trackFileName(songName: string, trackName: string): string {
-  return `${songName} - ${trackName}.xtiming`.replace(UNSAFE_FILE_CHARACTERS, '_')
+  return safeFileName(`${songName} - ${trackName}.xtiming`)
 }
