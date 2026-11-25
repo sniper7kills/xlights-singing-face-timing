@@ -50,6 +50,10 @@ waveform, plays the audio and keeps the song in the browser for later visits.
 - FR-audio-19 — The app saves the open song 1 second after the last change.
 - FR-audio-20 — The song library shows the storage that the app uses and the
   storage that the browser allows.
+- FR-audio-21 — The song library states the purpose of the app above the drop
+  zone.
+- FR-audio-22 — The song library credits the speech model, the vocal separation
+  models, the singer models and the dictionary, with their licences.
 
 ## User flows
 
@@ -94,11 +98,28 @@ flowchart TD
 ## Screens & states
 
 **Song library** — mockup: [mockups/01-song-library.html](../mockups/01-song-library.html).
-Regions: header, drop zone, song list, storage meter, "How it works" strip.
+Regions: header, purpose text, drop zone, song list, storage meter, "How it works"
+strip.
 
+- Purpose text, above the drop zone in each state: "Make the face models of your
+  xLights show sing. Add a song, and the app finds each word and its mouth shapes,
+  then gives you a timing file for the Faces effect."
 - empty: the drop zone fills the main area. The "Try the demo song" button shows.
 - loading: the drop zone shows "Decoding <file name>" with a progress bar.
-- populated: the drop zone is a compact band above the song list.
+- populated: the drop zone is a compact band above the song list. The band keeps
+  "Try the demo song" and the file limits. The song name has the style of a link.
+  A long song name ends with an ellipsis, and its tooltip shows the full name.
+- rename: under the name field, the hint "A song name has 1 to 80 characters."
+  shows for an empty name and for a name of 80 characters.
+- delete confirm: "Delete “<song name>”?", then "The app deletes its audio file,
+  voices, sections and marks. You cannot undo this."
+- credits, in the "How it works" strip. Each link opens in a new tab.
+  - "The transcribe step uses the Whisper speech model of OpenAI (MIT), in the ONNX
+    files of onnx-community."
+  - "The vocal separation option uses the 2-stem model of Spleeter by Deezer and
+    the htdemucs model of Demucs by Meta. The code of each project has the MIT
+    licence. The licence notes state the facts about the weights."
+  - The CMU Pronouncing Dictionary and the singer models, as before.
 - error: a message band above the drop zone shows the failure text.
 - drag-over: the drop zone has a bright border and the text "Drop to add".
 
@@ -210,7 +231,7 @@ createDemoSong(): Promise<Song>
 | The demo song files do not load | "The demo song did not load. Check the connection and retry." |
 | The app cannot read the audio from browser storage | "The app could not read the audio from browser storage. Reload the page." |
 | Persistent storage refused | A note beside the storage meter: "The browser can remove songs when disk space is low. Export your work." |
-| Several files dropped | The app takes the first audio file and shows "Only one file was added." |
+| Several files dropped | The app takes the first audio file and shows "Only one file was added." The editor shows the note again as a toast after it opens. |
 | Reload during decode | The song does not exist. The library shows no partial song. |
 
 ## Acceptance criteria
@@ -235,6 +256,16 @@ createDemoSong(): Promise<Song>
 - The first song triggers one persistent-storage request. (FR-audio-18)
 - An edit followed by a reload 2 seconds later keeps the edit. (FR-audio-19)
 - The storage meter shows used and allowed space in MB. (FR-audio-20)
+- The first page states the purpose of the app above the drop zone. (FR-audio-21)
+- With one song or more, the demo song and the limits are visible, and the song
+  name has the style of a link. (FR-audio-17)
+- A song name of 80 characters with no space stays inside its row at 1440 px and
+  at 1024 px. (FR-audio-1)
+- The rename field shows the hint for an empty name and for a name at the limit.
+  (FR-audio-15)
+- The delete dialog states that the delete is permanent. (FR-audio-16)
+- Two dropped files show the note after the editor opens. (FR-audio-3)
+- The credits name the speech model and the vocal separation models. (FR-audio-22)
 
 ## Out of scope
 

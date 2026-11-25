@@ -235,7 +235,12 @@ body.rv-open .layout { padding-right:21rem; }
 </li>
 <li>FR-foundation-16 — The repository contains a <code>LICENSE</code> file with the MIT licence.
 </li>
+<li>FR-foundation-19 — The browser keeps the theme that the person selects.
+</li>
+<li>FR-foundation-20 — A route to a song that does not exist shows the song library
+</li>
 </ul>
+<p>with a message.</p>
 <h3 id="foundation-user-flows">User flows</h3>
 <div class="diagram"><pre class="mermaid">flowchart TD
   A[Engineer opens a pull request] --&gt; B[GitHub Actions: lint, typecheck, test, build, E2E]
@@ -288,7 +293,31 @@ body.rv-open .layout { padding-right:21rem; }
 </li>
 </ul>
 <p>store songs. Use a current Chrome, Edge or Firefox."</p>
+<p><strong>Routes of the app shell.</strong></p>
+<ul>
+<li><code>#/</code> shows the song library.
+</li>
+<li><code>#/song/&lt;song id&gt;</code> shows the editor of the song.
+</li>
+<li>A route to a song that does not exist shows the song library with the message
+</li>
+</ul>
+<p>"The app did not find this song. It is possible that the song was deleted."</p>
+<ul>
+<li>An unknown route shows the song library with no message.
+</li>
+</ul>
 <h3 id="foundation-behaviour-rules">Behaviour rules</h3>
+<ul>
+<li>The theme follows the operating system setting, and it changes with that
+</li>
+</ul>
+<p>setting. After the person uses the theme switch, the app keeps the selected theme in <code>localStorage</code>. The stored theme wins over the system setting.</p>
+<ul>
+<li>If the browser refuses <code>localStorage</code>, for example in a private window, the
+</li>
+</ul>
+<p>selected theme lasts until the page closes.</p>
 <ul>
 <li>The ESLint configuration fails a function with cyclomatic complexity above 10.
 </li>
@@ -416,6 +445,10 @@ aws cloudfront create-invalidation --distribution-id $CLOUDFRONT_DISTRIBUTION_ID
 </ul>
 <p>(FR-foundation-13)</p>
 <ul>
+<li>A selected theme stays after a reload. (FR-foundation-19)
+</li>
+<li><code>#/song/&lt;unknown id&gt;</code> shows the song library with the message. (FR-foundation-20)
+</li>
 <li><code>public/demo/</code> contains one audio file shorter than 30 seconds and one JSON file
 </li>
 </ul>
