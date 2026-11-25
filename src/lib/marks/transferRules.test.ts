@@ -7,7 +7,6 @@ import { applyEdit, isEmptyEdit, type MarkEdit } from './markEdit.ts'
 import { previewTransfer, transferConflicts } from './transferRules.ts'
 
 const P1_FAMILY = ['p1', 'w1', 'w1a', 'w1b', 'w2', 'w2a', 'w2b', 'w3', 'w3a', 'w3b', 'w3c']
-const P2_FAMILY = ['p2', 'w4', 'w4a', 'w4b', 'w4c']
 
 /** Returns the test marks without the backing phrase `q1`, so the backing voice has no conflict. */
 function withoutBacking(): Mark[] {
