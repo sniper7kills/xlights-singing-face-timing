@@ -177,7 +177,7 @@ describe('TranscribeDialog and the vocal separation', () => {
     await startSeparatedRun()
 
     act(() => {
-      void lastRun().handlers.confirmNoSeparation(new SeparateError(kind, 'detail'))
+      void lastRun().handlers.confirmNoSeparation(new SeparateError(kind, 'detail'), 'spleeter')
     })
 
     expect(await screen.findByRole('alert')).toHaveTextContent(message)
@@ -187,9 +187,12 @@ describe('TranscribeDialog and the vocal separation', () => {
 
   it('continues the run for "Continue with no separation"', async () => {
     const { user } = await startSeparatedRun()
-    let answer: Promise<boolean> = Promise.resolve(false)
+    let answer: Promise<unknown> = Promise.resolve(false)
     act(() => {
-      answer = lastRun().handlers.confirmNoSeparation(new SeparateError('model', 'detail'))
+      answer = lastRun().handlers.confirmNoSeparation(
+        new SeparateError('model', 'detail'),
+        'spleeter',
+      )
     })
 
     await user.click(await screen.findByRole('button', { name: 'Continue with no separation' }))
@@ -201,9 +204,12 @@ describe('TranscribeDialog and the vocal separation', () => {
 
   it('stops the run for "Cancel" after a failure', async () => {
     const { user } = await startSeparatedRun()
-    let answer: Promise<boolean> = Promise.resolve(true)
+    let answer: Promise<unknown> = Promise.resolve(true)
     act(() => {
-      answer = lastRun().handlers.confirmNoSeparation(new SeparateError('model', 'detail'))
+      answer = lastRun().handlers.confirmNoSeparation(
+        new SeparateError('model', 'detail'),
+        'spleeter',
+      )
     })
 
     await user.click(await screen.findByRole('button', { name: 'Cancel' }))
@@ -215,14 +221,145 @@ describe('TranscribeDialog and the vocal separation', () => {
 
   it('answers false for Escape after a failure', async () => {
     const { user } = await startSeparatedRun()
-    let answer: Promise<boolean> = Promise.resolve(true)
+    let answer: Promise<unknown> = Promise.resolve(true)
     act(() => {
-      answer = lastRun().handlers.confirmNoSeparation(new SeparateError('model', 'detail'))
+      answer = lastRun().handlers.confirmNoSeparation(
+        new SeparateError('model', 'detail'),
+        'spleeter',
+      )
     })
     await screen.findByRole('button', { name: 'Continue with no separation' })
 
     await user.keyboard('{Escape}')
 
     await expect(answer).resolves.toBe(false)
+  })
+})
+
+describe('TranscribeDialog and the separation model', () => {
+  const FAST = 'Fast (Spleeter, 79 MB)'
+  const DEMUCS = 'Demucs, experimental (181 MB, much slower)'
+  const WARNING =
+    'Demucs needs about 4 GB of memory and several minutes for a song on this browser.'
+
+  it('hides the choice while the check box is off', async () => {
+    await renderDialog()
+
+    expect(screen.queryByRole('group', { name: 'Separation model' })).toBeNull()
+  })
+
+  it('shows the choice with the fast model selected when the check box is on', async () => {
+    const { user } = await renderDialog()
+
+    await user.click(screen.getByRole('checkbox', { name: CHECK_BOX }))
+
+    expect(await screen.findByRole('group', { name: 'Separation model' })).toBeInTheDocument()
+    expect(screen.getByRole('radio', { name: FAST })).toBeChecked()
+    expect(screen.getByRole('radio', { name: DEMUCS })).not.toBeChecked()
+  })
+
+  it('stores the selected model and starts the run with it', async () => {
+    const { user } = await startSeparatedRun()
+    await user.click(screen.getByRole('button', { name: 'Cancel' }))
+    await user.click(await screen.findByRole('radio', { name: DEMUCS }))
+
+    await vi.waitFor(async () => expect((await loadSettings()).separationModel).toBe('demucs'))
+    await user.click(screen.getByRole('button', { name: 'Start' }))
+    expect(lastRun().request.separationModel).toBe('demucs')
+  })
+
+  it('opens with the stored model', async () => {
+    await updateSettings({ separateVocals: true, separationModel: 'demucs' })
+    await renderDialog()
+
+    await vi.waitFor(() => expect(screen.getByRole('radio', { name: DEMUCS })).toBeChecked())
+  })
+
+  it('shows the warning for Demucs when the browser gives no WebGPU adapter', async () => {
+    vi.mocked(hasWebGpu).mockResolvedValue(false)
+    await updateSettings({ separateVocals: true, separationModel: 'demucs' })
+    await renderDialog()
+
+    expect(await screen.findByText(WARNING)).toBeInTheDocument()
+  })
+
+  it('shows no warning for Demucs when the browser gives a WebGPU adapter', async () => {
+    vi.mocked(hasWebGpu).mockResolvedValue(true)
+    await updateSettings({ separateVocals: true, separationModel: 'demucs' })
+    await renderDialog()
+
+    await vi.waitFor(() => expect(screen.getByRole('radio', { name: DEMUCS })).toBeChecked())
+    expect(screen.queryByText(WARNING)).toBeNull()
+  })
+
+  it('shows no warning for the fast model', async () => {
+    vi.mocked(hasWebGpu).mockResolvedValue(false)
+    await updateSettings({ separateVocals: true })
+    await renderDialog()
+
+    await vi.waitFor(() => expect(screen.getByRole('radio', { name: FAST })).toBeChecked())
+    expect(screen.queryByText(WARNING)).toBeNull()
+  })
+
+  it('names Demucs in the download step of a Demucs run', async () => {
+    await updateSettings({ separateVocals: true, separationModel: 'demucs' })
+    const view = await renderDialog()
+    await vi.waitFor(() => expect(screen.getByRole('radio', { name: DEMUCS })).toBeChecked())
+    await view.user.click(view.start)
+
+    act(() => lastRun().handlers.onSeparationDownload(250, 1000))
+
+    await vi.waitFor(() =>
+      expect(progress()).toHaveTextContent('Downloading Demucs vocal separation model, 25%'),
+    )
+  })
+
+  it('offers "Use the fast model" after a Demucs memory failure, and answers fast-model', async () => {
+    await updateSettings({ separateVocals: true, separationModel: 'demucs' })
+    const view = await renderDialog()
+    await vi.waitFor(() => expect(screen.getByRole('radio', { name: DEMUCS })).toBeChecked())
+    await view.user.click(view.start)
+    let answer: Promise<unknown> = Promise.resolve(false)
+    act(() => {
+      answer = lastRun().handlers.confirmNoSeparation(
+        new SeparateError('memory', 'std::bad_alloc'),
+        'demucs',
+      )
+    })
+
+    await view.user.click(await screen.findByRole('button', { name: 'Use the fast model' }))
+
+    await expect(answer).resolves.toBe('fast-model')
+    expect(screen.queryByRole('alert')).toBeNull()
+    expect(lastRun().handlers.signal.aborted).toBe(false)
+  })
+
+  it('shows "Continue with no separation" and "Cancel" beside "Use the fast model"', async () => {
+    await startSeparatedRun()
+
+    act(() => {
+      void lastRun().handlers.confirmNoSeparation(
+        new SeparateError('memory', 'std::bad_alloc'),
+        'demucs',
+      )
+    })
+
+    expect(await screen.findByRole('button', { name: 'Use the fast model' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Continue with no separation' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Cancel' })).toBeInTheDocument()
+  })
+
+  it('does not offer "Use the fast model" after a Spleeter memory failure', async () => {
+    await startSeparatedRun()
+
+    act(() => {
+      void lastRun().handlers.confirmNoSeparation(
+        new SeparateError('memory', 'RangeError'),
+        'spleeter',
+      )
+    })
+
+    await screen.findByRole('button', { name: 'Continue with no separation' })
+    expect(screen.queryByRole('button', { name: 'Use the fast model' })).toBeNull()
   })
 })

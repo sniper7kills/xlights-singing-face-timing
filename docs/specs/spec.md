@@ -552,6 +552,9 @@ None of these blocks approval. Each one names the epic that settles it.
   "Separate the vocals first", off by default. The vocal separation runs in the
   browser before the speech model or the remote endpoint reads the audio. A
   failure lets the person continue with no separation.
+- 2026-11-24 — The maintainer decided: "Demucs weights licence is acceptable, go
+  ahead with #122". The transcribe dialog has the choice "Separation model", with
+  Spleeter as the default and Demucs as an experimental second model (issue #122).
 - 2026-11-24 — The maintainer asked: "for the export/download we should have the
   ability to get a zip of everything" (issue #132). The export dialog has the
   check box "Everything as one zip file". The app writes the zip file in the

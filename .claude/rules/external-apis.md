@@ -34,6 +34,9 @@ Do not reconcile by guess.
 | ONNX Runtime Web (`onnxruntime-web`) | 1.31.0-dev.20260914-8d85527a0, a direct dependency with the same version as `@huggingface/transformers` | https://onnxruntime.ai/docs/tutorials/web/env-flags-and-session-options.html , `node_modules/onnxruntime-web/types.d.ts` |
 | Spleeter 2-stem model, ONNX export of sherpa-onnx | `csukuangfj/sherpa-onnx-spleeter-2stems` commit `7001ba316a615cacddb3f9ef3ec416661a277e26` | https://github.com/k2-fsa/sherpa-onnx — `scripts/spleeter/export_onnx.py`, `sherpa-onnx/csrc/offline-source-separation-spleeter-impl.h` ; https://github.com/deezer/spleeter |
 | Cache API | browser | https://developer.mozilla.org/en-US/docs/Web/API/Cache |
+| `demucs-web` | 1.0.2 (exact) | https://github.com/timcsy/demucs-web — `README.md` and `src/processor.js` of the npm package; no type file ships |
+| Demucs `htdemucs` model, ONNX export of `demucs-web` | `timcsy/demucs-web-onnx` commit `92e33df61cfc9eb820272aaa62d2ef6dcf4d950d` | https://huggingface.co/timcsy/demucs-web-onnx ; https://github.com/adefossez/demucs |
+| ONNX Runtime Web, WebGPU | 1.31.0-dev.20260914-8d85527a0 | https://onnxruntime.ai/docs/tutorials/web/ep-webgpu.html , `node_modules/onnxruntime-web/lib/wasm/wasm-utils-import.ts` |
 | Cross-origin isolation headers | browser | https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Cross-Origin-Embedder-Policy , https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Cross-Origin-Opener-Policy |
 | OpenAI transcription API | current | https://developers.openai.com/api/reference/resources/audio/subresources/transcriptions/methods/create , https://developers.openai.com/api/docs/guides/speech-to-text |
 | speaches (faster-whisper-server) | `master` branch | https://speaches.ai/configuration/ , https://speaches.ai/usage/speech-to-text/ , source `src/speaches/routers/stt.py`, `src/speaches/executors/whisper.py`, `src/speaches/main.py` |
@@ -361,6 +364,48 @@ cache (issue #117):
   https://developer.mozilla.org/en-US/docs/Web/API/Cache/put (last modified
   2025-06-24). The page does not state a quota error, so the app treats each
   rejection of a cache call as no cache.
+
+Confirmed on 2026-11-24 for Demucs (issue #122). These facts come from the documents
+and from the runs of issue #117; not run again for issue #122. The maintainer
+stopped all model runs on the development computer.
+
+- `demucs-web` 1.0.2 ships `src/*.js` and no type file. The app declares the types
+  of the README API section in
+  `src/features/vocal-separation/engine/demucs-web.d.ts`. The npm package source is
+  the same file for file as the package of the #117 measurement.
+- `new DemucsProcessor({ ort, sessionOptions, onProgress })`. `ort` is the ONNX
+  runtime module. The package imports no runtime of its own.
+- `loadModel(pathOrBuffer)` accepts an `ArrayBuffer` (an `instanceof ArrayBuffer`
+  check) and then calls `ort.InferenceSession.create(buffer, { executionProviders:
+  ['webgpu', 'wasm'], graphOptimizationLevel: 'basic', ...sessionOptions })`.
+- `separate(left, right)` takes two `Float32Array` channels at 44 100 Hz. It
+  returns `{ drums, bass, other, vocals }`, each `{ left, right }` with the length
+  of the input.
+- `onProgress({ progress, currentSegment, totalSegments })` comes after each
+  segment. A segment has 343 980 samples (`TRAINING_SAMPLES`), and a new segment
+  starts each `floor(343980 × 0.75)` samples. `totalSegments` can be lower than
+  the real count for a short input, so the app converts `currentSegment` to audio
+  time itself.
+- The README documents the `webgpu` device: the default `executionProviders` are
+  `['webgpu', 'wasm']`, and its example checks `navigator.gpu.requestAdapter()`.
+- ONNX Runtime Web: `import * as ort from 'onnxruntime-web/webgpu'` and
+  `executionProviders: ['webgpu']` select WebGPU (ep-webgpu page above). The
+  `webgpu` build loads `ort-wasm-simd-threaded.asyncify.wasm`
+  (`wasm-utils-import.ts`: `DISABLE_JSEP` with WebGPU on gives the `asyncify`
+  file). The page does not state an automatic fallback, so the engine runs again
+  on `wasm` itself.
+- The model file of commit `92e33df61cfc9eb820272aaa62d2ef6dcf4d950d`:
+  `lfs.size` 180534758, `lfs.oid`
+  `e5e425c17683f163a472462eb5f5a4ffcd11c31858d57fbd0833b012d8b88077`, from
+  https://huggingface.co/api/models/timcsy/demucs-web-onnx/tree/92e33df61cfc9eb820272aaa62d2ef6dcf4d950d .
+  The Hub sends CORS headers for the file (run of issue #117).
+- The #117 runs: `wasm` with 2 threads, 0.55 to 0.77 audio seconds for each
+  second of run, 4.03 to 4.46 GB peak for one process. A session with graph
+  optimization `all` of another Demucs export failed with `std::bad_alloc`.
+- Licence: the Demucs code is MIT. The README of Demucs states: "The license of the
+  weights is not clear: MusDB contains some data that were only usable for
+  research purpose." The Hugging Face repository states no licence. The maintainer
+  accepted this on 2026-11-24.
 
 Evidence format:
 

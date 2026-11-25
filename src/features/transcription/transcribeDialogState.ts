@@ -9,7 +9,8 @@ import {
 } from './runTranscription.ts'
 import { TranscribeError } from './transcribeClient.ts'
 import { SeparateError } from '../vocal-separation/separateClient.ts'
-import { SEPARATION_MODEL_BYTES } from '../vocal-separation/engine/spleeterModel.ts'
+import { separationModelMb } from '../vocal-separation/engine/separationModels.ts'
+import type { SeparationModelId } from '../vocal-separation/protocol.ts'
 
 /**
  * A state in which a transcribe run is active and the dialog shows its progress.
@@ -35,7 +36,13 @@ export type DialogState =
   | RunState
   | { status: 'confirm-replace'; resume: RunState }
   | { status: 'low-match'; ratio: number; resume: RunState }
-  | { status: 'separation-failed'; message: string; resume: RunState }
+  | {
+      status: 'separation-failed'
+      message: string
+      /** True offers "Use the fast model": the Demucs run failed for memory. */
+      fastModel: boolean
+      resume: RunState
+    }
   | { status: 'error'; message: string }
   | { status: 'done' }
 
@@ -46,7 +53,7 @@ export type DialogEvent =
   | { type: 'download'; percent: number }
   | { type: 'separation-download'; percent: number }
   | { type: 'separation-progress'; doneMs: number; totalMs: number }
-  | { type: 'confirm-no-separation'; error: unknown }
+  | { type: 'confirm-no-separation'; error: unknown; model?: SeparationModelId }
   | { type: 'upload'; percent: number }
   | { type: 'progress'; doneMs: number; totalMs: number }
   | { type: 'finishing' }
@@ -156,19 +163,34 @@ export function separationErrorMessage(error: unknown): string {
   return SEPARATION_COPY.failed
 }
 
-/** The download size of the vocal separation model in megabytes (1 MB = 1 000 000 bytes), as the speech model sizes. */
-const SEPARATION_MODEL_MB = Math.round(SEPARATION_MODEL_BYTES / 1_000_000)
-
 /**
  * Returns the note under the check box "Separate the vocals first".
  * @param host The host of the remote endpoint of the run, or null for a run in the browser.
+ * @param model The selected vocal separation model. The note states its download size.
  */
-export function separationNote(host: string | null): string {
+export function separationNote(host: string | null, model: SeparationModelId = 'spleeter'): string {
   const where =
     host === null
       ? 'The audio stays in this browser.'
       : `The app separates the vocals in this browser, and then sends the vocals to ${host}.`
-  return `The app removes the instruments before it finds the words. This step downloads a model of ${SEPARATION_MODEL_MB} MB one time and adds time to the run. ${where}`
+  return `The app removes the instruments before it finds the words. This step downloads a model of ${separationModelMb(model)} MB one time and adds time to the run. ${where}`
+}
+
+/** Returns the text of a choice of "Separation model", with the download size from the model list. */
+export function separationModelLabel(model: SeparationModelId): string {
+  const mb = separationModelMb(model)
+  return model === 'demucs'
+    ? `Demucs, experimental (${mb} MB, much slower)`
+    : `Fast (Spleeter, ${mb} MB)`
+}
+
+/** The warning before a Demucs run on a browser with no WebGPU adapter. Issue #117 measured 4.3 to 4.5 GB on `wasm`. */
+export const DEMUCS_WASM_WARNING =
+  'Demucs needs about 4 GB of memory and several minutes for a song on this browser.'
+
+/** Returns true when a failed separation can run again with Spleeter: Demucs failed for memory. */
+function offersFastModel(error: unknown, model: SeparationModelId | undefined): boolean {
+  return model === 'demucs' && error instanceof SeparateError && error.kind === 'memory'
 }
 
 /** Returns true when the error is the stop of a run that the person asked for. */
@@ -193,27 +215,38 @@ export function lowMatchMessage(ratio: number): string {
  * The text of each run state without its numbers. The live region reads it, so a screen reader hears each state one time.
  * The two states of a remote run name the host of the endpoint.
  */
-const STATE_LABEL: Record<RunState['status'], (host: string) => string> = {
-  preparing: () => 'Preparing audio',
-  'separation-loading': () => 'Loading vocal separation model',
-  'separation-downloading': () => 'Downloading vocal separation model',
-  'separation-started': () => 'Separating vocals',
-  separating: () => 'Separating vocals',
-  loading: () => 'Loading speech model',
-  downloading: () => 'Downloading speech model',
-  started: () => 'Transcribing',
-  transcribing: () => 'Transcribing',
-  sending: (host) => `Sending audio to ${host}`,
-  waiting: (host) => `Waiting for ${host}`,
-  finishing: () => 'Aligning lyrics and breaking down words',
+const STATE_LABEL: Record<RunState['status'], (host: string, model: SeparationModelId) => string> =
+  {
+    preparing: () => 'Preparing audio',
+    'separation-loading': (_host, model) => `Loading ${separationModelNoun(model)}`,
+    'separation-downloading': (_host, model) => `Downloading ${separationModelNoun(model)}`,
+    'separation-started': () => 'Separating vocals',
+    separating: () => 'Separating vocals',
+    loading: () => 'Loading speech model',
+    downloading: () => 'Downloading speech model',
+    started: () => 'Transcribing',
+    transcribing: () => 'Transcribing',
+    sending: (host) => `Sending audio to ${host}`,
+    waiting: (host) => `Waiting for ${host}`,
+    finishing: () => 'Aligning lyrics and breaking down words',
+  }
+
+/** Returns the name of the vocal separation model in the load and download steps. The Spleeter text is the text of issue #117. */
+function separationModelNoun(model: SeparationModelId): string {
+  return model === 'demucs' ? 'Demucs vocal separation model' : 'vocal separation model'
 }
 
 /**
  * Returns the text that the live region announces for a run state.
  * @param host The host of the remote endpoint. A run in the browser does not read it.
+ * @param model The vocal separation model of the run. The load and download steps name it.
  */
-export function stateLabel(state: RunState, host: string): string {
-  return STATE_LABEL[state.status](host)
+export function stateLabel(
+  state: RunState,
+  host: string,
+  model: SeparationModelId = 'spleeter',
+): string {
+  return STATE_LABEL[state.status](host, model)
 }
 
 /** Returns true when the run state has no progress value and the dialog shows the elapsed time. */
@@ -233,9 +266,15 @@ export function showsElapsed(state: RunState): boolean {
  * Returns the text of the progress area for a run state, for example "Transcribing, 1:12 of 3:40".
  * @param elapsedMs The time from the "Start" click. A state with no progress value shows it, for example "Transcribing, 0:12 elapsed".
  * @param host The host of the remote endpoint. A run in the browser does not read it.
+ * @param model The vocal separation model of the run. The load and download steps name it.
  */
-export function progressText(state: RunState, elapsedMs: number, host: string): string {
-  const label = stateLabel(state, host)
+export function progressText(
+  state: RunState,
+  elapsedMs: number,
+  host: string,
+  model: SeparationModelId = 'spleeter',
+): string {
+  const label = stateLabel(state, host, model)
   if (showsElapsed(state)) return `${label}, ${formatClock(elapsedMs)} elapsed`
   switch (state.status) {
     case 'downloading':
@@ -399,6 +438,7 @@ function separationStep(state: DialogState, event: SeparationEvent): DialogState
         ? {
             status: 'separation-failed',
             message: separationErrorMessage(event.error),
+            fastModel: offersFastModel(event.error, event.model),
             resume: state,
           }
         : state

@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs'
+import { readdirSync, readFileSync } from 'node:fs'
 import { expect, type Locator, type Page, test } from '@playwright/test'
 
 // The fixture workers download no model: the transcribe fixture returns the demo song words,
@@ -164,4 +164,74 @@ test('a remote run with the option on sends one upload after the separation step
   const sending = log.findIndex((text) => text.startsWith('Sending audio to whisper.test'))
   expect(separating).toBeGreaterThan(-1)
   expect(sending).toBeGreaterThan(separating)
+})
+
+const FAST = 'Fast (Spleeter, 79 MB)'
+// Reads `separationModel` of the settings record. The E2E tests compile with no DOM types, so the script is a string.
+const STORED_SEPARATION_MODEL = `new Promise((resolve, reject) => {
+  const open = indexedDB.open('singing-face-timing')
+  open.onerror = () => reject(open.error)
+  open.onsuccess = () => {
+    const read = open.result.transaction('settings').objectStore('settings').get('app')
+    read.onerror = () => reject(read.error)
+    read.onsuccess = () => {
+      open.result.close()
+      resolve(read.result?.separationModel ?? null)
+    }
+  }
+})`
+const DEMUCS = 'Demucs, experimental (181 MB, much slower)'
+
+/** Returns the contents of each built file in `dist/assets` whose name starts with the prefix. The web server builds `dist` before the tests. */
+function builtChunks(prefix: string): string[] {
+  return readdirSync('dist/assets')
+    .filter((name) => name.startsWith(prefix) && name.endsWith('.js'))
+    .map((name) => readFileSync(`dist/assets/${name}`, 'utf8'))
+}
+
+test('a run with the fast model requests no file of the Demucs engine', async ({ page }) => {
+  const demucsRequests: string[] = []
+  page.on('request', (request) => {
+    if (/demucs/i.test(new URL(request.url()).pathname)) demucsRequests.push(request.url())
+  })
+  await createSong(page)
+  const dialog = await openDialog(page)
+  await dialog.getByRole('checkbox', { name: CHECK_BOX }).check()
+  await expect(dialog.getByRole('radio', { name: FAST })).toBeChecked()
+
+  await dialog.getByRole('button', { name: 'Start' }).click()
+
+  await expect(dialog).toBeHidden()
+  await expect(page.getByText('16 words, 0 estimated')).toBeVisible()
+  expect(demucsRequests).toEqual([])
+})
+
+test('the build keeps the Demucs engine out of the separate worker and the page', () => {
+  const [demucs] = builtChunks('demucsSeparator-')
+  // `TRAINING_SAMPLES` is a constant of the `demucs-web` package.
+  expect(demucs).toContain('TRAINING_SAMPLES')
+  for (const chunk of [...builtChunks('separate.worker-'), ...builtChunks('index-')]) {
+    expect(chunk).not.toContain('TRAINING_SAMPLES')
+  }
+  expect(builtChunks('separate.worker-').join('')).toMatch(/import\(`?["'`]?\.\/demucsSeparator-/)
+})
+
+test('the dialog keeps the separation model after a reload', async ({ page }) => {
+  await createSong(page)
+  let dialog = await openDialog(page)
+  await dialog.getByRole('checkbox', { name: CHECK_BOX }).check()
+  await expect(dialog.getByRole('group', { name: 'Separation model' })).toBeVisible()
+  await dialog.getByRole('radio', { name: DEMUCS }).check()
+  await expect(
+    dialog.getByText('downloads a model of 181 MB one time', { exact: false }),
+  ).toBeVisible()
+
+  // The dialog writes the choice to IndexedDB after the click, so the reload waits for the write.
+  await expect.poll(() => page.evaluate(STORED_SEPARATION_MODEL)).toBe('demucs')
+  await page.reload()
+  await expect(page.getByRole('heading', { level: 2, name: 'silent-night' })).toBeVisible()
+  dialog = await openDialog(page)
+
+  await expect(dialog.getByRole('checkbox', { name: CHECK_BOX })).toBeChecked()
+  await expect(dialog.getByRole('radio', { name: DEMUCS })).toBeChecked()
 })

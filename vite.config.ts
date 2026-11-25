@@ -47,4 +47,7 @@ export default defineConfig({
     headers: isolationHeaders,
   },
   preview: { headers: isolationHeaders },
+  // The default format 'iife' puts a dynamic import into the worker file, so the Demucs engine would load with Spleeter.
+  // The measurement build of issue #117 used 'es' and ran the speech model and Demucs in Chromium and Firefox.
+  worker: { format: 'es' },
 })
