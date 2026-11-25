@@ -7,6 +7,8 @@ import { encodeWav } from '../../lib/remote/wav.ts'
 import type { TimeRange } from '../../lib/time/timeRange.ts'
 import { getAudioFile } from '../../store/db.ts'
 import { DictionaryLoadError } from '../phoneme-breakdown/loadDictionary.ts'
+import { separateVocals } from '../vocal-separation/separateClient.ts'
+import { decodeStereo, vocalsForSpeech } from '../vocal-separation/separationAudio.ts'
 import { useSongStore } from '../../store/songStore.ts'
 import type { Mark } from '../../store/types.ts'
 import { alignLyrics } from './alignLyrics.ts'
@@ -47,6 +49,11 @@ export type TranscribeRequest = {
    * A run without lyrics adds no section.
    */
   addSections?: boolean
+  /**
+   * True removes the instruments from the audio before the speech model or the remote endpoint reads it.
+   * A lyrics-only run does not read it. Without it, the run uses the audio of the song.
+   */
+  separateVocals?: boolean
 }
 
 /** The result of a run, for the toast "214 words, 9 estimated". */
@@ -70,12 +77,15 @@ export type BreakDownFailure = {
 /**
  * A step of a speech model run before its first progress:
  * - `preparing`: the page decodes and resamples the audio.
+ * - `separation-download`: the separate worker loads the vocal separation model. A download also sends separation download progress.
+ * - `separating`: the separate worker removes the instruments. The separation progress follows.
  * - `loading`: the worker loads the speech model. A download also sends download progress.
  * - `transcribing`: the worker runs the speech model and has sent no progress yet.
  * - `sending`: a remote run sends the audio to the endpoint. The upload also sends upload progress.
  * - `waiting`: a remote run sent all audio and waits for the response of the endpoint.
  */
-export type RunStage = 'preparing' | ClientStage | 'sending' | 'waiting'
+export type RunStage =
+  'preparing' | 'separation-download' | 'separating' | ClientStage | 'sending' | 'waiting'
 
 /** The functions that the transcribe dialog supplies to one run. */
 export type TranscribeRunHandlers = {
@@ -98,6 +108,16 @@ export type TranscribeRunHandlers = {
    * @param ratio The match ratio from 0 to 1. The run asks only below 0.3.
    */
   confirmLowMatch: (ratio: number) => Promise<boolean>
+  /** Receives the download progress of the vocal separation model. */
+  onSeparationDownload: (loadedBytes: number, totalBytes: number) => void
+  /** Receives the audio time that the vocal separation completed, and the audio time of the run. */
+  onSeparationProgress: (doneMs: number, totalMs: number) => void
+  /**
+   * Asks the person to continue with no separation after the vocal separation failed.
+   * Resolves true for "Continue with no separation". The run then uses the audio of the song.
+   * @param error The failure of the vocal separation. `SeparateError` gives its cause.
+   */
+  confirmNoSeparation: (error: unknown) => Promise<boolean>
 }
 
 /** The speech model or the lyrics gave no word. */
@@ -264,7 +284,7 @@ async function findWords(
   handlers.onStage('preparing')
   const audio = await getAudioFile(songId)
   if (audio === undefined) throw new Error('The open song has no audio file.')
-  const samples = await resampleForSpeech(audio.data, request.range)
+  const samples = await speechSamples(request, audio.data, handlers)
   stopIfCancelled(signal)
   const offsetMs = request.range?.startMs ?? 0
 
@@ -288,4 +308,53 @@ async function findWords(
     onProgress: (doneMs) => handlers.onProgress(doneMs, totalMs),
     onStage: handlers.onStage,
   })
+}
+
+/**
+ * Returns the audio of the run as one channel at the speech model sample rate.
+ * With `separateVocals`, the samples are the vocals. A range run separates only the audio of the range.
+ * If the separation fails and the person selects "Continue with no separation", the samples are the audio of the song.
+ * Rejects as cancelled when the signal aborts or the person declines to continue.
+ */
+async function speechSamples(
+  request: TranscribeRequest,
+  audio: Blob,
+  handlers: TranscribeRunHandlers,
+): Promise<Float32Array> {
+  if (request.separateVocals !== true) return resampleForSpeech(audio, request.range)
+  try {
+    return await separatedSamples(audio, request.range, handlers)
+  } catch (error) {
+    // A cancel during the step also rejects the separation, and it must not ask the person.
+    stopIfCancelled(handlers.signal)
+    if (!(await handlers.confirmNoSeparation(error))) throw declined()
+    stopIfCancelled(handlers.signal)
+    handlers.onStage('preparing')
+    return resampleForSpeech(audio, request.range)
+  }
+}
+
+/** Returns the vocals of the audio of the run, at the speech model sample rate. */
+async function separatedSamples(
+  audio: Blob,
+  range: TimeRange | undefined,
+  handlers: TranscribeRunHandlers,
+): Promise<Float32Array> {
+  const { signal } = handlers
+  const stereo = await decodeStereo(audio, range)
+  stopIfCancelled(signal)
+  handlers.onStage('separation-download')
+  let separating = false
+  const vocals = await separateVocals(stereo, {
+    signal,
+    onDownload: handlers.onSeparationDownload,
+    onProgress: (doneMs, totalMs) => {
+      // The protocol has no message for the end of the model load, so the first progress starts the step.
+      if (!separating) handlers.onStage('separating')
+      separating = true
+      handlers.onSeparationProgress(doneMs, totalMs)
+    },
+  })
+  stopIfCancelled(signal)
+  return vocalsForSpeech(vocals)
 }

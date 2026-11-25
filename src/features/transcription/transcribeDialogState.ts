@@ -8,6 +8,7 @@ import {
   type TranscribeOutcome,
 } from './runTranscription.ts'
 import { TranscribeError } from './transcribeClient.ts'
+import { SeparateError } from '../vocal-separation/separateClient.ts'
 
 /**
  * A state in which a transcribe run is active and the dialog shows its progress.
@@ -15,6 +16,10 @@ import { TranscribeError } from './transcribeClient.ts'
  */
 export type RunState =
   | { status: 'preparing' }
+  | { status: 'separation-loading' }
+  | { status: 'separation-downloading'; percent: number }
+  | { status: 'separation-started' }
+  | { status: 'separating'; doneMs: number; totalMs: number }
   | { status: 'loading' }
   | { status: 'downloading'; percent: number }
   | { status: 'started' }
@@ -29,6 +34,7 @@ export type DialogState =
   | RunState
   | { status: 'confirm-replace'; resume: RunState }
   | { status: 'low-match'; ratio: number; resume: RunState }
+  | { status: 'separation-failed'; message: string; resume: RunState }
   | { status: 'error'; message: string }
   | { status: 'done' }
 
@@ -37,6 +43,9 @@ export type DialogEvent =
   | { type: 'start'; mode: TranscribeMode }
   | { type: 'stage'; stage: RunStage }
   | { type: 'download'; percent: number }
+  | { type: 'separation-download'; percent: number }
+  | { type: 'separation-progress'; doneMs: number; totalMs: number }
+  | { type: 'confirm-no-separation'; error: unknown }
   | { type: 'upload'; percent: number }
   | { type: 'progress'; doneMs: number; totalMs: number }
   | { type: 'finishing' }
@@ -127,6 +136,37 @@ export function errorMessage(error: unknown): string {
   return ERROR_COPY.failed
 }
 
+/**
+ * The copy of each failure of the vocal separation, from the edge case table in docs/specs/features/02-transcription.md.
+ * `model` and `unknown` share one message.
+ */
+export const SEPARATION_COPY = {
+  download:
+    'The app could not download the vocal separation model. Check the connection. Then try again, or continue with no separation.',
+  memory:
+    'This browser does not have enough memory to separate the vocals of this song. Select a shorter time range, or continue with no separation.',
+  failed: 'The vocal separation did not work. Continue with no separation, or cancel.',
+} as const
+
+/** Returns the message that the dialog shows when the vocal separation fails. */
+export function separationErrorMessage(error: unknown): string {
+  if (error instanceof SeparateError && error.kind === 'download') return SEPARATION_COPY.download
+  if (error instanceof SeparateError && error.kind === 'memory') return SEPARATION_COPY.memory
+  return SEPARATION_COPY.failed
+}
+
+/**
+ * Returns the note under the check box "Separate the vocals first".
+ * @param host The host of the remote endpoint of the run, or null for a run in the browser.
+ */
+export function separationNote(host: string | null): string {
+  const where =
+    host === null
+      ? 'The audio stays in this browser.'
+      : `The app separates the vocals in this browser, and then sends the vocals to ${host}.`
+  return `The app removes the instruments before it finds the words. This step downloads a model one time and adds time to the run. ${where}`
+}
+
 /** Returns true when the error is the stop of a run that the person asked for. */
 export function isCancel(error: unknown): boolean {
   return error instanceof TranscribeError && error.kind === 'cancelled'
@@ -151,6 +191,10 @@ export function lowMatchMessage(ratio: number): string {
  */
 const STATE_LABEL: Record<RunState['status'], (host: string) => string> = {
   preparing: () => 'Preparing audio',
+  'separation-loading': () => 'Loading vocal separation model',
+  'separation-downloading': () => 'Downloading vocal separation model',
+  'separation-started': () => 'Separating vocals',
+  separating: () => 'Separating vocals',
   loading: () => 'Loading speech model',
   downloading: () => 'Downloading speech model',
   started: () => 'Transcribing',
@@ -173,6 +217,8 @@ export function showsElapsed(state: RunState): boolean {
   if (state.status === 'sending') return state.percent === null
   return (
     state.status === 'preparing' ||
+    state.status === 'separation-loading' ||
+    state.status === 'separation-started' ||
     state.status === 'loading' ||
     state.status === 'started' ||
     state.status === 'waiting'
@@ -189,10 +235,14 @@ export function progressText(state: RunState, elapsedMs: number, host: string): 
   if (showsElapsed(state)) return `${label}, ${formatClock(elapsedMs)} elapsed`
   switch (state.status) {
     case 'downloading':
+    case 'separation-downloading':
     case 'sending':
       return `${label}, ${state.percent}%`
     case 'transcribing':
       return `${label}, ${formatClock(state.doneMs)} of ${formatClock(state.totalMs)}`
+    case 'separating':
+      // The step adds time to the run, so the person also sees the time from the "Start" click.
+      return `${label}, ${formatClock(state.doneMs)} of ${formatClock(state.totalMs)}, ${formatClock(elapsedMs)} elapsed`
     default:
       return label
   }
@@ -243,9 +293,10 @@ export function deviceLine(device: Device, speed: RunSpeed | null): string {
 
 /** Returns the value of the progress bar from 0 to 1, or undefined for a bar with no value. */
 export function progressValue(state: RunState): number | undefined {
-  if (state.status === 'downloading') return state.percent / 100
+  if (state.status === 'downloading' || state.status === 'separation-downloading')
+    return state.percent / 100
   if (state.status === 'sending' && state.percent !== null) return state.percent / 100
-  if (state.status === 'transcribing')
+  if (state.status === 'transcribing' || state.status === 'separating')
     return state.totalMs > 0 ? Math.min(1, state.doneMs / state.totalMs) : 0
   return undefined
 }
@@ -265,6 +316,7 @@ export function transcribeDialogReducer(state: DialogState, event: DialogEvent):
     return event.mode === 'model' ? { status: 'preparing' } : { status: 'finishing' }
   }
   if (!isActive(state)) return state
+  if (isSeparationEvent(event)) return separationStep(state, event)
   return event.type === 'answer' ||
     event.type === 'cancelled' ||
     event.type === 'failed' ||
@@ -289,6 +341,8 @@ type RunEvent = Extract<
 
 const STAGE_STATE: Record<RunStage, RunState> = {
   preparing: { status: 'preparing' },
+  'separation-download': { status: 'separation-loading' },
+  separating: { status: 'separation-started' },
   loading: { status: 'loading' },
   transcribing: { status: 'started' },
   sending: { status: 'sending', percent: null },
@@ -315,6 +369,38 @@ function runStep(state: DialogState, event: RunEvent): DialogState {
   }
 }
 
+type SeparationEvent = Extract<
+  DialogEvent,
+  { type: 'separation-download' | 'separation-progress' | 'confirm-no-separation' }
+>
+
+const SEPARATION_EVENT_TYPES: ReadonlySet<DialogEvent['type']> = new Set([
+  'separation-download',
+  'separation-progress',
+  'confirm-no-separation',
+])
+
+function isSeparationEvent(event: DialogEvent): event is SeparationEvent {
+  return SEPARATION_EVENT_TYPES.has(event.type)
+}
+
+function separationStep(state: DialogState, event: SeparationEvent): DialogState {
+  switch (event.type) {
+    case 'separation-download':
+      return { status: 'separation-downloading', percent: event.percent }
+    case 'separation-progress':
+      return { status: 'separating', doneMs: event.doneMs, totalMs: event.totalMs }
+    case 'confirm-no-separation':
+      return isRunState(state)
+        ? {
+            status: 'separation-failed',
+            message: separationErrorMessage(event.error),
+            resume: state,
+          }
+        : state
+  }
+}
+
 function endStep(state: DialogState, event: EndEvent): DialogState {
   switch (event.type) {
     case 'answer':
@@ -333,11 +419,19 @@ export function isRunState(state: DialogState): state is RunState {
   return state.status in STATE_LABEL
 }
 
+/** A state in which the run waits for the answer of the person. */
+export type QuestionState = Extract<DialogState, { resume: RunState }>
+
+/** Returns true when the run waits for the answer of the person. */
+export function isQuestion(state: DialogState): state is QuestionState {
+  return 'resume' in state
+}
+
 /**
  * Returns the run state that the progress area shows, or null when no run is active.
  * A confirm state shows the progress of the run that waits for the answer.
  */
 export function shownRunState(state: DialogState): RunState | null {
-  if (state.status === 'confirm-replace' || state.status === 'low-match') return state.resume
+  if (isQuestion(state)) return state.resume
   return isRunState(state) ? state : null
 }

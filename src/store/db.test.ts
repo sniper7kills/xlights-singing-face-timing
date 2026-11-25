@@ -123,6 +123,7 @@ describe('records', () => {
       theme: 'dark',
       transcribeSource: 'browser',
       remoteEndpoint: { baseUrl: '', apiKey: '', model: 'whisper-1' },
+      separateVocals: false,
     } as const
 
     await putRecord('settings', settings)

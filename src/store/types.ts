@@ -104,6 +104,8 @@ export type AppSettings = {
    * The API key stays in this record and in the `Authorization` header to the base URL only.
    */
   remoteEndpoint: RemoteEndpoint
+  /** The last choice of the check box "Separate the vocals first" of the transcribe dialog. */
+  separateVocals: boolean
 }
 
 /** Where a transcribe run finds the words: the speech model in this browser, or a remote endpoint. */

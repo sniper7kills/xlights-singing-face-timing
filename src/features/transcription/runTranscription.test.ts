@@ -74,6 +74,9 @@ function handlers(controller = new AbortController()): TranscribeRunHandlers {
     onFinishing: vi.fn(),
     confirmReplace: vi.fn(async () => true),
     confirmLowMatch: vi.fn(async () => true),
+    onSeparationDownload: vi.fn(),
+    onSeparationProgress: vi.fn(),
+    confirmNoSeparation: vi.fn(async () => true),
   }
 }
 
