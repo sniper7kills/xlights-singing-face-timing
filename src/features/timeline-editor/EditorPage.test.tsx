@@ -659,13 +659,19 @@ describe('EditorPage', () => {
       await held
       return undefined
     })
+    const opened = vi.spyOn(useSongStore.getState(), 'openSong')
     window.location.hash = '#/song/other'
     const view = render(<EditorPage songId="gone" />)
     await vi.waitFor(() => expect(load).toHaveBeenCalled())
 
     view.unmount()
     release()
-    await act(() => new Promise((resolve) => setTimeout(resolve, 20)))
+    // The open must end, and its result reach the editor, before the check of the route.
+    expect(opened).toHaveBeenCalledOnce()
+    await act(async () => {
+      await opened.mock.results[0]?.value
+    })
+    await act(async () => undefined)
 
     expect(window.location.hash).toBe('#/song/other')
   })
