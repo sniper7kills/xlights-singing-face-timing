@@ -3,7 +3,7 @@ id: xtiming-export
 feature: xtiming export
 epic: "Epic 6: Export"
 status: issued
-issues: [41, 42, 43, 44, 45, 46, 79]
+issues: [41, 42, 43, 44, 45, 46, 79, 132]
 mockups: [mockups/03-export.html]
 ---
 
@@ -24,6 +24,8 @@ next.
   does not show a closed mouth where I expect a word.
 - As the person, I want the import steps for xLights beside the download, so that I
   do not search a manual.
+- As the person, I want all files of a song in one download, so that I can keep a
+  backup or move the song to another computer.
 
 ## Functional requirements
 
@@ -63,6 +65,26 @@ next.
 - FR-export-21 — The app remembers the export options for each song.
 - FR-export-22 — The export dialog shows a text preview of the first 40 lines of
   the file.
+- FR-export-23 — The "Files" group has the check box "Everything as one zip file".
+- FR-export-24 — With the zip file selected, "Download zip" gives one file
+  `<song name>.zip`.
+- FR-export-25 — The zip file holds in `timing/` the `.xtiming` files of the
+  selected export options, with the same bytes as a normal export.
+- FR-export-26 — With "One file for each timing track", `timing/` also holds
+  `<song name> - all.xtiming`.
+- FR-export-27 — The zip file holds in `audio/` the audio file of the song, with
+  its original name and bytes.
+- FR-export-28 — The zip file holds `song.json` with the song, the voices, the
+  sections and the marks.
+- FR-export-29 — The zip file holds `lyrics.txt` when a voice has a phrase.
+- FR-export-30 — The zip file holds `custom-dictionary.txt` when the custom
+  dictionary has an entry.
+- FR-export-31 — The zip file holds `README.txt` with one line for each file and
+  the xLights import steps.
+- FR-export-32 — The note under the zip file choice lists the files and the size
+  of the zip file.
+- FR-export-33 — The app writes the zip file in the browser. No request carries
+  any part of it.
 
 ## User flows
 
@@ -122,6 +144,9 @@ file preview, import steps, buttons.
   song first." and "Download" is disabled.
 - done: a confirmation line, "2 timing tracks written to carol.xtiming", and the
   import steps expanded.
+- zip file selected: the note under the check box lists the files of the zip file
+  and its size. The button reads "Download zip". The footer count line counts
+  1 file.
 
 Labels:
 
@@ -139,7 +164,16 @@ Labels:
   "1 timing track" and "1 file".
 - Done line for several files: "<count> timing tracks written to <count> files".
 - No voice selected, beside the disabled "Download" button: "Select one voice or more."
-- Buttons: "Close", "Download".
+- Buttons: "Close", "Download". With the zip file selected: "Close",
+  "Download zip".
+- Zip file choice in the "Files" group: "Everything as one zip file".
+- Note under the zip file choice: "The zip file holds <count> files: <entry
+  list>. Size: <size>." The entry list separates the paths with ", ". The size
+  is "<count> KB" below 1 MB and "<count> MB" from 1 MB (1 MB = 1024 × 1024
+  bytes).
+- Note while the app reads the audio file: "The app reads the audio file of the
+  song."
+- Done line for the zip file: "<count> timing tracks written to <song name>.zip".
 
 ## Behaviour rules
 
@@ -228,10 +262,40 @@ https://manual.xlights.org/xlights/chapters/chapter-four-sequencer/timing-tracks
 (retrieved 2026-11-24). The manual does not give the menu path for the frame size.
 Epic 6 confirms the wording of step 2 in xLights.
 
+**Zip file.** With "Everything as one zip file" selected, "Download zip" gives
+one file, `<song name>.zip`. It holds these entries, in this order:
+
+| Entry | When | Content |
+|---|---|---|
+| `timing/<file name>.xtiming` | Always | The files of the selected export options, as `exportFiles` writes them. |
+| `timing/<song name> - all.xtiming` | "One file for each timing track" | One file with all timing tracks. |
+| `audio/<audio file name>` | Always | The audio file of the song, with its original bytes. |
+| `song.json` | Always | The song data. See [Interfaces](#interfaces). |
+| `lyrics.txt` | A voice has a phrase | For each voice in order: the voice name as a heading line, then one line for each phrase label in time order. A blank line separates two voices. |
+| `custom-dictionary.txt` | The custom dictionary has an entry | The custom dictionary in the format of its export. |
+| `README.txt` | Always | One line for each entry of this zip file, then the import steps text. |
+
+- Issue #129 adds the separated tracks `tracks/vocals.wav` and
+  `tracks/instruments.wav`, and the run report `report.txt`, before `README.txt`.
+- The zip file stores each entry with no compression. Audio files are compressed
+  already.
+- In an entry name the app replaces each of these with `_`: a control
+  character, `/`, `\`, `: * ? " < > |`, and a `.` at the start. Other Unicode
+  characters stay. An empty name becomes `_`.
+- Entry names are unique in the zip file. The comparison ignores case. The app
+  adds ` (2)`, ` (3)` and so on before the extension.
+- The zip file name is `<song name>.zip`, with the same replacements.
+- The errors of the checks that disable "Download" also disable "Download zip".
+- The app remembers the zip file choice with the export options of the song.
+- The peak memory of a download is two copies of the audio file: the bytes that
+  the app reads from storage, and the zip file.
+
 ## Data touched
 
 - Reads `SONG`, `VOICE`, `SECTION` and `MARK`. Writes none of them.
-- Stores the export options for each song in the `settings` object store.
+- Reads `AUDIO_FILE` and the custom entries for the zip file. Writes neither.
+- Stores the export options for each song in the `settings` object store, with
+  the zip file choice as `zip`.
 
 ## Interfaces
 
@@ -318,6 +382,78 @@ exportFiles(
 `writeXtiming` is a pure function with no browser API, so the unit tests compare
 its output with golden files.
 
+**The zip format.** Verified against the PKWARE APPNOTE, version 6.3.10
+(https://pkware.cachefly.net/webdocs/casestudies/APPNOTE.TXT, retrieved
+2026-11-24):
+
+- 4.3.7 — the local file header. 4.3.12 — the central directory header. 4.3.16 —
+  the end of central directory record.
+- 4.4.2 and 4.4.3 — "version made by" 2.0 on UNIX, "version needed to extract"
+  2.0. Info-ZIP converts the names of an MS-DOS entry from a code page, so the
+  app states UNIX.
+- 4.4.4 — general purpose bit 11: the file name is UTF-8.
+- 4.4.5 — method 0: stored, with no compression.
+- 4.4.6 — the MS-DOS date and time, in local time, with steps of 2 seconds. A
+  date before 1980 becomes 1980-01-01 00:00.
+- 4.4.7 — CRC-32 with the polynomial `0xEDB88320`.
+- 4.4.15 — the external attributes of a UNIX entry hold the file mode `0o100644`.
+- 4.4.1.4 — the value `0xFFFF` or `0xFFFFFFFF` in a field means ZIP64. The app
+  writes no ZIP64, so it refuses more than 65 534 entries, and a file, an offset or
+  a size of `0xFFFFFFFF` bytes or more.
+
+**`song.json`.** The file is for backup and for other programs. The app does not
+import it. It holds no audio. The keys have this order:
+
+```text
+{
+  "format": "singing-face-timing-song",
+  "version": 1,
+  "song": { "id", "name", "durationMs", "frameMs", "createdAt", "updatedAt" },
+  "voices": [{ "id", "songId", "name", "order", "color" }],
+  "sections": [{ "id", "songId", "name", "startMs", "endMs" }],
+  "marks": [{ "id", "voiceId", "layer", "label", "startMs", "endMs", "parentId",
+              "edited", "estimated"?, "unknown"? }]
+}
+```
+
+- The values are the values of the store. Times are whole milliseconds.
+- A mark has `estimated` and `unknown` only when the store has a value.
+- The file omits `previewMuted` of a voice, because it is view state.
+- A change to the shape that a reader can break on adds 1 to `version`.
+
+**Module contract, `src/lib/zip/` and `src/lib/songArchive/`:**
+
+```ts
+interface ZipEntry { name: string; data: Uint8Array<ArrayBuffer>; modified: Date }
+class ZipLimitError extends Error {}
+writeZip(entries: readonly ZipEntry[]): Uint8Array<ArrayBuffer>[]   // the parts of a Blob
+zipLength(entries: readonly { name: string; size: number }[]): number
+safeEntryName(name: string): string
+entryPath(folder: string | null, fileName: string): string
+uniquePathMaker(): (path: string) => string
+
+interface ArchiveFile {
+  folder: string | null; fileName: string; description: string
+  data: Uint8Array<ArrayBuffer>
+}
+songArchiveEntries(input: {
+  content: SongContent
+  tracks: ExportTrack[]
+  packaging: ExportOptions['packaging']
+  audio: { fileName: string; data: Uint8Array<ArrayBuffer> }
+  customEntries: readonly CustomDictionaryLine[]
+  extraFiles: readonly ArchiveFile[]     // issue #129
+  modified: Date
+}): ZipEntry[]
+songArchiveName(songName: string): string
+songJson(content: SongContent): string
+lyricsText(voices: readonly Voice[], marks: readonly Mark[]): string
+importSteps(frameMs: number): ImportStep[]     // the dialog and README.txt
+importStepsText(frameMs: number): string
+```
+
+`writeZip` refers to the bytes of each entry and does not copy them.
+
 ## Edge cases & failures
 
 | Case | Result |
@@ -331,6 +467,10 @@ its output with golden files.
 | 12 voices and 10 sections | 120 timing tracks at most. The timing track list scrolls. |
 | A timing track name exists in the xLights sequence | xLights renames the track on import. The import steps state this. |
 | Song with frame size 25 ms imported into a 50 ms sequence | xLights moves times down to 50 ms. The import steps warn about it in step 2. |
+| The app cannot read the audio file of the song for the zip file | The dialog shows "The app could not read the audio file of this song. Download the timing files without the zip." The dialog stays open. |
+| The zip file needs ZIP64 | The dialog shows "The song is too large for one zip file. Download the files one at a time." The dialog stays open. |
+| The audio file name has `/` or a character that is not ASCII | The entry name replaces `/` with `_` and keeps the other characters. |
+| The custom dictionary has no entry | The zip file has no `custom-dictionary.txt`. |
 
 ## Acceptance criteria
 
@@ -362,6 +502,21 @@ its output with golden files.
 - The dialog opens with the options of the previous export of that song.
   (FR-export-21)
 - The preview shows the first 40 lines of the file text. (FR-export-22)
+- "Everything as one zip file" downloads one file `<song name>.zip`.
+  (FR-export-23, 24)
+- `unzip -t` reports no error for the zip file, and each entry has the correct
+  size and CRC. (FR-export-24)
+- The `.xtiming` entries are the same bytes as the files of a normal export with
+  the same options. (FR-export-25, 26)
+- The audio entry has the same bytes as the audio file that the person added.
+  (FR-export-27)
+- An audio file name with a character that is not ASCII, or with `/`, gives a
+  legal entry name. (FR-export-27)
+- The zip file of the demo song lists `timing/Silent Night.xtiming`,
+  `audio/silent-night.ogg`, `song.json`, `lyrics.txt` and `README.txt`.
+  (FR-export-28 to 31)
+- With the zip file selected, the note lists the files and the size.
+  (FR-export-32)
 - **Manual check.** xLights imports the two-voice export of the demo song with no
   error message. A Faces effect on each of two face models animates from its timing
   track. The check records the xLights version.
@@ -370,7 +525,8 @@ its output with golden files.
 
 - Papagayo `.pgo` export.
 - Import of `.xtiming` or `.pgo` files into the app.
-- A zip file of several exports.
+- Import of a zip file or of `song.json`.
+- Compression in the zip file.
 - Writing into an `.xsq` sequence file.
 - xLights `subType` values other than an empty string.
 

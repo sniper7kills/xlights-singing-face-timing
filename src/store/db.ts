@@ -210,6 +210,8 @@ function exportOptionsKey(songId: string): string {
 export type StoredExportOptions = ExportOptions & {
   /** The ids of all voices of the song at the export. A voice outside this list is new to the options. */
   knownVoiceIds: string[]
+  /** True when the person selected "Everything as one zip file". Options from before the zip file have no value. */
+  zip?: boolean
 }
 
 /** Returns the export options of the previous export of the song, or undefined if the song has none. */
