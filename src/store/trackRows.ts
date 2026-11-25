@@ -1,6 +1,6 @@
-import { singerVoiceRanges } from '../lib/singers/singerRanges.ts'
+import { phraseRangesOf, rangesOfSingers, singerVoiceRanges } from '../lib/singers/singerRanges.ts'
 import type { TimeRange } from '../lib/time/timeRange.ts'
-import type { KeptTracks, Mark, RunData, Voice } from './types.ts'
+import type { KeptTracks, Mark, RunData, RunVoice, Voice } from './types.ts'
 
 /** One track row of the editor: an audio track, or the vocals in the time ranges of one singer. */
 export type TrackRow = {
@@ -19,20 +19,15 @@ export type TrackRow = {
 /** The singer step put the singers on voices only with these results. */
 const SPLIT_STATUSES = new Set(['split', 'capped'])
 
-function phraseRanges(marks: readonly Mark[], voiceId: string, range: TimeRange): TimeRange[] {
-  return marks.filter(
-    (mark) =>
-      mark.layer === 'phrase' &&
-      mark.voiceId === voiceId &&
-      mark.endMs > range.startMs &&
-      mark.startMs < range.endMs,
-  )
+function singerRow(voice: Voice, gate: TimeRange[]): TrackRow {
+  return { id: `singer:${voice.id}`, name: voice.name, track: 'vocals', gate, color: voice.color }
 }
 
-/** Returns one row for each voice of a singer run that has singer ranges, in the voice order of the run report. */
-function singerRows(data: RunData, voices: readonly Voice[], marks: readonly Mark[]): TrackRow[] {
-  if (!SPLIT_STATUSES.has(data.report.singers.status)) return []
-  // The run report keeps the voice names, so a renamed or deleted voice gets no row.
+/**
+ * Returns the singer rows of a record from before issue #173, which has no voice ids.
+ * The run report keeps the voice names, so a renamed or deleted voice gets no row.
+ */
+function rowsByName(data: RunData, voices: readonly Voice[], marks: readonly Mark[]): TrackRow[] {
   const runVoices = data.report.voices.flatMap(
     ({ name }) => voices.find((voice) => voice.name === name) ?? [],
   )
@@ -40,31 +35,41 @@ function singerRows(data: RunData, voices: readonly Voice[], marks: readonly Mar
     data.singerSegments,
     runVoices.map((voice) => ({
       voiceId: voice.id,
-      phrases: phraseRanges(marks, voice.id, data.report.range),
+      phrases: phraseRangesOf(marks, voice.id, data.report.range),
     })),
   )
   return runVoices.flatMap((voice) => {
     const gate = ranges.get(voice.id)
-    return gate === undefined
-      ? []
-      : [
-          {
-            id: `singer:${voice.id}`,
-            name: voice.name,
-            track: 'vocals' as const,
-            gate,
-            color: voice.color,
-          },
-        ]
+    return gate === undefined ? [] : [singerRow(voice, gate)]
   })
+}
+
+/**
+ * Returns the singer rows of a record with voice ids, in the present voice order.
+ * The singers of each voice are fixed at the end of the run, so a deleted voice takes its ranges with it.
+ */
+function rowsById(data: RunData, runVoices: readonly RunVoice[], voices: readonly Voice[]) {
+  return voices.flatMap((voice) => {
+    const singers = runVoices.find((runVoice) => runVoice.voiceId === voice.id)?.singers ?? []
+    const gate = rangesOfSingers(data.singerSegments, singers)
+    return gate.length === 0 ? [] : [singerRow(voice, gate)]
+  })
+}
+
+/** Returns one row for each voice of a singer run that has singer ranges. */
+function singerRows(data: RunData, voices: readonly Voice[], marks: readonly Mark[]): TrackRow[] {
+  if (!SPLIT_STATUSES.has(data.report.singers.status)) return []
+  return data.voices === undefined
+    ? rowsByName(data, voices, marks)
+    : rowsById(data, data.voices, voices)
 }
 
 /**
  * Returns the track rows of a song, from top to bottom: "Vocals", "Instruments", then one row for each singer voice.
  * A song with no kept audio tracks has no row.
  * @param data The run data of the song, or null or undefined when the editor has none.
- * @param voices The voices of the song.
- * @param marks The marks of the song. The phrases of each singer voice decide the voice of each singer.
+ * @param voices The voices of the song. A singer row has the present name and colour of its voice.
+ * @param marks The marks of the song. For a record with no voice ids, the phrases of each voice decide the voice of each singer.
  */
 export function trackRows(
   data: RunData | null | undefined,
@@ -77,4 +82,25 @@ export function trackRows(
     { id: 'instruments', name: 'Instruments', track: 'instruments', gate: null, color: null },
     ...singerRows(data, voices, marks),
   ]
+}
+
+/**
+ * Returns the singer voices of the last run that still exist: the voices that its singer step added.
+ * A voice that the person renamed is still such a voice.
+ * @param data The stored run data of the song, or undefined when the song has none.
+ * @param voices The voices of the song.
+ * @param runVoiceId The voice of the new run. It is never in the result, also when the last run added it.
+ * A record from before issue #173 has no voice ids, so the function finds the voices by the names in the report.
+ */
+export function lastRunSingerVoices(
+  data: RunData | undefined,
+  voices: readonly Voice[],
+  runVoiceId: string,
+): Voice[] {
+  if (data === undefined) return []
+  const made = (voice: Voice) =>
+    data.voices === undefined
+      ? data.report.voices.some((entry) => entry.made === true && entry.name === voice.name)
+      : data.voices.some((entry) => entry.made && entry.voiceId === voice.id)
+  return voices.filter((voice) => voice.id !== runVoiceId && made(voice))
 }

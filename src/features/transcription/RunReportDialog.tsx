@@ -2,6 +2,7 @@ import { useEffect, useId, useMemo, useRef, useState, type KeyboardEvent } from 
 import { keepFocusInside } from '../../app/modalFocus.ts'
 import { type PanelSection, reportFileName, reportPanel } from '../../lib/runReport/reportPanel.ts'
 import { reportToText, type RunReport } from '../../lib/runReport/runReport.ts'
+import { useSongStore } from '../../store/songStore.ts'
 import { downloadFiles } from '../xtiming-export/download.ts'
 
 /** The time that "Copy report" says "Copied" after a copy. */
@@ -74,7 +75,8 @@ export function RunReportDialog({ songName, report, onClose }: RunReportDialogPr
   const dialogRef = useRef<HTMLDivElement>(null)
   const textRef = useRef<HTMLTextAreaElement>(null)
   const titleId = useId()
-  const sections = useMemo(() => reportPanel(report), [report])
+  const voices = useSongStore((state) => state.current?.voices)
+  const sections = useMemo(() => reportPanel(report, undefined, voices), [report, voices])
   const text = useMemo(() => reportToText(report), [report])
 
   useEffect(() => {
