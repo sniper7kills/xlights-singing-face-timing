@@ -472,7 +472,7 @@ body.rv-open .layout { padding-right:21rem; }
 <li>If the singer step of the last run put the singers on voices, the group also has
 </li>
 </ul>
-<p>one row for each of those voices. The row name is the voice name. The row shows the vocals only in the time ranges of that singer, in the colour of the voice. The row name has the tooltip "This row is the vocals track, limited to the times of this singer."</p>
+<p>one row for each of those voices. The row finds its voice by the voice id in the run data, so the row name is the present voice name. The row shows the vocals only in the time ranges of that singer, in the colour of the voice. The rows follow the voice order. The row name has the tooltip "This row is the vocals track, limited to the times of this singer."</p>
 <ul>
 <li>The waveform of the song is the row "Song". It gets its controls when the group
 </li>
@@ -785,7 +785,9 @@ formatTime(ms: number): string                   // m:ss.mmm</code></pre>
 <tr><td>The browser refuses to play a track (<code>NotAllowedError</code>)</td><td>The track stays silent, and the song audio plays. The group shows "The browser did not start the sound of &lt;row name&gt;. Select "Mute" and then "Solo" on the row again." The app tries the track again after the next click on "Mute" or "Solo" of that row.</td></tr>
 <tr><td>The play of a track stops for another cause, for example a quick pause</td><td>No message. The next check starts the track again.</td></tr>
 <tr><td>A phrase edit changes the times of a singer row during play</td><td>The track keeps its play. The muted "Song" stays muted. The row uses the new times.</td></tr>
-<tr><td>A voice of a singer row has a new name or is deleted</td><td>The row of that voice does not show.</td></tr>
+<tr><td>A voice of a singer row has a new name</td><td>The row shows the new name with the same ranges. The other rows do not change.</td></tr>
+<tr><td>A voice of a singer row is deleted</td><td>The row of that voice does not show, and its ranges go to no other row. An undo of the delete brings the row back.</td></tr>
+<tr><td>Run data from before issue #173 and a renamed or deleted voice</td><td>The row of that voice does not show.</td></tr>
 </table></div>
 <h3 id="timeline-editor-acceptance-criteria">Acceptance criteria</h3>
 <ul>

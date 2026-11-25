@@ -306,6 +306,40 @@ describe('reportPanel', () => {
     expect(panel({ voices: [] }).get('Voices')?.text).toBe('No voice holds phrases of the run.')
   })
 
+  it('shows the present name of each voice of the run and marks a deleted voice', () => {
+    const voices = [
+      { name: 'Lead Vocals', voiceId: 'v1', phraseCount: 2, made: false },
+      { name: 'Singer 2', voiceId: 'v2', phraseCount: 1, made: true },
+      { name: 'Singer 3', voiceId: 'v3', phraseCount: 1, made: true },
+    ]
+    const present = [
+      { id: 'v1', name: 'Lead Vocals' },
+      { id: 'v2', name: 'Test Alto' },
+    ]
+
+    const sections = reportPanel(report({ voices }), () => 'started', present)
+
+    expect(sections.find((item) => item.title === 'Voices')?.tables[0]?.rows).toEqual([
+      ['Lead Vocals', '2', 'no'],
+      ['Test Alto', '1', 'yes'],
+      ['Singer 3 (deleted)', '1', 'yes'],
+    ])
+  })
+
+  it('shows the names of the report for a report with no voice ids or with no present voices', () => {
+    const present = [{ id: 'v1', name: 'Renamed' }]
+    const withIds = report({ voices: [{ name: 'Lead Vocals', voiceId: 'v1', phraseCount: 2 }] })
+
+    expect(
+      reportPanel(report(), () => 'started', present).find((item) => item.title === 'Voices')
+        ?.tables[0]?.rows[0]?.[0],
+    ).toBe('Lead Vocals')
+    expect(
+      reportPanel(withIds, () => 'started').find((item) => item.title === 'Voices')?.tables[0]
+        ?.rows[0]?.[0],
+    ).toBe('Lead Vocals')
+  })
+
   it('gives the counts of the marks', () => {
     const marks = panel().get('Marks')
     expect(marks?.facts).toEqual([

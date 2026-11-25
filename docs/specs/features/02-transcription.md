@@ -328,6 +328,21 @@ leaves the browser, and the app shows the host before each run.
 - FR-transcribe-145 — While a question shows, the progress bar and the elapsed
   time do not show.
 
+### Voices of the last run (issues #173 and #174)
+
+- FR-transcribe-146 — The run data stores the id of each voice that the run wrote
+  marks to, with the singer numbers of that voice.
+- FR-transcribe-147 — The run report panel shows the present name of each voice of
+  the run. It shows "<name> (deleted)" for a voice that the song no longer has. The
+  stored report does not change.
+- FR-transcribe-148 — A run with "Put each singer on its own voice" replaces the
+  marks in the range of each voice that the singer step of the last run added, also
+  after a rename.
+- FR-transcribe-149 — The replace question names each voice that loses marks, and
+  its count is the sum of the marks of those voices.
+- FR-transcribe-150 — A run with no singer step leaves the singer voices of the last
+  run as they are, and the replace question states it.
+
 ## User flows
 
 ### Transcribe a song
@@ -492,6 +507,15 @@ fully visible at 1440x900 and at 1024x768 with each option on.
   voice on all layers that overlap the range. The same rule decides that the
   dialog asks. The times have the form `0:01.500`. For one mark, the text reads
   "the 1 mark".
+- confirm with the singer voices of the last run (FR-transcribe-149): "The run
+  replaces <n> marks from <start> to <end>: the marks of "<voice name>", and the
+  marks of "Singer 2" and "Singer 3" from the last run." `<n>` is the sum of the
+  marks of all named voices. The text names only a singer voice with a mark that
+  overlaps the range. Three names or more read "Singer 2", "Singer 3" and
+  "Singer 4". For one mark, the text reads "1 mark".
+- confirm for a run with no singer step on a song with singer voices of the last
+  run (FR-transcribe-150): the text adds "The voices of the last singer step do not
+  change."
 - question: while the dialog asks, the progress area shows no text and no bar,
   because the run waits for the answer.
 - stopped: after a cancel, the dialog goes back to idle and shows "The run stopped.
@@ -740,6 +764,27 @@ copy, the status line shows "Press Ctrl+C to copy."
   - A phrase with no word left is removed.
   - A phrase that changes takes the text of its kept words as its label.
   - Marks outside the range do not change. The replace is one undo step.
+- **Singer voices of the last run** (issue #174):
+  - The singer voices of the last run are the voices that the singer step of the
+    last run added and that the song still has. The app finds them by the voice
+    ids of the run data, so a renamed voice is still such a voice. Run data from
+    before issue #173 has no ids, so the app finds them by the names in the report.
+  - The voice of the new run is never a singer voice of the last run, also when
+    the last run added it.
+  - A speech model run with "Put each singer on its own voice" replaces the marks
+    in the range of each singer voice of the last run, by the range rules above.
+    Marks that the person added by hand inside the range go too.
+  - A singer voice of the last run with no mark left after the replace goes. So
+    the singer step of the run can use the name "Singer 2" again. A singer voice
+    with marks outside the range stays, and the new singer voices get the next free
+    names.
+  - The replace of all voices and the removed voices are one undo step with the
+    marks of the run. The undo steps of the run in order are: the singer step, the
+    sections of the tags, then the marks with the replace. Each undo restores the
+    song exactly, with the ids, the order, the colours and the mute state of each
+    voice.
+  - A run with no singer step leaves the singer voices of the last run as they
+    are. A lyrics-only run has no singer step.
 - The worker handles one run at a time. The "Transcribe" action is disabled during
   a run.
 - The app transcribes in 30-second chunks with a 5-second stride.
@@ -763,8 +808,11 @@ copy, the status line shows "Press Ctrl+C to copy."
 
 ## Data touched
 
-- Writes `RUN_DATA` for the song at the end of each completed run: the audio
-  tracks, the singer ranges and the run report. A new run replaces the full record.
+- Writes `RUN_DATA` for the song at the end of each completed run: the voices of
+  the run, the audio tracks, the singer ranges and the run report. A new run
+  replaces the full record.
+- Reads `RUN_DATA` before the replace question, for the singer voices of the last
+  run.
 - Reads and writes `APP_SETTINGS.keepTracks`, the last choice of "Keep the separated
   tracks". A record with no value gives `true`.
 
@@ -1243,6 +1291,14 @@ The text writes the raw groups and the final singers as tables with aligned colu
   show their messages in the song library. (FR-transcribe-117, 118)
 - The zip file after a run with separation holds `tracks/vocals.wav`,
   `tracks/instruments.wav` and `report.txt`. (FR-transcribe-115)
+- After a rename of "Singer 2" to "Test Alto", the Voices table of the run report
+  panel shows "Test Alto". After a delete, it shows "Singer 2 (deleted)".
+  (FR-transcribe-146, 147)
+- A second run with the singer step asks "The run replaces <n> marks from <start>
+  to <end>: the marks of "Lead Vocals", and the marks of "Singer 2" from the last
+  run." (FR-transcribe-148, 149)
+- A second run with the singer option off asks with the sentence "The voices of the
+  last singer step do not change." (FR-transcribe-150)
 
 ## Out of scope
 

@@ -206,8 +206,10 @@ Track rows (FR-editor-31 to 37):
   its audio track on the time scale of the stage. A row is lower than the
   waveform.
 - If the singer step of the last run put the singers on voices, the group also has
-  one row for each of those voices. The row name is the voice name. The row shows
-  the vocals only in the time ranges of that singer, in the colour of the voice.
+  one row for each of those voices. The row finds its voice by the voice id in
+  the run data, so the row name is the present voice name. The row shows the vocals
+  only in the time ranges of that singer, in the colour of the voice. The rows
+  follow the voice order.
   The row name has the tooltip "This row is the vocals track, limited to the times
   of this singer."
 - The waveform of the song is the row "Song". It gets its controls when the group
@@ -445,7 +447,9 @@ scroll methods before use. Those names are not verified in this spec.
 | The browser refuses to play a track (`NotAllowedError`) | The track stays silent, and the song audio plays. The group shows "The browser did not start the sound of <row name>. Select "Mute" and then "Solo" on the row again." The app tries the track again after the next click on "Mute" or "Solo" of that row. |
 | The play of a track stops for another cause, for example a quick pause | No message. The next check starts the track again. |
 | A phrase edit changes the times of a singer row during play | The track keeps its play. The muted "Song" stays muted. The row uses the new times. |
-| A voice of a singer row has a new name or is deleted | The row of that voice does not show. |
+| A voice of a singer row has a new name | The row shows the new name with the same ranges. The other rows do not change. |
+| A voice of a singer row is deleted | The row of that voice does not show, and its ranges go to no other row. An undo of the delete brings the row back. |
+| Run data from before issue #173 and a renamed or deleted voice | The row of that voice does not show. |
 
 ## Acceptance criteria
 

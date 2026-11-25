@@ -314,6 +314,7 @@ erDiagram
   }
   RUN_DATA {
     string songId PK
+    object voices
     object tracks
     object singerSegments
     object report
@@ -348,6 +349,10 @@ erDiagram
   the last completed transcribe run. A new run replaces the full record. Deleting
   the song deletes it in the same transaction. It holds no lyrics, no label of a
   mark and no API key.
+  `voices` lists each voice that the run wrote marks to as `{ voiceId, singers,
+  made }`. `singers` holds the singer numbers of that voice, and `made` is true for
+  a voice that the singer step added. A record from before issue #173 has no
+  `voices`.
   `tracks` holds `vocals` and `instruments`, each `{ startMs, sampleRate, samples }`
   with 16-bit PCM samples in one channel at 22 050 Hz. A run with no kept tracks,
   and a record from before issue #129, have no `tracks`. The storage meter of the
