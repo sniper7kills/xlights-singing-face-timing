@@ -269,8 +269,53 @@ button {
 
 .editor {
   display: grid;
-  grid-template-columns: 216px minmax(0, 1fr) 280px;
+  grid-template-columns: var(--voices-column, 216px) minmax(0, 1fr) var(--inspector-column, 280px);
   gap: 16px;
+}
+
+/* A folded side panel keeps only its fold button, so the stage takes the width. */
+.editor[data-voices='folded'] {
+  --voices-column: 40px;
+}
+
+.editor[data-inspector='folded'] {
+  --inspector-column: 40px;
+}
+
+.editor[data-voices='folded'] > .voice-rail > :not(.panel-fold),
+.editor[data-inspector='folded'] > .inspector > :not(.panel-fold) {
+  display: none;
+}
+
+.editor[data-voices='folded'] > .voice-rail,
+.editor[data-inspector='folded'] > .inspector {
+  padding: 4px;
+}
+
+/* The fold button sits on the edge of the panel next to the stage. */
+.panel-fold {
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--panel2);
+  color: var(--ink);
+  font: 700 16px var(--mono);
+  cursor: pointer;
+}
+
+.panel-fold[data-panel='voices'] {
+  justify-self: end;
+}
+
+.panel-fold[data-panel='inspector'] {
+  justify-self: start;
+}
+
+.panel-fold:focus-visible {
+  outline: 2px solid var(--amber);
+  outline-offset: 2px;
 }
 
 /*
@@ -796,8 +841,14 @@ button {
   font: 12px var(--mono);
 }
 
+.zoom-control label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .zoom-control input {
-  width: 220px;
+  width: 160px;
   accent-color: var(--amber);
 }
 
@@ -1247,6 +1298,65 @@ button {
 
 .mark-handle[data-edge='end']::after {
   right: 0;
+}
+
+/*
+ * A narrow mark draws from its start to its end and no wider, so it has no padding and no border.
+ * Only a screen reader reads its label, and the tooltip shows it.
+ */
+.mark[data-narrow='true'] {
+  padding: 0;
+  border-width: 0;
+}
+
+.mark[data-narrow='true']::before {
+  display: none;
+}
+
+/* An outline would cover the adjacent marks, so a narrow selected mark shows the fill and the outer handles. */
+.mark[data-narrow='true'][aria-current='true'] {
+  outline: none;
+  background: var(--amber);
+}
+
+/* A short phrase or word has a lower bar with stripes, so the person sees it without colour alone. */
+.mark[data-short='true'] {
+  top: 10px;
+  background-image: repeating-linear-gradient(
+    135deg,
+    transparent 0 3px,
+    color-mix(in srgb, var(--ink) 40%, transparent) 3px 5px
+  );
+}
+
+/*
+ * The handles of a narrow selected mark hang under the bar, outside the mark.
+ * Each is 10 px wide, and it does not cover the bar of the adjacent mark.
+ */
+.mark[data-handles='outer'] {
+  overflow: visible;
+}
+
+.mark[data-handles='outer'] .mark-handle {
+  top: 100%;
+  bottom: auto;
+  width: 10px;
+  height: 8px;
+}
+
+.mark[data-handles='outer'] .mark-handle[data-edge='start'] {
+  right: 100%;
+  left: auto;
+}
+
+.mark[data-handles='outer'] .mark-handle[data-edge='end'] {
+  left: 100%;
+  right: auto;
+}
+
+.mark[data-handles='outer'] .mark-handle::after {
+  width: 100%;
+  border-radius: 0 0 3px 3px;
 }
 
 .layer-body {
