@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs'
 import { act, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -5,6 +6,7 @@ import type { RunReport } from '../../lib/runReport/runReport.ts'
 import { saveRunData } from '../../store/db.ts'
 import { makeSongContent } from '../../store/fixtures.test-helpers.ts'
 import { useSongStore } from '../../store/songStore.ts'
+import type { Mark } from '../../store/types.ts'
 import { useTrackMixStore } from '../../store/trackMixStore.ts'
 import type { KeptTracks, RunData } from '../../store/types.ts'
 import { useViewStore } from '../../store/viewStore.ts'
@@ -30,6 +32,8 @@ const TRACKS: KeptTracks = {
 let leader: HTMLAudioElement
 /** The row of each audio element that got a `play` call, in call order. */
 let played: string[]
+/** The row of each audio element that got a `pause` call, in call order. */
+let paused: string[]
 let blobs: Blob[]
 
 function setMedia(
@@ -77,7 +81,12 @@ beforeEach(() => {
     played.push(this.dataset.audioRow ?? '')
     return Promise.resolve()
   })
-  vi.spyOn(HTMLMediaElement.prototype, 'pause').mockImplementation(() => undefined)
+  paused = []
+  vi.spyOn(HTMLMediaElement.prototype, 'pause').mockImplementation(function (
+    this: HTMLMediaElement,
+  ) {
+    paused.push(this.dataset.audioRow ?? '')
+  })
   // jsdom draws no canvas.
   vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(null)
   // jsdom has no Blob URLs.
@@ -180,7 +189,8 @@ describe('TrackRows', () => {
     await waitFor(() => expect(leader.muted).toBe(true))
     setMedia(leader, { paused: false })
     leader.dispatchEvent(new Event('play'))
-    expect(played).toEqual(['vocals'])
+    // The click primes the vocals element, and the play of the song audio starts it.
+    expect(played).toEqual(['vocals', 'vocals'])
   })
 
   it('plays the instruments with the song after "Mute" on "Instruments" is off', async () => {
@@ -193,7 +203,7 @@ describe('TrackRows', () => {
     setMedia(leader, { paused: false, currentTime: 1.5 })
     leader.dispatchEvent(new Event('play'))
     expect(leader.muted).toBe(false)
-    expect(played).toEqual(['instruments'])
+    expect(played).toEqual(['instruments', 'instruments'])
     // The instruments start at 1 000 ms, so the song time 1.5 s is 0.5 s of the track.
     expect(followerOf('instruments').currentTime).toBe(0.5)
   })
@@ -312,4 +322,132 @@ describe('TrackRows', () => {
     expect(within(group).getAllByTestId('track-wave')).toHaveLength(4)
     await waitFor(() => expect(document.querySelectorAll('audio[data-audio-row]')).toHaveLength(4))
   })
+
+  it('keeps "Song" muted and the singer track playing when a phrase edit changes the singer ranges', async () => {
+    setSingerSong()
+    await renderSong({
+      tracks: TRACKS,
+      singerSegments: [
+        { startMs: 0, endMs: 1800, singer: 1 },
+        { startMs: 2100, endMs: 2900, singer: 0 },
+        { startMs: 1850, endMs: 2050, singer: 2 },
+      ],
+      report: SINGER_REPORT,
+    })
+    await waitFor(() => expect(document.querySelectorAll('audio[data-audio-row]')).toHaveLength(4))
+    await userEvent.click(screen.getByRole('button', { name: 'Solo Singer 2' }))
+    await waitFor(() => expect(leader.muted).toBe(true))
+    const singer = followerOf('singer:v2')
+    setMedia(singer, { paused: false, currentTime: 1.9 })
+    setMedia(leader, { paused: false, currentTime: 1.9 })
+    leader.dispatchEvent(new Event('play'))
+    // 1.9 s is outside the ranges of "Singer 2" before the edit.
+    expect(singer.muted).toBe(true)
+    const mutes: boolean[] = []
+    let muted = true
+    Object.defineProperty(leader, 'muted', {
+      configurable: true,
+      get: () => muted,
+      set: (value: boolean) => {
+        mutes.push(value)
+        muted = value
+      },
+    })
+    paused = []
+
+    // The phrase of "Singer 2" now shares more time than "Lead Vocals" with the range from 1 850 ms to 2 050 ms.
+    act(() => {
+      const current = useSongStore.getState().current
+      if (current === null) throw new Error('No song.')
+      useSongStore.setState({
+        current: {
+          ...current,
+          marks: current.marks.map((mark) =>
+            mark.id === 'p2' ? { ...mark, startMs: 1800 } : mark,
+          ),
+        },
+      })
+    })
+    leader.dispatchEvent(new Event('timeupdate'))
+
+    await waitFor(() => expect(singer.muted).toBe(false))
+    expect(mutes).not.toContain(false)
+    expect(paused).toEqual([])
+    expect(followerOf('singer:v2')).toBe(singer)
+  })
+
+  it('unmutes the song audio and pauses each track when the rows unmount', async () => {
+    const { view } = await renderSong(WITH_TRACKS)
+    await waitFor(() =>
+      expect(document.querySelector('audio[data-audio-row="vocals"]')).not.toBeNull(),
+    )
+    await userEvent.click(screen.getByRole('button', { name: 'Solo Vocals' }))
+    await waitFor(() => expect(leader.muted).toBe(true))
+    paused = []
+    view.unmount()
+    expect(leader.muted).toBe(false)
+    expect(paused).toEqual(expect.arrayContaining(['vocals', 'instruments']))
+  })
+
+  it('shows one message for a track whose play the browser refuses, and tries again after a click on its row', async () => {
+    await renderSong(WITH_TRACKS)
+    await waitFor(() =>
+      expect(document.querySelector('audio[data-audio-row="vocals"]')).not.toBeNull(),
+    )
+    vi.mocked(HTMLMediaElement.prototype.play).mockImplementationOnce(function (
+      this: HTMLMediaElement,
+    ) {
+      played.push(this.dataset.audioRow ?? '')
+      return Promise.reject(new DOMException('refused', 'NotAllowedError'))
+    })
+    await userEvent.click(screen.getByRole('button', { name: 'Solo Vocals' }))
+    const message = await screen.findByRole('alert')
+    expect(message).toHaveTextContent(
+      'The browser did not start the sound of Vocals. Select "Mute" and then "Solo" on the row again.',
+    )
+    expect(played).toEqual(['vocals'])
+
+    setMedia(leader, { paused: false })
+    leader.dispatchEvent(new Event('play'))
+    leader.dispatchEvent(new Event('timeupdate'))
+    expect(played).toEqual(['vocals'])
+
+    setMedia(leader, { paused: true })
+    await userEvent.click(screen.getByRole('button', { name: 'Mute Vocals' }))
+    await waitFor(() => expect(screen.queryByRole('alert')).toBeNull())
+    expect(played).toEqual(['vocals', 'vocals'])
+  })
+
+  it('puts the rows in a list that shows at most four rows and scrolls', async () => {
+    await renderSong(WITH_TRACKS)
+    const group = await screen.findByRole('group', { name: 'Audio tracks' })
+    const list = group.querySelector('.track-list')
+    expect(list?.querySelectorAll('.track-row')).toHaveLength(2)
+    // Vitest does not load the style sheet, so the test reads its rule.
+    const appCss = readFileSync('src/app/app.css', 'utf8')
+    const rule = /\.track-list\s*\{([^}]*)\}/.exec(appCss)?.[1] ?? ''
+    expect(rule).toMatch(/max-height:\s*calc\(4 \* 49px\)/)
+    expect(rule).toMatch(/overflow-y:\s*auto/)
+  })
 })
+
+const SINGER_REPORT = report({
+  singers: { status: 'split' } as RunReport['singers'],
+  voices: [
+    { name: 'Lead Vocals', phraseCount: 1 },
+    { name: 'Singer 2', phraseCount: 1, made: true },
+  ],
+})
+
+/** Opens a song with "Lead Vocals" (a phrase from 0 to 2 000 ms) and "Singer 2" (a phrase from 2 000 to 3 000 ms). */
+function setSingerSong() {
+  const content = makeSongContent('song-1')
+  const lead = content.voices[0]
+  const phrase = content.marks[0]
+  if (lead === undefined || phrase === undefined) throw new Error('The fixture has no voice.')
+  const second = { ...lead, id: 'v2', name: 'Singer 2', order: 1, color: '#4dd0ff' }
+  const p2: Mark = { ...phrase, id: 'p2', voiceId: 'v2', startMs: 2000, endMs: 3000 }
+  useSongStore.setState({
+    current: { ...content, voices: [lead, second], marks: [...content.marks, p2] },
+  })
+}

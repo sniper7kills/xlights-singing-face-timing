@@ -64,6 +64,13 @@ export function TrackWave({ peaks, gate, color, durationMs }: TrackWaveProps) {
   }, [peaks, gate, color, pxPerMs, scrollMs, widthPx, theme])
 
   return (
-    <canvas ref={canvasRef} className="track-wave" data-testid="track-wave" aria-hidden="true" />
+    <canvas
+      ref={canvasRef}
+      className="track-wave"
+      data-testid="track-wave"
+      aria-hidden="true"
+      // A fixed width keeps the time scale when the scroll bar of the rows takes part of the width.
+      style={{ width: widthPx }}
+    />
   )
 }

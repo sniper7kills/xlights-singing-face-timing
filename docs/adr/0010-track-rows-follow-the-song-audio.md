@@ -73,3 +73,49 @@ draws the waveform of each row on its own canvas from peaks of the samples
   each singer row. A follower that does not sound is paused.
 - A Web Audio graph would give one clock and exact time, but it would change the
   pitch at 50% and 75%. The project gives up the exact time to keep the pitch.
+
+## Changes after the batch review (2026-11-24)
+
+The documentation gives these facts (retrieved 2026-11-24):
+
+- `play()` rejects with `NotAllowedError` when the browser does not allow the play
+  in the current context (MDN, `HTMLMediaElement/play`, last modified 2025-09-18).
+  The autoplay rules apply to a `play()` call "outside the context of handling a user
+  input event". On some browsers, an action on one element allows the play of that
+  element only (MDN, Autoplay guide, last modified 2026-09-10).
+- A hidden page gets no animation frames. Firefox runs a timer of an inactive tab
+  at most one time each second. Chrome runs a timer close to its interval while the
+  page "has made sound recently" (MDN, `Window/setTimeout`, last modified
+  2026-10-26).
+
+Decisions:
+
+- One mixer lives as long as the song audio. `update` gets the followers and the
+  rows that sound in one call. A follower with the same row and the same element
+  keeps its play, so a phrase edit that changes the ranges of a singer row does not
+  unmute "Song" and does not restart a track. Only `destroy` unmutes the song
+  audio: when the editor closes the song or the song audio changes. With no track
+  rows, the song audio always sounds.
+- A click on "Mute" or "Solo" of a row calls `activate` in the click handler. If
+  the row sounds and the song audio plays, the follower starts in the click. If the
+  song audio is paused, the follower gets a muted `play()` and a `pause()` in the
+  click, so the browser can start that element later.
+- After `NotAllowedError`, the mixer stops the tries for that row. The group shows
+  one message for the row. The next click on "Mute" or "Solo" of the row tries
+  again. Another rejection, for example `AbortError` after a quick pause, shows no
+  message, and the next check tries again.
+- While the page is hidden, a timer of 50 ms (`HIDDEN_CHECK_MS`) checks the
+  followers in place of the animation frames. The animation frames come back when
+  the page shows. `destroy` removes the timer and the `visibilitychange` listener.
+
+Consequences:
+
+- In Chrome, a page that plays sound keeps timers close to 50 ms, so a singer row
+  sounds at most about 50 ms outside its ranges in a hidden tab.
+- In Firefox, a hidden tab can run the timer at most one time each second. Then a
+  singer row can sound up to about 1 second outside its ranges, and the follower can
+  drift for up to 1 second before a `timeupdate` check. The app does not solve this
+  limit. An `AudioContext` would remove the throttle in Firefox, but this ADR keeps
+  the media elements.
+- A browser that needs an action for each element (for example Safari on iOS) was
+  not tested on a real device. The prime in the click follows the MDN text above.
