@@ -152,7 +152,13 @@ export function SectionBlock({ section, scale, durationMs }: SectionBlockProps) 
       <span id={descriptionId} hidden>
         {`${formatTime(section.startMs)} – ${formatTime(section.endMs)}`}
       </span>
-      <SectionMenu section={section} onRename={() => setRenaming(true)} />
+      <SectionMenu
+        section={section}
+        onRename={() => {
+          setRenaming(true)
+          setHint(importNameHint(section.name))
+        }}
+      />
       <EdgeHandle
         section={section}
         scale={scale}

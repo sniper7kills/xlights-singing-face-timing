@@ -189,6 +189,7 @@ export function VoiceRow({
             setMenuOpen(false)
             finished.current = false
             setRenaming(true)
+            setHint(importNameHint(voice.name))
           }}
           onMove={(direction) => {
             onMove(direction)

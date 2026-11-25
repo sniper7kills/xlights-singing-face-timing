@@ -136,6 +136,18 @@ describe('SectionBand', () => {
     expect(screen.queryByRole('status')).not.toBeInTheDocument()
   })
 
+  it('shows the hint when the rename field opens with a name that xLights changes', async () => {
+    open([section('a', 1000, 3000, 'Refrán')])
+
+    await userEvent.click(
+      within(await openMenu('Refrán')).getByRole('menuitem', { name: 'Rename' }),
+    )
+
+    expect(await screen.findByRole('status')).toHaveTextContent(
+      'xLights shows this name as “Refrn”.',
+    )
+  })
+
   it('deletes a section and leaves every mark the same', async () => {
     open([section('a', 1000, 3000, 'Verse')])
     const marks = useSongStore.getState().current?.marks
