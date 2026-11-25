@@ -448,7 +448,7 @@ body.rv-open .layout { padding-right:21rem; }
 <li>The "Phrase" button of the toolbar has "Move to voice" and "Copy to voice".
 </li>
 </ul>
-<p>Each shows the other voices and "New voice". If phrases of the target voice overlap the range, the app asks: "&lt;voice name&gt; has &lt;n&gt; phrases in this range. Replace them?" with "Continue" and "Cancel". A replace removes each such phrase with its words and phonemes. A move or a copy with its replace is one undo step.</p>
+<p>Its tooltip is "Move or copy the selected phrases to a voice". If the selection is not only phrases, the button does not act, and its tooltip is "Select a phrase first." The rule for a button that cannot act is in <a href="feature-timeline-editor.html#behaviour-rules">04-timeline-editor.md</a>. Each shows the other voices and "New voice". If phrases of the target voice overlap the range, the app asks: "&lt;voice name&gt; has &lt;n&gt; phrases in this range. Replace them?" with "Continue" and "Cancel". A replace removes each such phrase with its words and phonemes. A move or a copy with its replace is one undo step.</p>
 <ul>
 <li>The row "Other voices" shows a bar for each phrase of each other voice, in the
 </li>
@@ -463,7 +463,7 @@ body.rv-open .layout { padding-right:21rem; }
 <li>The band "Sections" is above the time ruler. "Add section" makes a section
 </li>
 </ul>
-<p>from the time selection, with the name "Section N" or a typed name of 40 characters at most. With no free range of 1 second, the note is "No room for a section here. Select a free range of 1 second or more."</p>
+<p>from the time selection, with the name "Section N" or a typed name of 40 characters at most. With no free range of 1 second, the note is "No room for a section here. Select a free range of 1 second or more." The tooltip of "Add section" is "Add a section for the time selection". With no time selection, the button does not act, and its tooltip is "Drag on the waveform to select a time range first."</p>
 <ul>
 <li>A section has the menu "Actions for &lt;section name&gt;" with "Rename", "Move
 </li>

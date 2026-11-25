@@ -31,10 +31,13 @@ import { VoiceRail } from '../voices-sections/VoiceRail.tsx'
 import { outcomeText } from '../transcription/transcribeDialogState.ts'
 import { ExportAction } from '../xtiming-export/ExportAction.tsx'
 import { EditorToolbar } from './EditorToolbar.tsx'
+import { HelpLine } from './HelpLine.tsx'
 import { Inspector } from './Inspector.tsx'
 import { Layers } from './Layers.tsx'
+import { MarkActions } from './MarkActions.tsx'
 import { resetMarkUi } from './markUiStore.ts'
 import { ShortcutList } from './ShortcutList.tsx'
+import { StatusLine } from './StatusLine.tsx'
 import { TransportControls } from './TransportControls.tsx'
 import { UndoRedoButtons } from './UndoRedoButtons.tsx'
 import { Waveform } from './Waveform.tsx'
@@ -74,6 +77,21 @@ function loadDictionaryForWords() {
 }
 
 /**
+ * Moves the focus to "Play", or to the first control of the toolbar while the audio is not ready.
+ * A disabled button takes no focus, so the toolbar is the second choice.
+ */
+function skipToTransport(event: MouseEvent<HTMLAnchorElement>) {
+  event.preventDefault()
+  const editor = event.currentTarget.closest('.editor')
+  const play = editor?.querySelector<HTMLButtonElement>('.transport .play:not(:disabled)')
+  const tool = editor?.querySelector<HTMLElement>(
+    '.editor-toolbar button:not(:disabled), .editor-toolbar input',
+  )
+  const target = play ?? tool
+  target?.focus()
+}
+
+/**
  * Opens the song library after the save of a pending change ends (FR-audio-26).
  * The library then lists the saved song. A failed save does not stop the leave: the change
  * stays in memory, and the next open of the song shows it.
@@ -99,6 +117,7 @@ export function EditorPage({ songId }: EditorPageProps) {
   const selectedVoiceId = useViewStore((state) => state.selectedVoiceId)
   const selection = useViewStore((state) => state.selection)
   const [dialogOpen, setDialogOpen] = useState(false)
+  const [shortcutsOpen, setShortcutsOpen] = useState(false)
   const [running, setRunning] = useState(false)
   const oneFileAdded = usePageNotice('one-file-added')
   // The song library is gone when the editor opens, so the editor shows the note of the drop.
@@ -186,6 +205,10 @@ export function EditorPage({ songId }: EditorPageProps) {
       {/* The editor stays mounted in a narrow window, so the audio and the view stay loaded. */}
       <section className="editor" aria-labelledby="editor-title" hidden={narrow}>
         <div className="editor-top">
+          {/* The routes use the hash, so the link moves the focus itself and keeps the hash. */}
+          <a className="skip-link" href="#transport" onClick={skipToTransport}>
+            Skip to the transport
+          </a>
           <a
             className="button"
             href={LIBRARY_HASH}
@@ -209,6 +232,15 @@ export function EditorPage({ songId }: EditorPageProps) {
           <RunReportAction />
           <CustomDictionaryAction />
           <ExportAction />
+          <button
+            type="button"
+            className="button"
+            aria-keyshortcuts="?"
+            title="Show the keyboard shortcuts (?)"
+            onClick={() => setShortcutsOpen(true)}
+          >
+            Shortcuts
+          </button>
           <span className="save-state" role="status">
             {saveState === 'saved' ? 'Saved' : 'Saving'}
           </span>
@@ -227,10 +259,16 @@ export function EditorPage({ songId }: EditorPageProps) {
           />
           <GhostRow content={content} />
         </Waveform>
+        {/* The inspector comes first, so the grid puts it beside the stage, and the lines go under the stage. */}
         <Inspector />
+        <div className="editor-lines">
+          <HelpLine />
+          <StatusLine />
+        </div>
         <EditorToolbar>
           <TransportControls />
           <ZoomControl durationMs={song.durationMs} />
+          <MarkActions />
           <UndoRedoButtons />
           <UnknownWordCounter />
           <AddWordAction />
@@ -247,7 +285,7 @@ export function EditorPage({ songId }: EditorPageProps) {
             onDone={finishTranscribe}
           />
         )}
-        <ShortcutList />
+        <ShortcutList open={shortcutsOpen} onOpenChange={setShortcutsOpen} />
         <BreakDownNotice failure={breakDownFailure} onChange={setBreakDownFailure} />
         {toast !== null && (
           <RunToast

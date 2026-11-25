@@ -1,9 +1,13 @@
 import { useMemo } from 'react'
+import { blockText } from '../../lib/marks/editBlocks.ts'
+import { findMark } from '../../lib/marks/family.ts'
+import { useSongStore } from '../../store/songStore.ts'
 import type { Layer, Mark, SongContent } from '../../store/types.ts'
 import { selectedVoice, useViewStore } from '../../store/viewStore.ts'
 import { LayerRow } from './LayerRow.tsx'
-import { editLabel, stepSelection } from './markCommands.ts'
+import { editLabel, selectAndReveal, stepSelection } from './markCommands.ts'
 import { PhraseLabelDialog } from './PhraseLabelDialog.tsx'
+import { reportStatus } from './statusStore.ts'
 import { inRange, visibleRange } from './timeScale.ts'
 import { useEditorKeys } from './useEditorKeys.ts'
 import { useStageScale } from './useStageScale.ts'
@@ -27,9 +31,31 @@ function fromMarkOrPage(event: KeyboardEvent): boolean {
   return event.target === document.body || focusedMarkId(event) !== undefined
 }
 
+/** Selects the focused mark. The mark keeps the focus. */
+function selectFocused(id: string) {
+  const content = useSongStore.getState().current
+  const mark = content && findMark(content.marks, id)
+  if (content && mark) selectAndReveal(mark, content.song.durationMs)
+}
+
+/**
+ * Selects the previous or the next mark of the layer, from the only selected mark or the focused mark.
+ * A focused mark that is not selected gets the selection first, so `]` after `Tab` selects the mark that has the focus.
+ * At the first or the last mark of the layer, the status line states it.
+ */
 function step(event: KeyboardEvent, direction: 1 | -1): boolean {
-  const id = focusedMarkId(event)
-  return id !== undefined && stepSelection(id, direction)
+  const { selectedMarkIds } = useViewStore.getState()
+  const focused = focusedMarkId(event)
+  if (!fromMarkOrPage(event)) return false
+  if (focused !== undefined && !selectedMarkIds.includes(focused)) {
+    selectFocused(focused)
+    return true
+  }
+  const id = focused ?? (selectedMarkIds.length === 1 ? selectedMarkIds[0] : undefined)
+  if (id === undefined) return false
+  if (!stepSelection(id, direction))
+    reportStatus(blockText(direction === 1 ? 'last-on-layer' : 'first-on-layer'))
+  return true
 }
 
 function editSelected(event: KeyboardEvent): boolean {
@@ -47,14 +73,14 @@ function clearSelection(event: KeyboardEvent): boolean {
 
 /**
  * The keys of the mark controls. Each returns false when it does not apply, so a button or a link keeps its key.
- * - `Tab` and `Shift+Tab` on a mark select the next or the previous mark on its layer.
- *   On the last or the first mark, the focus leaves the layer.
+ * - `[` and `]` select the previous or the next mark on the layer. See `step`.
+ *   `Tab` keeps the browser order, so each layer is one Tab stop and `Tab` leaves the layers.
  * - `Enter` and `F2` open the label control of the only selected mark.
  * - `Escape` clears the mark selection.
  */
 const MARK_KEYS = {
-  Tab: (event: KeyboardEvent) => step(event, 1),
-  'Shift+Tab': (event: KeyboardEvent) => step(event, -1),
+  '[': (event: KeyboardEvent) => step(event, -1),
+  ']': (event: KeyboardEvent) => step(event, 1),
   Enter: editSelected,
   F2: editSelected,
   Escape: clearSelection,

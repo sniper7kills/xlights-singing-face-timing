@@ -1,5 +1,5 @@
 import { act, fireEvent, render, renderHook, screen, waitFor, within } from '@testing-library/react'
-import type { PointerEvent } from 'react'
+import { type PointerEvent, useState } from 'react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { makeSongContent } from '../../store/fixtures.test-helpers.ts'
@@ -44,6 +44,12 @@ function openSong() {
   })
 }
 
+/** Holds the open state of the shortcut list, the same as the editor page. */
+function Shortcuts() {
+  const [open, setOpen] = useState(false)
+  return <ShortcutList open={open} onOpenChange={setOpen} />
+}
+
 /** Draws the parts of the editor that the shortcuts use, again after each change, the same as the editor page. */
 function Editor() {
   const content = useSongStore((state) => state.current)
@@ -52,7 +58,7 @@ function Editor() {
       <>
         <Layers content={content} />
         <UndoRedoButtons />
-        <ShortcutList />
+        <Shortcuts />
       </>
     )
   )
@@ -121,7 +127,7 @@ describe('SHORTCUTS', () => {
     )
 
     expect(elsewhere.sort()).toEqual(
-      ['+', '-', '=', '?', 'Enter', 'Escape', 'F2', 'L', 'Shift+Tab', 'Tab', 'l'].sort(),
+      ['+', '-', '=', '?', 'Enter', 'Escape', 'F2', 'L', '[', ']', 'l'].sort(),
     )
     expect(Object.keys(SHORTCUT_KEYS)).toHaveLength(
       SHORTCUTS.flatMap((shortcut) => Object.keys(shortcut.keys)).length - elsewhere.length,
@@ -422,8 +428,12 @@ describe('undo and redo', () => {
 
   it('disables Undo and Redo when the history has no step in their direction', async () => {
     const user = userEvent.setup()
-    expect(screen.getByRole('button', { name: 'Undo' })).toBeDisabled()
-    expect(screen.getByRole('button', { name: 'Redo' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Undo' })).toHaveAccessibleDescription(
+      'No step to undo.',
+    )
+    expect(screen.getByRole('button', { name: 'Redo' })).toHaveAccessibleDescription(
+      'No step to redo.',
+    )
     select('w3')
     act(() => {
       press('ArrowRight')
@@ -431,15 +441,15 @@ describe('undo and redo', () => {
 
     const undo = screen.getByRole('button', { name: 'Undo' })
     const redo = screen.getByRole('button', { name: 'Redo' })
-    await waitFor(() => expect(undo).toBeEnabled())
+    await waitFor(() => expect(undo).not.toHaveAttribute('aria-disabled'))
     await user.click(undo)
     expect(stored('w3')).toMatchObject({ startMs: 10_000 })
-    await waitFor(() => expect(undo).toBeDisabled())
+    await waitFor(() => expect(undo).toHaveAttribute('aria-disabled', 'true'))
 
-    await waitFor(() => expect(redo).toBeEnabled())
+    await waitFor(() => expect(redo).not.toHaveAttribute('aria-disabled'))
     await user.click(redo)
     expect(stored('w3')).toMatchObject({ startMs: 10_050 })
-    await waitFor(() => expect(redo).toBeDisabled())
+    await waitFor(() => expect(redo).toHaveAttribute('aria-disabled', 'true'))
   })
 })
 
@@ -480,6 +490,32 @@ describe('Space', () => {
       expect(player.play).not.toHaveBeenCalled()
     } finally {
       field.remove()
+      detachPlayer(player)
+    }
+  })
+
+  it('plays from a focused button of the toolbar other than "Play", and leaves the button unpressed', () => {
+    const player = fakePlayer()
+    attachPlayer(player)
+    const toolbar = document.body.appendChild(document.createElement('div'))
+    toolbar.className = 'editor-toolbar'
+    const speed = toolbar.appendChild(document.createElement('button'))
+    const menu = toolbar.appendChild(document.createElement('div'))
+    menu.setAttribute('role', 'menu')
+    const item = menu.appendChild(document.createElement('button'))
+    const transport = document.body.appendChild(document.createElement('div'))
+    transport.className = 'transport'
+    const play = transport.appendChild(document.createElement('button'))
+    play.className = 'play'
+    try {
+      expect(press(' ', {}, speed)).toBe(true)
+      expect(player.play).toHaveBeenCalledOnce()
+      expect(press(' ', {}, item)).toBe(false)
+      expect(press(' ', {}, play)).toBe(false)
+      expect(player.pause).not.toHaveBeenCalled()
+    } finally {
+      toolbar.remove()
+      transport.remove()
       detachPlayer(player)
     }
   })

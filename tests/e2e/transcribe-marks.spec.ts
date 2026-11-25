@@ -1,5 +1,12 @@
 import { expect, type Page, test } from '@playwright/test'
 
+/** Returns the pattern of a mark tooltip: the label on the first line, then the start and the end. */
+function markTitle(label: string): RegExp {
+  return new RegExp(
+    `^${label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\n\\d+:\\d{2}\\.\\d{3} to \\d+:\\d{2}\\.\\d{3}$`,
+  )
+}
+
 const APP_ORIGIN = 'http://localhost:4173'
 
 // The fixture worker returns the 16 words of public/demo/silent-night.marks.json.
@@ -52,7 +59,7 @@ test('creates the fixture words and phrases, asks before a second run, and keeps
   await expect(layer(page, 'Words').last()).toHaveText('child')
   await expect(layer(page, 'Phrases')).toHaveCount(3)
   for (const [i, label] of FIXTURE_PHRASES.entries())
-    await expect(layer(page, 'Phrases').nth(i)).toHaveAttribute('title', label)
+    await expect(layer(page, 'Phrases').nth(i)).toHaveAttribute('title', markTitle(label))
 
   const again = await openDialog(page)
   await again.getByRole('button', { name: 'Start' }).click()
@@ -88,8 +95,11 @@ test('creates four phrases from four lyrics lines with no request outside the ap
 
   await expect(page.getByText('22 words, 22 estimated')).toBeVisible()
   await expect(layer(page, 'Phrases')).toHaveCount(4)
-  await expect(layer(page, 'Phrases').first()).toHaveAttribute('title', 'Silent night, holy night!')
+  await expect(layer(page, 'Phrases').first()).toHaveAttribute(
+    'title',
+    markTitle('Silent night, holy night!'),
+  )
   await expect(layer(page, 'Words')).toHaveCount(22)
-  await expect(layer(page, 'Words').nth(1)).toHaveAttribute('title', 'night')
+  await expect(layer(page, 'Words').nth(1)).toHaveAttribute('title', markTitle('night'))
   expect(outside).toEqual([])
 })
