@@ -95,15 +95,16 @@ test('a run with separation keeps the vocals and the instruments after a reload'
   const { durationMs, runs } = await stored(page)
   expect(runs).toHaveLength(1)
   const [run] = runs
-  expect(run?.report).toEqual({ trackCount: 2, tracksKept: true })
-  const expected = ((durationMs[0] ?? 0) / 1000) * 22_050
-  for (const track of [run?.vocals, run?.instruments]) {
+  if (run?.vocals == null || run.instruments === null) throw new Error('The run kept no tracks.')
+  expect(run.report).toEqual({ trackCount: 2, tracksKept: true })
+  const expected = (Number(durationMs[0]) / 1000) * 22_050
+  for (const track of [run.vocals, run.instruments]) {
     expect(track).toMatchObject({ startMs: 0, sampleRate: 22_050, bytes: 2 })
-    expect(Math.abs((track?.length ?? 0) - expected)).toBeLessThan(22_050 * 0.05)
+    expect(Math.abs(track.length - expected)).toBeLessThan(22_050 * 0.05)
   }
-  expect(run?.instruments?.length).toBe(run?.vocals?.length)
+  expect(run.instruments.length).toBe(run.vocals.length)
   // The fixture inverts the sign for the instruments, so the two tracks differ.
-  expect(Math.sign(run?.vocals?.first ?? 0)).toBe(-Math.sign(run?.instruments?.first ?? 0))
+  expect(Math.sign(run.vocals.first)).toBe(-Math.sign(run.instruments.first))
 })
 
 test('a run with "Keep the separated tracks" off keeps no tracks', async ({ page }) => {
