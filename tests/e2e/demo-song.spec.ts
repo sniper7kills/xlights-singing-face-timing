@@ -30,7 +30,8 @@ test('creates the demo song with words and phonemes, keeps it after a reload and
   await page.reload()
   const song = page.getByRole('link', { name: /Silent Night/ })
   await expect(song).toContainText('0:29')
-  await expect(page.getByRole('button', { name: 'Try the demo song' })).toHaveCount(0)
+  // The demo button stays with songs, so the person can add the demo song again.
+  await expect(page.getByRole('button', { name: 'Try the demo song' })).toBeVisible()
 
   await page.getByRole('button', { name: 'Delete Silent Night' }).click()
   await page.getByRole('alertdialog').getByRole('button', { name: 'Delete' }).click()

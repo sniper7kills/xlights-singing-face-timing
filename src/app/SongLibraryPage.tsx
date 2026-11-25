@@ -9,6 +9,7 @@ import { deleteSong, listSongs, renameSong, StorageFullError } from '../store/db
 import { useSongStore } from '../store/songStore.ts'
 import type { Song } from '../store/types.ts'
 import type { DatabaseStatus } from './database.ts'
+import { usePageNotice } from './pageNotice.ts'
 import { songHash } from './routes.ts'
 
 type SongLibraryPageProps = {
@@ -53,10 +54,15 @@ function closeIfOpen(songId: string) {
   if (current?.song.id === songId) closeSong()
 }
 
+/** The message for a link to a song that the database does not hold. */
+const SONG_NOT_FOUND = 'The app did not find this song. It is possible that the song was deleted.'
+
 function SongLibrary() {
+  const songNotFound = usePageNotice('song-not-found')
   const [songs, setSongs] = useState<Song[] | null>(null)
   const [storage, setStorage] = useState<StorageState | null>(null)
-  const [error, setError] = useState<string | null>(null)
+  // The next action of the person clears the message, the same as a failure message.
+  const [error, setError] = useState<string | null>(songNotFound ? SONG_NOT_FOUND : null)
   const [demoLoading, setDemoLoading] = useState(false)
 
   const refresh = useCallback(async () => {
@@ -101,16 +107,14 @@ function SongLibrary() {
       compact={songs.length > 0}
       onSongCreated={(song) => window.location.assign(songHash(song.id))}
     >
-      {songs.length === 0 && (
-        <button
-          type="button"
-          className="button"
-          disabled={demoLoading}
-          onClick={() => void addDemoSong()}
-        >
-          Try the demo song
-        </button>
-      )}
+      <button
+        type="button"
+        className="button"
+        disabled={demoLoading}
+        onClick={() => void addDemoSong()}
+      >
+        Try the demo song
+      </button>
     </DropZone>
   )
   const aside = (
@@ -118,6 +122,12 @@ function SongLibrary() {
       {storage && <StorageMeter storage={storage} showPersistenceNote={songs.length > 0} />}
       <HowItWorks />
     </aside>
+  )
+  const intro = (
+    <p className="library-intro library-wide">
+      Make the face models of your xLights show sing. Add a song, and the app finds each word and
+      its mouth shapes, then gives you a timing file for the Faces effect.
+    </p>
   )
   const message = error && (
     <p className="message" role="alert">
@@ -128,6 +138,7 @@ function SongLibrary() {
   if (songs.length === 0) {
     return (
       <div className="library">
+        {intro}
         <section className="empty library-wide" aria-labelledby="empty-title">
           <h2 id="empty-title">No songs yet</h2>
           {message}
@@ -139,6 +150,7 @@ function SongLibrary() {
   }
   return (
     <div className="library">
+      {intro}
       <div className="library-wide">{dropZone}</div>
       {message && <div className="library-wide">{message}</div>}
       <SongList

@@ -4,6 +4,24 @@ The app does not bundle the model files. The browser downloads them at run time
 from the host below. The app bundles the `demucs-web` code. Each file keeps the
 licence of its source.
 
+## Whisper speech models
+
+- Use: the transcribe step in the browser. See
+  `docs/adr/0002-speech-model-in-browser.md`.
+- Files: the ONNX files of `onnx-community/whisper-tiny_timestamped`,
+  `onnx-community/whisper-base_timestamped` and
+  `onnx-community/whisper-small_timestamped` on the Hugging Face Hub. The model
+  cards state no licence. Each card names its base model, for example
+  `openai/whisper-base`.
+- Source of the weights: Whisper by OpenAI, https://github.com/openai/whisper .
+  The README, section "License", states: "Whisper's code and model weights are
+  released under the MIT License."
+- The model cards of `openai/whisper-tiny`, `openai/whisper-base` and
+  `openai/whisper-small` on the Hugging Face Hub state the licence `apache-2.0`.
+  The app credits the licence of the source repository.
+- Checked on 2026-11-25 through the Hub API
+  (`https://huggingface.co/api/models/<repo>`) and the README of the repository.
+
 ## Spleeter 2-stem model
 
 - Use: the vocal separation step of a transcribe run. See

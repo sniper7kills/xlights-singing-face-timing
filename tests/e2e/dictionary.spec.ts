@@ -10,7 +10,8 @@ test('acknowledges Carnegie Mellon University and serves the dictionary licence'
     'The app uses the CMU Pronouncing Dictionary of Carnegie Mellon University (licence).',
   )
   const licence = await page.request.get(
-    (await howItWorks.getByRole('link', { name: 'licence' }).getAttribute('href')) ?? '',
+    (await howItWorks.getByRole('link', { name: 'licence', exact: true }).getAttribute('href')) ??
+      '',
   )
   expect(licence.ok()).toBe(true)
   expect(await licence.text()).toContain('Carnegie Mellon University')

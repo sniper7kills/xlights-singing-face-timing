@@ -83,7 +83,7 @@ function SongRow({ song, now, onRename, onDelete }: SongRowProps) {
     <li className="song">
       <a className="song-open" href={songHash(song.id)}>
         <span>
-          <b>{song.name}</b>
+          <b title={song.name}>{song.name}</b>
           <small>{formatChangeDate(song.updatedAt, now)}</small>
         </span>
         <span className="song-duration">{formatDuration(song.durationMs)}</span>
@@ -127,7 +127,10 @@ type RenameFormProps = {
 function RenameForm({ name, onSave, onCancel }: RenameFormProps) {
   const [value, setValue] = useState(name)
   const inputId = useId()
+  const hintId = useId()
   const normalized = normalizeSongName(value)
+  // The field cuts a longer name and Save is off for an empty name, so the hint states the rule.
+  const showHint = normalized === null || value.length >= MAX_SONG_NAME_LENGTH
   return (
     <form
       className="song-form"
@@ -143,6 +146,7 @@ function RenameForm({ name, onSave, onCancel }: RenameFormProps) {
         className="text-field"
         value={value}
         maxLength={MAX_SONG_NAME_LENGTH}
+        aria-describedby={showHint ? hintId : undefined}
         autoFocus
         onChange={(event) => setValue(event.currentTarget.value)}
       />
@@ -152,6 +156,11 @@ function RenameForm({ name, onSave, onCancel }: RenameFormProps) {
       <button type="button" className="button" onClick={onCancel}>
         Cancel
       </button>
+      {showHint && (
+        <p id={hintId} className="field-hint" role="status">
+          A song name has 1 to {MAX_SONG_NAME_LENGTH} characters.
+        </p>
+      )}
     </form>
   )
 }
@@ -176,7 +185,9 @@ function DeleteConfirm({ name, onConfirm, onCancel }: DeleteConfirmProps) {
       <p id={titleId}>
         <b>Delete “{name}”?</b>
       </p>
-      <p id={textId}>The app deletes its audio file, voices, sections and marks.</p>
+      <p id={textId}>
+        The app deletes its audio file, voices, sections and marks. You cannot undo this.
+      </p>
       <span className="song-actions">
         <button type="button" className="button danger" onClick={() => void onConfirm()}>
           Delete

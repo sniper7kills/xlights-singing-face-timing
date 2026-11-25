@@ -34,6 +34,8 @@ HTMLElement.prototype.hasPointerCapture = () => false
 
 afterEach(async () => {
   cleanup()
+  // The theme choice and the saved views live in localStorage, so each test starts with none.
+  window.localStorage.clear()
   // Each test starts with no open connection and an empty database.
   await closeDatabase()
   vi.stubGlobal('indexedDB', new IDBFactory())

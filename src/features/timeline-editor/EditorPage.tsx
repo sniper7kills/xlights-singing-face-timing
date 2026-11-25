@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react'
+import { setPageNotice, usePageNotice } from '../../app/pageNotice.ts'
 import { LIBRARY_HASH } from '../../app/routes.ts'
 import { useAutosaveStore, useSaveState } from '../../store/autosave.ts'
 import { StorageFullError } from '../../store/db.ts'
@@ -31,6 +32,16 @@ import { TransportControls } from './TransportControls.tsx'
 import { UndoRedoButtons } from './UndoRedoButtons.tsx'
 import { Waveform } from './Waveform.tsx'
 import { ZoomControl } from './ZoomControl.tsx'
+
+/** The note of a drop with several files. The copy is in `docs/specs/features/01-audio-import.md`. */
+const ONE_FILE_NOTE = 'Only one file was added.'
+
+type Toast = { text: string; reportStored: boolean }
+
+/** Returns the toast of the note for a drop with several files, or null when the drop had one file. */
+function oneFileToast(oneFileAdded: boolean): Toast | null {
+  return oneFileAdded ? { text: ONE_FILE_NOTE, reportStored: false } : null
+}
 
 /** The narrowest window that shows the editor, in pixels. */
 const MIN_EDITOR_WIDTH_PX = 1024
@@ -69,7 +80,9 @@ export function EditorPage({ songId }: EditorPageProps) {
   const selection = useViewStore((state) => state.selection)
   const [dialogOpen, setDialogOpen] = useState(false)
   const [running, setRunning] = useState(false)
-  const [toast, setToast] = useState<{ text: string; reportStored: boolean } | null>(null)
+  const oneFileAdded = usePageNotice('one-file-added')
+  // The song library is gone when the editor opens, so the editor shows the note of the drop.
+  const [toast, setToast] = useState<Toast | null>(() => oneFileToast(oneFileAdded))
   const [breakDownFailure, setBreakDownFailure] = useState<BreakDownFailure | null>(null)
   const opener = useRef<HTMLElement | null>(null)
   const narrow = useSyncExternalStore(subscribeToResize, isNarrowWindow)
@@ -123,8 +136,11 @@ export function EditorPage({ songId }: EditorPageProps) {
       // A song that the app cannot read gets the same result as a deleted song.
       .catch(() => false)
       .then((found) => {
-        // A link to a deleted song goes back to the song library, the same as an unknown hash.
-        if (active && !found) window.location.replace(LIBRARY_HASH)
+        // A link to a deleted song goes back to the song library, and the library names the cause.
+        if (active && !found) {
+          setPageNotice('song-not-found')
+          window.location.replace(LIBRARY_HASH)
+        }
         if (active && found) loadDictionaryForWords()
       })
     return () => {
@@ -141,9 +157,12 @@ export function EditorPage({ songId }: EditorPageProps) {
   const voice = selectedVoice(content.voices, selectedVoiceId)
   return (
     <>
-      <p className="narrow-note" role="status" hidden={!narrow}>
-        The editor needs a window that is 1024 px wide or more.
-      </p>
+      <div className="narrow-note" hidden={!narrow}>
+        <p role="status">The editor needs a window that is 1024 px wide or more.</p>
+        <a className="button" href={LIBRARY_HASH}>
+          Back to the song library
+        </a>
+      </div>
       {/* The editor stays mounted in a narrow window, so the audio and the view stay loaded. */}
       <section className="editor" aria-labelledby="editor-title" hidden={narrow}>
         <div className="editor-top">
