@@ -159,6 +159,39 @@ describe('TranscribeDialog', () => {
     await vi.waitFor(() => expect(screen.getByRole('radio', { name: 'tiny 66 MB' })).toBeChecked())
   })
 
+  it('keeps a choice that the person makes before the read of the stored settings ends', async () => {
+    const stored = {
+      ...(await loadSettings()),
+      speechModelId: 'whisper-tiny',
+      separateVocals: true,
+    }
+    let endRead: () => void = () => undefined
+    const read = new Promise<typeof stored>((resolve) => {
+      endRead = () => resolve(stored)
+    })
+    // The dialog and its run hook each read the settings once when the dialog opens.
+    vi.mocked(loadSettings).mockReturnValueOnce(read).mockReturnValueOnce(read)
+    const user = userEvent.setup()
+    render(
+      <TranscribeDialog
+        voiceId="voice-1"
+        selection={null}
+        onActiveChange={vi.fn()}
+        onClose={vi.fn()}
+        onDone={vi.fn()}
+      />,
+    )
+
+    await user.click(screen.getByRole('radio', { name: 'small 512 MB' }))
+    await act(async () => {
+      endRead()
+      await read
+    })
+
+    expect(screen.getByRole('radio', { name: 'small 512 MB' })).toBeChecked()
+    expect(screen.getByRole('checkbox', { name: 'Separate the vocals first' })).toBeChecked()
+  })
+
   it('selects base when the stored speech model is unknown', async () => {
     await updateSettings({ speechModelId: 'whisper-huge' })
 
