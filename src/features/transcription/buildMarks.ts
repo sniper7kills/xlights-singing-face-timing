@@ -1,3 +1,4 @@
+import { isLyricsWord } from '../../lib/text/normalise.ts'
 import { fitWords } from '../../lib/time/fitWords.ts'
 import type { TimeRange } from '../../lib/time/timeRange.ts'
 import type { Mark } from '../../store/types.ts'
@@ -9,15 +10,13 @@ const LABEL_PUNCTUATION = /[.,!?;:"()[\]]/g
 // The label rules keep an apostrophe or a hyphen only inside a word, as in "don't" and "well-known".
 const EDGE_MARKS = /^['-]+|['-]+$/g
 
-const LETTER_OR_DIGIT = /[\p{L}\p{N}]/u
-
 /**
  * Returns the word label: the text with the listed punctuation removed, in the letter case of the text.
  * Returns an empty string when no letter or digit stays.
  */
 export function wordLabel(text: string): string {
   const label = text.replace(LABEL_PUNCTUATION, '').trim().replace(EDGE_MARKS, '')
-  return LETTER_OR_DIGIT.test(label) ? label : ''
+  return isLyricsWord(label) ? label : ''
 }
 
 /**

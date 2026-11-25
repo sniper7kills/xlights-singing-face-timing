@@ -123,7 +123,13 @@ describe('TranscribeDialog lyrics limit', () => {
 })
 
 describe('TranscribeDialog lyrics that do not fit', () => {
-  const fit = { wordCount: 1400, room: 578, keptLineCount: 82, lineCount: 200 }
+  const fit = {
+    wordCount: 1400,
+    room: 578,
+    keptLineCount: 82,
+    lineCount: 200,
+    firstLineCut: false,
+  }
 
   it('shows the hint for the characters under the lyrics field', async () => {
     await renderDialog()

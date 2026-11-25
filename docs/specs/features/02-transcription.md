@@ -573,6 +573,9 @@ a digit. It leaves out other words, such as & or an emoji."
   the lines after line <k>." with "Continue" and "Cancel". For a run over the time
   selection, the second sentence reads "The time selection has room for about <m>
   words." "Continue" runs with lines 1 to <k>. "Cancel" changes no mark.
+- lyrics question when line 1 alone does not fit: the last sentence reads "The app
+  leaves out the words of line 1 that do not fit." With more lines, it reads "The
+  app leaves out the words of line 1 that do not fit, and the lines after line 1."
 - If the run left out words that it cannot use, the toast adds "The app left out
   <n> words that it cannot use."
 
@@ -799,11 +802,13 @@ copy, the status line shows "Press Ctrl+C to copy."
     unknown word, for example a word in another script.
 - **Room rule.** The room of a range is one word for each frame size of the range.
   The app keeps a word one frame size long or more, so more words cannot fit.
-  - Before a run with lyrics, the app counts the words of each lyrics line.
+  - Before a run with lyrics, the app counts the words of each lyrics line. A
+    word is a part with a letter or a digit, the same rule that makes the word
+    marks. So a lone "&", an emoji or a dash is not in the count.
   - The app keeps the lines from line 1 while their words fit in the room. It
     leaves out each line after the first line that does not fit.
-  - The app always keeps line 1. If line 1 alone does not fit, the app keeps its
-    earliest words that fit.
+  - The app always keeps line 1. If line 1 alone does not fit, the app asks
+    first, and then keeps its earliest words that fit.
   - At 50 ms, a song of 28.9 s has room for 578 words. 200 lines of 7 words keep
     lines 1 to 82.
   - More than about 4 words for each second gives words of one or two frames. The

@@ -8,7 +8,7 @@ import {
 } from '../../store/actions/replaceMarksInRange.ts'
 import type { RemoteEndpoint } from '../../lib/remote/endpoint.ts'
 import { encodeWav } from '../../lib/remote/wav.ts'
-import { fitLyricsLines, leavesOutLines, type LyricsFit } from '../../lib/text/lyricsFit.ts'
+import { fitLyricsLines, leavesOutLyrics, type LyricsFit } from '../../lib/text/lyricsFit.ts'
 import { wordRoom } from '../../lib/time/fitWords.ts'
 import type { TimeRange } from '../../lib/time/timeRange.ts'
 import { getAudioFile, loadRunData } from '../../store/db.ts'
@@ -382,7 +382,7 @@ async function fitLyrics(
     lines.map((line) => line.length),
     wordRoom(frameMs, range),
   )
-  if (!leavesOutLines(fit)) return { request, linesLeftOut: 0 }
+  if (!leavesOutLyrics(fit)) return { request, linesLeftOut: 0 }
   if (!(await handlers.confirmLyricsFit(fit))) throw declined()
   return {
     request: { ...request, lyrics: keepLyricsLines(request.lyrics, fit.keptLineCount) },
