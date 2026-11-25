@@ -2,6 +2,7 @@ import { act, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { LIBRARY_HASH } from '../../app/routes.ts'
+import { setPageNotice } from '../../app/pageNotice.ts'
 import type { RunReport } from '../../lib/runReport/runReport.ts'
 import { breakDownWords, loadDictionaries } from '../../store/actions/breakDown.ts'
 import { startAutosave, useAutosaveStore } from '../../store/autosave.ts'
@@ -565,6 +566,38 @@ describe('EditorPage', () => {
       pxPerSecond: 250,
       scrollMs: 1200,
     })
+  })
+
+  it('shows a link to the song library in the note for a narrow window', async () => {
+    const width = window.innerWidth
+    try {
+      await renderEditor()
+      act(() => {
+        window.innerWidth = 1023
+        window.dispatchEvent(new Event('resize'))
+      })
+
+      expect(screen.getByRole('link', { name: 'Back to the song library' })).toHaveAttribute(
+        'href',
+        LIBRARY_HASH,
+      )
+    } finally {
+      window.innerWidth = width
+    }
+  })
+
+  it('shows the note of a drop with several files as a toast after the editor opens', async () => {
+    setPageNotice('one-file-added')
+
+    await renderEditor()
+
+    expect(await screen.findByText('Only one file was added.')).toBeVisible()
+  })
+
+  it('shows no toast when the editor opens after a drop with one file', async () => {
+    await renderEditor()
+
+    expect(screen.queryByText('Only one file was added.')).toBeNull()
   })
 
   it('shows the note for a window narrower than 1024 px and hides the editor', async () => {
