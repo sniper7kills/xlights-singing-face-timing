@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { makeReport, makeTrack } from '../runReport/report.test-helpers.ts'
-import { reportToText } from '../runReport/runReport.ts'
+import { reportToText } from '../runReport/reportText.ts'
 import { runArchiveFiles, trackWavBytes } from './runFiles.ts'
 
 const report = makeReport()

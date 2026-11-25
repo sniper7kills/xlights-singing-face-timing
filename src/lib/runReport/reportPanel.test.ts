@@ -6,7 +6,6 @@ import {
   type PanelSection,
   reportFileName,
   reportPanel,
-  singerStatusText,
 } from './reportPanel.ts'
 import type { RunReport, SingerSection } from './runReport.ts'
 
@@ -92,18 +91,28 @@ function fact(section: PanelSection | undefined, label: string): string | undefi
   return section?.facts.find((item) => item.label === label)?.value
 }
 
+/** Returns the value of a fact of the details part of the section. */
+function detail(section: PanelSection | undefined, label: string): string | undefined {
+  return section?.details?.facts.find((item) => item.label === label)?.value
+}
+
 describe('formatSeconds', () => {
-  it('writes milliseconds as seconds with one decimal and the unit', () => {
-    expect(formatSeconds(12_340)).toBe('12.3 s')
+  it('writes milliseconds as seconds with each millisecond, one decimal or more and the unit', () => {
+    expect(formatSeconds(12_340)).toBe('12.34 s')
     expect(formatSeconds(0)).toBe('0.0 s')
-    expect(formatSeconds(95_960)).toBe('96.0 s')
+    expect(formatSeconds(95_960)).toBe('95.96 s')
+    expect(formatSeconds(28_900)).toBe('28.9 s')
+    expect(formatSeconds(1)).toBe('0.001 s')
   })
 })
 
 describe('formatStartTime', () => {
-  it('writes the date and the time in the given locale and time zone', () => {
-    expect(formatStartTime('2026-11-24T10:00:05.000Z', 'en-GB', 'UTC')).toBe(
-      '24 Nov 2026, 10:00:05',
+  it('writes the date and the time in the given locale and time zone, then the UTC time', () => {
+    expect(formatStartTime('2026-11-24T10:00:05.734Z', 'en-GB', 'UTC')).toBe(
+      '24 Nov 2026, 10:00:05 (2026-11-24 10:00:05 UTC)',
+    )
+    expect(formatStartTime('2026-11-25T05:34:05.734Z', 'en-US', 'America/New_York')).toBe(
+      'Nov 25, 2026, 12:34:05 AM (2026-11-25 05:34:05 UTC)',
     )
   })
 })
@@ -177,10 +186,10 @@ describe('reportPanel', () => {
       caption: 'The time of each step',
       columns: ['Step', 'Time'],
       rows: [
-        ['Prepare the audio', '0.1 s'],
+        ['Prepare the audio', '0.12 s'],
         ['Separate the vocals', '4.0 s'],
-        ['Transcribe', '9.0 s'],
-        ['Total', '13.2 s'],
+        ['Transcribe', '9.04 s'],
+        ['Total', '13.16 s'],
       ],
     })
     expect(panel({ durationsMs: {} }).get('Steps')).toMatchObject({
@@ -215,34 +224,68 @@ describe('reportPanel', () => {
     expect(fact(old, 'Tracks kept')).toBe('not known')
   })
 
-  it('gives the groups after the clustering with their sung time and result', () => {
-    const groups = panel().get('Singers')?.tables[0]
-    expect(groups?.columns).toEqual(['Group', 'Sung time', 'Embeddings', 'Result'])
+  it('gives the groups after the clustering with their sung time and result in the details part', () => {
+    const groups = panel().get('Singers')?.details?.tables[0]
+    expect(groups?.columns).toEqual(['Group', 'Sung time', 'Voice prints', 'Result'])
     expect(groups?.rows).toEqual([
       ['0', '12.0 s', '20', 'Kept as singer 0'],
-      ['1', '15.0 s', '22', 'Kept as singer 1'],
+      ['1', '15.04 s', '22', 'Kept as singer 1'],
       ['2', '0.4 s', '2', 'Joined into group 0: under 3 seconds'],
-      ['3', '0.1 s', '1', 'Kept, with no range after the range limits'],
+      ['3', '0.09 s', '1', 'Kept, with no range after the range limits'],
     ])
+    expect(panel().get('Singers')?.tables).toEqual([])
+  })
+
+  it('explains each term of the details part with one sentence', () => {
+    const details = panel().get('Singers')?.details
+    const terms = details?.terms.map((term) => term.label)
+    expect(terms).toEqual([
+      'Voice print (embedding)',
+      'Window',
+      'Frame with a singer',
+      'Sung time',
+      'Group',
+      'Merge threshold',
+      'Centroid distance',
+      'Minimum group size',
+      'Highest count of singers',
+      'Short singer limits',
+      'Singer range',
+    ])
+    for (const term of details?.terms ?? []) {
+      // One sentence: one full stop, at the end.
+      expect(term.value.split('. ')).toHaveLength(1)
+      expect(term.value.endsWith('.')).toBe(true)
+      expect(term.value.split(' ').length).toBeLessThanOrEqual(25)
+    }
   })
 
   it('gives the final singers, the limits and the distances', () => {
     const section = panel().get('Singers')
-    expect(section?.text).toBe('The singer step put the phrases on 2 voices.')
-    expect(section?.tables[1]?.rows).toEqual([
+    expect(section?.text).toBe(
+      'The app found 2 singers and put the phrases on 2 voices. The app divided 3 phrases where the singer changes. 1 phrase had no singer, so it stays on the voice of the run. If a phrase is on the wrong voice, use "Move to voice" to correct it.',
+    )
+    expect(section?.details?.tables[1]?.rows).toEqual([
       ['0', '12.4 s', '5'],
-      ['1', '15.0 s', '4'],
+      ['1', '15.04 s', '4'],
     ])
-    expect(fact(section, 'Merge threshold')).toBe('0.705')
-    expect(fact(section, 'Minimum group size')).toBe('12 embeddings')
-    expect(fact(section, 'Short singer limits')).toBe('5% of the sung time, 3.0 s')
-    expect(fact(section, 'Centroid distances (smallest / median / largest)')).toBe(
+    expect(detail(section, 'Windows')).toBe('30')
+    expect(detail(section, 'Frames with a singer')).toBe('1700')
+    expect(detail(section, 'Voice prints (embeddings)')).toBe('45')
+    expect(detail(section, 'Merge threshold')).toBe('0.705')
+    expect(detail(section, 'Minimum group size')).toBe('12 voice prints')
+    expect(detail(section, 'Short singer limits')).toBe('5% of the sung time, 3.0 s')
+    expect(detail(section, 'Centroid distances (smallest / median / largest)')).toBe(
       '0.52 / 0.81 / 1.1',
     )
-    expect(fact(section, 'Phrase rule')).toBe(
+    expect(detail(section, 'Groups')).toBe('4')
+    expect(detail(section, 'Final singers')).toBe('2')
+    expect(detail(section, 'Step result')).toBe('split')
+    expect(fact(section, 'Voices made')).toBe('2')
+    expect(detail(section, 'Phrase rule')).toBe(
       'the singer with the most time; a second singer with 80% of that time and 1 s or more',
     )
-    expect(fact(section, 'Phrase division')).toBe(
+    expect(detail(section, 'Phrase division')).toBe(
       'at a change of singer, when each part has 1 word or more and 1 s or more',
     )
     expect(fact(section, 'Phrases divided')).toBe('3')
@@ -250,18 +293,21 @@ describe('reportPanel', () => {
     expect(fact(section, 'Phrases with more than one singer (copied to each voice)')).toBe('0')
   })
 
-  it('leaves out the distances for one raw group', () => {
+  it('states that one group has no distances', () => {
     const section = panel({
       singers: singers({ diagnostics: { ...DIAGNOSTICS, centroidDistances: null } }),
     }).get('Singers')
-    expect(fact(section, 'Centroid distances (smallest / median / largest)')).toBeUndefined()
+    expect(detail(section, 'Centroid distances (smallest / median / largest)')).toBe(
+      'none (fewer than 2 groups)',
+    )
   })
 
-  it('shows one sentence for a singer step that did not run', () => {
+  it('shows the summary only for a singer step that did not run', () => {
     expect(panel({ singers: singers({ status: 'option-off' }) }).get('Singers')).toMatchObject({
-      text: 'The singer step did not run, because the option was off.',
+      text: 'The singer step did not run, because "Put each singer on its own voice" was off. To give each singer a voice, select that option and run again.',
       facts: [],
       tables: [],
+      details: null,
     })
   })
 
@@ -279,10 +325,13 @@ describe('reportPanel', () => {
       }),
     }).get('Singers')
     expect(section?.text).toBe(
-      'The singer step failed (memory). The phrases stay on the voice of the run. The singer search gave no diagnostics.',
+      'This browser did not have enough memory to find the singers. The phrases stay on the voice of the run. Run again on a shorter part of the song.',
     )
-    expect(section?.tables).toEqual([])
-    expect(fact(section, 'Singer ranges')).toBe('not known')
+    expect(section?.details?.tables).toEqual([])
+    expect(detail(section, 'Diagnostics')).toBe('none: the singer search gave no numbers')
+    expect(detail(section, 'Step result')).toBe('failed (memory)')
+    expect(detail(section, 'Singer ranges')).toBe('not known')
+    expect(section?.details?.terms.map((term) => term.label)).toEqual(['Singer range'])
     expect(fact(section, 'Singers selected')).toBe('not recorded')
   })
 
@@ -332,25 +381,5 @@ describe('reportPanel', () => {
       panel({ notes: [{ step: 'separation', kind: 'memory', text }] }).get('Notes')?.items,
     ).toEqual([text])
     expect(panel().get('Notes')?.text).toBe('The run had no warning and no failure.')
-  })
-})
-
-describe('singerStatusText', () => {
-  it('states each result of the singer step in plain words', () => {
-    expect(singerStatusText(singers({ status: 'no-vocals' }))).toBe(
-      'The singer step did not run, because the run had no separated vocals.',
-    )
-    expect(singerStatusText(singers({ status: 'one-singer' }))).toBe(
-      'The singer step found one singer, so all phrases stay on one voice.',
-    )
-    expect(singerStatusText(singers({ status: 'capped' }))).toBe(
-      'The singer step found more singers than the song has free voices.',
-    )
-    expect(singerStatusText(singers({ status: 'cancelled' }))).toBe(
-      'The person cancelled the singer step. The phrases stay on the voice of the run.',
-    )
-    expect(singerStatusText(singers({ status: 'failed', failureKind: null }))).toBe(
-      'The singer step failed (unknown). The phrases stay on the voice of the run.',
-    )
   })
 })

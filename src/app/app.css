@@ -2143,6 +2143,11 @@ button.finding:hover {
   margin: 0;
 }
 
+/* The class sets a display value, so the hidden toast needs this rule. */
+.toast[hidden] {
+  display: none;
+}
+
 .link-button {
   padding: 0;
   border: 0;
@@ -2197,6 +2202,42 @@ button.finding:hover {
 .report-facts dd {
   margin: 0;
   font-family: var(--mono);
+}
+
+.report-details {
+  margin-top: 10px;
+}
+
+.report-details summary {
+  margin-bottom: 8px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.report-details h4 {
+  margin: 10px 0 6px;
+  font: 600 13px var(--body);
+}
+
+/* A term and its sentence: the term in bold, the sentence in the body font. */
+.report-terms {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+}
+
+.report-terms dt {
+  display: inline;
+  font-weight: 600;
+}
+
+.report-terms dt::after {
+  content: ': ';
+}
+
+.report-terms dd {
+  display: inline;
+  margin: 0;
 }
 
 .report-table {

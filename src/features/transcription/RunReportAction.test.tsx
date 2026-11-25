@@ -2,7 +2,8 @@ import { act, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { SingerDiagnostics } from '../../lib/singers/diagnostics.ts'
-import { reportToText, type RunReport } from '../../lib/runReport/runReport.ts'
+import { reportToText } from '../../lib/runReport/reportText.ts'
+import type { RunReport } from '../../lib/runReport/runReport.ts'
 import { saveRunData } from '../../store/db.ts'
 import { makeSongContent } from '../../store/fixtures.test-helpers.ts'
 import { useSongStore } from '../../store/songStore.ts'
@@ -147,7 +148,11 @@ describe('RunReportAction', () => {
   })
 
   it('shows the groups after the clustering as a table with header cells', async () => {
-    const { dialog } = await openPanel()
+    const { user, dialog } = await openPanel()
+    const details = within(dialog).getByText('Details for a bug report')
+    expect(details.closest('details')).not.toHaveAttribute('open')
+    await user.click(details)
+    expect(details.closest('details')).toHaveAttribute('open')
 
     const table = within(dialog).getByRole('table', {
       name: 'The groups straight after the clustering',
@@ -156,7 +161,7 @@ describe('RunReportAction', () => {
       within(table)
         .getAllByRole('columnheader')
         .map((cell) => cell.textContent),
-    ).toEqual(['Group', 'Sung time', 'Embeddings', 'Result'])
+    ).toEqual(['Group', 'Sung time', 'Voice prints', 'Result'])
     const rows = within(table)
       .getAllByRole('row')
       .slice(1)
@@ -170,6 +175,14 @@ describe('RunReportAction', () => {
       ['1', '13.6 s', '3', 'Kept as singer 1'],
       ['2', '0.4 s', '1', 'Joined into group 0: under 3 seconds'],
     ])
+  })
+
+  it('starts the "Singers" section with the summary in plain words', async () => {
+    const { dialog } = await openPanel()
+    const singers = within(dialog).getByRole('region', { name: 'Singers' })
+    expect(singers.querySelector('p')).toHaveTextContent(
+      /^The app found 2 singers and put the phrases on 2 voices\./,
+    )
   })
 
   it('renders no label of a mark of the song', async () => {
