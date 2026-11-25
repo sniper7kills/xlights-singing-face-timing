@@ -6,6 +6,7 @@ import {
   type ReportSeparationModel,
   type RunReport,
   type SingerSection,
+  selectedSingersText,
   type StepDurations,
   stepTimes,
 } from './runReport.ts'
@@ -221,6 +222,7 @@ function diagnosticFacts(diagnostics: SingerDiagnostics): PanelFact[] {
 
 function assignmentFacts(singers: SingerSection): PanelFact[] {
   return [
+    { label: 'Singers selected', value: selectedSingersText(singers.selected) },
     { label: 'Singer ranges', value: countText(singers.rangeCount) },
     {
       label: 'Phrase share for a singer',

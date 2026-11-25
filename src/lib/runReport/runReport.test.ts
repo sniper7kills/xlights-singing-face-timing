@@ -208,8 +208,19 @@ describe('reportToText', () => {
         }),
       ),
     )
-    expect(failed).toContain('Step: failed (memory)\nDiagnostics: none\n')
+    expect(failed).toContain(
+      'Step: failed (memory)\nSingers selected: not recorded\nDiagnostics: none\n',
+    )
     expect(failed).toContain('Voices made: not known\n')
+  })
+
+  it.each([
+    ['automatic', 'Singers selected: Automatic'],
+    [2, 'Singers selected: 2'],
+    [undefined, 'Singers selected: not recorded'],
+  ] as const)('writes the choice of "Singers" %s after the step', (selected, line) => {
+    const text = reportToText(buildRunReport(facts({ singers: singers({ selected }) })))
+    expect(text).toContain(`Step: split\n${line}\n`)
   })
 
   it('writes only the step when the singer option is off', () => {

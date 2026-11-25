@@ -276,6 +276,19 @@ describe('reportPanel', () => {
     )
     expect(section?.tables).toEqual([])
     expect(fact(section, 'Singer ranges')).toBe('not known')
+    expect(fact(section, 'Singers selected')).toBe('not recorded')
+  })
+
+  it('states the choice of "Singers" of the run', () => {
+    expect(
+      fact(panel({ singers: singers({ selected: 3 }) }).get('Singers'), 'Singers selected'),
+    ).toBe('3')
+    expect(
+      fact(
+        panel({ singers: singers({ selected: 'automatic' }) }).get('Singers'),
+        'Singers selected',
+      ),
+    ).toBe('Automatic')
   })
 
   it('gives the voices with their phrases and the voices that the run made', () => {
