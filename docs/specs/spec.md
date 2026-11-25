@@ -378,7 +378,8 @@ erDiagram
   Text contrast is 4.5:1 or more. The editor does not rely on colour alone: each
   phoneme shows its label as text.
 - **Themes.** The app has a light theme and a dark theme. The default follows the
-  operating system setting.
+  operating system setting. The browser keeps the choice of the person in
+  `localStorage`, and the choice wins over the operating system setting.
 - **i18n.** The UI is English only in v1. Labels accept any Unicode text.
 - **Performance targets.** The editor scrolls and zooms at 60 frames per second
   with 3 000 marks on screen-size hardware from 2020 or later. The first load of the
