@@ -30,8 +30,10 @@ export type SingersWorkerLike = {
   onerror: ((event: ErrorEvent) => void) | null
 }
 
-/** The functions and the signal of one singer search. */
+/** The functions, the signal and the singer count of one singer search. */
 export type SingersHandlers = {
+  /** The count of singers that the person gives. Without it, the engine estimates the count. */
+  singerCount?: number
   /** Receives the bytes of the model files that the browser has, and the size of the files. */
   onDownload?: (loadedBytes: number, totalBytes: number) => void
   /** Receives the audio time that is complete, and the audio time of the run. */
@@ -96,7 +98,12 @@ export function findSingers(
         resolve(data.segments)
       }
     }
-    worker.postMessage({ type: 'find-singers', runId, vocals })
+    const { singerCount } = handlers
+    worker.postMessage(
+      singerCount === undefined
+        ? { type: 'find-singers', runId, vocals }
+        : { type: 'find-singers', runId, vocals, singerCount },
+    )
   })
 }
 

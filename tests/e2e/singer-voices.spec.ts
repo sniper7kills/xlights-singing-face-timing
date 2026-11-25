@@ -126,3 +126,28 @@ test('a run with both options on puts the second singer on "Singer 2", and one u
   await expect(phrases(page)).toHaveCount(3)
   await expect(page.getByRole('list', { name: 'Words' }).getByRole('listitem')).toHaveCount(16)
 })
+
+test('a run with the count 3 in "Singers" makes three voices, and the next dialog keeps the count', async ({
+  page,
+}) => {
+  await createSong(page)
+  const dialog = await openDialog(page)
+  await dialog.getByRole('checkbox', { name: SEPARATE }).check()
+  await dialog.getByRole('checkbox', { name: SINGERS }).check()
+  const singers = dialog.getByRole('group', { name: 'Singers' })
+  await expect(singers.getByRole('radio', { name: 'Automatic' })).toBeChecked()
+
+  await singers.getByRole('radio', { name: '3' }).check()
+  await dialog.getByRole('button', { name: 'Start' }).click()
+
+  // The fixture worker gives each of the 3 singers one third of the song, so each phrase has its own singer.
+  await expect(dialog).toBeHidden({ timeout: 20_000 })
+  await expect(page.getByText('16 words on 3 voices, 0 estimated')).toBeVisible()
+  await expect(rail(page).getByRole('listitem')).toHaveCount(3)
+  await expect(voiceButton(page, 'Singer 3')).toHaveAccessibleDescription('1 phrase')
+
+  const next = await openDialog(page)
+  await expect(
+    next.getByRole('group', { name: 'Singers' }).getByRole('radio', { name: '3' }),
+  ).toBeChecked()
+})

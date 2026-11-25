@@ -15,26 +15,27 @@ function wait(delayMs: number): Promise<void> {
 }
 
 /**
- * Returns the segments of two singers who take turns: singer 0 sings the first half and singer 1 the second half.
- * Both sing for `FIXTURE_OVERLAP_MS` in the middle.
+ * Returns the segments of singers who take turns, one equal part of the vocals each, in the order of their numbers.
+ * Two adjacent singers both sing for `FIXTURE_OVERLAP_MS` at the border of their parts.
  * @param totalMs The length of the vocals.
+ * @param singerCount The count of singers. Default 2.
  */
-export function fixtureSegments(totalMs: number): SingerSegment[] {
-  const middleMs = Math.round(totalMs / 2)
+export function fixtureSegments(totalMs: number, singerCount = 2): SingerSegment[] {
   const half = FIXTURE_OVERLAP_MS / 2
-  return [
-    { startMs: 0, endMs: Math.min(totalMs, middleMs + half), singer: 0 },
-    { startMs: Math.max(0, middleMs - half), endMs: totalMs, singer: 1 },
-  ]
+  return Array.from({ length: singerCount }, (_, singer) => ({
+    startMs: singer === 0 ? 0 : Math.max(0, Math.round((totalMs * singer) / singerCount) - half),
+    endMs: Math.min(totalMs, Math.round((totalMs * (singer + 1)) / singerCount) + half),
+    singer,
+  }))
 }
 
 /**
  * Returns an engine for the tests that downloads no model.
- * It sends a short download and the progress of about one second, and then returns the segments of `fixtureSegments`.
+ * It sends a short download and the progress of about one second, and then returns the segments of `fixtureSegments` for the given count.
  */
 export function createFixtureSingerFinder(): SingerFinder {
   return {
-    async find(vocals: Float32Array, on: SingerFinderEvents): Promise<SingerSegment[]> {
+    async find(vocals: Float32Array, on: SingerFinderEvents, singerCount?: number) {
       for (const share of [0, 0.5, 1]) {
         on.download(share * FIXTURE_TOTAL_BYTES, FIXTURE_TOTAL_BYTES)
         await wait(DOWNLOAD_STEP_MS)
@@ -44,7 +45,7 @@ export function createFixtureSingerFinder(): SingerFinder {
         on.progress((totalMs * step) / PROGRESS_STEPS, totalMs)
         if (step < PROGRESS_STEPS) await wait(PROGRESS_STEP_MS)
       }
-      return fixtureSegments(totalMs)
+      return fixtureSegments(totalMs, singerCount)
     },
   }
 }

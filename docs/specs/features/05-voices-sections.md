@@ -96,7 +96,8 @@ flowchart TD
    voice (experimental)" in the transcribe dialog. See
    [02-transcription.md](02-transcription.md#put-each-singer-on-its-own-voice).
 2. The run writes the marks to the selected voice.
-3. The app finds the singers in the separated vocals.
+3. The app finds the singers in the separated vocals. With a count in "Singers", the
+   app finds that count of singers. With "Automatic", the app estimates the count.
 4. The app adds "Singer 2", "Singer 3" … and moves or copies the phrases of each
    singer to its voice.
 5. The person checks each voice. The person corrects a wrong phrase with "Move to
@@ -207,6 +208,11 @@ voices and "New voice".
   shows when the lyrics have a tag and a word, and it is on by default. The
   sections are a second undo step after the marks of the run. A tag line is
   never a phrase or a word.
+- **Singer count.** With a count in "Singers", the singer step gives exactly that
+  count of singers when the vocals have enough sung parts. A chorus that sings
+  together counts as one singer when the count says so. With "Automatic", the step
+  keeps two singers apart only when their voices differ enough. See
+  `docs/adr/0009-singer-voices-from-diarization.md`.
 - **Singer rules.** The singer step gives each phrase of the run its singers. The
   rule is `assignSingers` in `src/lib/singers/assignSingers.ts`:
   - The share of a singer is the time of its ranges inside the phrase, divided by

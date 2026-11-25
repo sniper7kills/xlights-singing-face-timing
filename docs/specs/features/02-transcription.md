@@ -144,6 +144,14 @@ leaves the browser, and the app shows the host before each run.
   marks of the run.
 - FR-transcribe-62 — After a failed singer step, the marks of the run stay on the
   voice of the run, and the toast states the failure.
+- FR-transcribe-63 — While "Put each singer on its own voice" is on, the dialog
+  shows the choice "Singers" with "Automatic", "2", "3" and "4". "Automatic" is the
+  default.
+- FR-transcribe-64 — The app remembers the last choice of "Singers".
+- FR-transcribe-65 — With a count in "Singers", the singer step finds that count of
+  singers.
+- FR-transcribe-66 — With "Automatic", the singer step estimates the count of
+  singers.
 
 ## User flows
 
@@ -262,6 +270,8 @@ sequenceDiagram
 7. The app gives each phrase of the run to its singers, and puts each singer on its
    own voice. See the singer rules in
    [05-voices-sections.md](05-voices-sections.md#behaviour-rules).
+   With a count in "Singers", the worker finds that count of singers. With
+   "Automatic", the worker estimates the count.
 8. The app closes the dialog. The toast names the count of voices, for example "214
    words on 3 voices, 9 estimated".
 
@@ -361,6 +371,10 @@ use this option." The note under the check box reads "The app estimates which si
 sings each phrase, and makes one voice for each singer. Check the result. Use "Move
 to voice" to correct a phrase. The app can find too many singers. This step
 downloads models of 33 MB one time."
+
+While the check box is on, the choice "Singers" comes under its note, with the
+options "Automatic", "2", "3" and "4". The note of the choice reads "Select the
+count if you know it. The result is better."
 
 The states of the singer step come after finishing, because the step starts after
 the run writes its marks:
@@ -489,6 +503,8 @@ Each base URL that the app refuses shows a message:
   `'spleeter'`.
 - Reads and writes `APP_SETTINGS.singerVoices`, the last choice of "Put each singer
   on its own voice".
+- Reads and writes `APP_SETTINGS.singerCount` (`'automatic' | 2 | 3 | 4`), the last
+  choice of "Singers". A value that the app does not know gives `'automatic'`.
 - Reads and writes `APP_SETTINGS.deviceSpeeds`: for each speech model, the measured
   speed of each device and the time of the last `webgpu` failure. The app selects
   the device from these values.
@@ -664,7 +680,7 @@ https://developer.mozilla.org/en-US/docs/Web/API/AudioBuffer/copyToChannel
 
 **Singer step, `src/workers/singers.worker.ts`.** The types are in
 `src/features/singer-voices/protocol.ts`. The client
-`findSingers(vocals, { onDownload, onProgress, signal })` starts one worker for each
+`findSingers(vocals, { singerCount, onDownload, onProgress, signal })` starts one worker for each
 run and terminates it at the end or at "Cancel". The worker calls the engine of
 `createSingerFinder()` in `src/features/singer-voices/engine/index.ts`. When
 `__SINGERS_FIXTURE__` is true, the client starts `singersFixture.worker.ts`, which
@@ -673,7 +689,7 @@ downloads no model.
 ```ts
 interface SingerSegment { startMs: number; endMs: number; singer: number } // singer 0, 1, 2 … in order of first appearance
 // to worker (SingersRequest)
-{ type: 'find-singers'; runId: number; vocals: Float32Array } // one channel, 16 kHz
+{ type: 'find-singers'; runId: number; vocals: Float32Array; singerCount?: number } // one channel, 16 kHz; no count: the engine estimates it
 // from worker (SingersMessage)
 { type: 'download'; runId: number; loadedBytes: number; totalBytes: number }
 { type: 'progress'; runId: number; doneMs: number; totalMs: number }
@@ -687,7 +703,7 @@ of the range.
 The engine uses two ONNX models from the Hugging Face Hub, through
 `@huggingface/transformers`: `onnx-community/pyannote-segmentation-3.0` (MIT) and
 `onnx-community/wespeaker-voxceleb-resnet34-LM` (CC BY 4.0), 32 522 457 bytes
-together. The accuracy on singing is not measured. See
+together. The accuracy on one duet and two test mixes is in the ADR. See
 `docs/adr/0009-singer-voices-from-diarization.md` and
 `docs/licences/singer-models.md`.
 
@@ -737,7 +753,7 @@ from 0 to 1.
 | Demucs: the person selects "Use the fast model" | The run separates the vocals again with Spleeter. The stored choice does not change. |
 | Demucs: the `webgpu` device fails | The engine runs the model again on the `wasm` device. The progress starts again at 0. |
 | Demucs: the model file has the wrong size or SHA-256 | The message for a failed download. The browser cache keeps no copy. |
-| Singer step: one singer found | No new voice. The toast adds "The app found one singer. All phrases stay on <voice name>." |
+| Singer step: one singer found | No new voice. The toast adds "The app found one singer. All phrases stay on <voice name>. If the song has more singers, select the count in "Singers" and run again." |
 | Singer step: the model does not download | The marks stay. The toast adds "The app could not download the singer model. Check the connection. All phrases stay on <voice name>." |
 | Singer step: out of memory | The marks stay. The toast adds "This browser does not have enough memory to find the singers of this song. All phrases stay on <voice name>." |
 | Singer step: the model fails, or another failure | The marks stay. The toast adds "The app could not find the singers. All phrases stay on <voice name>." |
@@ -840,6 +856,11 @@ from 0 to 1.
   test checks the requests of a run. (FR-transcribe-59)
 - "Cancel" during the singer step keeps the marks of the run on the voice of the
   run. (FR-transcribe-61)
+- With "Put each singer on its own voice" on, the dialog shows "Singers" with
+  "Automatic" selected. (FR-transcribe-63)
+- The dialog opens with the last choice of "Singers". (FR-transcribe-64)
+- A run with "3" in "Singers" sends the count 3 to the singers worker. An E2E test
+  with the fixture worker gets 3 voices. (FR-transcribe-65)
 - After a failed singer step, the marks stay on the voice of the run, and the toast
   names the voice. (FR-transcribe-62)
 

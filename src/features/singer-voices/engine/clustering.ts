@@ -1,11 +1,13 @@
-/** The settings of the clustering. */
-export interface ClusterSettings {
-  /** Two groups merge while the distance between their centroids is not more than this value. */
+/** The settings of `groupSingers`. */
+export interface SingerGroupSettings {
+  /** With no count, two singers are different only when the distance between their centroids is more than this value. */
   threshold: number
   /** A group with fewer embeddings than this joins the closest larger group, if one exists. */
   minGroupSize: number
-  /** The clustering merges more groups until no more than this count remains. */
+  /** With no count, the result has no more than this count of singers. */
   maxGroups: number
+  /** With no count, each singer holds at least this share of the weight of all embeddings. */
+  minShare: number
 }
 
 interface Group {
@@ -13,6 +15,8 @@ interface Group {
   sum: Float64Array
   /** The embeddings of the group, as indexes. */
   members: number[]
+  /** The sum of the weights of the embeddings of the group. */
+  weight: number
 }
 
 function unitLength(embedding: Float32Array): Float64Array {
@@ -51,6 +55,7 @@ function join(groups: Group[], a: number, b: number): void {
   if (target === undefined || source === undefined) return
   target.sum = target.sum.map((value, index) => value + (source.sum[index] ?? 0))
   target.members.push(...source.members)
+  target.weight += source.weight
   groups.splice(b, 1)
 }
 
@@ -81,30 +86,106 @@ function joinSmallGroups(groups: Group[], minSize: number): void {
   }
 }
 
+function copyGroups(groups: readonly Group[]): Group[] {
+  return groups.map((group) => ({ ...group, sum: group.sum.slice(), members: [...group.members] }))
+}
+
+function countLarge(groups: readonly Group[], minSize: number): number {
+  return groups.filter((group) => group.members.length >= minSize).length
+}
+
+/** The joins of one merge down to one group, and the count of large groups before the first join and after each join. */
+interface MergeHistory {
+  joins: [number, number][]
+  large: number[]
+}
+
+/** Merges the closest centroids until one group remains, and records each join. The start groups do not change. */
+function mergeHistory(start: readonly Group[], minSize: number): MergeHistory {
+  const groups = copyGroups(start)
+  const history: MergeHistory = { joins: [], large: [countLarge(groups, minSize)] }
+  for (let round = groups.length; round > 1; round--) {
+    const pair = closestPair(groups, () => true)
+    if (pair.a < 0) break
+    join(groups, pair.a, pair.b)
+    history.joins.push([pair.a, pair.b])
+    history.large.push(countLarge(groups, minSize))
+  }
+  return history
+}
+
 /**
- * Returns the group of each embedding, numbered 0, 1, 2… in the order of the first embedding of each group.
- * The clustering follows the `AgglomerativeClustering` of pyannote.audio with the `centroid` method:
- * - It scales each embedding to unit length and merges the two groups with the closest centroids, while that distance is not more than the threshold.
- * - Then each group smaller than `minGroupSize` joins the closest group that is not small.
- * - Then the closest groups merge until no more than `maxGroups` remain.
+ * Returns the groups at the merge round with a count of large groups closest to `count`, as pyannote.audio does for a known count.
+ * A later round wins a tie. Then each small group joins the closest large group, and the closest groups merge down to `count`.
+ * If no round has as many large groups as `count`, the result is the round with `count` groups, small or large.
+ */
+function cutAtCount(
+  start: readonly Group[],
+  history: MergeHistory,
+  count: number,
+  minSize: number,
+): Group[] {
+  const miss = (round: number) => Math.abs((history.large[round] ?? 0) - count)
+  const best = history.large.reduce(
+    (found, _, round) => (miss(round) <= miss(found) ? round : found),
+    0,
+  )
+  const tooFew = (history.large[best] ?? 0) < count
+  const rounds = tooFew ? Math.max(0, start.length - count) : best
+  const groups = copyGroups(start)
+  for (const [a, b] of history.joins.slice(0, rounds)) join(groups, a, b)
+  if (tooFew) return groups
+  joinSmallGroups(groups, minSize)
+  mergeClosest(groups, () => groups.length > count)
+  return groups
+}
+
+/** Returns true when each group holds `minShare` of the weight or more, and each pair of centroids is farther apart than `threshold`. */
+function separated(groups: readonly Group[], settings: SingerGroupSettings): boolean {
+  const total = groups.reduce((sum, group) => sum + group.weight, 0)
+  if (groups.some((group) => group.weight < settings.minShare * total)) return false
+  return groups.every((a, i) =>
+    groups.every((b, j) => j <= i || centroidDistance(a, b) > settings.threshold),
+  )
+}
+
+/**
+ * Returns the singer group of each embedding, numbered 0, 1, 2… in the order of the first embedding of each group.
+ * The function scales each embedding to unit length and merges the two groups with the closest centroids, as the `centroid` method of pyannote.audio does.
+ * For a count of singers, it cuts the merges where the count of large groups is closest to that count, as pyannote.audio does with `num_speakers`.
+ * Each small group then joins the closest large group.
+ * With no count, it takes the highest count, up to `maxGroups`, for which each singer holds `minShare` of the weight and the centroids are farther apart than `threshold`.
+ * The threshold applies to the large groups and not to single embeddings, because the embeddings of short sung parts are far apart even for one voice.
  *
  * An embedding with a value that is not finite gets `NO_GROUP`, and the other embeddings get the groups that they get without it.
  * @param embeddings The speaker embeddings, in the order of their time.
- * @param settings The threshold, the small group size and the highest count of groups.
+ * @param weights The weight of each embedding, for example its samples.
+ * @param settings The threshold, the small group size, the highest count of groups and the share of a singer.
+ * @param count The count of singers that the person gives. With a count, the threshold and the share do not apply.
  */
-export function clusterEmbeddings(
+export function groupSingers(
   embeddings: readonly Float32Array[],
-  settings: ClusterSettings,
+  weights: readonly number[],
+  settings: SingerGroupSettings,
+  count?: number,
 ): number[] {
-  const groups: Group[] = embeddings.flatMap((embedding, index) =>
-    embedding.every(Number.isFinite) ? [{ sum: unitLength(embedding), members: [index] }] : [],
+  const start: Group[] = embeddings.flatMap((embedding, index) =>
+    embedding.every(Number.isFinite)
+      ? [{ sum: unitLength(embedding), members: [index], weight: weights[index] ?? 0 }]
+      : [],
   )
   // pyannote.audio lowers the small group size for a short input in the same way.
-  const minSize = Math.min(settings.minGroupSize, Math.max(1, Math.round(groups.length / 10)))
-  mergeClosest(groups, (distance) => distance <= settings.threshold)
-  joinSmallGroups(groups, minSize)
-  mergeClosest(groups, () => groups.length > settings.maxGroups)
-  return groupNumbers(groups, embeddings.length)
+  const minSize = Math.min(settings.minGroupSize, Math.max(1, Math.round(start.length / 10)))
+  const history = mergeHistory(start, minSize)
+  const cut = (groupCount: number) => cutAtCount(start, history, groupCount, minSize)
+  if (count !== undefined) return groupNumbers(cut(count), embeddings.length)
+  let best = cut(1)
+  for (let groupCount = 2; groupCount <= settings.maxGroups; groupCount++) {
+    const groups = cut(groupCount)
+    if (groups.length < groupCount || !separated(groups, settings)) break
+    best = groups
+  }
+  return groupNumbers(best, embeddings.length)
 }
 
 /** Returns the group of each embedding, with the groups numbered in the order of their first embedding. */
@@ -134,7 +215,11 @@ export function foldShortGroups(
   groupTimes: readonly number[],
   minTime: number,
 ): number[] {
-  const groups: Group[] = groupTimes.map(() => ({ sum: new Float64Array(0), members: [] }))
+  const groups: Group[] = groupTimes.map(() => ({
+    sum: new Float64Array(0),
+    members: [],
+    weight: 0,
+  }))
   owners.forEach((owner, index) => {
     const group = groups[owner]
     const embedding = embeddings[index]

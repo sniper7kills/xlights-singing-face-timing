@@ -66,6 +66,8 @@ export type TranscribeRequest = {
    * The step reads the separated vocals, so it needs `separateVocals`. Without it, the run makes no singer voices.
    */
   singerVoices?: boolean
+  /** The count of singers that the person gives for the singer step. Without it, the step estimates the count. */
+  singerCount?: number
 }
 
 /**
@@ -280,6 +282,7 @@ async function splitSingers(
   let searching = false
   try {
     const segments = await findSingers(vocals, {
+      singerCount: request.singerCount,
       signal: handlers.signal,
       onDownload: handlers.onSingersDownload,
       onProgress: (doneMs, totalMs) => {
@@ -460,7 +463,10 @@ async function speechSamples(
   if (request.separateVocals !== true)
     return { samples: await resampleForSpeech(audio, request.range), separated: false }
   try {
-    return { samples: await separatedSamples(audio, request.range, model, handlers), separated: true }
+    return {
+      samples: await separatedSamples(audio, request.range, model, handlers),
+      separated: true,
+    }
   } catch (error) {
     // A cancel during the step also rejects the separation, and it must not ask the person.
     stopIfCancelled(handlers.signal)

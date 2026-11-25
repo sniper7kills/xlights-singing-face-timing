@@ -19,14 +19,18 @@ export function serveSingerFinder(
   return async (data) => {
     // The thread workers of a WASM runtime can load the worker file too, and their messages are not requests.
     if (!isRequest(data)) return
-    const { runId, vocals } = data
+    const { runId, vocals, singerCount } = data
     try {
       engine ??= createEngine()
-      const segments = await engine.find(vocals, {
-        download: (loadedBytes, totalBytes) =>
-          post({ type: 'download', runId, loadedBytes, totalBytes }),
-        progress: (doneMs, totalMs) => post({ type: 'progress', runId, doneMs, totalMs }),
-      })
+      const segments = await engine.find(
+        vocals,
+        {
+          download: (loadedBytes, totalBytes) =>
+            post({ type: 'download', runId, loadedBytes, totalBytes }),
+          progress: (doneMs, totalMs) => post({ type: 'progress', runId, doneMs, totalMs }),
+        },
+        singerCount,
+      )
       post({ type: 'result', runId, segments })
     } catch (error) {
       post({ type: 'error', runId, kind: singerFailureKind(error), detail: String(error) })

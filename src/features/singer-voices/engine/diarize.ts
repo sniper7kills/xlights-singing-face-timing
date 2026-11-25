@@ -1,4 +1,4 @@
-import { clusterEmbeddings, foldShortGroups, NO_GROUP } from './clustering.ts'
+import { foldShortGroups, groupSingers, NO_GROUP } from './clustering.ts'
 import { decodePowerset } from './powerset.ts'
 import type { SingerSegment } from '../protocol.ts'
 import { activityToRanges, renumberByFirstRange } from './segments.ts'
@@ -30,6 +30,8 @@ export interface DiarizeSettings {
   minSingerMs: number
   minGapMs: number
   minRangeMs: number
+  /** The count of singers that the person gives. With a count, the threshold and the rule for short singers do not apply. */
+  singerCount?: number
 }
 
 /** One speaker of one window, with its frames and its embedding. */
@@ -37,6 +39,8 @@ interface LocalSpeaker {
   windowStart: number
   activity: Uint8Array
   embedding: Float32Array
+  /** The samples that the embedding model read. */
+  samples: number
 }
 
 /** Returns the samples of the frames that are set, in order. */
@@ -101,7 +105,12 @@ async function windowSpeakers(
       settings.minEmbedSamples,
     )
     if (samples.length >= settings.minEmbedSamples) {
-      speakers.push({ windowStart, activity: speaker, embedding: await models.embed(samples) })
+      speakers.push({
+        windowStart,
+        activity: speaker,
+        embedding: await models.embed(samples),
+        samples: samples.length,
+      })
     }
   }
   return speakers
@@ -177,13 +186,16 @@ export async function diarize(
     found.push(...(await windowSpeakers(window, start, models, settings)))
     onProgress(Math.min(vocals.length, start + settings.windowSamples), vocals.length)
   }
-  const owners = clusterEmbeddings(
+  const owners = groupSingers(
     found.map((speaker) => speaker.embedding),
+    found.map((speaker) => speaker.samples),
     {
       threshold: settings.threshold,
       minGroupSize: settings.minGroupSize,
       maxGroups: settings.maxSingers,
+      minShare: settings.minSingerShare,
     },
+    settings.singerCount,
   )
   // A speaker with an embedding that is not finite has no group, so its frames count for no singer, as silence does.
   const speakers = found.filter((_, index) => owners[index] !== NO_GROUP)
@@ -198,12 +210,16 @@ export async function diarize(
   }
   const frameMs = (frameSamples / settings.sampleRate) * 1000
   const active = singerActivity(singerShares(speakers, singers, starts, grid))
-  const folded = foldShortGroups(
-    singers,
-    speakers.map((speaker) => speaker.embedding),
-    active.map((frames) => frames.filter(Boolean).length * frameMs),
-    shortSingerLimitMs(active, frameMs, settings),
-  )
+  // A count of the person is a fact, so no group joins another for its short time.
+  const folded =
+    settings.singerCount !== undefined
+      ? singers
+      : foldShortGroups(
+          singers,
+          speakers.map((speaker) => speaker.embedding),
+          active.map((frames) => frames.filter(Boolean).length * frameMs),
+          shortSingerLimitMs(active, frameMs, settings),
+        )
   const rangeSettings = { frameMs, minGapMs: settings.minGapMs, minRangeMs: settings.minRangeMs }
   return renumberByFirstRange(
     singerActivity(singerShares(speakers, folded, starts, grid)).flatMap((frames, singer) =>

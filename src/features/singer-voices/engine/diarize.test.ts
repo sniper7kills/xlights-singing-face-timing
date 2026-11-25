@@ -132,6 +132,23 @@ describe('diarize', () => {
     expect(ranges).toEqual([{ startMs: 0, endMs: 6500, singer: 0 }])
   })
 
+  it('keeps a short singer of its own when the person gives a count of 2', async () => {
+    const vocals = audio([1, 3000], [-1, 500], [1, 3000])
+    const ranges = await diarize(
+      vocals,
+      fakeModels(),
+      { ...settings, minSingerMs: 1000, minSingerShare: 0.1, singerCount: 2 },
+      () => {},
+    )
+    expect(ranges.map((range) => range.singer)).toEqual([0, 1, 0])
+  })
+
+  it('gives one singer to two voices when the person gives a count of 1', async () => {
+    const vocals = audio([-1, 1500], [1, 1500])
+    const ranges = await diarize(vocals, fakeModels(), { ...settings, singerCount: 1 }, () => {})
+    expect(ranges).toEqual([{ startMs: 0, endMs: 3000, singer: 0 }])
+  })
+
   it('keeps a short singer when the limits are 0', async () => {
     const vocals = audio([1, 3000], [-1, 500], [1, 3000])
     const ranges = await diarize(vocals, fakeModels(), settings, () => {})

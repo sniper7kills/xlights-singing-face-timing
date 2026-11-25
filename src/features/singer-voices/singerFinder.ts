@@ -14,7 +14,8 @@ export type SingerFinder = {
    * Returns the time ranges in which each singer sings, with times from the start of the vocals.
    * @param vocals One channel at 16 000 Hz.
    * @param on The functions that receive the progress.
+   * @param singerCount The count of singers that the person gives. Without it, the engine estimates the count.
    * Rejects with `SingerFailure` for a known cause, else with any error.
    */
-  find(vocals: Float32Array, on: SingerFinderEvents): Promise<SingerSegment[]>
+  find(vocals: Float32Array, on: SingerFinderEvents, singerCount?: number): Promise<SingerSegment[]>
 }

@@ -12,6 +12,8 @@ export type SingersRequest = {
   type: 'find-singers'
   runId: number
   vocals: Float32Array /* mono, 16 000 Hz */
+  /** The count of singers that the person gives. Without it, the engine estimates the count. */
+  singerCount?: number
 }
 
 /** A message from the singers worker to the page. */
