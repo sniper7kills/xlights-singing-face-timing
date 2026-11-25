@@ -188,8 +188,8 @@ leaves the browser, and the app shows the host before each run.
 - FR-transcribe-81 — The editor top bar shows "Run report" after "Transcribe".
 - FR-transcribe-82 — If the song has no run report, "Run report" is disabled and
   shows the tooltip "No transcribe run for this song yet."
-- FR-transcribe-83 — If the song has a run report, the toast after a run shows a
-  "Run report" link.
+- FR-transcribe-83 — If the run stored its run report, the toast after the run
+  shows a "Run report" link.
 - FR-transcribe-84 — The toast stays while its link has the focus.
 - FR-transcribe-85 — "Run report" opens the run report panel. The panel shows the
   run report of the last run of the song and is read-only.
@@ -212,6 +212,51 @@ leaves the browser, and the app shows the host before each run.
 - FR-transcribe-96 — The report states the build of the app that made the run.
 - FR-transcribe-97 — The song library shows the build of the app in its footer.
 - FR-transcribe-98 — The report states each voice that the singer step made.
+
+### Kept audio tracks (issue #129)
+
+- FR-transcribe-99 — With "Separate the vocals first" on, the transcribe dialog
+  shows the check box "Keep the separated tracks" after "Separation model" and
+  before "Put each singer on its own voice". It is on by default.
+- FR-transcribe-100 — The app remembers the last choice of "Keep the separated
+  tracks". Settings from before the check box give the choice on.
+- FR-transcribe-101 — Under the check box, the dialog shows "The app stores the
+  vocals and the instruments of this song in this browser, about <n> MB. You can
+  listen to each track in the editor." The length of the song or of the range gives
+  `<n>`.
+- FR-transcribe-102 — With the check box on, a run with a successful vocal
+  separation stores two audio tracks for the song: the vocals and the instruments.
+- FR-transcribe-103 — The app stores each audio track as 16-bit PCM in one channel
+  at 22 050 Hz, about 2 646 000 bytes for each minute.
+- FR-transcribe-104 — A range run stores the audio tracks of the range only, with
+  the song time of the start of the range.
+- FR-transcribe-105 — A new completed run replaces the audio tracks, the singer
+  ranges and the report of the song in one write.
+- FR-transcribe-106 — A run with no separated vocals stores no audio track.
+- FR-transcribe-107 — After "Use the fast model", the run stores the audio tracks
+  of Spleeter.
+- FR-transcribe-108 — The report states the count of audio tracks of the vocal
+  separation, and whether the app kept them.
+- FR-transcribe-109 — If the browser storage is full, the app stores the report and
+  the singer ranges with no audio tracks.
+- FR-transcribe-110 — After FR-transcribe-109, the toast adds "The browser storage
+  is full, so the app did not keep the separated tracks."
+- FR-transcribe-111 — The run waits 5 seconds or less for the write of the run
+  data. Then the run completes.
+- FR-transcribe-112 — If the app did not store the run data, the toast shows no
+  "Run report" link and adds "The app could not store the run report."
+- FR-transcribe-113 — Deleting the song deletes its audio tracks.
+- FR-transcribe-114 — The storage meter of the song library counts the audio
+  tracks.
+- FR-transcribe-115 — The zip file of the song holds the audio tracks and the run
+  report. See [06-xtiming-export.md](06-xtiming-export.md#behaviour-rules).
+- FR-transcribe-116 — The app sends the audio tracks to no server.
+- FR-transcribe-117 — If a newer version of the app wrote the database, the song
+  library shows "This browser holds data from a newer version of the app. Reload the
+  page. If the message stays, close the other tabs of the app and reload."
+- FR-transcribe-118 — If another tab of the app keeps the database open during an
+  upgrade, the song library shows "Close the other tabs of the app. Then reload this
+  page."
 
 ## User flows
 
@@ -317,6 +362,9 @@ sequenceDiagram
    of the song.
 9. If Demucs fails for memory, the dialog also shows "Use the fast model". "Use the
    fast model" runs the vocal separation again with Spleeter.
+10. With "Keep the separated tracks" on, the separate worker also returns the
+    instruments. At the end of the run, the app stores the vocals and the
+    instruments at 22 050 Hz with the run report.
 
 ### Put each singer on its own voice
 
@@ -576,8 +624,10 @@ copy, the status line shows "Press Ctrl+C to copy."
 
 ## Data touched
 
-- Writes `RUN_DATA` for the song at the end of each completed run: the singer ranges
-  and the run report. A new run replaces the full record.
+- Writes `RUN_DATA` for the song at the end of each completed run: the audio
+  tracks, the singer ranges and the run report. A new run replaces the full record.
+- Reads and writes `APP_SETTINGS.keepTracks`, the last choice of "Keep the separated
+  tracks". A record with no value gives `true`.
 
 - Reads `AUDIO_FILE`. Reads and writes `APP_SETTINGS.speechModelId`.
 - Reads and writes `APP_SETTINGS.transcribeSource` and
@@ -746,11 +796,19 @@ and `demucs-web` are a separate chunk that the worker imports only for `'demucs'
 ```ts
 interface StereoAudio { left: Float32Array; right: Float32Array; sampleRate: 44100 }
 // to worker (SeparateRequest)
-{ type: 'separate'; runId: number; audio: StereoAudio; model?: 'spleeter' | 'demucs' }
+{ type: 'separate'; runId: number; audio: StereoAudio; model?: 'spleeter' | 'demucs'; instruments?: boolean }
 // from worker (SeparateMessage)
 { type: 'download'; runId: number; loadedBytes: number; totalBytes: number }
 { type: 'progress'; runId: number; doneMs: number; totalMs: number }
-{ type: 'result'; runId: number; vocals: Float32Array } // one channel, 44.1 kHz, the length of the input
+{ type: 'result'; runId: number; vocals: Float32Array; instruments?: Float32Array } // one channel each, 44.1 kHz, the length of the input
+```
+
+The worker computes and sends `instruments` only for a request with `instruments:
+true`. Spleeter gives the input with the accompaniment mask, 1 minus the vocals
+mask. This costs one more inverse STFT and no model run. Demucs gives the sum of the
+drums, bass and other stems.
+
+```ts
 { type: 'error'; runId: number; kind: 'download' | 'memory' | 'model' | 'unknown'; detail: string }
 ```
 
@@ -847,6 +905,11 @@ from 0 to 1.
 | Singer step: more singers than free voices | The song keeps 12 voices or fewer. See the singer rules in [05-voices-sections.md](05-voices-sections.md#behaviour-rules). |
 | Singer step: more singers than free voices, and the song has 12 voices | No new voice. The toast adds "The song has 12 voices, so the app cannot add a voice for each singer. All phrases stay on <voice name>." |
 | Singer step: more singers than free voices, and the song has room for some singers | The app adds a voice for each free voice. The toast adds "The song has room for <k> more voices. The other singers stay on <voice name>." |
+| Kept audio tracks: the browser storage is full | The run completes. The app stores the report and the singer ranges with no audio tracks. The report has the line "audio tracks not kept: the browser storage is full". The toast adds "The browser storage is full, so the app did not keep the separated tracks." |
+| Kept audio tracks: the browser cannot resample the tracks | The run completes with no audio tracks. The report has the line "audio tracks not kept: the app could not convert the tracks". |
+| The write of the run data does not end in 5 seconds | The run completes. The toast shows no "Run report" link and adds "The app could not store the run report." The write can still end later. |
+| A newer version of the app wrote the database | The song library shows "This browser holds data from a newer version of the app. Reload the page. If the message stays, close the other tabs of the app and reload." |
+| Another tab of the app keeps the database open during an upgrade | The song library shows "Close the other tabs of the app. Then reload this page." The library opens when the other tab closes. |
 | Remote endpoint: the browser asks for the permission to reach the local network | The run waits for the answer of the person. If the person refuses, the dialog shows the message for no connection. |
 
 ## Run report
@@ -858,7 +921,7 @@ section starts with a heading line in brackets.
 |---|---|
 | Header | "Transcribe run report", the start time of the run (ISO 8601) |
 | `[Run]` | The build of the app, source (`browser` or `remote`), the host of the remote endpoint, the mode, the speech model, the device, the range in ms, the frame size in ms |
-| `[Vocal separation]` | The separation model of the vocals (`spleeter`, `demucs` or `none`), "Changed to the fast model" (`yes` or `no`) |
+| `[Vocal separation]` | The separation model of the vocals (`spleeter`, `demucs` or `none`), "Changed to the fast model" (`yes` or `no`), "Audio tracks" (the count), "Tracks kept" (`yes` or `no`). A report from before issue #129 gives `not known` for the last two. |
 | `[Counts]` | Phrases, words, estimated words, unknown words |
 | `[Voices]` | Each voice that holds phrases of the run, with its count of phrases. A voice that the singer step made has ", made by the run". |
 | `[Singers]` | The result of the singer step, the singer diagnostics, the singer ranges, the phrase share, the singers with one phrase or more, the phrases with no singer range, the phrases with more than one singer, the voices made |
@@ -1000,6 +1063,28 @@ The text writes the raw groups and the final singers as tables with aligned colu
 - "Download report" gives the file "<song name> - run report.txt".
   (FR-transcribe-93)
 - A new report shows in the open panel. (FR-transcribe-94)
+- With "Separate the vocals first" on, the dialog shows "Keep the separated tracks"
+  on, with the size note. With the separation off, the dialog hides it.
+  (FR-transcribe-99, 101)
+- After a run with separation and a reload, the song has two audio tracks of the
+  length of the song and a report with the track count 2. (FR-transcribe-102, 103,
+  108)
+- A run with "Keep the separated tracks" off stores no audio track.
+  (FR-transcribe-102)
+- A song with no separated run has no audio tracks and shows no error.
+  (FR-transcribe-106)
+- A range run stores the audio tracks of the range with the start of the range.
+  (FR-transcribe-104)
+- Deleting a song removes its audio tracks, singer ranges and report.
+  (FR-transcribe-113)
+- A full browser storage gives a completed run, a report line and the toast
+  sentence. (FR-transcribe-109, 110)
+- After a write that did not end, the toast offers no "Run report" link.
+  (FR-transcribe-111, 112)
+- A database from a newer version, and a database that another tab keeps open,
+  show their messages in the song library. (FR-transcribe-117, 118)
+- The zip file after a run with separation holds `tracks/vocals.wav`,
+  `tracks/instruments.wav` and `report.txt`. (FR-transcribe-115)
 
 ## Out of scope
 
