@@ -218,7 +218,10 @@ describe('EditorPage', () => {
   it('opens the run report from the link in the toast after a run', async () => {
     const user = userEvent.setup()
     const { song } = await renderEditor()
-    expect(screen.getByRole('button', { name: 'Run report' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Run report' })).toHaveAttribute(
+      'aria-disabled',
+      'true',
+    )
     vi.mocked(runTranscription).mockImplementation(async () => {
       await db.saveRunData({ songId: song.id, singerSegments: [], report: RUN_REPORT })
       return { wordCount: 214, estimatedCount: 9, runData: 'stored', breakDownFailure: null }
@@ -262,13 +265,13 @@ describe('EditorPage', () => {
       if (toast === null) throw new Error('The toast has no container.')
       // The top bar action reads the same stored report, so the read has ended when it is enabled.
       const [topBar] = screen.getAllByRole('button', { name: 'Run report' })
-      await vi.waitFor(() => expect(topBar).toBeEnabled())
+      await vi.waitFor(() => expect(topBar).not.toHaveAttribute('aria-disabled'))
       await new Promise((resolve) => setTimeout(resolve, 50))
       expect(within(toast).queryByRole('button', { name: 'Run report' })).toBeNull()
     },
   )
 
-  it('keeps the toast while its link has the focus', async () => {
+  it('keeps the toast until "Close", hides it while the panel is open, and takes no focus', async () => {
     const { song } = await renderEditor()
     await act(() => db.saveRunData({ songId: song.id, singerSegments: [], report: RUN_REPORT }))
     vi.mocked(runTranscription).mockResolvedValue({
@@ -285,16 +288,40 @@ describe('EditorPage', () => {
     const toast = (await screen.findByText('214 words, 9 estimated')).parentElement
     if (toast === null) throw new Error('The toast has no container.')
     const link = await within(toast).findByRole('button', { name: 'Run report' })
+    expect(toast).not.toContainElement(document.activeElement as HTMLElement)
+
     vi.useFakeTimers()
-
-    act(() => link.focus())
-    act(() => vi.advanceTimersByTime(10_000))
-    expect(screen.getByText('214 words, 9 estimated')).toBeInTheDocument()
-
-    act(() => link.blur())
-    act(() => vi.advanceTimersByTime(6000))
-    expect(screen.queryByText('214 words, 9 estimated')).toBeNull()
+    act(() => vi.advanceTimersByTime(60_000))
     vi.useRealTimers()
+    expect(toast).toBeVisible()
+
+    await user.click(link)
+    expect(screen.getByRole('dialog', { name: 'Run report' })).toBeInTheDocument()
+    expect(toast).not.toBeVisible()
+    await user.keyboard('{Escape}')
+    expect(toast).toBeVisible()
+
+    await user.click(within(toast).getByRole('button', { name: 'Close' }))
+    expect(screen.queryByText('214 words, 9 estimated')).toBeNull()
+  })
+
+  it('removes the toast of the last run when a new run starts', async () => {
+    vi.mocked(runTranscription).mockResolvedValue({
+      wordCount: 214,
+      estimatedCount: 9,
+      runData: 'stored',
+      breakDownFailure: null,
+    })
+    const user = userEvent.setup()
+    await renderEditor()
+    await user.click(topBarTranscribe())
+    const start = within(screen.getByRole('dialog')).getByRole('button', { name: 'Start' })
+    await vi.waitFor(() => expect(start).toBeEnabled())
+    await user.click(start)
+    await screen.findByText('214 words, 9 estimated')
+
+    await user.click(topBarTranscribe())
+    expect(screen.queryByText('214 words, 9 estimated')).toBeNull()
   })
 
   it('shows the dictionary failure after a run, and removes it when "Retry" breaks down the words', async () => {

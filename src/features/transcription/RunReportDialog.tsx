@@ -1,7 +1,16 @@
 import { useEffect, useId, useMemo, useRef, useState, type KeyboardEvent } from 'react'
 import { keepFocusInside } from '../../app/modalFocus.ts'
-import { type PanelSection, reportFileName, reportPanel } from '../../lib/runReport/reportPanel.ts'
-import { reportToText, type RunReport } from '../../lib/runReport/runReport.ts'
+import {
+  DETAILS_TITLE,
+  type PanelDetails,
+  type PanelFact,
+  type PanelSection,
+  type PanelTable,
+  reportFileName,
+  reportPanel,
+} from '../../lib/runReport/reportPanel.ts'
+import { reportToText } from '../../lib/runReport/reportText.ts'
+import type { RunReport } from '../../lib/runReport/runReport.ts'
 import { useSongStore } from '../../store/songStore.ts'
 import { downloadFiles } from '../xtiming-export/download.ts'
 
@@ -16,6 +25,61 @@ type RunReportDialogProps = {
   onClose: () => void
 }
 
+function ReportTable({ table }: { table: PanelTable }) {
+  return (
+    <table className="report-table">
+      <caption>{table.caption}</caption>
+      <thead>
+        <tr>
+          {table.columns.map((column) => (
+            <th key={column} scope="col">
+              {column}
+            </th>
+          ))}
+        </tr>
+      </thead>
+      <tbody>
+        {table.rows.map((row, index) => (
+          <tr key={index}>
+            {row.map((cell, column) => (
+              <td key={column}>{cell}</td>
+            ))}
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  )
+}
+
+function ReportFacts({ facts, className }: { facts: readonly PanelFact[]; className: string }) {
+  if (facts.length === 0) return null
+  return (
+    <dl className={className}>
+      {facts.map((fact) => (
+        <div key={fact.label}>
+          <dt>{fact.label}</dt>
+          <dd>{fact.value}</dd>
+        </div>
+      ))}
+    </dl>
+  )
+}
+
+/** Shows the numbers for a bug report in a part that folds. The part is closed by default. */
+function ReportDetails({ details }: { details: PanelDetails }) {
+  return (
+    <details className="report-details">
+      <summary>{DETAILS_TITLE}</summary>
+      <ReportFacts facts={details.facts} className="report-facts" />
+      {details.tables.map((table) => (
+        <ReportTable key={table.caption} table={table} />
+      ))}
+      <h4>Terms</h4>
+      <ReportFacts facts={details.terms} className="report-terms" />
+    </details>
+  )
+}
+
 function ReportSection({ section }: { section: PanelSection }) {
   const titleId = useId()
   return (
@@ -23,38 +87,9 @@ function ReportSection({ section }: { section: PanelSection }) {
       <h3 id={titleId}>{section.title}</h3>
       {section.text !== null && <p>{section.text}</p>}
       {section.tables.map((table) => (
-        <table key={table.caption} className="report-table">
-          <caption>{table.caption}</caption>
-          <thead>
-            <tr>
-              {table.columns.map((column) => (
-                <th key={column} scope="col">
-                  {column}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {table.rows.map((row, index) => (
-              <tr key={index}>
-                {row.map((cell, column) => (
-                  <td key={column}>{cell}</td>
-                ))}
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        <ReportTable key={table.caption} table={table} />
       ))}
-      {section.facts.length > 0 && (
-        <dl className="report-facts">
-          {section.facts.map((fact) => (
-            <div key={fact.label}>
-              <dt>{fact.label}</dt>
-              <dd>{fact.value}</dd>
-            </div>
-          ))}
-        </dl>
-      )}
+      <ReportFacts facts={section.facts} className="report-facts" />
       {section.items.length > 0 && (
         <ul>
           {section.items.map((item, index) => (
@@ -62,6 +97,7 @@ function ReportSection({ section }: { section: PanelSection }) {
           ))}
         </ul>
       )}
+      {section.details !== null && <ReportDetails details={section.details} />}
     </section>
   )
 }
@@ -77,7 +113,7 @@ export function RunReportDialog({ songName, report, onClose }: RunReportDialogPr
   const titleId = useId()
   const voices = useSongStore((state) => state.current?.voices)
   const sections = useMemo(() => reportPanel(report, undefined, voices), [report, voices])
-  const text = useMemo(() => reportToText(report), [report])
+  const text = useMemo(() => reportToText(report, undefined, voices), [report, voices])
 
   useEffect(() => {
     dialogRef.current?.focus()

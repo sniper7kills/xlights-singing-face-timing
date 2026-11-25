@@ -325,7 +325,14 @@ body.rv-open .layout { padding-right:21rem; }
 </li>
 <li>FR-editor-50 — <code>Space</code> plays or pauses from a button of the toolbar.
 </li>
+<li>FR-editor-51 — Each track row and the "Song" row show whether the row sounds now.
+</li>
+<li>FR-editor-52 — The heading of the group "Audio tracks" names the rows that sound.
+</li>
+<li>FR-editor-53 — The editor tells the person when it cannot read the run data of
+</li>
 </ul>
+<p>the song.</p>
 <h3 id="timeline-editor-user-flows">User flows</h3>
 <h4 id="timeline-editor-correct-the-time-of-a-word">Correct the time of a word</h4>
 <div class="diagram"><pre class="mermaid">flowchart TD
@@ -462,27 +469,68 @@ body.rv-open .layout { padding-right:21rem; }
 </li>
 </ul>
 <p>layer. A plain click sets the anchor.</p>
-<p>Track rows (FR-editor-31 to 37):</p>
+<p>Track rows (FR-editor-31 to 37, 51 to 53):</p>
 <ul>
 <li>A song with kept audio tracks shows the group "Audio tracks" under the waveform.
 </li>
 </ul>
-<p>The group has the rows "Vocals" and "Instruments". Each row draws the waveform of its audio track on the time scale of the stage. A row is lower than the waveform.</p>
+<p>The group has the rows "Song", "Vocals" and "Instruments". Each row except "Song" draws the waveform of its audio track on the time scale of the stage. A row is lower than the waveform.</p>
 <ul>
 <li>If the singer step of the last run put the singers on voices, the group also has
 </li>
 </ul>
 <p>one row for each of those voices. The row finds its voice by the voice id in the run data, so the row name is the present voice name. The row shows the vocals only in the time ranges of that singer, in the colour of the voice. The rows follow the voice order. The row name has the tooltip "This row is the vocals track, limited to the times of this singer."</p>
 <ul>
-<li>The waveform of the song is the row "Song". It gets its controls when the group
+<li>The row "Song" is the song audio. It has no waveform of its own, because the
 </li>
 </ul>
-<p>shows.</p>
+<p>waveform of the song is at the top of the stage. Its name has the tooltip "This row is the song audio. Its waveform is at the top of the stage."</p>
 <ul>
-<li>Each row has the toggle buttons "Mute &lt;row name&gt;" and "Solo &lt;row name&gt;". A
+<li>Each row has a line above its waveform with, from left to right, the row name,
 </li>
 </ul>
-<p>pressed button shows a fill, a bold letter and a frame.</p>
+<p>the sound sign, "Mute" and "Solo". The line starts at the left edge of the stage, as the names of the layers. No part of the line covers the waveform. The waveform has the width of the stage and lines up with the time ruler at each zoom and scroll.</p>
+<ul>
+<li>The sound sign shows a speaker that plays or a speaker that is silent. For
+</li>
+</ul>
+<p>assistive technology, it has the text "plays" or "silent". Its tooltip:</p>
+<ul>
+<li>"Plays." for a row that sounds.
+<ul>
+<li>"Silent, because "Mute" is on." for a muted row.
+</li>
+<li>"Silent, because "Solo" is on for &lt;row names&gt;." for a row that a solo of other
+</li>
+</ul>
+</li>
+</ul>
+<p>rows makes silent.</p>
+<ul>
+<li>"Silent, because the browser did not start the sound." for a row whose play
+</li>
+</ul>
+<p>the browser refused.</p>
+<ul>
+<li>"Mute" and "Solo" are toggle buttons with the names "Mute &lt;row name&gt;" and "Solo
+</li>
+</ul>
+<p>&lt;row name&gt;". "Mute" has the tooltip "Mute: do not play this track." "Solo" has the tooltip "Solo: play only this track." A pressed button shows a fill, a bold label and a frame. A row never shows "Mute" and "Solo" pressed together.</p>
+<ul>
+<li>The heading of the group has the fold button "Audio tracks" and the rows that
+</li>
+</ul>
+<p>sound, for example "Audio tracks — plays: Vocals". With no row that sounds, the text is "plays: nothing". The text shows also when the group is folded.</p>
+<ul>
+<li>While the person has not changed a mute or a solo of the song, the group shows
+</li>
+</ul>
+<p>"The tracks start muted. Select "Solo" on a track to hear it alone." under the heading.</p>
+<ul>
+<li>While a mute or a solo makes the "Song" row silent, the play button has the
+</li>
+</ul>
+<p>tooltip "The song audio is muted. See "Audio tracks"."</p>
 <ul>
 <li>The fold button "Audio tracks" hides and shows the rows. It has <code>aria-expanded</code>.
 </li>
@@ -498,7 +546,10 @@ body.rv-open .layout { padding-right:21rem; }
 <ul>
 <li>A song with no kept audio tracks shows no group and no "Song" controls.
 </li>
+<li>If the app cannot read the run data of the song, the place of the group shows
+</li>
 </ul>
+<p>"The app could not read the run report and the separated tracks of this song. Reload the page." The disabled "Run report" action has the same text as its tooltip.</p>
 <h3 id="timeline-editor-behaviour-rules">Behaviour rules</h3>
 <ul>
 <li><strong>Track rows.</strong>
@@ -514,6 +565,24 @@ body.rv-open .layout { padding-right:21rem; }
 </li>
 </ul>
 <p>not muted sounds.</p>
+<ul>
+<li>"Solo" on a muted row removes its mute and soloes it, with one click.
+<ul>
+<li>"Mute" on a soloed row ends its solo and mutes it, with one click. So the row
+</li>
+</ul>
+</li>
+</ul>
+<p>is silent after the click.</p>
+<ul>
+<li>"Solo" on a soloed row ends the solo. The row keeps its mute state.
+<ul>
+<li>The sound sign, the heading text and the tooltip of the play button use one
+</li>
+</ul>
+</li>
+</ul>
+<p>rule: the mute and solo rule above, and the rows whose play the browser refused.</p>
 <ul>
 <li>With "Song" muted, the song audio plays with no sound. The play cursor, the
 </li>
@@ -783,6 +852,7 @@ formatTime(ms: number): string                   // m:ss.mmm</code></pre>
 <tr><td>3 000 marks in view</td><td>Scroll and zoom stay at 60 frames per second. The editor draws only the marks in view.</td></tr>
 <tr><td>A new run stores new tracks</td><td>The track rows show the new tracks.</td></tr>
 <tr><td>The browser refuses to play a track (<code>NotAllowedError</code>)</td><td>The track stays silent, and the song audio plays. The group shows "The browser did not start the sound of &lt;row name&gt;. Select "Mute" and then "Solo" on the row again." The app tries the track again after the next click on "Mute" or "Solo" of that row.</td></tr>
+<tr><td>The app cannot read the run data of the song</td><td>The place of the group "Audio tracks" shows "The app could not read the run report and the separated tracks of this song. Reload the page." The "Run report" action is disabled, with the same text as its tooltip.</td></tr>
 <tr><td>The play of a track stops for another cause, for example a quick pause</td><td>No message. The next check starts the track again.</td></tr>
 <tr><td>A phrase edit changes the times of a singer row during play</td><td>The track keeps its play. The muted "Song" stays muted. The row uses the new times.</td></tr>
 <tr><td>A voice of a singer row has a new name</td><td>The row shows the new name with the same ranges. The other rows do not change.</td></tr>
@@ -947,6 +1017,22 @@ formatTime(ms: number): string                   // m:ss.mmm</code></pre>
 <ul>
 <li>After a reload, the mute, the solo and the fold of the song stay. (FR-editor-37)
 </li>
+<li>With "Solo" on "Vocals", the "Song" row shows that it is silent and why.
+</li>
+</ul>
+<p>(FR-editor-51)</p>
+<ul>
+<li>No row shows "Mute" and "Solo" pressed together. (FR-editor-33, 34)
+</li>
+<li>The folded group names the rows that sound. (FR-editor-52)
+</li>
+<li>No row name covers a waveform. (FR-editor-31)
+</li>
+<li>A failed read of the run data shows its cause in the place of the group.
+</li>
+</ul>
+<p>(FR-editor-53)</p>
+<ul>
 <li>A changed phrase label shows the confirm dialog, and confirm rebuilds the words.
 </li>
 </ul>

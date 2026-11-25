@@ -9,7 +9,7 @@ import {
 } from 'react'
 import { formatTime } from '../../lib/time/formatTime.ts'
 import { getAudioFile, putRecord, StorageFullError } from '../../store/db.ts'
-import { SONG_ROW } from '../../lib/audio/trackMix.ts'
+import { playButtonNote } from '../../lib/audio/trackMix.ts'
 import { useTrackMixStore } from '../../store/trackMixStore.ts'
 import { useViewStore } from '../../store/viewStore.ts'
 import {
@@ -20,7 +20,6 @@ import {
 import { SectionBand } from '../voices-sections/SectionBand.tsx'
 import { pauseOnRefusal } from './playerStore.ts'
 import { PlayCursor } from './PlayCursor.tsx'
-import { RowControls } from './RowControls.tsx'
 import { TimeRuler } from './TimeRuler.tsx'
 import { TimeSelection } from './TimeSelection.tsx'
 import { TrackRows } from './TrackRows.tsx'
@@ -82,7 +81,7 @@ export function Waveform({ songId, durationMs, children }: WaveformProps) {
   // A new audio file for a song without one starts the load again.
   const [loadCount, setLoadCount] = useState(0)
   const playTimeMs = useViewStore((view) => view.playTimeMs)
-  const hasTracks = useTrackMixStore((state) => state.hasTracks)
+  const songNote = useTrackMixStore(playButtonNote)
   const { input, scale } = useStageScale(durationMs)
 
   useLayoutEffect(() => {
@@ -305,7 +304,6 @@ export function Waveform({ songId, durationMs, children }: WaveformProps) {
               Drawing waveform
             </div>
           )}
-          {hasTracks && <RowControls rowId={SONG_ROW} name="Song" />}
         </div>
         <TrackRows songId={songId} durationMs={durationMs} />
         {children}
@@ -317,6 +315,7 @@ export function Waveform({ songId, durationMs, children }: WaveformProps) {
           type="button"
           className="play"
           aria-label={playing ? 'Pause' : 'Play'}
+          title={songNote}
           disabled={!ready}
           onClick={togglePlay}
         >

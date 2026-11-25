@@ -66,6 +66,8 @@ The user's request, verbatim:
 | audio track | noun | One audio signal of a song: the song audio, the vocals or the instruments. A timing track is a different term: it holds marks, not audio. | stem, channel |
 | track row | noun | One row of the stage under the waveform that shows one audio track, with "Mute" and "Solo". A layer is a different term: it holds marks. | lane, strip |
 | solo | verb | To make one track row or more the only rows that sound. | isolate |
+| sound sign | noun | The speaker sign on a track row that shows whether the row sounds now. | speaker icon, audio indicator |
+| voice print | noun | A list of numbers that the singer step computes from a short part of the vocals. Two parts with close voice prints probably have the same singer. The details of the run report also give the technical term "embedding". | fingerprint, voice signature |
 | voice | noun | One singer or one vocal part in a song. One voice becomes one timing track. | singer, face, character, part |
 | singer | noun | A person who sings in the audio of a song. The app estimates the singers and gives each one a voice. A singer is the person in the audio, and a voice is the row in the app, so a voice is never called a singer. | speaker, vocalist, performer |
 | section | noun | A named time range of the song, for example "Chorus 1". | segment, region, part |
