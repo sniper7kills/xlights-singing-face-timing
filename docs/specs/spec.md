@@ -96,6 +96,7 @@ The user's request, verbatim:
 | export | verb | To write an `.xtiming` file and give it to the person as a download. | save, generate, publish |
 | zip file | noun | One `.zip` file from the export dialog that holds the timing files, the audio file and the song data of one song. | archive, bundle, package |
 | face model | noun | The xLights model that shows a singing face. | prop, face |
+| face definition | noun | The part of a face model in xLights that gives the nodes or the picture for each phoneme label and each eye state. | face map, mouth map |
 | editor | noun | The screen that shows the waveform and the layers of the selected voice. | timeline, workspace |
 
 ## Goals
@@ -599,6 +600,8 @@ None of these blocks approval. Each one names the epic that settles it.
 - 2026-11-24 — The editor shows each kept audio track as a track row with "Mute"
   and "Solo" (issue #130). Each track plays in its own media element that follows
   the song audio, so the play speed keeps the pitch (`docs/adr/0010`).
+- 2026-11-24 — The export checks warn when the xLights import changes a timing
+  track name, and the name fields show the name after the import (issue #143).
 
 ## Issue map
 

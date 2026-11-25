@@ -12,13 +12,15 @@ type LabelEditorProps = {
   onSave: (text: string, refocus: boolean) => void
   /** Receives `Escape`. */
   onCancel: () => void
+  /** Receives the text after each change. */
+  onTextChange?: (text: string) => void
 }
 
 /**
  * Shows a text field in place of a label. `Enter` and a lost focus save the text, and `Escape` cancels.
  * The field reports one result only, because a save or a cancel removes the field and the removal can blur it.
  */
-export function LabelEditor({ initial, name, onSave, onCancel }: LabelEditorProps) {
+export function LabelEditor({ initial, name, onSave, onCancel, onTextChange }: LabelEditorProps) {
   const done = useRef(false)
 
   function finish(run: () => void) {
@@ -47,6 +49,7 @@ export function LabelEditor({ initial, name, onSave, onCancel }: LabelEditorProp
       autoFocus
       onFocus={(event) => event.currentTarget.select()}
       onKeyDown={onKeyDown}
+      onChange={(event) => onTextChange?.(event.currentTarget.value)}
       onBlur={(event) => {
         const text = event.currentTarget.value
         const refocus = event.relatedTarget === null

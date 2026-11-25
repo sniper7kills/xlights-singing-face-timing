@@ -169,6 +169,12 @@ describe('runTranscription with singer voices', () => {
     expect(outcome.singers).toEqual({ status: 'split', voiceCount: 2, voiceName: 'Lead Vocals' })
   })
 
+  it('gives the count of singers of the request to the singer search', async () => {
+    await runTranscription({ ...request, singerCount: 3 }, fakeClient(), handlers())
+
+    expect(vi.mocked(findSingers).mock.calls[0]?.[1]?.singerCount).toBe(3)
+  })
+
   it('puts the second singer on "Singer 2" as a separate undo step after the marks', async () => {
     await runTranscription(request, fakeClient(), handlers())
 

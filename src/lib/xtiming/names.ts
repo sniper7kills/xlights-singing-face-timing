@@ -39,6 +39,30 @@ export function defaultTrackNames(
   return names
 }
 
+// `RemoveUnsafeXmlChars` of xLights 2026.21 (src-core/utils/UtilFunctions.cpp:315-328) compares each byte as a
+// signed `char`, so it removes each byte of UTF-8 above 127. Each code point above 127 has only such bytes.
+const REMOVED_ON_IMPORT = /[^\x20-\x7f]|[=<>&"']/g
+
+/**
+ * Returns the timing track name that xLights shows after the import of the name.
+ * xLights 2026.21 removes `= < > & " '`, each control character and each character that is not ASCII.
+ * It does not trim spaces.
+ * @param name The timing track name in the file.
+ */
+export function nameAfterImport(name: string): string {
+  return name.replace(REMOVED_ON_IMPORT, '')
+}
+
+/**
+ * Returns the hint under a name field: `xLights shows this name as “<name after>”.`
+ * Returns null when xLights shows the name unchanged.
+ * @param name The name that the person typed.
+ */
+export function importNameHint(name: string): string | null {
+  const after = nameAfterImport(name)
+  return after === name ? null : `xLights shows this name as “${after}”.`
+}
+
 // Windows refuses these characters in a file name, and `/` separates folders on every system.
 const UNSAFE_FILE_CHARACTERS = /[\\/:*?"<>|]/g
 

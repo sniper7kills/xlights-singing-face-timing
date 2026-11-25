@@ -84,6 +84,14 @@ describe('ExportDialog', () => {
     for (const voice of voices) expect(voice).toBeChecked()
   })
 
+  it('shows the hint for face models that sing together under the voices', () => {
+    renderDialog(makeContent([lead, santa], makeSungPhrase('v1', 0)))
+
+    expect(screen.getByRole('group', { name: 'Voices' })).toHaveTextContent(
+      'Use one voice for each group of face models that sing together.',
+    )
+  })
+
   it('is ready with "Download" enabled when no finding exists', () => {
     renderDialog(twoVoices)
 
@@ -264,6 +272,40 @@ describe('ExportDialog', () => {
     expect(screen.getByText(/Checks · 1 error/)).toBeInTheDocument()
   })
 
+  it('shows a warning with the name after the xLights import and keeps "Download" enabled', async () => {
+    const user = userEvent.setup()
+    renderDialog(twoVoices)
+
+    const name = screen.getByRole('textbox', { name: 'Name of the timing track for Santa' })
+    await user.clear(name)
+    await user.type(name, 'Café')
+
+    expect(await screen.findByText(/Checks · 0 errors · 1 warning/)).toBeInTheDocument()
+    expect(
+      screen.getByText(
+        'xLights shows the timing track “Café” as “Caf”. xLights removes = < > & " \' and characters that are not ASCII from a name.',
+      ),
+    ).toBeInTheDocument()
+    expect(download()).toBeEnabled()
+  })
+
+  it('disables "Download" when a timing track name is empty after the xLights import', async () => {
+    const user = userEvent.setup()
+    renderDialog(twoVoices)
+
+    const name = screen.getByRole('textbox', { name: 'Name of the timing track for Santa' })
+    await user.clear(name)
+    await user.type(name, 'Ééé')
+
+    expect(await screen.findByText(/Checks · 1 error/)).toBeInTheDocument()
+    expect(
+      screen.getByText(
+        'xLights cannot use the timing track name “Ééé”. Use letters from A to Z, digits or spaces.',
+      ),
+    ).toBeInTheDocument()
+    expect(download()).toBeDisabled()
+  })
+
   it('closes and selects the mark of a finding that the person clicks', async () => {
     const user = userEvent.setup()
     const marks = makeSungPhrase('v1', 1000).filter((mark) => mark.layer !== 'phoneme')
@@ -379,7 +421,8 @@ describe('ExportDialog', () => {
       ),
     )
     expect(steps).toHaveAttribute('open')
-    expect(within(steps as HTMLElement).getAllByRole('listitem')).toHaveLength(7)
+    const importList = within(steps as HTMLElement).getByRole('list', { name: 'Import steps' })
+    expect(within(importList).getAllByRole('listitem')).toHaveLength(7)
     expect(onClose).not.toHaveBeenCalled()
   })
 

@@ -3,7 +3,7 @@ id: xtiming-export
 feature: xtiming export
 epic: "Epic 6: Export"
 status: issued
-issues: [41, 42, 43, 44, 45, 46, 79, 132]
+issues: [41, 42, 43, 44, 45, 46, 79, 132, 138]
 mockups: [mockups/03-export.html]
 ---
 
@@ -26,6 +26,8 @@ next.
   do not search a manual.
 - As the person, I want all files of a song in one download, so that I can keep a
   backup or move the song to another computer.
+- As the person, I want the steps for a lead face model and chorus face models, so
+  that one face model sings the lead and other face models sing the chorus together.
 
 ## Functional requirements
 
@@ -85,6 +87,12 @@ next.
   of the zip file.
 - FR-export-33 — The app writes the zip file in the browser. No request carries
   any part of it.
+- FR-export-34 — The export dialog shows the steps for several face models under
+  the import steps.
+- FR-export-35 — `README.txt` holds the steps for several face models after the
+  import steps.
+- FR-export-36 — The "Voices" group shows the hint "Use one voice for each group of
+  face models that sing together."
 
 ## User flows
 
@@ -159,7 +167,11 @@ Labels:
 - Checks heading: "Checks · <count> errors · <count> warnings". A count of 1 gives
   "1 error" and "1 warning".
 - Preview heading: "Preview · <file name>". Name of the preview region: "File preview".
-- Import steps heading: "Next, in xLights".
+- Import steps heading: "Next, in xLights". Name of the first list: "Import steps".
+- Heading and name of the second list: "Use the timing tracks with several face
+  models".
+- Hint under the voice list: "Use one voice for each group of face models that sing
+  together."
 - Footer count line: "<count> timing tracks · <count> files". A count of 1 gives
   "1 timing track" and "1 file".
 - Done line for several files: "<count> timing tracks written to <count> files".
@@ -213,7 +225,8 @@ Labels:
 - The `<timings>` lines are absent when the file has one timing track.
 - `subType` is an empty string.
 - `SourceVersion` is `2024.01`. xLights does not read this attribute on import. The
-  value matches the value in the xLights round-trip tests.
+  value matches the value in the xLights round-trip tests. xLights 2026.21 writes
+  its own version, `2026.21`, in a file that it exports.
 - Marks in a layer are in order of start time.
 - A voice with no phoneme still gets three `<EffectLayer>` elements. The Faces
   effect needs three layers.
@@ -229,8 +242,11 @@ Labels:
 | A selected voice has no marks. | error | `“<voice name>” has no marks.` |
 | Two timing tracks have the same name. | error | `Two timing tracks have the name “<timing track name>”.` |
 | A timing track name is empty. | error | `A timing track of “<voice name>” has no name.` |
+| A timing track name has only spaces after the xLights import. | error | `xLights cannot use the timing track name “<timing track name>”. Use letters from A to Z, digits or spaces.` |
 | A phoneme label is not one of the ten phoneme labels. | error | `“<label>” at <time> is not a phoneme label.` |
 | A mark has an end time that is not after its start time. | error | `“<label>” at <time> ends at or before its start.` |
+| The xLights import changes a timing track name. | warning | `xLights shows the timing track “<timing track name>” as “<name after the import>”. xLights removes = < > & " ' and characters that are not ASCII from a name.` |
+| Two different timing track names are the same after the xLights import. | warning | `xLights gives these timing tracks almost the same name: “<name after the import>” and “<name after the import>_1”. Change a voice name or a section name.` |
 | A word has no phoneme. | warning | `“<label>” at <time> has no phoneme.` |
 | A word is "unknown". | warning | `“<label>” at <time> is an unknown word. Its phonemes are a guess.` |
 | A word is "estimated". | warning | `“<label>” at <time> has an estimated time.` |
@@ -241,26 +257,64 @@ Labels:
   change.
 - If the snap makes a mark zero length, the app extends the mark to one frame size
   and reports the warning.
+- The xLights import removes each of `= < > & " '`, each control character and
+  each character that is not ASCII from a timing track name. It keeps the spaces.
+  The checks compare the names after this removal.
+- If two names are the same after the removal, xLights adds `_1` to the second
+  name. The person then cannot tell the two timing tracks apart.
+- An empty timing track name, or a name that is the same before the import, has
+  its own error. The import checks do not report it again.
 
-**Import steps text.** The dialog shows these steps:
+**Import steps text.** The dialog shows these steps. The names of the controls are
+the names in xLights 2026.21.
 
 1. Open the sequence in xLights. Use the same audio file, so the times match.
-2. Check the frame size: Sequence Settings shows 25 ms or 50 ms. It must match the
-   frame size in this dialog.
+2. Check the frame size: in "Sequence Settings", the tab "Info / Media" shows
+   "Sequence Timing". It must match the frame size in this dialog.
+   Note: If the song has a frame size of 25 ms and the sequence has 50 ms, xLights
+   moves each time down to a multiple of 50 ms.
 3. Right-click a timing row heading and select "Import Timing Track".
 4. Select the `.xtiming` file. If the file has several timing tracks, xLights adds
    one timing track for each.
-5. Drop a Faces effect on the row of the face model.
-6. In the effect settings, under "Mouth Movements", select the timing track for
-   that face model.
+   Note: If a timing track with the same name exists in the sequence, xLights adds
+   "_1" to the new name. xLights also removes & < > " ' = and each character that
+   is not ASCII from a timing track name.
+5. Drop a Faces effect on the row of the face model, from the start to the end of
+   the song.
+   Note: The effect moves the mouth only during its own time.
+6. In the effect settings, under "Mouth Movements", select "Timing Track" and the
+   timing track for that face model.
+   Note: The list shows only the timing tracks with three layers.
 7. Repeat steps 5 and 6 for each face model.
 
-Verified against:
+**Steps for several face models.** Under the import steps, the dialog shows the
+heading "Use the timing tracks with several face models" and these steps. A face
+model is, for example, a singing tree or a singing pumpkin.
+
+1. Check that each face model has a face definition with a mouth for each phoneme
+   label: AI, E, etc, FV, L, MBP, O, rest, U, WQ.
+   Note: A singing tree or a singing pumpkin from a vendor comes with a face
+   definition. xLights shows no mouth for a phoneme label that the face definition
+   does not have.
+2. Drop one Faces effect on the face model that sings the lead.
+3. Under "Mouth Movements", select "Timing Track" and the timing track of the lead
+   voice.
+4. Drop one Faces effect on each face model that sings the chorus.
+   Note: Put the effect on each face model, not on a model group. On a model group,
+   xLights shows only a face definition of the type "Matrix".
+5. In each of these effects, select the same timing track: the timing track of the
+   chorus voice.
+
+`README.txt` holds the same two lists as plain text. A blank line and the heading
+with a colon separate the two lists.
+
+Verified against the xLights source at tag `2026.21` (see
+[Interfaces](#interfaces)), a real import into xLights 2026.21 (issue #79), and
 https://manual.xlights.org/xlights/chapters/chapter-four-sequencer/singing-faces.md
 and
 https://manual.xlights.org/xlights/chapters/chapter-four-sequencer/timing-tracks.md
-(retrieved 2026-11-24). The manual does not give the menu path for the frame size.
-Epic 6 confirms the wording of step 2 in xLights.
+(retrieved 2026-11-24). The manual does not give the place of the frame size, the
+ten phoneme labels, or the rule for a model group.
 
 **Zip file.** With "Everything as one zip file" selected, "Download zip" gives
 one file, `<song name>.zip`. It holds these entries, in this order:
@@ -276,7 +330,7 @@ one file, `<song name>.zip`. It holds these entries, in this order:
 | `tracks/vocals.wav` | The last run kept the audio tracks | The vocals of the last vocal separation: a WAV file of 16-bit PCM in one channel, at the stored sample rate. |
 | `tracks/instruments.wav` | The last run kept the audio tracks | The instruments of the last vocal separation, in the same form. |
 | `report.txt` | The song has a run report | The text of the run report, as "Copy report" gives it. |
-| `README.txt` | Always | One line for each entry of this zip file, then the import steps text. |
+| `README.txt` | Always | One line for each entry of this zip file, then the import steps text and the steps for several face models. |
 
 - The `README.txt` line of each audio track states its sample rate and the song
   time of its first sample. A range run gives the start of the range.
@@ -304,28 +358,44 @@ one file, `<song name>.zip`. It holds these entries, in this order:
 
 ## Interfaces
 
-**The `.xtiming` format.** Verified against the xLights source at commit `99a289bf`
-of https://github.com/xLightsSequencer/xLights:
+**The `.xtiming` format.** Verified against the xLights source at tag `2026.21`,
+commit `a123de002e04b9fe9a8e56a7da92ebbf831615ba`, of
+https://github.com/xLightsSequencer/xLights (issue #138). The earlier check used
+commit `99a289bf`. That commit is the parent of the tag, and the tag commit changes
+only the version files, so no rule changed. Paths and lines are at the tag.
 
-- `src-core/render/Element.cpp`, `TimingElement::GetExport()` — the
-  `<EffectLayer>` and `<Effect label starttime endtime />` lines and their
-  indentation.
-- `src-ui-wx/sequencer/RowHeading.cpp` — the XML declaration, the `<timings>`
-  wrapper for more than one timing track, and the `<timing name subType
-  SourceVersion>` line.
-- `src-core/render/SequenceFile.cpp`, `SequenceFile::ProcessXTiming` — the import:
-  it reads `name` and `subType`, takes each `<EffectLayer>` in order, reads
-  `label`, `starttime` and `endtime`, and moves each time down to a multiple of the
-  frame size.
-- `src-core/effects/FacesEffect.cpp` — the Faces effect reads layer index 2 and
-  shows `rest` when the timing track has fewer than 3 layers.
-- `tests/unit/core/test_roundtrip_misc.cpp` — labels with `&`, `<`, `"`, `'` and
-  non-ASCII text survive export and import.
+| Rule | Source at `2026.21` | Result |
+|---|---|---|
+| The XML declaration, `<timings>` for more than one timing track, and `<timing name subType SourceVersion>` in this order | `src-ui-wx/sequencer/RowHeading.cpp:1816-1834` | Confirmed |
+| `<EffectLayer>` with 3 spaces, `<Effect label starttime endtime />` with 6 spaces, `\n` line ends | `src-core/render/Element.cpp:824-840` | Confirmed |
+| The import reads `<timing>` or `<timings>` and adds every timing track. It asks nothing. | `src-core/render/SequenceFile.cpp:1002-1017` | Confirmed |
+| The import reads `name` and `subType`. It does not read `SourceVersion`. | `src-core/render/SequenceFile.cpp:931-934` | Confirmed |
+| The import takes each `<EffectLayer>` in order. Layer 1 is the first layer of the new timing track. | `src-core/render/SequenceFile.cpp:942-955` | Confirmed |
+| The import moves each time down to a multiple of the frame size. | `src-core/render/SequenceFile.cpp:966-973` | Confirmed |
+| `XmlSafe` writes `&amp;`, `&lt;`, `&gt;`, `&apos;`, `&quot;`, and `&#9;`, `&#10;`, `&#13;`. It removes the other control characters and keeps UTF-8 bytes. | `src-core/utils/UtilFunctions.cpp:179-205` | Confirmed: the same as `escapeXml` |
+| A timing track name that exists gets `_1`, `_2` and so on. | `src-core/render/SequenceFile.cpp:903-926` | Different: the spec said "renames". Now exact. |
+| The import removes `= < > & " '` and each character that is not ASCII from a timing track name. | `src-core/render/SequenceFile.cpp:905`, `src-core/utils/UtilFunctions.cpp:315-328` | Different: not in the spec before. The import steps state it. The checks warn about it (issue #143). |
+| The removal compares each byte as a signed `char`. It removes each byte below 32 and each UTF-8 byte above 127. It keeps byte 127 and does not trim spaces. A second name that is the same after the removal gets `_1`. An empty name makes a timing track with no name. | `src-core/utils/UtilFunctions.cpp:315-328`, `src-core/render/SequenceFile.cpp:903-936`, `src-ui-wx/sequencer/tabSequencer.cpp:3822-3836` | Confirmed from the source for issue #143. Not confirmed by a real import. |
+| The "Timing Track" list of the Faces effect shows only timing tracks with exactly 3 layers. | `src-ui-wx/effectpanels/FacesPanel.cpp:166-177` | Confirmed: the reason for three layers |
+| The Faces effect reads layer index 2. With no phoneme at a time, or an empty label, it shows `rest`. | `src-core/effects/FacesEffect.cpp:1164-1194` | Confirmed |
+| The phoneme labels are `AI`, `E`, `FV`, `L`, `MBP`, `O`, `U`, `WQ`, `etc`, `rest`, and `(off)`. The comparison is case-sensitive. | `src-core/effects/FacesEffect.cpp:609-631` | Confirmed |
+| A face definition key is `Mouth-<label>`, for example `Mouth-AI`. A label with no key lights no mouth node. | `src-core/effects/FacesEffect.cpp:1211-1220` | Confirmed |
+| On a model group, the Faces effect draws only a face definition of the type `Matrix`. | `src-core/effects/FacesEffect.cpp:1060-1068`, `:1160` | Confirmed, also by a real render |
+| The face definition types in the model dialog are "Single Nodes", "Node Ranges" and "Matrix". | `src-ui-wx/model/ModelFacesPanel.cpp:408-410` | Confirmed |
+| The frame size is "Sequence Timing" on the tab "Info / Media" of "Sequence Settings". | `src-ui-wx/sequencer/SeqSettingsDialog.cpp:321`, `:451` | Confirmed, also in the program |
 
-The exact output of the xLights `XmlSafe` function for each character is not
-verified. The app writes standard XML entities (`&amp;`, `&lt;`, `&gt;`, `&quot;`,
-`&apos;`). Epic 6 confirms in xLights that a label with each of the five characters
-imports unchanged.
+A real import into xLights 2026.21 on Linux confirmed the format (issue #79):
+
+- xLights imports one file with all timing tracks, and one file for each timing
+  track, with no message. Each timing track has three layers.
+- xLights exports the imported timing tracks with the same bytes as the file of the
+  app, except `SourceVersion`. `tests/fixtures/xtiming/xlights-2026.21-export.xtiming`
+  is that file. `xlightsFile.test.ts` compares it with `writeXtiming`.
+- A label with `&`, `<`, `>`, `"`, `'` and `café` imports and exports unchanged.
+  The sequencer grid of 2026.21 shows `café` as `caf??`. The bytes do not change.
+- A Faces effect on each of three face models with a "Node Ranges" face definition
+  shows the mouth of the phoneme of its timing track in each of 557 frames.
+- A Faces effect on a model group of two such face models lights no node.
 
 **Module contract, `src/lib/xtiming/`:**
 
@@ -463,14 +533,17 @@ importStepsText(frameMs: number): string
 
 | Case | Result |
 |---|---|
-| Label contains `&` | The file has `&amp;`. xLights shows `&`. |
-| Label has non-ASCII text, for example `café` | The file has the UTF-8 bytes unchanged. |
+| Label contains `&` | The file has `&amp;`. xLights shows `&`. A real import confirms it. |
+| Label has non-ASCII text, for example `café` | The file has the UTF-8 bytes unchanged. xLights keeps the bytes. The sequencer grid of xLights 2026.21 shows `caf??`. |
 | Voice with phrases and words but no phonemes | Three layers, the third is empty. Warning for each word. |
 | Section grouping with no sections | The dialog disables that grouping with the hint "This song has no sections." |
 | The browser can block several downloads | The dialog shows a standing hint beside "One file for each timing track": "The browser can block several downloads. If files are missing, allow downloads for this site, or select One file." A page cannot detect a blocked download. |
 | A label has a control character | The file omits the characters that XML 1.0 forbids. A tab or a line break in a label is kept. |
 | 12 voices and 10 sections | 120 timing tracks at most. The timing track list scrolls. |
-| A timing track name exists in the xLights sequence | xLights renames the track on import. The import steps state this. |
+| A timing track name exists in the xLights sequence | xLights adds `_1` to the name on import, then `_2` and so on. The import steps state this. |
+| A timing track name has `&`, `<`, `>`, `"`, `'`, `=` or a character that is not ASCII | xLights removes those characters from the name on import. `Lead & "Co" <café>` becomes `Lead  Co caf`. The import steps state this. |
+| A phoneme label that the face definition of the face model does not have | xLights lights no mouth node for that phoneme. |
+| A Faces effect on a model group | xLights draws only a face definition of the type "Matrix". The steps for several face models state this. |
 | Song with frame size 25 ms imported into a 50 ms sequence | xLights moves times down to 50 ms. The import steps warn about it in step 2. |
 | The app cannot read the audio file of the song for the zip file | The dialog shows "The app could not read the audio file of this song. Download the timing files without the zip." The dialog stays open. |
 | The zip file needs ZIP64 | The dialog shows "The song is too large for one zip file. Download the files one at a time." The dialog stays open. |
@@ -503,7 +576,18 @@ importStepsText(frameMs: number): string
 - A song with a word that has no phoneme lists one warning. (FR-export-16)
 - A click on a finding selects the mark in the editor. (FR-export-17)
 - Two timing tracks with one name disable "Download". (FR-export-18)
+- A timing track name `Café` gives one warning in the checks. "Download" stays
+  enabled. (FR-export-16)
+- A timing track name `Lead Vocals` gives no warning. (FR-export-16)
+- A timing track name `Ééé` disables "Download". (FR-export-18)
 - The dialog shows the 7 import steps after a download. (FR-export-20)
+- The dialog shows the 5 steps for several face models under the import steps.
+  (FR-export-34)
+- `README.txt` ends with the 5 steps for several face models. (FR-export-35)
+- The "Voices" group shows the hint for face models that sing together.
+  (FR-export-36)
+- `writeXtiming` writes the same bytes as xLights 2026.21 for the timing tracks of
+  a file that xLights exported. (FR-export-11 to 15)
 - The dialog opens with the options of the previous export of that song.
   (FR-export-21)
 - The preview shows the first 40 lines of the file text. (FR-export-22)
@@ -527,7 +611,8 @@ importStepsText(frameMs: number): string
   run holds none of them. (FR-export-32)
 - **Manual check.** xLights imports the two-voice export of the demo song with no
   error message. A Faces effect on each of two face models animates from its timing
-  track. The check records the xLights version.
+  track. The check records the xLights version. A real import into xLights 2026.21
+  on an isolated display met this criterion on 2026-11-24 (issue #79).
 
 ## Out of scope
 

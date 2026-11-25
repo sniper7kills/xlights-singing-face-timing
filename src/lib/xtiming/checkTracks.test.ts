@@ -200,6 +200,100 @@ describe('checkTracks', () => {
     })
   })
 
+  describe('timing track names after the xLights import', () => {
+    it('gives one warning for the timing track name Café', () => {
+      const marks = cleanMarks()
+
+      expect(check([trackOf(marks, 'Café')], marks)).toEqual([
+        {
+          type: 'warning',
+          check: 'import-name-changed',
+          message:
+            'xLights shows the timing track “Café” as “Caf”. xLights removes = < > & " \' and characters that are not ASCII from a name.',
+          voiceId: 'lead',
+        },
+      ])
+    })
+
+    it('gives no finding for the timing track name Lead Vocals', () => {
+      const marks = cleanMarks()
+
+      expect(check([trackOf(marks, 'Lead Vocals')], marks)).toEqual([])
+    })
+
+    it('gives a warning for two names that are the same after the import', () => {
+      const marks = cleanMarks()
+      const tracks = [trackOf(marks, 'Chœur'), trackOf(marks, 'Chüur', 'harmony')]
+
+      expect(check(tracks, marks)).toEqual([
+        expect.objectContaining({ check: 'import-name-changed', voiceId: 'lead' }),
+        expect.objectContaining({ check: 'import-name-changed', voiceId: 'harmony' }),
+        {
+          type: 'warning',
+          check: 'import-name-same',
+          message:
+            'xLights gives these timing tracks almost the same name: “Chur” and “Chur_1”. Change a voice name or a section name.',
+          voiceId: 'harmony',
+        },
+      ])
+    })
+
+    it('gives a warning for a changed name that is the same as an earlier name that does not change', () => {
+      const marks = cleanMarks()
+      const tracks = [trackOf(marks, 'Caf'), trackOf(marks, 'Café', 'harmony')]
+
+      expect(check(tracks, marks).map((f) => f.check)).toEqual([
+        'import-name-changed',
+        'import-name-same',
+      ])
+    })
+
+    it('gives only the duplicate-name error for two names that are the same before the import', () => {
+      const marks = cleanMarks()
+      const tracks = [trackOf(marks, 'Café'), trackOf(marks, 'Café', 'harmony')]
+
+      expect(check(tracks, marks).map((f) => f.check)).toEqual([
+        'duplicate-name',
+        'import-name-changed',
+        'import-name-changed',
+      ])
+    })
+
+    it('gives an error for a name that is empty after the import', () => {
+      const marks = cleanMarks()
+
+      expect(check([trackOf(marks, 'Ééé ')], marks)).toEqual([
+        {
+          type: 'error',
+          check: 'import-name-empty',
+          message:
+            'xLights cannot use the timing track name “Ééé ”. Use letters from A to Z, digits or spaces.',
+          voiceId: 'lead',
+        },
+      ])
+    })
+
+    it('gives a warning for a default voice-section name with an accented section name', () => {
+      const sections = [
+        { id: 's1', songId: 'song-1', name: 'Refrán', startMs: 10_000, endMs: 20_000 },
+      ]
+      const marks = cleanMarks()
+      const opts = options({ grouping: 'voice-section' })
+
+      const tracks = buildTracks(song, voices, sections, marks, opts)
+
+      expect(check(tracks, marks, opts)).toEqual([
+        expect.objectContaining({
+          type: 'warning',
+          check: 'import-name-changed',
+          message: expect.stringContaining(
+            '“Lead Vocals - Refrán” as “Lead Vocals - Refrn”',
+          ) as string,
+        }),
+      ])
+    })
+  })
+
   describe('phoneme labels', () => {
     it('gives an error for a phoneme label that is not one of the ten labels', () => {
       const marks = cleanMarks()

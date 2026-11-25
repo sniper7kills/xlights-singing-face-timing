@@ -28,7 +28,8 @@ export const EMBEDDING_MODEL: SingerModel = {
 
 /**
  * A singer with less than this share of the sung time joins the closest other singer.
- * The one run on a song found 8 singers in 30 s where 2 were correct. This value and `MIN_SINGER_MS` are NOT tuned on songs.
+ * With "Automatic", each singer also holds this share of the embedding time or more.
+ * On the song of issue #137, the chorus held 22% and a split of one solo voice held 4%, so the value stays. See ADR 0009.
  */
 export const MIN_SINGER_SHARE = 0.05
 
@@ -39,6 +40,7 @@ export const MIN_SINGER_MS = 3000
  * The settings of the diarization, at the 16 000 Hz of the input.
  * The window is the 10 s that the segmentation model reads. The clustering values are those of the
  * pyannote.audio 3.1 pipeline (`tutorials/community/offline_usage_speaker_diarization.ipynb`), which is tuned on speech.
+ * The threshold applies to the centroids of the large groups. On the song of issue #137, the centroids of the man and the chorus were 0.764 apart.
  */
 export const DIARIZE_SETTINGS = {
   sampleRate: 16_000,

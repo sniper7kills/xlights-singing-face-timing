@@ -54,6 +54,16 @@ describe('findSingers', () => {
     expect(vocals).toHaveLength(2)
   })
 
+  it('posts the count of singers that the person gives', () => {
+    const worker = new FakeWorker()
+    const vocals = new Float32Array(4)
+    void findSingers(vocals, { singerCount: 2 }, () => worker)
+
+    expect(worker.received).toEqual([
+      { type: 'find-singers', runId: worker.runId(), vocals, singerCount: 2 },
+    ])
+  })
+
   it('sends the download and the progress to the handlers, and resolves with the segments', async () => {
     const { worker, onDownload, onProgress, result } = start()
     const runId = worker.runId()

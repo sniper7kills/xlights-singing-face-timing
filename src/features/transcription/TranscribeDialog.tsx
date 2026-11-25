@@ -21,6 +21,13 @@ import {
   isSeparationModelId,
   SEPARATION_MODELS,
 } from '../vocal-separation/engine/separationModels.ts'
+import {
+  isSingerCountChoice,
+  SINGER_COUNT_CHOICES,
+  type SingerCountChoice,
+  singerCountLabel,
+  singerCountOf,
+} from '../singer-voices/singerCount.ts'
 import type { SeparationModelId } from '../vocal-separation/protocol.ts'
 import { type Device, SPEECH_MODELS } from './protocol.ts'
 import { RemoteEndpointPanel } from './RemoteEndpointPanel.tsx'
@@ -55,6 +62,7 @@ import {
   separationModelLabel,
   separationNote,
   runSpeed,
+  SINGER_COUNT_NOTE,
   SINGER_HINT,
   SINGER_NOTE,
   shownRunState,
@@ -102,6 +110,7 @@ export function TranscribeDialog({
   const [separationModel, setSeparationModel] = useState(DEFAULT_SETTINGS.separationModel)
   const [singers, setSingers] = useState(DEFAULT_SETTINGS.singerVoices)
   const [keepTracks, setKeepTracks] = useState(DEFAULT_SETTINGS.keepTracks)
+  const [singerCount, setSingerCount] = useState(DEFAULT_SETTINGS.singerCount)
   const [range, setRange] = useState<TimeRange | undefined>(undefined)
   const remote = useRemoteChoice()
   const { restore } = remote
@@ -131,6 +140,7 @@ export function TranscribeDialog({
           setSeparationModel(settings.separationModel)
         setSingers(settings.singerVoices)
         setKeepTracks(settings.keepTracks)
+        if (isSingerCountChoice(settings.singerCount)) setSingerCount(settings.singerCount)
         restore(settings)
       })
     if (dialogRef.current !== null) tabStops(dialogRef.current)[0]?.focus()
@@ -178,6 +188,12 @@ export function TranscribeDialog({
     void updateSettings({ singerVoices: checked }).catch(() => undefined)
   }
 
+  function selectSingerCount(choice: SingerCountChoice) {
+    setSingerCount(choice)
+    // The choice applies to this run even when the browser storage is full.
+    void updateSettings({ singerCount: choice }).catch(() => undefined)
+  }
+
   function start() {
     void run.start({
       voiceId,
@@ -191,6 +207,7 @@ export function TranscribeDialog({
       separationModel,
       keepTracks: !lyricsOnly && separate && keepTracks,
       singerVoices: !lyricsOnly && separate && singers,
+      singerCount: singerCountOf(singerCount),
     })
   }
 
@@ -292,6 +309,8 @@ export function TranscribeDialog({
             enabled={separate}
             checked={singers}
             onChange={selectSingers}
+            count={singerCount}
+            onCountChange={selectSingerCount}
           />
           <fieldset className="choice-group">
             <legend>Range</legend>
@@ -478,10 +497,16 @@ type SingerChoiceProps = {
   enabled: boolean
   checked: boolean
   onChange: (checked: boolean) => void
+  count: SingerCountChoice
+  onCountChange: (count: SingerCountChoice) => void
 }
 
-/** Shows the check box "Put each singer on its own voice", its note, and the hint while it is disabled. */
-function SingerChoice({ shown, enabled, checked, onChange }: SingerChoiceProps) {
+/**
+ * Shows the check box "Put each singer on its own voice", its note, and the hint while it is disabled.
+ * While the option is on, it also shows the "Singers" choice.
+ */
+function SingerChoice(props: SingerChoiceProps) {
+  const { shown, enabled, checked, onChange } = props
   const noteId = useId()
   const hintId = useId()
   if (!shown) return null
@@ -505,7 +530,40 @@ function SingerChoice({ shown, enabled, checked, onChange }: SingerChoiceProps) 
       <p id={noteId} className="dialog-note">
         {SINGER_NOTE}
       </p>
+      {enabled && checked && (
+        <SingerCountChoices count={props.count} onChange={props.onCountChange} />
+      )}
     </>
+  )
+}
+
+type SingerCountChoicesProps = {
+  count: SingerCountChoice
+  onChange: (count: SingerCountChoice) => void
+}
+
+/** Shows the "Singers" choice: "Automatic" or a count that the person gives, with its note. */
+function SingerCountChoices({ count, onChange }: SingerCountChoicesProps) {
+  const noteId = useId()
+  return (
+    <fieldset className="choice-group" aria-describedby={noteId}>
+      <legend>Singers</legend>
+      {SINGER_COUNT_CHOICES.map((choice) => (
+        <label key={choice} className="choice">
+          <input
+            type="radio"
+            name="singer-count"
+            value={choice}
+            checked={count === choice}
+            onChange={() => onChange(choice)}
+          />
+          {singerCountLabel(choice)}
+        </label>
+      ))}
+      <p id={noteId} className="dialog-note">
+        {SINGER_COUNT_NOTE}
+      </p>
+    </fieldset>
   )
 }
 

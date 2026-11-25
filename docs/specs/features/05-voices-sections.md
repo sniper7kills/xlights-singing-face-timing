@@ -96,7 +96,8 @@ flowchart TD
    voice (experimental)" in the transcribe dialog. See
    [02-transcription.md](02-transcription.md#put-each-singer-on-its-own-voice).
 2. The run writes the marks to the selected voice.
-3. The app finds the singers in the separated vocals.
+3. The app finds the singers in the separated vocals. With a count in "Singers", the
+   app finds that count of singers. With "Automatic", the app estimates the count.
 4. The app adds "Singer 2", "Singer 3" … and moves or copies the phrases of each
    singer to its voice.
 5. The person checks each voice. The person corrects a wrong phrase with "Move to
@@ -177,6 +178,11 @@ voices and "New voice".
   "A song has 12 voices at most."
 - A wrong voice name shows "A voice name has 1 to 60 characters." or "A voice name
   cannot contain <, >, & or "."
+- If the typed name in the voice name field or the section name field has a
+  character that xLights removes on import, the field shows the hint "xLights
+  shows this name as “<name after the import>”." The hint is not an error, and the
+  app saves the name. See the checks in
+  [06-xtiming-export.md](06-xtiming-export.md#behaviour-rules).
 - A delete of a voice asks first: "The app deletes “<voice name>” and its marks."
   with "Delete" and "Cancel".
 - A click on a voice shows its marks on the three layers and clears the mark
@@ -207,6 +213,11 @@ voices and "New voice".
   shows when the lyrics have a tag and a word, and it is on by default. The
   sections are a second undo step after the marks of the run. A tag line is
   never a phrase or a word.
+- **Singer count.** With a count in "Singers", the singer step gives exactly that
+  count of singers when the vocals have enough sung parts. A chorus that sings
+  together counts as one singer when the count says so. With "Automatic", the step
+  keeps two singers apart only when their voices differ enough. See
+  `docs/adr/0009-singer-voices-from-diarization.md`.
 - **Singer rules.** The singer step gives each phrase of the run its singers. The
   rule is `assignSingers` in `src/lib/singers/assignSingers.ts`:
   - The share of a singer is the time of its ranges inside the phrase, divided by
@@ -294,6 +305,10 @@ No external interface.
 - "Add section" on a time selection of 0:10 to 0:25 makes a section with those
   times. (FR-voice-15)
 - A renamed section shows the new name. (FR-voice-16)
+- The typed voice name `Noël` shows the hint "xLights shows this name as “Nol”."
+  The app saves `Noël`. (FR-voice-3)
+- The typed section name `Refrán` shows the hint "xLights shows this name as
+  “Refrn”." The app saves `Refrán`. (FR-voice-16)
 - A dragged section edge snaps to the frame size and stops at the adjacent
   section. (FR-voice-17)
 - A deleted section leaves every mark unchanged. (FR-voice-18)
