@@ -887,9 +887,11 @@ The singer search counts these numbers with no extra model call:
 
 - The audio time, the count of windows, the frames with a singer and the sung time.
 - The count of embeddings, and the embeddings with a value that is not finite.
-- The settings in force: the merge threshold, the minimum group size, the highest
-  count of singers, and the two limits of the rule for short singers.
-- The raw groups: the groups after the threshold merge, before each later join.
+- The settings in force: the threshold between the centroids of two singers, the
+  minimum group size, the highest count of singers, and the two limits of the rule
+  for short singers.
+- The raw groups: the groups of the merge round that the clustering selects, before
+  each later join. See `docs/adr/0009-singer-voices-from-diarization.md`.
 - For each raw group: its sung time, its count of embeddings, and its result. A raw
   group stays as a singer, or joins another raw group for one of these reasons:
   - "fewer than <n> embeddings"

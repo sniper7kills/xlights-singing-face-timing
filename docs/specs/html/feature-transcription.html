@@ -1389,13 +1389,16 @@ spreadLyrics(lyrics: string, startMs: number, endMs: number): AlignedPhrase[]</c
 </li>
 <li>The count of embeddings, and the embeddings with a value that is not finite.
 </li>
-<li>The settings in force: the merge threshold, the minimum group size, the highest
+<li>The settings in force: the threshold between the centroids of two singers, the
 </li>
 </ul>
-<p>count of singers, and the two limits of the rule for short singers.</p>
+<p>minimum group size, the highest count of singers, and the two limits of the rule for short singers.</p>
 <ul>
-<li>The raw groups: the groups after the threshold merge, before each later join.
+<li>The raw groups: the groups of the merge round that the clustering selects, before
 </li>
+</ul>
+<p>each later join. See <code>docs/adr/0009-singer-voices-from-diarization.md</code>.</p>
+<ul>
 <li>For each raw group: its sung time, its count of embeddings, and its result. A raw
 </li>
 </ul>
