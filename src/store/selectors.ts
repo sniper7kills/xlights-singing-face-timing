@@ -1,6 +1,6 @@
 import { PHONEME_LABELS, type PhonemeLabel } from '../lib/dictionary/cmuSymbols.ts'
 import type { SongStoreState } from './songStore.ts'
-import type { Mark } from './types.ts'
+import type { Mark, Voice } from './types.ts'
 
 const NO_MARKS: Mark[] = []
 
@@ -78,4 +78,59 @@ export function selectedUnknownWord(
   if (selectedMarkIds.length !== 1) return undefined
   const mark = marks.find((candidate) => candidate.id === selectedMarkIds[0])
   return mark?.layer === 'word' && mark.unknown === true ? mark : undefined
+}
+
+/** One phrase of another voice on the ghost row. */
+export type GhostBar = {
+  /** The id of the phrase. */
+  id: string
+  voiceId: string
+  voiceName: string
+  color: string
+  label: string
+  startMs: number
+  endMs: number
+  /** The row of the bar: the index of its voice among the other voices that have a phrase, in voice order. */
+  lane: number
+}
+
+/**
+ * Returns the bars of the ghost row: one bar for each phrase of each voice that the layers do not show.
+ * The bars are in time order. Words and phonemes get no bar.
+ * @param voices The voices of the open song, in voice order.
+ * @param marks The marks of the open song.
+ * @param shownVoiceId The voice that the layers show. Undefined is for a song with no voice.
+ */
+export function ghostBars(
+  voices: readonly Voice[],
+  marks: readonly Mark[],
+  shownVoiceId: string | undefined,
+): GhostBar[] {
+  const phrases = marks.filter((mark) => mark.layer === 'phrase' && mark.voiceId !== shownVoiceId)
+  const withPhrase = voices.filter((voice) => phrases.some((mark) => mark.voiceId === voice.id))
+  const lanes = new Map(withPhrase.map((voice, lane) => [voice.id, { voice, lane }]))
+  return phrases
+    .flatMap((mark) => {
+      const entry = lanes.get(mark.voiceId)
+      if (entry === undefined) return []
+      const { voice, lane } = entry
+      const { id, voiceId, label, startMs, endMs } = mark
+      return [
+        { id, voiceId, voiceName: voice.name, color: voice.color, label, startMs, endMs, lane },
+      ]
+    })
+    .sort((a, b) => a.startMs - b.startMs || a.lane - b.lane)
+}
+
+/** The most faces that the face preview shows. */
+export const MAX_FACES = 4
+
+/**
+ * Returns the voices that the face preview shows: the first 4 voices that are not muted, in voice order.
+ * @param voices The voices of the open song, in voice order.
+ * `moreCount` is the count of the other voices that are not muted. The preview shows it as "+2 more".
+ */
+export function previewVoices(voices: readonly Voice[]): { shown: Voice[]; moreCount: number } {
+  const unmuted = voices.filter((voice) => voice.previewMuted !== true)
+  return { shown: unmuted.slice(0, MAX_FACES), moreCount: Math.max(0, unmuted.length - MAX_FACES) }
 }

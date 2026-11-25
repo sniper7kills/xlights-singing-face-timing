@@ -33,6 +33,8 @@ export type Voice = {
   /** Sets the row order and the export order. */
   order: number
   color: string
+  /** True when the face preview shows no face for the voice. No value means not muted. The export does not read it. */
+  previewMuted?: boolean
 }
 
 export type Section = {
