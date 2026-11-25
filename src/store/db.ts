@@ -291,9 +291,42 @@ export function loadSong(songId: string): Promise<SongContent | undefined> {
       const found: Song | undefined = song.result
       if (!found) return undefined
       const ordered: Voice[] = [...voices.result].sort((a, b) => a.order - b.order)
-      return { song: found, voices: ordered, sections: sections.result, marks }
+      const content = { song: found, voices: ordered, sections: sections.result, marks }
+      storedChildren.set(songId, childIds(content))
+      return content
     }
   })
+}
+
+type ChildIds = { voices: Set<string>; sections: Set<string>; marks: Set<string> }
+
+function childIds(content: SongContent): ChildIds {
+  const ids = (items: { id: string }[]) => new Set(items.map((item) => item.id))
+  return { voices: ids(content.voices), sections: ids(content.sections), marks: ids(content.marks) }
+}
+
+/**
+ * The ids of the voices, sections and marks that the database holds for each song, from
+ * the last read or write of the song in this page. Only loadSong, saveSong and deleteSong
+ * write these records.
+ */
+const storedChildren = new Map<string, ChildIds>()
+
+/**
+ * Deletes the stored voices, sections and marks that are absent from `keep`, and commits.
+ * All requests start in the call, with no callback, so the transaction can complete after
+ * the page unloads. A transaction that waits for a callback never commits then.
+ */
+function deleteKnownStaleChildren(
+  transaction: IDBTransaction,
+  stored: ChildIds,
+  keep: ChildIds,
+): void {
+  for (const name of ['voices', 'sections', 'marks'] as const) {
+    const store = transaction.objectStore(name)
+    for (const id of stored[name]) if (!keep[name].has(id)) store.delete(id)
+  }
+  transaction.commit()
 }
 
 /**
@@ -320,26 +353,34 @@ function deleteStaleChildren(transaction: IDBTransaction, songId: string, keep: 
 /**
  * Saves the song with its voices, sections and marks in one transaction, and returns the
  * saved song. The save sets `updatedAt` to the current time. Saved voices, sections and
- * marks that are absent from `content` are deleted.
+ * marks that are absent from `content` are deleted. If this page read or wrote the song
+ * before, all requests start in the call and the transaction commits at once, so a save that
+ * starts in `pagehide` can complete after the page unloads.
  * @param content The song and all voices, sections and marks that belong to it.
  * @param audioFile The audio file to store with a new song. Omit it for a later save.
  * Rejects with StorageFullError when the browser storage is full. Nothing is saved then.
  */
 export function saveSong(content: SongContent, audioFile?: AudioFile): Promise<Song> {
   const song: Song = { ...content.song, updatedAt: new Date().toISOString() }
-  const keep = new Set<string>([
-    ...content.voices.map((voice) => voice.id),
-    ...content.sections.map((section) => section.id),
-    ...content.marks.map((mark) => mark.id),
-  ])
+  const keep = childIds(content)
+  const stored = storedChildren.get(song.id)
   return transact(SONG_STORES, 'readwrite', (transaction) => {
     transaction.objectStore('songs').put(song)
     if (audioFile) transaction.objectStore('audioFiles').put(audioFile)
     for (const voice of content.voices) transaction.objectStore('voices').put(voice)
     for (const section of content.sections) transaction.objectStore('sections').put(section)
     for (const mark of content.marks) transaction.objectStore('marks').put(mark)
-    deleteStaleChildren(transaction, song.id, keep)
-    return () => song
+    if (stored) deleteKnownStaleChildren(transaction, stored, keep)
+    else
+      deleteStaleChildren(
+        transaction,
+        song.id,
+        new Set([...keep.voices, ...keep.sections, ...keep.marks]),
+      )
+    return () => {
+      storedChildren.set(song.id, keep)
+      return song
+    }
   })
 }
 
@@ -373,7 +414,9 @@ export function deleteSong(songId: string): Promise<void> {
     transaction.objectStore('runs').delete(songId)
     transaction.objectStore('settings').delete(exportOptionsKey(songId))
     deleteStaleChildren(transaction, songId, new Set())
-    return nothing
+    return () => {
+      storedChildren.delete(songId)
+    }
   })
 }
 

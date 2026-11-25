@@ -1,7 +1,14 @@
-import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react'
+import {
+  type MouseEvent,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from 'react'
 import { setPageNotice, usePageNotice } from '../../app/pageNotice.ts'
 import { LIBRARY_HASH } from '../../app/routes.ts'
-import { useAutosaveStore, useSaveState } from '../../store/autosave.ts'
+import { flushAutosave, useAutosaveStore, useSaveState } from '../../store/autosave.ts'
 import { StorageFullError } from '../../store/db.ts'
 import { readSavedView, saveView } from '../../store/savedView.ts'
 import { keepSelectionInSong } from '../../store/selectionSync.ts'
@@ -64,6 +71,19 @@ function isNarrowWindow(): boolean {
 function loadDictionaryForWords() {
   const marks = useSongStore.getState().current?.marks ?? []
   if (marks.some((mark) => mark.layer === 'word')) void loadDictionaries().catch(() => undefined)
+}
+
+/**
+ * Opens the song library after the save of a pending change ends (FR-audio-26).
+ * The library then lists the saved song. A failed save does not stop the leave: the change
+ * stays in memory, and the next open of the song shows it.
+ */
+function leaveForLibrary(event: MouseEvent<HTMLAnchorElement>) {
+  if (useAutosaveStore.getState().saveState === 'saved') return
+  event.preventDefault()
+  void flushAutosave().then(() => {
+    window.location.hash = LIBRARY_HASH
+  })
 }
 
 type EditorPageProps = {
@@ -159,14 +179,19 @@ export function EditorPage({ songId }: EditorPageProps) {
     <>
       <div className="narrow-note" hidden={!narrow}>
         <p role="status">The editor needs a window that is 1024 px wide or more.</p>
-        <a className="button" href={LIBRARY_HASH}>
+        <a className="button" href={LIBRARY_HASH} onClick={leaveForLibrary}>
           Back to the song library
         </a>
       </div>
       {/* The editor stays mounted in a narrow window, so the audio and the view stay loaded. */}
       <section className="editor" aria-labelledby="editor-title" hidden={narrow}>
         <div className="editor-top">
-          <a className="button" href={LIBRARY_HASH} aria-label="Back to song library">
+          <a
+            className="button"
+            href={LIBRARY_HASH}
+            aria-label="Back to song library"
+            onClick={leaveForLibrary}
+          >
             <span aria-hidden="true">←</span>
           </a>
           <h2 id="editor-title">{song.name}</h2>
