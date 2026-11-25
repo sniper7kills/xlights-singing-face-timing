@@ -35,7 +35,7 @@ describe('VoiceRail', () => {
     render(<VoiceRail />)
 
     expect(screen.getByRole('complementary', { name: 'Voices' })).toBeInTheDocument()
-    expect(rows().map((row) => row.textContent)).toEqual(['Lead3 phrases⋯', 'Backing1 phrase⋯'])
+    expect(rows().map((row) => row.textContent)).toEqual(['Lead3 phrases☺⋯', 'Backing1 phrase☺⋯'])
     expect(selectButton('Lead')).toHaveAccessibleDescription('3 phrases')
     expect(selectButton('Lead')).toHaveAttribute('aria-pressed', 'true')
     expect(selectButton('Backing')).toHaveAttribute('aria-pressed', 'false')
@@ -188,6 +188,25 @@ describe('VoiceRail menu', () => {
     await userEvent.click(screen.getByRole('heading', { name: 'Voices' }))
 
     expect(screen.queryByRole('menu')).not.toBeInTheDocument()
+  })
+})
+
+describe('VoiceRail mute', () => {
+  it('mutes the face preview of a voice as one undo step, and a second click unmutes it', async () => {
+    render(<VoiceRail />)
+    const mute = screen.getByRole('button', { name: 'Mute face preview of Backing' })
+    expect(mute).toHaveAttribute('aria-pressed', 'false')
+
+    await userEvent.click(mute)
+
+    expect(mute).toHaveAttribute('aria-pressed', 'true')
+    expect(mute).toHaveTextContent('⊘')
+    expect(useSongStore.getState().current?.voices.at(1)?.previewMuted).toBe(true)
+    expect(useSongStore.getState().history.past).toHaveLength(1)
+    expect(selectButton('Lead')).toHaveAttribute('aria-pressed', 'true')
+
+    await userEvent.click(mute)
+    expect(mute).toHaveAttribute('aria-pressed', 'false')
   })
 })
 

@@ -5,7 +5,7 @@ import { PHONEME_LABELS } from '../../lib/dictionary/cmuSymbols.ts'
 import { makeSongContent } from '../../store/fixtures.test-helpers.ts'
 import { emptyHistory } from '../../store/history.ts'
 import { useSongStore } from '../../store/songStore.ts'
-import type { Mark } from '../../store/types.ts'
+import type { Mark, Voice } from '../../store/types.ts'
 import { useViewStore } from '../../store/viewStore.ts'
 import { Inspector } from './Inspector.tsx'
 import { resetMarkUi, useMarkUiStore } from './markUiStore.ts'
@@ -233,5 +233,78 @@ describe('FacePreview', () => {
   it('uses no live region, so a screen reader does not read each change during play', () => {
     const { container } = render(<Inspector />)
     expect(container.querySelector('[aria-live], [role="status"], output')).toBeNull()
+  })
+})
+
+describe('Face preview with several voices', () => {
+  function withVoices(count: number, muted: number[] = []) {
+    const content = useSongStore.getState().current ?? makeSongContent()
+    const names = ['Lead Vocals', 'Santa', 'Choir', 'Elf', 'Bass', 'Alto']
+    const voices: Voice[] = names.slice(0, count).map((name, order) => ({
+      id: order === 0 ? VOICE : `voice-${order}`,
+      songId: content.song.id,
+      name,
+      order,
+      color: '#ffb238',
+      ...(muted.includes(order) ? { previewMuted: true } : {}),
+    }))
+    act(() => useSongStore.setState({ current: { ...content, voices } }))
+  }
+
+  function captions() {
+    return Array.from(document.querySelectorAll('.face-caption span')).map(
+      (span) => span.textContent,
+    )
+  }
+
+  it('shows two faces, each with its voice name, for a song with two unmuted voices', () => {
+    withVoices(2)
+    render(<Inspector />)
+
+    expect(screen.getAllByRole('img', { name: /^Face preview, mouth shape/ })).toHaveLength(2)
+    expect(captions()).toEqual(['Lead Vocals', 'Santa'])
+  })
+
+  it('shows no face for a muted voice', () => {
+    withVoices(2, [0])
+    render(<Inspector />)
+
+    expect(captions()).toEqual(['Santa'])
+    expect(document.querySelector(`[data-voice-id="${VOICE}"]`)).toBeNull()
+  })
+
+  it('shows the first 4 faces in voice order and "+2 more" for 6 unmuted voices', () => {
+    withVoices(6)
+    render(<Inspector />)
+
+    expect(captions()).toEqual(['Lead Vocals', 'Santa', 'Choir', 'Elf'])
+    expect(screen.getByText('+2 more')).toBeInTheDocument()
+  })
+
+  it('shows the mouth of each voice from its own phonemes', () => {
+    withVoices(2)
+    render(<Inspector />)
+    setPlayTime(11_500)
+
+    const shapes = screen.getAllByTestId('face-phoneme').map((label) => label.textContent)
+    expect(shapes).toEqual(['O', 'rest'])
+  })
+
+  it('states how to show a face when every voice is muted', () => {
+    withVoices(2, [0, 1])
+    render(<Inspector />)
+
+    expect(
+      screen.getByText('Every voice is muted. Select the mute button of a voice to show its face.'),
+    ).toBeInTheDocument()
+    expect(screen.queryByRole('img')).toBeNull()
+  })
+
+  it('shows one face with no name for a song with no voice', () => {
+    withVoices(0)
+    render(<Inspector />)
+
+    expect(screen.getAllByRole('img')).toHaveLength(1)
+    expect(captions()).toEqual([''])
   })
 })

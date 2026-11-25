@@ -431,6 +431,23 @@ button {
   border-color: var(--line);
 }
 
+.voice-mute-button {
+  padding: 4px 6px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: none;
+  color: var(--ink);
+}
+
+.voice-mute-button:hover {
+  border-color: var(--line);
+}
+
+/* A muted voice has a dimmed glyph as well as the crossed glyph, so the state does not rely on colour alone. */
+.voice-mute-button[aria-pressed='true'] {
+  color: var(--mute);
+}
+
 .voice-menu {
   position: absolute;
   top: 100%;
@@ -554,6 +571,28 @@ button {
 .face-caption b {
   color: var(--amber);
   font-size: 15px;
+}
+
+/* Two columns fit 2 to 4 faces in the inspector. One face keeps the full width. */
+.face-grid {
+  display: grid;
+  gap: 8px;
+}
+
+.face-grid:not([data-count='1']) {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.face-grid .face-caption span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.face-more {
+  margin: 0;
+  color: var(--mute);
+  font-size: 12px;
 }
 
 .mark-fields {
@@ -1091,6 +1130,27 @@ button {
 .layers-empty p {
   margin: 0;
   color: var(--mute);
+}
+
+.ghost-row {
+  border-top: 1px solid var(--line);
+}
+
+.ghost-track {
+  position: relative;
+  margin: 0 0 4px;
+  padding: 0;
+  overflow: hidden;
+  list-style: none;
+}
+
+/* The bars are thin, so they show where another voice sings without the look of an editable mark. */
+.ghost-bar {
+  position: absolute;
+  height: 6px;
+  min-width: 2px;
+  border-radius: 3px;
+  opacity: 0.85;
 }
 
 @media (max-width: 760px) {

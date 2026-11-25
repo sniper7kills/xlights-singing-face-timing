@@ -14,6 +14,7 @@ import { CustomDictionaryAction } from '../phoneme-breakdown/CustomDictionaryAct
 import { UnknownWordCounter } from '../phoneme-breakdown/UnknownWordCounter.tsx'
 import type { BreakDownFailure, TranscribeOutcome } from '../transcription/runTranscription.ts'
 import { TranscribeDialog } from '../transcription/TranscribeDialog.tsx'
+import { GhostRow } from '../voices-sections/GhostRow.tsx'
 import { VoiceRail } from '../voices-sections/VoiceRail.tsx'
 import { outcomeText } from '../transcription/transcribeDialogState.ts'
 import { ExportAction } from '../xtiming-export/ExportAction.tsx'
@@ -178,6 +179,7 @@ export function EditorPage({ songId }: EditorPageProps) {
             content={content}
             onTranscribe={voice === undefined ? undefined : openTranscribeDialog}
           />
+          <GhostRow content={content} />
         </Waveform>
         <Inspector />
         <EditorToolbar>
