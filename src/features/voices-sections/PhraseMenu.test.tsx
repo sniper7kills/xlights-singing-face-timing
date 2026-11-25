@@ -7,6 +7,8 @@ import { addVoice } from '../../store/actions/voices.ts'
 import { emptyHistory } from '../../store/history.ts'
 import { useSongStore } from '../../store/songStore.ts'
 import { useViewStore } from '../../store/viewStore.ts'
+import { Layers } from '../timeline-editor/Layers.tsx'
+import { resetMarkUi } from '../timeline-editor/markUiStore.ts'
 import { PhraseMenu } from './PhraseMenu.tsx'
 import { useTransferStore } from './transferCommands.ts'
 
@@ -16,6 +18,18 @@ function phraseButton() {
 
 function voiceOf(id: string) {
   return useSongStore.getState().current?.marks.find((mark) => mark.id === id)?.voiceId
+}
+
+/** Shows the layers of the open song with the phrase menu, so a test can follow the focus to a track. */
+function EditorPart() {
+  const content = useSongStore((state) => state.current)
+  if (!content) return null
+  return (
+    <>
+      <Layers content={content} />
+      <PhraseMenu />
+    </>
+  )
 }
 
 function steps() {
@@ -33,6 +47,7 @@ beforeEach(() => {
   useSongStore.setState({ current: testContent(), history: emptyHistory() })
   useViewStore.getState().resetView()
   useTransferStore.setState({ pending: null })
+  resetMarkUi()
 })
 
 describe('PhraseMenu', () => {
@@ -67,6 +82,17 @@ describe('PhraseMenu', () => {
     expect(voiceOf('p2')).toBe(OTHER_VOICE)
     expect(useViewStore.getState().selectedMarkIds).toEqual([])
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+  })
+
+  it('gives the focus to the phrase track after a move', async () => {
+    useViewStore.getState().setStageWidth(1000)
+    useViewStore.getState().selectMarks(['p2'])
+    render(<EditorPart />)
+
+    const list = await openTargets('Move to voice')
+    await userEvent.click(within(list).getByRole('menuitem', { name: 'Backing' }))
+
+    await waitFor(() => expect(screen.getByRole('list', { name: 'Phrases' })).toHaveFocus())
   })
 
   it('copies the phrase to a new voice with the keyboard and keeps the selection', async () => {

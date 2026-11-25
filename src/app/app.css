@@ -899,6 +899,98 @@ button {
   position: relative;
 }
 
+/* The section band is the first row of the stage. Its blocks sit on the time scale of the stage. */
+.section-band {
+  position: relative;
+  height: 28px;
+  border-bottom: 1px solid var(--line);
+}
+
+.section-hint {
+  margin: 0;
+  padding: 6px 8px;
+  color: var(--mute);
+  font-size: 12px;
+}
+
+.section-block {
+  position: absolute;
+  top: 3px;
+  bottom: 3px;
+  display: flex;
+  min-width: 2px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--panel2);
+}
+
+.section-name {
+  flex: 1;
+  min-width: 0;
+  padding: 0 6px;
+  overflow: hidden;
+  border: 0;
+  background: none;
+  color: var(--ink);
+  font-size: 12px;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.section-menu {
+  position: relative;
+}
+
+.section-menu-button {
+  height: 100%;
+  padding: 0 4px;
+  border: 0;
+  background: none;
+  color: var(--ink);
+}
+
+/* The band is at the top of the stage, and the stage clips its content, so a section menu opens below the block. */
+.section-band .action-menu {
+  top: 100%;
+  bottom: auto;
+}
+
+.section-edge {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  z-index: 1;
+  width: 6px;
+  cursor: ew-resize;
+  touch-action: none;
+}
+
+.section-edge[data-edge='start'] {
+  left: -3px;
+}
+
+.section-edge[data-edge='end'] {
+  right: -3px;
+}
+
+.section-edge:focus-visible {
+  outline: 2px solid var(--amber);
+}
+
+.section-rename {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 5;
+}
+
+.add-section {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .time-ruler {
   position: relative;
   height: 22px;

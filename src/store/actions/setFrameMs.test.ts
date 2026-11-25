@@ -39,6 +39,24 @@ describe('setFrameMs', () => {
     expect(find('w')?.startMs).toBe(1025)
   })
 
+  it('snaps the sections and the frame size in one undo step', () => {
+    const section = { id: 's', songId: 'song-1', name: 'Verse', startMs: 1025, endMs: 2025 }
+    useSongStore.setState({
+      current: {
+        ...testContent(),
+        song: { ...testContent().song, frameMs: 25 },
+        sections: [section],
+      },
+    })
+
+    setFrameMs('song-1', 50)
+
+    expect(content()?.sections).toEqual([{ ...section, startMs: 1050, endMs: 2050 }])
+    expect(steps()).toBe(1)
+    useSongStore.getState().undo()
+    expect(content()?.sections).toEqual([section])
+  })
+
   it('records no step for the frame size that the song has', () => {
     setFrameMs('song-1', 50)
 

@@ -5,7 +5,9 @@ import {
   movePhrasesToNewVoice,
   phrasesInTargetRange,
 } from '../../store/actions/movePhrases.ts'
-import { useViewStore } from '../../store/viewStore.ts'
+import { useSongStore } from '../../store/songStore.ts'
+import { selectedVoice, useViewStore } from '../../store/viewStore.ts'
+import { layerFocusId, useMarkUiStore } from '../timeline-editor/markUiStore.ts'
 
 /** A transfer that waits for the person to confirm the removal of the target phrases in the range. */
 export type PendingTransfer = {
@@ -21,9 +23,17 @@ export const useTransferStore = create<{ pending: PendingTransfer | null }>()(()
   pending: null,
 }))
 
-/** Clears the mark selection after a move, because the layers no longer show the moved phrases. */
+/**
+ * Clears the mark selection after a move, because the layers no longer show the moved phrases.
+ * The focus goes to the phrase track of the shown voice. The menu button is disabled with no selection,
+ * so without this request the focus drops to the page.
+ */
 function afterTransfer(mode: TransferMode) {
-  if (mode === 'move') useViewStore.getState().selectMarks([])
+  if (mode !== 'move') return
+  const view = useViewStore.getState()
+  view.selectMarks([])
+  const voice = selectedVoice(useSongStore.getState().current?.voices ?? [], view.selectedVoiceId)
+  if (voice !== undefined) useMarkUiStore.getState().requestFocus(layerFocusId(voice.id, 'phrase'))
 }
 
 /**

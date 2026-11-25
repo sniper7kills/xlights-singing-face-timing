@@ -14,6 +14,7 @@ import { CustomDictionaryAction } from '../phoneme-breakdown/CustomDictionaryAct
 import { UnknownWordCounter } from '../phoneme-breakdown/UnknownWordCounter.tsx'
 import type { BreakDownFailure, TranscribeOutcome } from '../transcription/runTranscription.ts'
 import { TranscribeDialog } from '../transcription/TranscribeDialog.tsx'
+import { AddSectionAction } from '../voices-sections/AddSectionAction.tsx'
 import { GhostRow } from '../voices-sections/GhostRow.tsx'
 import { PhraseMenu } from '../voices-sections/PhraseMenu.tsx'
 import { VoiceRail } from '../voices-sections/VoiceRail.tsx'
@@ -191,6 +192,7 @@ export function EditorPage({ songId }: EditorPageProps) {
           <AddWordAction />
           <BreakDownAgainAction onFailure={setBreakDownFailure} />
           <PhraseMenu />
+          <AddSectionAction />
         </EditorToolbar>
         {dialogOpen && voice !== undefined && (
           <TranscribeDialog
