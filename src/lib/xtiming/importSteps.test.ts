@@ -28,7 +28,7 @@ describe('importStepsText', () => {
         '3. Right-click a timing row heading and select "Import Timing Track".',
         '4. Select the .xtiming file. If the file has several timing tracks, xLights adds one timing track for each.',
         '   If a timing track with the same name exists in the sequence, xLights adds "_1" to the new name. xLights also removes & < > " \' = and each character that is not ASCII from a timing track name.',
-        '5. Drop a Faces effect on the row of the face model. Make the effect as long as the song.',
+        '5. Drop a Faces effect on the row of the face model, from the start to the end of the song.',
         '   The effect moves the mouth only during its own time.',
         '6. In the effect settings, under "Mouth Movements", select "Timing Track" and the timing track for that face model.',
         '   The list shows only the timing tracks with three layers.',

@@ -269,8 +269,8 @@ the names in xLights 2026.21.
    Note: If a timing track with the same name exists in the sequence, xLights adds
    "_1" to the new name. xLights also removes & < > " ' = and each character that
    is not ASCII from a timing track name.
-5. Drop a Faces effect on the row of the face model. Make the effect as long as the
-   song.
+5. Drop a Faces effect on the row of the face model, from the start to the end of
+   the song.
    Note: The effect moves the mouth only during its own time.
 6. In the effect settings, under "Mouth Movements", select "Timing Track" and the
    timing track for that face model.

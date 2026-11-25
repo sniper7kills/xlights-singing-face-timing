@@ -44,7 +44,7 @@ export function importSteps(frameMs: number): ImportStep[] {
     },
     {
       parts: [
-        'Drop a Faces effect on the row of the face model. Make the effect as long as the song.',
+        'Drop a Faces effect on the row of the face model, from the start to the end of the song.',
       ],
       note: 'The effect moves the mouth only during its own time.',
     },

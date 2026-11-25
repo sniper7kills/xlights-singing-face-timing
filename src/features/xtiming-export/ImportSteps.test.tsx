@@ -26,7 +26,7 @@ describe('ImportSteps', () => {
       'Select the .xtiming file. If the file has several timing tracks, xLights adds one timing track for each.',
     )
     expect(steps[4]).toHaveTextContent(
-      'Drop a Faces effect on the row of the face model. Make the effect as long as the song.',
+      'Drop a Faces effect on the row of the face model, from the start to the end of the song.',
     )
     expect(steps[5]).toHaveTextContent(
       'In the effect settings, under "Mouth Movements", select "Timing Track" and the timing track for that face model.',
