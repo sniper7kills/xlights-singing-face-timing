@@ -703,6 +703,8 @@ from 0 to 1.
 | Singer step: the person selects "Cancel" during the step | The app stops the worker. The marks of the run stay. The dialog closes, and the toast adds "The app stopped the search for the singers. All phrases stay on <voice name>." |
 | Singer step: the vocal separation failed and the person selected "Continue with no separation" | The step does not run. The toast adds "The app finds the singers only in separated vocals. All phrases stay on <voice name>." |
 | Singer step: more singers than free voices | The song keeps 12 voices or fewer. See the singer rules in [05-voices-sections.md](05-voices-sections.md#behaviour-rules). |
+| Singer step: more singers than free voices, and the song has 12 voices | No new voice. The toast adds "The song has 12 voices, so the app cannot add a voice for each singer. All phrases stay on <voice name>." |
+| Singer step: more singers than free voices, and the song has room for some singers | The app adds a voice for each free voice. The toast adds "The song has room for <k> more voices. The other singers stay on <voice name>." |
 | Remote endpoint: the browser asks for the permission to reach the local network | The run waits for the answer of the person. If the person refuses, the dialog shows the message for no connection. |
 
 ## Acceptance criteria

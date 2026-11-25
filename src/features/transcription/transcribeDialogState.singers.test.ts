@@ -113,6 +113,25 @@ describe('outcomeText with the singer step', () => {
     expect(outcomeText({ ...counts, singers })).toBe(`214 words, 9 estimated. ${message}`)
   })
 
+  it('states that the song has no free voice when the step found more singers at 12 voices', () => {
+    const singers: SingerOutcome = { status: 'capped', voiceCount: 1, voiceName: 'Lead' }
+    const message =
+      'The song has 12 voices, so the app cannot add a voice for each singer. All phrases stay on Lead.'
+
+    expect(singerMessage(singers)).toBe(message)
+    expect(outcomeText({ ...counts, singers })).toBe(`214 words, 9 estimated. ${message}`)
+  })
+
+  it('states the free voices when the step found more singers than free voices', () => {
+    const singers: SingerOutcome = { status: 'capped', voiceCount: 3, voiceName: 'Lead' }
+    const message = 'The song has room for 2 more voices. The other singers stay on Lead.'
+
+    expect(singerMessage(singers)).toBe(message)
+    expect(outcomeText({ ...counts, singers })).toBe(
+      `214 words on 3 voices, 9 estimated. ${message}`,
+    )
+  })
+
   it('keeps the text of a run without the option', () => {
     expect(outcomeText({ wordCount: 1, estimatedCount: 0 })).toBe('1 word, 0 estimated')
   })

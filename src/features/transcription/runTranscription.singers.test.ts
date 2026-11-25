@@ -1,4 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { MAX_VOICES } from '../../lib/voices/voiceRules.ts'
+import { addVoice } from '../../store/actions/voices.ts'
 import { useSongStore } from '../../store/songStore.ts'
 import type { Mark } from '../../store/types.ts'
 import { storeNewSong } from '../audio-import/storeNewSong.ts'
@@ -282,5 +284,35 @@ describe('runTranscription with singer voices', () => {
     expect(outcome.singers).toEqual({ status: 'split', voiceCount: 1, voiceName: 'Lead Vocals' })
     expect(content().voices).toHaveLength(1)
     expect(undoSteps()).toBe(1)
+  })
+
+  describe('with fewer free voices than singers', () => {
+    const fillVoices = (count: number) => {
+      while (content().voices.length < count) addVoice(content().song.id)
+    }
+
+    it('reports the outcome capped and adds no voice when the song has 12 voices', async () => {
+      fillVoices(MAX_VOICES)
+
+      const outcome = await runTranscription(request, fakeClient(), handlers())
+
+      expect(outcome.singers).toEqual({ status: 'capped', voiceCount: 1, voiceName: 'Lead Vocals' })
+      expect(content().voices).toHaveLength(MAX_VOICES)
+      expect(phrasesOn(VOICE)).toHaveLength(2)
+    })
+
+    it('reports the outcome capped when the song has room for some singers only', async () => {
+      fillVoices(MAX_VOICES - 1)
+      // Singers 1 and 2 both sing the second phrase, so the run finds three singers.
+      vi.mocked(findSingers).mockResolvedValue([
+        ...TWO_SINGERS,
+        { startMs: 1500, endMs: 3000, singer: 2 },
+      ])
+
+      const outcome = await runTranscription(request, fakeClient(), handlers())
+
+      expect(outcome.singers).toEqual({ status: 'capped', voiceCount: 2, voiceName: 'Lead Vocals' })
+      expect(content().voices).toHaveLength(MAX_VOICES)
+    })
   })
 })

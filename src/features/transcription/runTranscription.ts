@@ -68,12 +68,14 @@ export type TranscribeRequest = {
 /**
  * The result of the singer step of a run with `singerVoices`:
  * - `split`: the step ran. `voiceCount` is the count of voices that hold the phrases of the run. 1 means one singer.
+ * - `capped`: the step ran and found more singers than the song has free voices. `voiceCount` is as for `split`.
  * - `cancelled`: the person cancelled during the step. The marks stay on the voice of the run.
  * - `failed`: the step failed. The marks stay on the voice of the run.
  * - `no-vocals`: the vocal separation failed and the run went on with no separation, so the step did not run.
  */
 export type SingerOutcome =
   | { status: 'split'; voiceCount: number; voiceName: string }
+  | { status: 'capped'; voiceCount: number; voiceName: string }
   | { status: 'cancelled'; voiceName: string }
   | { status: 'failed'; kind: Exclude<SingersErrorKind, 'cancelled'>; voiceName: string }
   | { status: 'no-vocals'; voiceName: string }
@@ -282,13 +284,20 @@ async function splitSingers(
       endMs: segment.endMs + range.startMs,
     }))
     const songVoices = useSongStore.getState().current?.voices.length ?? MAX_VOICES
+    // The count before the cap tells the person when the song had too few free voices.
+    const found = singerCount(assignSingers(runPhrases, songSegments, Infinity))
     // Singer 0 keeps the voice of the run, so each free voice gives one more singer.
     const assignment = assignSingers(runPhrases, songSegments, MAX_VOICES - songVoices + 1)
     const voiceCount = putSingersOnVoices(request.voiceId, assignment)
-    return { status: 'split', voiceCount, voiceName }
+    return { status: found > voiceCount ? 'capped' : 'split', voiceCount, voiceName }
   } catch (error) {
     return singerFailure(error, voiceName)
   }
+}
+
+/** Returns the count of different singers in an assignment of `assignSingers`. */
+function singerCount(assignment: ReadonlyMap<string, readonly number[]>): number {
+  return new Set([...assignment.values()].flat()).size
 }
 
 /** Returns the outcome of a singer step that stopped. A cancel of the person is not a failure. */
