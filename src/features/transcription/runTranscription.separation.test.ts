@@ -325,4 +325,37 @@ describe('runTranscription with vocal separation and a remote endpoint', () => {
     expect(FakeXhr.last().body?.get('file')).toMatchObject({ size: 44 + VOCALS.length * 2 })
     expect(client.load).not.toHaveBeenCalled()
   })
+
+  it('passes the separation model of the request to the separation', async () => {
+    await runTranscription(
+      { ...separatedRequest, separationModel: 'demucs' },
+      fakeClient(),
+      handlers(),
+    )
+
+    expect(vi.mocked(separateVocals).mock.calls[0]?.[1]?.model).toBe('demucs')
+  })
+
+  it('separates with Spleeter when the request names no separation model', async () => {
+    await runTranscription(separatedRequest, fakeClient(), handlers())
+
+    expect(vi.mocked(separateVocals).mock.calls[0]?.[1]?.model).toBe('spleeter')
+  })
+
+  it('separates again with Spleeter for "Use the fast model" after a Demucs failure', async () => {
+    const failure = new SeparateError('memory', 'std::bad_alloc')
+    vi.mocked(separateVocals).mockRejectedValueOnce(failure)
+    const client = fakeClient()
+    const run = handlers()
+    vi.mocked(run.confirmNoSeparation).mockResolvedValue('fast-model')
+
+    await runTranscription({ ...separatedRequest, separationModel: 'demucs' }, client, run)
+
+    expect(run.confirmNoSeparation).toHaveBeenCalledExactlyOnceWith(failure, 'demucs')
+    expect(vi.mocked(separateVocals).mock.calls.map((call) => call[1]?.model)).toEqual([
+      'demucs',
+      'spleeter',
+    ])
+    expect(client.transcribe).toHaveBeenCalledWith(VOCALS, 0, expect.anything())
+  })
 })
