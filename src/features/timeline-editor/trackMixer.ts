@@ -38,7 +38,6 @@ export type TrackMixer = {
    * Sets the followers and the rows that sound, and applies both in one check.
    * A follower with the same row and the same media element keeps its play, so a new gate does not restart it.
    * A follower that is not in the new list pauses.
-   * With no follower, the song audio always sounds, because the editor then shows no "Song" controls.
    * @param followers The audio tracks.
    * @param audible The ids of the rows that sound.
    */
@@ -165,7 +164,7 @@ export function createTrackMixer(leader: MixerMedia, options: TrackMixerOptions)
   }
 
   const muteLeader = () => {
-    leader.muted = followers.length > 0 && !audible.has(options.songRowId)
+    leader.muted = !audible.has(options.songRowId)
   }
 
   for (const type of SYNC_EVENTS) leader.addEventListener(type, sync)

@@ -255,10 +255,10 @@ describe('createTrackMixer', () => {
     expect(vocals.paused).toBe(false)
   })
 
-  it('unmutes the song audio when no follower is left', () => {
+  it('unmutes the song audio when the update makes "Song" sound', () => {
     const mix = mixer(['vocals'])
     expect(leader.muted).toBe(true)
-    mix.update([], new Set())
+    mix.update([], new Set([SONG_ROW]))
     expect(leader.muted).toBe(false)
   })
 

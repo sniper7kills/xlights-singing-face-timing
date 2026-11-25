@@ -134,7 +134,9 @@ function useMixer(
   useEffect(() => {
     const followers =
       tracks === undefined || urls === null ? [] : followersOf(rows, tracks, elements)
-    mixer.current?.update(followers, audibleRows(mix, rowIds))
+    // With no row, the editor shows no "Song" controls, so the song audio sounds.
+    const audible = rows.length === 0 ? new Set([SONG_ROW]) : audibleRows(mix, rowIds)
+    mixer.current?.update(followers, audible)
   }, [leader, rows, tracks, urls, elements, mix, rowIds])
 
   const activate = useCallback(

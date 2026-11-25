@@ -376,6 +376,33 @@ describe('TrackRows', () => {
     expect(followerOf('singer:v2')).toBe(singer)
   })
 
+  it('keeps "Song" muted while new tracks of a late run load, and unmutes it when the tracks go', async () => {
+    const { song } = await renderSong(WITH_TRACKS)
+    await waitFor(() =>
+      expect(document.querySelector('audio[data-audio-row="vocals"]')).not.toBeNull(),
+    )
+    await userEvent.click(screen.getByRole('button', { name: 'Solo Vocals' }))
+    await waitFor(() => expect(leader.muted).toBe(true))
+    const mutes: boolean[] = []
+    let muted = true
+    Object.defineProperty(leader, 'muted', {
+      configurable: true,
+      get: () => muted,
+      set: (value: boolean) => {
+        mutes.push(value)
+        muted = value
+      },
+    })
+
+    await act(() => saveRunData({ songId: song.id, ...WITH_TRACKS, tracks: { ...TRACKS } }))
+    await waitFor(() => expect(followerOf('vocals').getAttribute('src')).toBe('blob:track-3'))
+    expect(mutes).not.toContain(false)
+
+    await act(() => saveRunData({ songId: song.id, singerSegments: [], report: report() }))
+    await waitFor(() => expect(screen.queryByRole('group', { name: 'Audio tracks' })).toBeNull())
+    expect(leader.muted).toBe(false)
+  })
+
   it('unmutes the song audio and pauses each track when the rows unmount', async () => {
     const { view } = await renderSong(WITH_TRACKS)
     await waitFor(() =>
