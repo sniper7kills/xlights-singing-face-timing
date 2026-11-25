@@ -44,7 +44,7 @@ export function ImportSteps({ frameMs, open, onToggle }: ImportStepsProps) {
       onToggle={(event) => onToggle(event.currentTarget.open)}
     >
       <summary>Next, in xLights</summary>
-      <StepList steps={importSteps(frameMs)} label="Import steps" />
+      <StepList steps={importSteps(frameMs, 'dialog')} label="Import steps" />
       <p className="export-steps-heading">{FACE_MODEL_STEPS_HEADING}</p>
       <StepList steps={faceModelSteps()} label={FACE_MODEL_STEPS_HEADING} />
     </details>

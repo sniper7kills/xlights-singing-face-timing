@@ -12,6 +12,8 @@ import {
   isCancel,
   lowMatchMessage,
   outcomeText,
+  lyricsFitMessage,
+  replaceQuestionMessage,
   progressText,
   progressValue,
   remoteErrorMessage,
@@ -27,6 +29,7 @@ import {
 } from './transcribeDialogState.ts'
 
 const transcribing: DialogState = { status: 'transcribing', doneMs: 0, totalMs: 220_000 }
+const QUESTION = { markCount: 12, voiceName: 'Lead Vocals', range: { startMs: 0, endMs: 28_900 } }
 
 describe('progressText', () => {
   it('shows the download percent', () => {
@@ -201,6 +204,81 @@ describe('outcomeText', () => {
   })
 })
 
+describe('replaceQuestionMessage', () => {
+  it('states the count of marks, the voice and the range', () => {
+    expect(replaceQuestionMessage(QUESTION)).toBe(
+      'The run replaces the 12 marks of "Lead Vocals" from 0:00.000 to 0:28.900.',
+    )
+  })
+
+  it('states one mark in the singular', () => {
+    expect(replaceQuestionMessage({ ...QUESTION, markCount: 1 })).toBe(
+      'The run replaces the 1 mark of "Lead Vocals" from 0:00.000 to 0:28.900.',
+    )
+  })
+
+  it('names each singer voice of the last run that loses marks, with the sum of the marks', () => {
+    expect(
+      replaceQuestionMessage({ ...QUESTION, markCount: 30, singerVoiceNames: ['Singer 2'] }),
+    ).toBe(
+      'The run replaces 30 marks from 0:00.000 to 0:28.900: the marks of "Lead Vocals", and the marks of "Singer 2" from the last run.',
+    )
+    expect(
+      replaceQuestionMessage({
+        ...QUESTION,
+        markCount: 1,
+        singerVoiceNames: ['Singer 2', 'Test Alto', 'Singer 4'],
+      }),
+    ).toBe(
+      'The run replaces 1 mark from 0:00.000 to 0:28.900: the marks of "Lead Vocals", and the marks of "Singer 2", "Test Alto" and "Singer 4" from the last run.',
+    )
+  })
+
+  it('states that the singer voices of the last run do not change', () => {
+    expect(replaceQuestionMessage({ ...QUESTION, singerVoicesKept: true })).toBe(
+      'The run replaces the 12 marks of "Lead Vocals" from 0:00.000 to 0:28.900. The voices of the last singer step do not change.',
+    )
+  })
+})
+
+describe('outcomeText after a run that left out words', () => {
+  it('states the count of words that the app left out', () => {
+    expect(
+      outcomeText({ wordCount: 10, estimatedCount: 10, runData: 'stored', wordsLeftOut: 3 }),
+    ).toBe('10 words, 10 estimated. The app left out 3 words that it cannot use.')
+  })
+
+  it('states one word in the singular', () => {
+    expect(
+      outcomeText({ wordCount: 10, estimatedCount: 10, runData: 'stored', wordsLeftOut: 1 }),
+    ).toBe('10 words, 10 estimated. The app left out 1 word that it cannot use.')
+  })
+
+  it('states nothing for a count of 0', () => {
+    expect(
+      outcomeText({ wordCount: 10, estimatedCount: 10, runData: 'stored', wordsLeftOut: 0 }),
+    ).toBe('10 words, 10 estimated')
+  })
+})
+
+describe('outcomeText after a run that could not keep the tracks', () => {
+  it('adds the sentence that the app could not keep the separated tracks', () => {
+    expect(
+      outcomeText({ wordCount: 214, estimatedCount: 9, runData: 'stored', tracksFailed: true }),
+    ).toBe(
+      '214 words, 9 estimated. The app could not keep the separated tracks. Run "Transcribe" again to try one more time.',
+    )
+  })
+
+  it('puts the tracks sentence before the sentence of the run data', () => {
+    expect(
+      outcomeText({ wordCount: 2, estimatedCount: 0, runData: 'failed', tracksFailed: true }),
+    ).toBe(
+      '2 words, 0 estimated. The app could not keep the separated tracks. Run "Transcribe" again to try one more time. The app could not store the run report.',
+    )
+  })
+})
+
 describe('outcomeText after a write of the run data that was not complete', () => {
   it('adds the storage full sentence when the app kept no tracks', () => {
     expect(outcomeText({ wordCount: 214, estimatedCount: 9, runData: 'storage-full' })).toBe(
@@ -292,8 +370,8 @@ describe('transcribeDialogReducer', () => {
   })
 
   it('asks to replace the marks and goes back to the run after the answer', () => {
-    const asking = reduce(transcribing, { type: 'confirm-replace' })
-    expect(asking).toEqual({ status: 'confirm-replace', resume: transcribing })
+    const asking = reduce(transcribing, { type: 'confirm-replace', question: QUESTION })
+    expect(asking).toEqual({ status: 'confirm-replace', question: QUESTION, resume: transcribing })
     expect(shownRunState(asking)).toEqual(transcribing)
 
     expect(reduce(asking, { type: 'answer' })).toEqual(transcribing)
@@ -308,9 +386,9 @@ describe('transcribeDialogReducer', () => {
   })
 
   it('asks no second question while a question waits for an answer', () => {
-    const asking = reduce(transcribing, { type: 'confirm-replace' })
+    const asking = reduce(transcribing, { type: 'confirm-replace', question: QUESTION })
 
-    expect(reduce(asking, { type: 'confirm-replace' })).toBe(asking)
+    expect(reduce(asking, { type: 'confirm-replace', question: QUESTION })).toBe(asking)
     expect(reduce(asking, { type: 'confirm-low-match', ratio: 0.1 })).toBe(asking)
   })
 
@@ -318,8 +396,14 @@ describe('transcribeDialogReducer', () => {
     expect(reduce(transcribing, { type: 'answer' })).toBe(transcribing)
   })
 
-  it('goes back to idle when the person cancels the run', () => {
-    expect(reduce(transcribing, { type: 'cancelled' })).toEqual(IDLE)
+  it('goes back to idle with the stopped message when the person cancels the run', () => {
+    const stopped = reduce(transcribing, { type: 'cancelled' })
+    expect(stopped).toEqual({ status: 'idle', stopped: true })
+    expect(reduce(stopped, { type: 'clear-stopped' })).toEqual(IDLE)
+  })
+
+  it('keeps a run state when the timer of the stopped message ends late', () => {
+    expect(reduce(transcribing, { type: 'clear-stopped' })).toBe(transcribing)
   })
 
   it('shows the message of a failure', () => {
@@ -348,7 +432,9 @@ describe('transcribeDialogReducer', () => {
 describe('isActive and shownRunState', () => {
   it('treats the run states and the confirm states as active', () => {
     expect(isActive(transcribing)).toBe(true)
-    expect(isActive({ status: 'confirm-replace', resume: transcribing })).toBe(true)
+    expect(isActive({ status: 'confirm-replace', question: QUESTION, resume: transcribing })).toBe(
+      true,
+    )
     expect(isActive(IDLE)).toBe(false)
     expect(isActive({ status: 'error', message: '' })).toBe(false)
     expect(isActive({ status: 'done' })).toBe(false)
@@ -407,7 +493,7 @@ describe('remoteErrorMessage', () => {
   it.each([
     [
       new RemoteError('network', HOST),
-      'The app could not connect to ai.example.com. The server is not available, or its CORS settings block this page. Check that the server runs and sends the header Access-Control-Allow-Origin: https://timing.example.com',
+      'The app could not connect to ai.example.com. Check that the server runs and that the base URL is correct.\n\nIf the server runs: its CORS settings can block this page. Check that the server sends the header Access-Control-Allow-Origin: https://timing.example.com',
     ],
     [
       new RemoteError('auth', HOST, 401),
@@ -452,6 +538,22 @@ describe('remoteErrorMessage', () => {
   it('gives the origin of the page to the network message of a failed run', () => {
     expect(errorMessage(new RemoteError('network', HOST))).toContain(
       `Access-Control-Allow-Origin: ${globalThis.location.origin}`,
+    )
+  })
+})
+
+describe('lyricsFitMessage', () => {
+  const fit = { wordCount: 700, room: 600, keptLineCount: 1, lineCount: 1, firstLineCut: true }
+
+  it('names line 1 when line 1 alone does not fit', () => {
+    expect(lyricsFitMessage(fit, false)).toBe(
+      'The lyrics have 700 words. This song has room for about 600 words. The app leaves out the words of line 1 that do not fit.',
+    )
+  })
+
+  it('names line 1 and the lines after it when line 1 does not fit and more lines follow', () => {
+    expect(lyricsFitMessage({ ...fit, wordCount: 710, lineCount: 3 }, true)).toBe(
+      'The lyrics have 710 words. The time selection has room for about 600 words. The app leaves out the words of line 1 that do not fit, and the lines after line 1.',
     )
   })
 })

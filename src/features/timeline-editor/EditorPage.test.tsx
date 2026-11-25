@@ -1,10 +1,17 @@
-import { act, render, screen, waitFor, within } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { LIBRARY_HASH } from '../../app/routes.ts'
+import { setPageNotice } from '../../app/pageNotice.ts'
 import type { RunReport } from '../../lib/runReport/runReport.ts'
 import { breakDownWords, loadDictionaries } from '../../store/actions/breakDown.ts'
-import { startAutosave, useAutosaveStore } from '../../store/autosave.ts'
+import {
+  LEAVE_WAIT_MS,
+  SAVE_LIMIT_MS,
+  startAutosave,
+  useAutosaveStore,
+} from '../../store/autosave.ts'
+import { useOtherTabStore } from '../../store/otherTabs.ts'
 import * as db from '../../store/db.ts'
 import { loadSong, saveSong, StorageFullError } from '../../store/db.ts'
 import { useSongStore } from '../../store/songStore.ts'
@@ -67,6 +74,7 @@ beforeEach(() => {
   vi.mocked(createWaveformPlayer).mockReturnValue(new Promise(() => undefined))
   vi.mocked(loadDictionaries).mockRejectedValue(new DictionaryLoadError())
   useAutosaveStore.setState({ saveState: 'saved', error: null })
+  useOtherTabStore.setState({ songId: null })
   useSongStore.getState().closeSong()
 })
 
@@ -217,7 +225,10 @@ describe('EditorPage', () => {
   it('opens the run report from the link in the toast after a run', async () => {
     const user = userEvent.setup()
     const { song } = await renderEditor()
-    expect(screen.getByRole('button', { name: 'Run report' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Run report' })).toHaveAttribute(
+      'aria-disabled',
+      'true',
+    )
     vi.mocked(runTranscription).mockImplementation(async () => {
       await db.saveRunData({ songId: song.id, singerSegments: [], report: RUN_REPORT })
       return { wordCount: 214, estimatedCount: 9, runData: 'stored', breakDownFailure: null }
@@ -261,13 +272,13 @@ describe('EditorPage', () => {
       if (toast === null) throw new Error('The toast has no container.')
       // The top bar action reads the same stored report, so the read has ended when it is enabled.
       const [topBar] = screen.getAllByRole('button', { name: 'Run report' })
-      await vi.waitFor(() => expect(topBar).toBeEnabled())
+      await vi.waitFor(() => expect(topBar).not.toHaveAttribute('aria-disabled'))
       await new Promise((resolve) => setTimeout(resolve, 50))
       expect(within(toast).queryByRole('button', { name: 'Run report' })).toBeNull()
     },
   )
 
-  it('keeps the toast while its link has the focus', async () => {
+  it('keeps the toast until "Close", hides it while the panel is open, and takes no focus', async () => {
     const { song } = await renderEditor()
     await act(() => db.saveRunData({ songId: song.id, singerSegments: [], report: RUN_REPORT }))
     vi.mocked(runTranscription).mockResolvedValue({
@@ -284,16 +295,40 @@ describe('EditorPage', () => {
     const toast = (await screen.findByText('214 words, 9 estimated')).parentElement
     if (toast === null) throw new Error('The toast has no container.')
     const link = await within(toast).findByRole('button', { name: 'Run report' })
+    expect(toast).not.toContainElement(document.activeElement as HTMLElement)
+
     vi.useFakeTimers()
-
-    act(() => link.focus())
-    act(() => vi.advanceTimersByTime(10_000))
-    expect(screen.getByText('214 words, 9 estimated')).toBeInTheDocument()
-
-    act(() => link.blur())
-    act(() => vi.advanceTimersByTime(6000))
-    expect(screen.queryByText('214 words, 9 estimated')).toBeNull()
+    act(() => vi.advanceTimersByTime(60_000))
     vi.useRealTimers()
+    expect(toast).toBeVisible()
+
+    await user.click(link)
+    expect(screen.getByRole('dialog', { name: 'Run report' })).toBeInTheDocument()
+    expect(toast).not.toBeVisible()
+    await user.keyboard('{Escape}')
+    expect(toast).toBeVisible()
+
+    await user.click(within(toast).getByRole('button', { name: 'Close' }))
+    expect(screen.queryByText('214 words, 9 estimated')).toBeNull()
+  })
+
+  it('removes the toast of the last run when a new run starts', async () => {
+    vi.mocked(runTranscription).mockResolvedValue({
+      wordCount: 214,
+      estimatedCount: 9,
+      runData: 'stored',
+      breakDownFailure: null,
+    })
+    const user = userEvent.setup()
+    await renderEditor()
+    await user.click(topBarTranscribe())
+    const start = within(screen.getByRole('dialog')).getByRole('button', { name: 'Start' })
+    await vi.waitFor(() => expect(start).toBeEnabled())
+    await user.click(start)
+    await screen.findByText('214 words, 9 estimated')
+
+    await user.click(topBarTranscribe())
+    expect(screen.queryByText('214 words, 9 estimated')).toBeNull()
   })
 
   it('shows the dictionary failure after a run, and removes it when "Retry" breaks down the words', async () => {
@@ -366,14 +401,37 @@ describe('EditorPage', () => {
     expect(bar.getByRole('button', { name: 'Export' })).toBeInTheDocument()
   })
 
-  it('shows the "Transcribe", "Run report", "Custom dictionary" and "Export" actions in this order in the top bar', async () => {
+  it('shows the "Transcribe", "Run report", "Custom dictionary", "Export" and "Shortcuts" actions in this order in the top bar', async () => {
     await renderEditor()
     const bar = screen.getByRole('heading', { level: 2 }).parentElement ?? document.body
 
     const names = within(bar)
       .getAllByRole('button')
       .map((button) => button.textContent)
-    expect(names).toEqual(['Transcribe', 'Run report', 'Custom dictionary', 'Export'])
+    expect(names).toEqual(['Transcribe', 'Run report', 'Custom dictionary', 'Export', 'Shortcuts'])
+  })
+
+  it('makes "Skip to the transport" the first Tab stop, and moves the focus to the toolbar while the audio is not ready', async () => {
+    const user = userEvent.setup()
+    await renderEditor()
+
+    await user.tab()
+    const skip = screen.getByRole('link', { name: 'Skip to the transport' })
+    expect(skip).toHaveFocus()
+    await user.keyboard('{Enter}')
+
+    const toolbar = screen.getByRole('toolbar', { name: 'Editor tools' })
+    expect(toolbar).toContainElement(document.activeElement as HTMLElement)
+    expect(window.location.hash).not.toBe('#transport')
+  })
+
+  it('opens the shortcut list with the "Shortcuts" button of the top bar', async () => {
+    const user = userEvent.setup()
+    await renderEditor()
+
+    await user.click(screen.getByRole('button', { name: 'Shortcuts' }))
+
+    expect(screen.getByRole('dialog', { name: 'Keyboard shortcuts' })).toBeInTheDocument()
   })
 
   it('shows no "Transcribe" button in the empty state of the layers for a song with no voice', async () => {
@@ -495,6 +553,86 @@ describe('EditorPage', () => {
     }
   })
 
+  it('opens the song library from the back link only after the save of a pending change ends', async () => {
+    const stopAutosave = startAutosave()
+    try {
+      const { song } = await renderEditor()
+      window.location.hash = `#/song/${song.id}`
+      let endSave: () => void = () => undefined
+      const save = vi.spyOn(db, 'saveSong').mockImplementationOnce(
+        (content) =>
+          new Promise((resolve) => {
+            endSave = () => resolve(content.song)
+          }),
+      )
+      act(() =>
+        useSongStore
+          .getState()
+          .apply((content) => ({ ...content, song: { ...content.song, name: 'noel' } })),
+      )
+
+      await userEvent.click(screen.getByRole('link', { name: 'Back to song library' }))
+
+      expect(save).toHaveBeenCalledTimes(1)
+      expect(window.location.hash).toBe(`#/song/${song.id}`)
+      act(() => endSave())
+      await vi.waitFor(() => expect(window.location.hash).toBe(LIBRARY_HASH))
+    } finally {
+      stopAutosave()
+    }
+  })
+
+  it('stays on the song and shows the save message when the save does not end in 3 seconds after the back link', async () => {
+    const stopAutosave = startAutosave()
+    try {
+      const { song } = await renderEditor()
+      window.location.hash = `#/song/${song.id}`
+      vi.spyOn(db, 'saveSong').mockImplementation(() => new Promise(() => undefined))
+      vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+      act(() =>
+        useSongStore
+          .getState()
+          .apply((content) => ({ ...content, song: { ...content.song, name: 'noel' } })),
+      )
+
+      fireEvent.click(screen.getByRole('link', { name: 'Back to song library' }))
+      await act(() => vi.advanceTimersByTimeAsync(LEAVE_WAIT_MS - 1))
+      expect(screen.queryByText('The app could not save the song. Try again.')).toBeNull()
+      await act(() => vi.advanceTimersByTimeAsync(1))
+
+      expect(screen.getByRole('alert')).toHaveTextContent(
+        'The app could not save the song. Try again.',
+      )
+      expect(window.location.hash).toBe(`#/song/${song.id}`)
+      // The write ends at its own limit, so the next test finds no running write.
+      await act(() => vi.advanceTimersByTimeAsync(SAVE_LIMIT_MS))
+    } finally {
+      vi.useRealTimers()
+      stopAutosave()
+    }
+  })
+
+  it('shows the notice of a different tab until the person closes it', async () => {
+    const { song } = await renderEditor()
+
+    act(() => useOtherTabStore.setState({ songId: song.id }))
+    const notice = screen.getByRole('alert')
+    expect(notice).toHaveTextContent(
+      'This song is open in a different tab. The tab that saves last keeps its version. Close one of the tabs.',
+    )
+    await userEvent.click(within(notice).getByRole('button', { name: 'Close' }))
+
+    expect(screen.queryByRole('alert')).toBeNull()
+  })
+
+  it('shows no notice of a different tab for a different song', async () => {
+    await renderEditor()
+
+    act(() => useOtherTabStore.setState({ songId: 'song-other' }))
+
+    expect(screen.queryByRole('alert')).toBeNull()
+  })
+
   it('goes back to the song library for a song that does not exist', async () => {
     window.location.hash = '#/song/gone'
 
@@ -521,13 +659,19 @@ describe('EditorPage', () => {
       await held
       return undefined
     })
+    const opened = vi.spyOn(useSongStore.getState(), 'openSong')
     window.location.hash = '#/song/other'
     const view = render(<EditorPage songId="gone" />)
     await vi.waitFor(() => expect(load).toHaveBeenCalled())
 
     view.unmount()
     release()
-    await act(() => new Promise((resolve) => setTimeout(resolve, 20)))
+    // The open must end, and its result reach the editor, before the check of the route.
+    expect(opened).toHaveBeenCalledOnce()
+    await act(async () => {
+      await opened.mock.results[0]?.value
+    })
+    await act(async () => undefined)
 
     expect(window.location.hash).toBe('#/song/other')
   })
@@ -565,6 +709,38 @@ describe('EditorPage', () => {
       pxPerSecond: 250,
       scrollMs: 1200,
     })
+  })
+
+  it('shows a link to the song library in the note for a narrow window', async () => {
+    const width = window.innerWidth
+    try {
+      await renderEditor()
+      act(() => {
+        window.innerWidth = 1023
+        window.dispatchEvent(new Event('resize'))
+      })
+
+      expect(screen.getByRole('link', { name: 'Back to the song library' })).toHaveAttribute(
+        'href',
+        LIBRARY_HASH,
+      )
+    } finally {
+      window.innerWidth = width
+    }
+  })
+
+  it('shows the note of a drop with several files as a toast after the editor opens', async () => {
+    setPageNotice('one-file-added')
+
+    await renderEditor()
+
+    expect(await screen.findByText('Only one file was added.')).toBeVisible()
+  })
+
+  it('shows no toast when the editor opens after a drop with one file', async () => {
+    await renderEditor()
+
+    expect(screen.queryByText('Only one file was added.')).toBeNull()
   })
 
   it('shows the note for a window narrower than 1024 px and hides the editor', async () => {

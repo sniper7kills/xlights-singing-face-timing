@@ -1,6 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { MAX_VOICES } from '../../lib/voices/voiceRules.ts'
-import { addVoice } from '../../store/actions/voices.ts'
+import { addMark } from '../../store/actions/addMark.ts'
+import { addVoice, deleteVoice, renameVoice } from '../../store/actions/voices.ts'
+import { loadRunData } from '../../store/db.ts'
 import { useSongStore } from '../../store/songStore.ts'
 import type { Mark } from '../../store/types.ts'
 import { storeNewSong } from '../audio-import/storeNewSong.ts'
@@ -95,6 +97,7 @@ function handlers(controller = new AbortController()): TranscribeRunHandlers {
     onFinishing: vi.fn(),
     confirmReplace: vi.fn(async () => true),
     confirmLowMatch: vi.fn(async () => true),
+    confirmLyricsFit: vi.fn(async () => true),
     onSeparationDownload: vi.fn(),
     onSeparationProgress: vi.fn(),
     confirmNoSeparation: vi.fn(async () => true),
@@ -349,3 +352,207 @@ describe('runTranscription with singer voices', () => {
     })
   })
 })
+
+describe('runTranscription after a run with singer voices', () => {
+  const voiceNamed = (name: string) => {
+    const voice = content().voices.find((item) => item.name === name)
+    if (voice === undefined) throw new Error(`No voice ${name}.`)
+    return voice
+  }
+  const phraseLabels = () =>
+    content()
+      .marks.filter((mark) => mark.layer === 'phrase')
+      .map((mark) => mark.label)
+      .sort()
+
+  it('stores the id of each voice of the run with its singers, and the voice id of each report row', async () => {
+    await runTranscription(request, fakeClient(), handlers())
+
+    const singer = voiceNamed('Singer 2')
+    const data = await loadRunData(content().song.id)
+    expect(data?.voices).toEqual([
+      { voiceId: VOICE, singers: [0], made: false },
+      { voiceId: singer.id, singers: [1], made: true },
+    ])
+    expect(data?.report.voices.map((voice) => voice.voiceId)).toEqual([VOICE, singer.id])
+  })
+
+  it('stores the voice of a run with no singer step, with no singer', async () => {
+    await runTranscription({ ...request, singerVoices: false }, fakeClient(), handlers())
+
+    const data = await loadRunData(content().song.id)
+    expect(data?.voices).toEqual([{ voiceId: VOICE, singers: [], made: false }])
+  })
+
+  it('replaces the marks of the singer voices of the last run, so no phrase is on two voices', async () => {
+    await runTranscription(request, fakeClient(), handlers())
+    const firstSinger = voiceNamed('Singer 2')
+    const markCount = content().marks.length
+    const run = handlers()
+
+    await runTranscription(request, fakeClient(), run)
+
+    expect(run.confirmReplace).toHaveBeenCalledWith({
+      markCount,
+      voiceName: 'Lead Vocals',
+      range: { startMs: 0, endMs: 30_000 },
+      singerVoiceNames: ['Singer 2'],
+      singerVoicesKept: false,
+    })
+    expect(content().voices.map((voice) => voice.name)).toEqual(['Lead Vocals', 'Singer 2'])
+    // The emptied voice goes, so the new "Singer 2" is a new voice with the same name and colour.
+    expect(voiceNamed('Singer 2').id).not.toBe(firstSinger.id)
+    expect(voiceNamed('Singer 2').color).toBe(firstSinger.color)
+    expect(phraseLabels()).toEqual(['Silent.', 'night'])
+  })
+
+  it('replaces a renamed singer voice of the last run too', async () => {
+    await runTranscription(request, fakeClient(), handlers())
+    renameVoice(voiceNamed('Singer 2').id, 'Test Alto')
+    const run = handlers()
+
+    await runTranscription(request, fakeClient(), run)
+
+    expect(vi.mocked(run.confirmReplace).mock.calls[0]?.[0].singerVoiceNames).toEqual(['Test Alto'])
+    expect(content().voices.map((voice) => voice.name)).toEqual(['Lead Vocals', 'Singer 2'])
+    expect(phraseLabels()).toEqual(['Silent.', 'night'])
+  })
+
+  it('keeps a singer voice with marks outside the range, and the new singer voice gets the next free name', async () => {
+    await runTranscription(request, fakeClient(), handlers())
+    const firstSinger = voiceNamed('Singer 2')
+    addMark(firstSinger.id, 'phrase', 20_000, 21_000, 'kept')
+
+    await runTranscription(
+      { ...request, range: { startMs: 0, endMs: 10_000 } },
+      fakeClient(),
+      handlers(),
+    )
+
+    expect(content().voices.map((voice) => voice.name)).toEqual([
+      'Lead Vocals',
+      'Singer 2',
+      'Singer 3',
+    ])
+    expect(phrasesOn(firstSinger.id).map((phrase) => phrase.label)).toEqual(['kept'])
+    expect(phrasesOn(voiceNamed('Singer 3').id).map((phrase) => phrase.label)).toEqual(['night'])
+  })
+
+  it('restores the result of the first run exactly with the undo steps of the second run', async () => {
+    await runTranscription(request, fakeClient(), handlers())
+    setPreviewMutedOnSinger()
+    const first = structuredClone(content())
+    const stepsBefore = undoSteps()
+
+    await runTranscription(
+      { ...request, lyrics: '[Verse]\nSilent\nnight', addSections: true },
+      fakeClient(),
+      handlers(),
+    )
+
+    // The steps are the singer step, the sections of the tags, and the marks with the replace.
+    expect(undoSteps() - stepsBefore).toBe(3)
+    for (let step = 0; step < 3; step += 1) useSongStore.getState().undo()
+    expect(content()).toStrictEqual(first)
+  })
+
+  it('leaves the singer voices of the last run as they are for a run with the singer option off', async () => {
+    await runTranscription(request, fakeClient(), handlers())
+    const singer = structuredClone(voiceNamed('Singer 2'))
+    const singerMarks = structuredClone(
+      content().marks.filter((mark) => mark.voiceId === singer.id),
+    )
+    const run = handlers()
+
+    await runTranscription({ ...request, singerVoices: false }, fakeClient(), run)
+
+    expect(vi.mocked(run.confirmReplace).mock.calls[0]?.[0]).toMatchObject({
+      singerVoiceNames: [],
+      singerVoicesKept: true,
+    })
+    expect(voiceNamed('Singer 2')).toEqual(singer)
+    expect(content().marks.filter((mark) => mark.voiceId === singer.id)).toEqual(singerMarks)
+  })
+
+  it('leaves the singer voices of the last run as they are for a lyrics-only run', async () => {
+    await runTranscription(request, fakeClient(), handlers())
+    const run = handlers()
+
+    await runTranscription(
+      { ...request, mode: 'lyrics-only', lyrics: 'Silent night' },
+      fakeClient(),
+      run,
+    )
+
+    expect(vi.mocked(run.confirmReplace).mock.calls[0]?.[0].singerVoicesKept).toBe(true)
+    expect(phrasesOn(voiceNamed('Singer 2').id)).toHaveLength(1)
+  })
+
+  it('replaces the marks of the voice of the last run when the person starts the run on a singer voice', async () => {
+    await runTranscription(request, fakeClient(), handlers())
+    const singer = voiceNamed('Singer 2')
+    const markCount = content().marks.length
+    const run = handlers()
+
+    await runTranscription({ ...request, voiceId: singer.id }, fakeClient(), run)
+
+    // "Lead Vocals" is the voice of the last run, so it loses its marks in the range, and it stays because the run did not make it.
+    expect(run.confirmReplace).toHaveBeenCalledWith({
+      markCount,
+      voiceName: 'Singer 2',
+      range: { startMs: 0, endMs: 30_000 },
+      singerVoiceNames: ['Lead Vocals'],
+      singerVoicesKept: false,
+    })
+    expect(phrasesOn(VOICE)).toEqual([])
+    expect(content().voices.map((voice) => voice.name)).toEqual([
+      'Lead Vocals',
+      'Singer 2',
+      'Singer 3',
+    ])
+  })
+
+  it('asks no question when no voice that the run replaces has a mark in the range', async () => {
+    await runTranscription(request, fakeClient(), handlers())
+    const run = handlers()
+
+    await runTranscription(
+      { ...request, range: { startMs: 25_000, endMs: 30_000 } },
+      fakeClient(),
+      run,
+    )
+
+    expect(run.confirmReplace).not.toHaveBeenCalled()
+  })
+
+  it('replaces the marks of the voice only when the stored run data cannot be read', async () => {
+    await runTranscription(request, fakeClient(), handlers())
+    const db = await import('../../store/db.ts')
+    const spy = vi.spyOn(db, 'loadRunData').mockRejectedValueOnce(new Error('read failed'))
+    const run = handlers()
+
+    await runTranscription({ ...request, singerVoices: false }, fakeClient(), run)
+
+    expect(vi.mocked(run.confirmReplace).mock.calls[0]?.[0].singerVoicesKept).toBe(false)
+    spy.mockRestore()
+  })
+
+  it('gives no singer voice to replace after the person deletes it, and one undo brings it back', async () => {
+    await runTranscription(request, fakeClient(), handlers())
+    const singer = voiceNamed('Singer 2')
+    deleteVoice(singer.id)
+    useSongStore.getState().undo()
+
+    expect(voiceNamed('Singer 2')).toEqual(singer)
+  })
+})
+
+/** Mutes the face preview of "Singer 2", so the undo test also checks the mute state. */
+function setPreviewMutedOnSinger() {
+  useSongStore.getState().apply((song) => ({
+    ...song,
+    voices: song.voices.map((voice) =>
+      voice.name === 'Singer 2' ? { ...voice, previewMuted: true } : voice,
+    ),
+  }))
+}

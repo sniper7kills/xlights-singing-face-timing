@@ -82,6 +82,31 @@ describe('SongList', () => {
     expect(screen.getByLabelText('Song name')).toHaveValue('a'.repeat(80))
   })
 
+  it('shows the length hint for an empty name and for a name at the limit only', async () => {
+    const user = userEvent.setup()
+    renderList()
+    const hint = 'A song name has 1 to 80 characters.'
+
+    await user.click(screen.getByRole('button', { name: 'Rename Monster Mash' }))
+    expect(screen.queryByText(hint)).toBeNull()
+
+    await user.clear(screen.getByLabelText('Song name'))
+    expect(screen.getByText(hint)).toBeInTheDocument()
+    expect(screen.getByLabelText('Song name')).toHaveAccessibleDescription(hint)
+
+    await user.type(screen.getByLabelText('Song name'), 'a'.repeat(79))
+    expect(screen.queryByText(hint)).toBeNull()
+
+    await user.type(screen.getByLabelText('Song name'), 'a')
+    expect(screen.getByText(hint)).toBeInTheDocument()
+  })
+
+  it('shows the full song name as a tooltip of the link', () => {
+    renderList()
+
+    expect(screen.getByText('Monster Mash')).toHaveAttribute('title', 'Monster Mash')
+  })
+
   it('keeps the name when the person presses Escape in the rename form', async () => {
     const user = userEvent.setup()
     const { onRename } = renderList()
@@ -101,6 +126,9 @@ describe('SongList', () => {
     const dialog = screen.getByRole('alertdialog', { name: 'Delete “Monster Mash”?' })
     expect(onDelete).not.toHaveBeenCalled()
     expect(within(dialog).getByRole('button', { name: 'Cancel' })).toHaveFocus()
+    expect(dialog).toHaveAccessibleDescription(
+      'The app deletes its audio file, voices, sections and marks. You cannot undo this.',
+    )
 
     await user.click(within(dialog).getByRole('button', { name: 'Delete' }))
 

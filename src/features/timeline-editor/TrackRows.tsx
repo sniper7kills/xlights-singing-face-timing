@@ -1,23 +1,32 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { trackToWav } from '../../lib/audio/pcm.ts'
 import { peakLevels, type TrackPeaks } from '../../lib/audio/peaks.ts'
-import { audibleRows, SONG_ROW } from '../../lib/audio/trackMix.ts'
+import { audibleRows, playsText, SONG_ROW } from '../../lib/audio/trackMix.ts'
 import { useSongStore } from '../../store/songStore.ts'
 import {
   openTrackMix,
+  setBlockedRows,
   setFolded,
-  setHasTracks,
+  setShownRows,
   useTrackMixStore,
 } from '../../store/trackMixStore.ts'
 import { type TrackRow, trackRows } from '../../store/trackRows.ts'
 import type { KeptTracks, Mark, Voice } from '../../store/types.ts'
-import { useRunData } from '../../store/useRunData.ts'
+import {
+  RUN_DATA_FAILED,
+  RUN_DATA_FAILED_NOTE,
+  runDataOf,
+  useRunData,
+} from '../../store/useRunData.ts'
 import { usePlayerStore } from './playerStore.ts'
 import { RowControls } from './RowControls.tsx'
 import { createTrackMixer, type FollowerTrack, type TrackMixer } from './trackMixer.ts'
 import { TrackWave } from './TrackWave.tsx'
 
 const SINGER_TOOLTIP = 'This row is the vocals track, limited to the times of this singer.'
+const SONG_TOOLTIP = 'This row is the song audio. Its waveform is at the top of the stage.'
+/** The line under the heading while the person has not changed a mute or a solo of the song. */
+export const START_NOTE = 'The tracks start muted. Select "Solo" on a track to hear it alone.'
 
 const NO_VOICES: readonly Voice[] = []
 const NO_MARKS: readonly Mark[] = []
@@ -105,7 +114,8 @@ function followersOf(
 /**
  * Connects the audio element of each row to the song audio, and sets the rows that sound.
  * One mixer lives as long as the song audio, so a change of the rows never unmutes the song audio or restarts a track.
- * Returns the ids of the rows whose play the browser refused, and the handler of a click on "Mute" or "Solo" of a row.
+ * The mixer records the rows whose play the browser refused in the track mix store.
+ * Returns the handler of a click on "Mute" or "Solo" of a row.
  */
 function useMixer(
   rows: readonly TrackRow[],
@@ -116,17 +126,19 @@ function useMixer(
   const leader = usePlayerStore((state) => state.player?.media)
   const mix = useTrackMixStore()
   const mixer = useRef<TrackMixer | null>(null)
-  const [blocked, setBlocked] = useState<readonly string[]>([])
   const rowIds = useMemo(() => [SONG_ROW, ...rows.map((row) => row.id)], [rows])
 
   useEffect(() => {
     if (leader === undefined) return
-    const created = createTrackMixer(leader, { songRowId: SONG_ROW, onBlockedChange: setBlocked })
+    const created = createTrackMixer(leader, {
+      songRowId: SONG_ROW,
+      onBlockedChange: setBlockedRows,
+    })
     mixer.current = created
     return () => {
       created.destroy()
       mixer.current = null
-      setBlocked([])
+      setBlockedRows([])
     }
   }, [leader])
 
@@ -144,7 +156,7 @@ function useMixer(
       mixer.current?.activate(rowId, audibleRows(useTrackMixStore.getState(), rowIds)),
     [rowIds],
   )
-  return { blocked, activate }
+  return activate
 }
 
 /**
@@ -159,6 +171,39 @@ function useSameRows(rows: TrackRow[]): TrackRow[] {
   return rows
 }
 
+/** Shows the fold button "Audio tracks", the rows that sound, and the start note while the mix has no choice of the person. */
+function TrackHeading() {
+  const folded = useTrackMixStore((state) => state.folded)
+  const plays = useTrackMixStore(playsText)
+  const untouched = useTrackMixStore(
+    (state) => Object.keys(state.muted).length === 0 && state.soloed.length === 0,
+  )
+  return (
+    <>
+      <div className="track-heading">
+        <button
+          type="button"
+          className="track-fold"
+          aria-expanded={!folded}
+          onClick={() => setFolded(!folded)}
+        >
+          <span aria-hidden="true">{folded ? '▸' : '▾'}</span> Audio tracks
+        </button>
+        <span className="track-plays" data-testid="track-plays">
+          — {plays}
+        </span>
+      </div>
+      {untouched && <p className="track-note">{START_NOTE}</p>}
+    </>
+  )
+}
+
+/** Returns the rows of the store: the "Song" row first, then each track row. No track row gives no row. */
+function namedRows(rows: readonly TrackRow[]) {
+  if (rows.length === 0) return []
+  return [{ id: SONG_ROW, name: 'Song' }, ...rows.map(({ id, name }) => ({ id, name }))]
+}
+
 type TrackRowsProps = {
   songId: string
   /** The duration of the song in milliseconds. The time scale of the stage uses it. */
@@ -166,43 +211,48 @@ type TrackRowsProps = {
 }
 
 /**
- * Shows the group "Audio tracks": one row for each kept audio track and for each singer voice of the last run.
- * Each row draws its waveform on the time scale of the stage and has "Mute" and "Solo".
+ * Shows the group "Audio tracks": the "Song" row, and one row for each kept audio track and for each singer voice of the last run.
+ * Each row has its name, whether it sounds now, "Mute" and "Solo" on a line above its waveform.
+ * The waveform has the width of the stage, so it stays on the time scale of the time ruler.
  * The audio of each row plays in time with the song audio (ADR 0010).
- * A song with no kept audio tracks shows nothing.
+ * A song with no kept audio tracks shows nothing. A failed read of the run data shows one line with the cause.
  * The memo keeps the rows out of the render of the waveform region on each play time.
  */
 export const TrackRows = memo(function TrackRows({ songId, durationMs }: TrackRowsProps) {
-  const data = useRunData(songId)
+  const read = useRunData(songId)
+  const data = runDataOf(read)
   const voices = useSongStore((state) => state.current?.voices) ?? NO_VOICES
   const marks = useSongStore((state) => state.current?.marks) ?? NO_MARKS
   const folded = useTrackMixStore((state) => state.folded)
+  const blocked = useTrackMixStore((state) => state.blocked)
   const tracks = data?.tracks
   const rows = useSameRows(trackRows(data, voices, marks))
   const peaks = useTrackPeaks(tracks)
   const urls = useTrackUrls(tracks)
   // The map keeps its identity, so the mixer gets an update only for new rows or new tracks.
   const elements = useRef(new Map<string, HTMLAudioElement>()).current
-  const { blocked, activate } = useMixer(rows, tracks, urls, elements)
+  const activate = useMixer(rows, tracks, urls, elements)
 
   useEffect(() => openTrackMix(songId), [songId])
   useEffect(() => {
-    setHasTracks(rows.length > 0)
-    return () => setHasTracks(false)
-  }, [rows.length])
+    setShownRows(namedRows(rows))
+    return () => setShownRows([])
+  }, [rows])
 
+  if (read === RUN_DATA_FAILED)
+    return (
+      <p className="message track-failed" role="alert">
+        {RUN_DATA_FAILED_NOTE}
+      </p>
+    )
   if (rows.length === 0) return null
   return (
     <div className="track-rows" role="group" aria-label="Audio tracks">
-      <button
-        type="button"
-        className="track-fold"
-        aria-expanded={!folded}
-        onClick={() => setFolded(!folded)}
-      >
-        <span aria-hidden="true">{folded ? '▸' : '▾'}</span> Audio tracks
-      </button>
+      <TrackHeading />
       <div className="track-list" hidden={folded}>
+        <div className="track-row track-row-song" data-row={SONG_ROW}>
+          <RowControls rowId={SONG_ROW} name="Song" tooltip={SONG_TOOLTIP} onToggle={activate} />
+        </div>
         {rows.map((row) => (
           <div key={row.id} className="track-row" data-row={row.id}>
             <RowControls

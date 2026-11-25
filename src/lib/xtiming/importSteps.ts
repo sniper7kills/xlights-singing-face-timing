@@ -7,23 +7,34 @@ export interface ImportStep {
   note?: string
 }
 
+/** The place that shows the steps. Step 2 names the frame size of the song in a different sentence for each. */
+export type StepsPlace = 'dialog' | 'file'
+
 /** The heading of the second list: the steps for a show with more than one face model. */
 export const FACE_MODEL_STEPS_HEADING = 'Use the timing tracks with several face models'
 
 /**
  * Returns the seven xLights import steps: the "Import steps text" of `docs/specs/features/06-xtiming-export.md`.
- * The export dialog and the `README.txt` of the zip file both show these steps, so the two texts cannot differ.
+ * The export dialog and the `README.txt` of the zip file both show these steps, so the two texts differ only in step 2.
  * The control names are the names in xLights 2026.21.
  * @param frameMs The frame size of the song. Step 2 states it.
+ * @param place The place that shows the steps. A file has no dialog, so its step 2 names the song.
  */
-export function importSteps(frameMs: number): ImportStep[] {
+export function importSteps(frameMs: number, place: StepsPlace): ImportStep[] {
+  const frameParts: ImportStepPart[] =
+    place === 'dialog'
+      ? ['It must match the frame size in this dialog: ', { bold: `${frameMs} ms` }, '.']
+      : [
+          'The frame size of this song is ',
+          { bold: `${frameMs} ms` },
+          '. The frame size of the sequence must be the same.',
+        ]
   return [
     { parts: ['Open the sequence in xLights. Use the same audio file, so the times match.'] },
     {
       parts: [
-        'Check the frame size: in "Sequence Settings", the tab "Info / Media" shows "Sequence Timing". It must match the frame size in this dialog: ',
-        { bold: `${frameMs} ms` },
-        '.',
+        'Check the frame size: in "Sequence Settings", the tab "Info / Media" shows "Sequence Timing". ',
+        ...frameParts,
       ],
       note: 'If the song has a frame size of 25 ms and the sequence has 50 ms, xLights moves each time down to a multiple of 50 ms.',
     },
@@ -109,7 +120,7 @@ function stepsText(steps: ImportStep[]): string {
  */
 export function importStepsText(frameMs: number): string {
   return [
-    stepsText(importSteps(frameMs)),
+    stepsText(importSteps(frameMs, 'file')),
     '',
     `${FACE_MODEL_STEPS_HEADING}:`,
     stepsText(faceModelSteps()),

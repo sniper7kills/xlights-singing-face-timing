@@ -201,7 +201,8 @@ leaves the browser, and the app shows the host before each run.
   shows the tooltip "No transcribe run for this song yet."
 - FR-transcribe-83 — If the run stored its run report, the toast after the run
   shows a "Run report" link.
-- FR-transcribe-84 — The toast stays while its link has the focus.
+- FR-transcribe-84 — The toast after a run stays until the person selects "Close"
+  or starts a new run. It takes no focus, and its text is a polite status.
 - FR-transcribe-85 — "Run report" opens the run report panel. The panel shows the
   run report of the last run of the song and is read-only.
 - FR-transcribe-86 — The panel shows the sections Run, Steps, Vocal separation,
@@ -280,6 +281,78 @@ leaves the browser, and the app shows the host before each run.
 - FR-transcribe-126 — The singer section states the limits of a phrase division.
 - FR-transcribe-127 — The singer section states the count of phrases that the
   singer step divided.
+
+### Failures that the person sees (issue #153)
+
+- FR-transcribe-128 — If the browser cannot store the remote endpoint, the dialog
+  shows a message under the endpoint panel.
+- FR-transcribe-129 — If the browser cannot store a choice of the transcribe
+  dialog, the dialog shows one message for all choices.
+- FR-transcribe-130 — If the app cannot convert the audio tracks of a run, the
+  toast states it.
+
+### Lyrics limit (issue #156)
+
+- FR-transcribe-131 — The lyrics field accepts 20 000 characters at most.
+- FR-transcribe-132 — With more than 20 000 characters, the dialog shows a message
+  under the lyrics field and disables "Start".
+- FR-transcribe-133 — A paste of 1 000 000 characters returns control to the
+  person in less than 1 second.
+
+### Lyrics that do not fit (issue #163)
+
+- FR-transcribe-134 — Before a run with lyrics, the app counts the words of the
+  lyrics against the room of the range.
+- FR-transcribe-135 — If the words do not fit, the dialog asks before the run, with
+  the count of words, the room and the last kept line.
+- FR-transcribe-136 — If the app leaves out words that it cannot use, the toast
+  states the count.
+- FR-transcribe-137 — The run report states the count of lyrics lines and the count
+  of words that the run left out.
+- FR-transcribe-138 — A hint under the lyrics field states the rule for
+  characters.
+
+### Dialog layout and run messages (issue #164)
+
+- FR-transcribe-139 — The transcribe dialog keeps its title and its buttons in
+  view. Only the options scroll.
+- FR-transcribe-140 — The progress and each question of a run show outside the
+  scroll area.
+- FR-transcribe-141 — After a cancel, the dialog states that the marks did not
+  change.
+- FR-transcribe-142 — `Escape` during a run moves the focus to "Cancel" and shows a
+  hint.
+- FR-transcribe-143 — For "Lyrics only", the dialog states the reason for the
+  disabled groups.
+- FR-transcribe-144 — The replace question states the voice, the range and the
+  count of marks that the run replaces.
+- FR-transcribe-145 — While a question shows, the progress bar and the elapsed
+  time do not show.
+
+### Voices of the last run (issues #173 and #174)
+
+- FR-transcribe-146 — The run data stores the id of each voice that the run wrote
+  marks to, with the singer numbers of that voice.
+- FR-transcribe-147 — The run report panel shows the present name of each voice of
+  the run. It shows "<name> (deleted)" for a voice that the song no longer has. The
+  stored report does not change.
+- FR-transcribe-148 — A run with "Put each singer on its own voice" replaces the
+  marks in the range of each voice that the last run wrote marks to, also after a
+  rename. The voice of the last run is one of these voices.
+- FR-transcribe-149 — The replace question names each voice that loses marks, and
+  its count is the sum of the marks of those voices.
+- FR-transcribe-150 — A run with no singer step leaves the singer voices of the last
+  run as they are, and the replace question states it.
+
+### Summary of the run report (issue #176)
+
+- FR-transcribe-151 — The "Singers" section of the run report starts with a
+  summary in plain words: the result, the most probable reason and the next action.
+- FR-transcribe-152 — The numbers for a bug report are in a part that folds, with
+  one sentence for each term.
+- FR-transcribe-153 — The copied text of the run report starts with the summary,
+  and has the labels and the units of the panel.
+- FR-transcribe-154 — The toast hides while the run report panel is open.
 
 ## User flows
 
@@ -410,16 +483,23 @@ sequenceDiagram
 
 1. The person selects "Lyrics only" in the transcribe dialog.
 2. The person pastes the lyrics.
-3. The app makes one phrase for each line.
-4. The app spreads the phrases evenly across the target range.
-5. The app spreads the words of each phrase evenly across the phrase.
-6. The app marks every word as "estimated".
+3. If the lyrics have more words than the range has room for, the app asks before
+   the run. See the room rule in [Behaviour rules](#behaviour-rules).
+4. The app makes one phrase for each line.
+5. The app spreads the phrases evenly across the target range.
+6. The app spreads the words of each phrase evenly across the phrase.
+7. The app marks every word as "estimated".
 
 ## Screens & states
 
 **Transcribe dialog.** Regions: "Where to transcribe" choice, speech model selector
 or endpoint panel, device note, lyrics field,
 range selector (full song or the time selection), progress area, buttons.
+
+The dialog is a column of three parts. The title stays at the top. The options
+scroll in the middle. The bottom part holds the remote warning, the progress area,
+the messages, each question and the buttons, and it does not scroll. So "Start" is
+fully visible at 1440x900 and at 1024x768 with each option on.
 
 - idle: selectors enabled, "Start" enabled.
 - preparing: "Preparing audio, 0:02 elapsed" with a bar that has no end. The app
@@ -433,7 +513,27 @@ range selector (full song or the time selection), progress area, buttons.
   audio time changes at the end of each sung segment, a few seconds apart, and not
   only at the end of each 30-second chunk.
 - finishing: "Aligning lyrics and breaking down words".
-- confirm: "The run replaces the marks of this voice." with "Continue" and "Cancel".
+- confirm: "The run replaces the <n> marks of "<voice name>" from <start> to
+  <end>." with "Continue" and "Cancel". The count is the count of marks of the
+  voice on all layers that overlap the range. The same rule decides that the
+  dialog asks. The times have the form `0:01.500`. For one mark, the text reads
+  "the 1 mark".
+- confirm with the singer voices of the last run (FR-transcribe-149): "The run
+  replaces <n> marks from <start> to <end>: the marks of "<voice name>", and the
+  marks of "Singer 2" and "Singer 3" from the last run." `<n>` is the sum of the
+  marks of all named voices. The list names the voice of the last run too, when
+  the new run is on a different voice. The text names only a voice with a mark
+  that overlaps the range. Three names or more read "Singer 2", "Singer 3" and
+  "Singer 4". For one mark, the text reads "1 mark".
+- confirm for a run with no singer step on a song with singer voices of the last
+  run (FR-transcribe-150): the text adds "The voices of the last singer step do not
+  change."
+- question: while the dialog asks, the progress area shows no text and no bar,
+  because the run waits for the answer.
+- stopped: after a cancel, the dialog goes back to idle and shows "The run stopped.
+  The marks did not change." for 5 seconds.
+- `Escape` during a run moves the focus to "Cancel" and shows "Select Cancel to stop
+  the run." The run goes on. `Escape` at a question answers "Cancel".
 - error: the message, with "Retry" and "Close".
 - done: the dialog closes. A toast shows "214 words, 9 estimated".
 
@@ -455,6 +555,29 @@ available. Transcription is slower on this browser."
 
 If the person selects "Lyrics only" and the lyrics field has no word, the app
 disables "Start". The hint reads "Paste the lyrics to use Lyrics only."
+
+With "Lyrics only" selected, the note "Lyrics only uses no speech model." replaces
+the device note. It describes the disabled groups "Where to transcribe" and
+"Speech model", or the endpoint panel.
+
+If the lyrics have more than 20 000 characters, the message under the lyrics field
+reads "The lyrics are too long. Use 20 000 characters at most." The app disables
+"Start" and reads no line of the lyrics until the text is shorter. No real song
+has lyrics of this length.
+
+The hint under the lyrics field reads "The app uses each word that has a letter or
+a digit. It leaves out other words, such as & or an emoji."
+
+- lyrics question: before a run with lyrics that do not fit, the dialog shows "The
+  lyrics have <n> words. This song has room for about <m> words. The app leaves out
+  the lines after line <k>." with "Continue" and "Cancel". For a run over the time
+  selection, the second sentence reads "The time selection has room for about <m>
+  words." "Continue" runs with lines 1 to <k>. "Cancel" changes no mark.
+- lyrics question when line 1 alone does not fit: the last sentence reads "The app
+  leaves out the words of line 1 that do not fit." With more lines, it reads "The
+  app leaves out the words of line 1 that do not fit, and the lines after line 1."
+- If the run left out words that it cannot use, the toast adds "The app left out
+  <n> words that it cannot use."
 
 **Separate the vocals first.** The check box comes after "Lyrics only". "Lyrics
 only" hides it, because a lyrics-only run reads no audio. The note under the check
@@ -577,25 +700,75 @@ it. If that control is gone, the focus goes to "Run report" in the top bar.
 
 | Section | Content | Sentence with no data |
 |---|---|---|
-| Run | The start time in local time, the build, the source, the host of the remote endpoint, the speech model, the device, the range, the frame size | — |
+| Run | The start time in local time with the UTC time after it, for example "Nov 25, 2026, 12:34:05 AM (2026-11-25 05:34:05 UTC)", the build, the source, the host of the remote endpoint, the speech model, the device, the range, the frame size | — |
 | Steps | A table with the time of each step, and the total | "The report has no step times." |
 | Vocal separation | The separation model, and "Changed to the fast model" | "The run did not separate the vocals." |
-| Singers | The result of the singer step in one sentence. A table of the groups after the clustering. A table of the final singers with the sung time and the count of ranges. The settings in force, the centroid distances, the singer ranges, the phrase rule, the phrase division, the phrases divided, the phrases with no singer and with more than one singer | "The singer step did not run, because the option was off." or "The singer step did not run, because the run had no separated vocals." |
+| Singers | The summary of the singer step (see below). The singers selected, the phrases divided, the singers with one phrase or more, the phrases with no singer, the phrases with more than one singer and the voices made. Then the part "Details for a bug report" | The summary only |
 | Voices | A table: the voice, its count of phrases, and "Made by the run" | "No voice holds phrases of the run." |
-| Marks | Phrases, words, estimated words, unknown words | — |
+| Marks | Phrases, words, estimated words, unknown words, lyrics lines left out, words left out | — |
 | Notes | Each warning and failure | "The run had no warning and no failure." |
 
-The sentence of the singer step:
+Each time in the panel is in seconds with each millisecond and one decimal or more,
+for example "28.9 s" or "12.34 s".
 
-| Result | Sentence |
+The summary of the singer step. The app makes it from the stored report only: the
+status of the step, the diagnostics, the choice of "Singers" and the counts of the
+phrases. It holds no lyrics. "The voice of the run" is the voice that the run
+wrote to.
+
+| Result | Summary |
 |---|---|
-| `split` | "The singer step put the phrases on <n> voices." |
-| `one-singer` | "The singer step found one singer, so all phrases stay on one voice." |
-| `capped` | "The singer step found more singers than the song has free voices." |
-| `failed` | "The singer step failed (<cause>). The phrases stay on the voice of the run." |
-| `cancelled` | "The person cancelled the singer step. The phrases stay on the voice of the run." |
+| Option off | "The singer step did not run, because "Put each singer on its own voice" was off. To give each singer a voice, select that option and run again." |
+| No separated vocals | "The singer step did not run, because the run had no separated vocals. Select "Separate the vocals first" and run again." |
+| Failed: download | "The app could not download the singer model. The phrases stay on the voice of the run. Check the connection and run again." |
+| Failed: memory | "This browser did not have enough memory to find the singers. The phrases stay on the voice of the run. Run again on a shorter part of the song." |
+| Failed: other cause | "The singer step failed (<cause>). The phrases stay on the voice of the run. Run again. If the step fails again, copy this report into a bug report." |
+| Cancelled | "You stopped the singer step. The phrases stay on the voice of the run. Run again to find the singers." |
+| More singers than free voices | "The app found <n> singers, more than the song has free voices. A song has 12 voices at most. The singers with no free voice stay on the voice of the run. Delete the voices that you do not use, and run again." |
+| One singer, "Automatic" | "The app found 1 singer, so all phrases stay on one voice." Then the reason, then "If the song has more singers, select the count in "Singers" and run again." |
+| One singer, a count | "The app found 1 singer, and you selected <n>. All phrases stay on one voice." Then the reason, then "If a phrase is on the wrong voice, use "Move to voice" to correct it." |
+| Two singers or more | "The app found <n> singers and put the phrases on <k> voices." Then the sentences for the groups and the phrases, then "If a phrase is on the wrong voice, use "Move to voice" to correct it." |
 
-With no diagnostics, the sentence adds "The singer search gave no diagnostics."
+The reason for one singer, from the diagnostics:
+
+- If a smaller group joined the first group because it was small or short: "The
+  app found <n> groups of voice prints, but the parts of other singers were short.
+  So the app joined them with the first singer."
+- Else, if the closest centroid distance is less than the merge threshold: "The
+  singers sound alike to the app, so the app joined them into one singer."
+- Else: "All voice prints of the song are close to each other. If the song has more
+  singers, they sound alike to the app."
+- With no diagnostics, the summary gives no reason.
+
+The sentences for the groups and the phrases, each only when its count is more
+than 0:
+
+- More groups than the selected count: "The app found <n> groups of voice prints,
+  and you selected <k>. The app joined the groups that sound most alike."
+- "The app divided <n> phrases where the singer changes."
+- "<n> phrases had more than one singer, so each voice of those singers got a copy."
+- "<n> phrases had no singer, so they stay on the voice of the run."
+
+**Details for a bug report.** A part that folds, closed by default, at the end of
+the "Singers" section. It holds the result of the step (for example `split` or
+`failed (memory)`), the singer ranges, the phrase rule, the phrase division, the
+singer diagnostics, the table of the groups after the clustering and the table of
+the final singers. With no diagnostics, it shows "Diagnostics: none: the singer
+search gave no numbers". Under the heading "Terms", one sentence explains each term:
+
+| Term | Sentence |
+|---|---|
+| Voice print (embedding) | "A list of numbers that the app computes from a short part of the vocals to describe the voice in it." |
+| Window | "A part of 10 seconds of the vocals that the app reads at one time." |
+| Frame with a singer | "A short step of a window in which one or more singers sing." |
+| Sung time | "The time in which one or more singers sing." |
+| Group | "A set of voice prints that are close to each other, so the app takes them as one singer." |
+| Merge threshold | "The app puts two groups together when the distance between their centres is less than this value." |
+| Centroid distance | "The distance between the centres of two groups, where a small distance means that two voices sound alike." |
+| Minimum group size | "A group with fewer voice prints than this value joins the closest larger group." |
+| Highest count of singers | "The largest count of singers that the app keeps." |
+| Short singer limits | "A singer with less sung time than one of these limits joins another singer." |
+| Singer range | "A time range in which one singer sings." |
 
 The buttons: "Copy report", "Download report" and "Close". After a copy, a polite
 status line shows "The report is on the clipboard." If the browser refuses the
@@ -619,6 +792,29 @@ copy, the status line shows "Press Ctrl+C to copy."
   frame size, and moves the next word if needed.
 - Words on one layer do not overlap. If the speech model returns an overlap, the
   earlier word ends where the later word starts.
+- **Characters of the lyrics.** A lyrics word is a part of a line between spaces.
+  - The app uses a word that has a letter or a digit, in any script. For example
+    "café", "99" and "你好" are words.
+  - The app leaves out a part with no letter and no digit, for example "&", "—" or
+    an emoji, and counts it as a word that it cannot use.
+  - The label rules above then apply to each word.
+  - The dictionaries have English words only. A word that no dictionary has is an
+    unknown word, for example a word in another script.
+- **Room rule.** The room of a range is one word for each frame size of the range.
+  The app keeps a word one frame size long or more, so more words cannot fit.
+  - Before a run with lyrics, the app counts the words of each lyrics line. A
+    word is a part with a letter or a digit, the same rule that makes the word
+    marks. So a lone "&", an emoji or a dash is not in the count.
+  - The app keeps the lines from line 1 while their words fit in the room. It
+    leaves out each line after the first line that does not fit.
+  - The app always keeps line 1. If line 1 alone does not fit, the app asks
+    first, and then keeps its earliest words that fit.
+  - At 50 ms, a song of 28.9 s has room for 578 words. 200 lines of 7 words keep
+    lines 1 to 82.
+  - More than about 4 words for each second gives words of one or two frames. The
+    face then changes too fast to read. The room rule does not warn about this.
+- A word of the speech model that has no letter and no digit after the label rules
+  gives no mark. The app counts it as a word that it cannot use.
 - **Align rules.** The app compares the transcribed words with the lyrics words as
   two sequences, without case and without punctuation.
   - A lyrics word that matches a transcribed word takes its time.
@@ -635,6 +831,34 @@ copy, the status line shows "Press Ctrl+C to copy."
   - A phrase with no word left is removed.
   - A phrase that changes takes the text of its kept words as its label.
   - Marks outside the range do not change. The replace is one undo step.
+- **Singer voices of the last run** (issue #174):
+  - The singer voices of the last run are the voices that the singer step of the
+    last run added and that the song still has. The app finds them by the voice
+    ids of the run data, so a renamed voice is still such a voice. Run data from
+    before issue #173 has no ids, so the app finds them by the names in the report.
+  - The voice of the new run is never a singer voice of the last run, also when
+    the last run added it.
+  - The voices of the last run are its singer voices and the voice that the last
+    run started on. The run data lists them by id.
+  - A speech model run with "Put each singer on its own voice" replaces the marks
+    in the range of each voice of the last run, by the range rules above. So a
+    run on a different voice also clears the voice that the last run started on.
+    Marks that the person added by hand inside the range go too.
+  - A singer voice of the last run goes when the replace removes its last mark. So
+    the singer step of the run can use the name "Singer 2" again. A singer voice
+    with marks outside the range stays, and the new singer voices get the next free
+    names.
+  - A singer voice of the last run that had no mark before the run stays, because
+    the person can keep an empty voice on purpose.
+  - The voice that the last run started on stays when the replace removes its last
+    mark, because the singer step did not add it.
+  - The replace of all voices and the removed voices are one undo step with the
+    marks of the run. The undo steps of the run in order are: the singer step, the
+    sections of the tags, then the marks with the replace. Each undo restores the
+    song exactly, with the ids, the order, the colours and the mute state of each
+    voice.
+  - A run with no singer step leaves the singer voices of the last run as they
+    are. A lyrics-only run has no singer step.
 - The worker handles one run at a time. The "Transcribe" action is disabled during
   a run.
 - The app transcribes in 30-second chunks with a 5-second stride.
@@ -658,8 +882,11 @@ copy, the status line shows "Press Ctrl+C to copy."
 
 ## Data touched
 
-- Writes `RUN_DATA` for the song at the end of each completed run: the audio
-  tracks, the singer ranges and the run report. A new run replaces the full record.
+- Writes `RUN_DATA` for the song at the end of each completed run: the voices of
+  the run, the audio tracks, the singer ranges and the run report. A new run
+  replaces the full record.
+- Reads `RUN_DATA` before the replace question, for the singer voices of the last
+  run.
 - Reads and writes `APP_SETTINGS.keepTracks`, the last choice of "Keep the separated
   tracks". A record with no value gives `true`.
 
@@ -912,7 +1139,7 @@ from 0 to 1.
 | Instrumental range selected | "No words were found" for that range. Other marks stay. |
 | Lyrics contain a line with no words | The app ignores the line. |
 | Lyrics contain `[Chorus]` style tags | The app ignores a line that is only text in square brackets. |
-| Remote endpoint: no connection, or the CORS settings block the page | "The app could not connect to <host>. The server is not available, or its CORS settings block this page. Check that the server runs and sends the header Access-Control-Allow-Origin: <origin of the app>" |
+| Remote endpoint: no connection, or the CORS settings block the page | "The app could not connect to <host>. Check that the server runs and that the base URL is correct." Then a second paragraph: "If the server runs: its CORS settings can block this page. Check that the server sends the header Access-Control-Allow-Origin: <origin of the app>" |
 | Remote endpoint: HTTP 401 or 403 | "<host> refused the API key (HTTP 401). Check the API key of the remote endpoint." |
 | Remote endpoint: HTTP 404 | "<host> has no transcription service at this address (HTTP 404). Check the base URL. It usually ends with /v1." |
 | Remote endpoint: HTTP 413, or a WAV file above 25 000 000 bytes | "The audio is too large for the remote endpoint. Select a shorter part of the song in the editor, and transcribe the time selection." |
@@ -922,11 +1149,11 @@ from 0 to 1.
 | Remote endpoint: the response is not JSON | "<host> did not return JSON. Check the base URL. It usually ends with /v1." |
 | Remote endpoint: the response has no `words` list | "<host> returned no word times. Use a server and a speech model that return the words field of verbose_json." |
 | Remote endpoint: the response has an empty `words` list | "No words were found. Paste the lyrics and use Lyrics only." |
-| Remote endpoint: the person selects "Cancel" | The app stops the request. No mark changes. The dialog goes back to idle with no message. |
+| Remote endpoint: the person selects "Cancel" | The app stops the request. No mark changes. The dialog goes back to idle and shows "The run stopped. The marks did not change." |
 | Vocal separation: the model does not download | "The app could not download the vocal separation model. Check the connection. Then try again, or continue with no separation." with "Continue with no separation" and "Cancel". |
 | Vocal separation: out of memory | "This browser does not have enough memory to separate the vocals of this song. Select a shorter time range, or continue with no separation." with "Continue with no separation" and "Cancel". |
 | Vocal separation: the model fails, or another failure | "The vocal separation did not work. Continue with no separation, or cancel." with "Continue with no separation" and "Cancel". |
-| Vocal separation: the person selects "Cancel" during the step | The app stops the worker. No mark changes. The dialog goes back to idle with no message. |
+| Vocal separation: the person selects "Cancel" during the step | The app stops the worker. No mark changes. The dialog goes back to idle and shows "The run stopped. The marks did not change." |
 | Vocal separation: the person selects "Continue with no separation" | The run goes on with the audio of the song, as with the option off. |
 | Demucs: out of memory | The message for out of memory, with "Use the fast model", "Continue with no separation" and "Cancel". |
 | Demucs: the person selects "Use the fast model" | The run separates the vocals again with Spleeter. The stored choice does not change. |
@@ -942,7 +1169,9 @@ from 0 to 1.
 | Singer step: more singers than free voices, and the song has 12 voices | No new voice. The toast adds "The song has 12 voices, so the app cannot add a voice for each singer. All phrases stay on <voice name>." |
 | Singer step: more singers than free voices, and the song has room for some singers | The app adds a voice for each free voice. The toast adds "The song has room for <k> more voices. The other singers stay on <voice name>." |
 | Kept audio tracks: the browser storage is full | The run completes. The app stores the report and the singer ranges with no audio tracks. The report has the line "audio tracks not kept: the browser storage is full". The toast adds "The browser storage is full, so the app did not keep the separated tracks." |
-| Kept audio tracks: the browser cannot resample the tracks | The run completes with no audio tracks. The report has the line "audio tracks not kept: the app could not convert the tracks". |
+| Kept audio tracks: the browser cannot resample the tracks | The run completes with no audio tracks. The report has the line "audio tracks not kept: the app could not convert the tracks". The toast adds "The app could not keep the separated tracks. Run "Transcribe" again to try one more time." |
+| The browser cannot store the remote endpoint | Under the endpoint panel: "The app could not store the remote endpoint in this browser. It works until you reload the page." The run uses the endpoint. |
+| The browser cannot store a choice of the transcribe dialog | The dialog shows one message for all choices: "The app could not store the choices of this dialog in this browser. They work until you reload the page." The run uses the choices. |
 | The write of the run data does not end in 5 seconds | The run completes. The toast shows no "Run report" link and adds "The app still stores the run report. It shows in "Run report" when it is ready." When the write ends, "Run report" and the track rows show the new run. If the storage is full, the app stores the report with no audio tracks and its line "audio tracks not kept: the browser storage is full". |
 | The write of the run data fails | The run completes. The toast shows no "Run report" link and adds "The app could not store the run report." |
 | A newer version of the app wrote the database | The song library shows "This browser holds data from a newer version of the app. Reload the page. If the message stays, close the other tabs of the app and reload." |
@@ -951,19 +1180,20 @@ from 0 to 1.
 
 ## Run report
 
-The report has these sections. `reportToText` writes them in this order. Each
-section starts with a heading line in brackets.
+The copied text ("Copy report", "Download report" and `report.txt` of the zip
+file) is the bug report. `reportToText` writes it from the sections of the panel,
+so it has the same labels, the same values and the same units as the panel.
 
-| Section | Facts |
+| Part | Content |
 |---|---|
-| Header | "Transcribe run report", the start time of the run (ISO 8601) |
-| `[Run]` | The build of the app, source (`browser` or `remote`), the host of the remote endpoint, the mode, the speech model, the device, the range in ms, the frame size in ms |
-| `[Vocal separation]` | The separation model of the vocals (`spleeter`, `demucs` or `none`), "Changed to the fast model" (`yes` or `no`), "Audio tracks" (the count), "Tracks kept" (`yes` or `no`). A report from before issue #129 gives `not known` for the last two. |
-| `[Counts]` | Phrases, words, estimated words, unknown words |
-| `[Voices]` | Each voice that holds phrases of the run, with its count of phrases. A voice that the singer step made has ", made by the run". |
-| `[Singers]` | The result of the singer step, the choice of "Singers" ("Singers selected": `Automatic`, the count, or `not recorded`), the singer diagnostics, the singer ranges, the phrase rule, the phrase division, the phrases divided, the singers with one phrase or more, the phrases with no singer range, the phrases with more than one singer, the voices made |
-| `[Step times]` | The time of each step that ran, in ms |
-| `[Warnings and failures]` | One line for each warning or failure, for example "separation failed: memory; continued with the fast model" |
+| Header | "Transcribe run report" |
+| `[Summary]` | The summary of the singer step, one sentence for each line |
+| One part for each section of the panel | A heading line in brackets, for example `[Run]`. Then the sentence of the section, except the summary. Then each table with its caption and aligned columns, each fact as "<label>: <value>", and each warning. The start time is the local time and the UTC time. |
+| "Details for a bug report:" | In the `[Singers]` part: each fact and each table of the details part. A table with no row shows "<caption>: none". |
+
+A report from before issue #129 gives `not known` for "Audio tracks" and "Tracks
+kept". A report from before issue #163 gives `not known` for the lyrics lines and
+the words left out.
 
 ### Singer diagnostics
 
@@ -1109,6 +1339,14 @@ The text writes the raw groups and the final singers as tables with aligned colu
 - A song with no run report shows "Run report" disabled with the tooltip "No
   transcribe run for this song yet." (FR-transcribe-82)
 - The link in the toast opens the run report panel. (FR-transcribe-83)
+- A report of a run that gave one voice with the singer option states the probable
+  reason and the next action in its first lines. (FR-transcribe-151)
+- Each term of the details part has one sentence that explains it.
+  (FR-transcribe-152)
+- The labels and units of the copied text are the same as in the panel.
+  (FR-transcribe-153)
+- The toast stays 20 seconds or more, and it does not cover the panel.
+  (FR-transcribe-84, 154)
 - "Copy report" puts text with the singer section and no word of the lyrics on the
   clipboard. (FR-transcribe-90, 95)
 - "Download report" gives the file "<song name> - run report.txt".
@@ -1136,6 +1374,14 @@ The text writes the raw groups and the final singers as tables with aligned colu
   show their messages in the song library. (FR-transcribe-117, 118)
 - The zip file after a run with separation holds `tracks/vocals.wav`,
   `tracks/instruments.wav` and `report.txt`. (FR-transcribe-115)
+- After a rename of "Singer 2" to "Test Alto", the Voices table of the run report
+  panel shows "Test Alto". After a delete, it shows "Singer 2 (deleted)".
+  (FR-transcribe-146, 147)
+- A second run with the singer step asks "The run replaces <n> marks from <start>
+  to <end>: the marks of "Lead Vocals", and the marks of "Singer 2" from the last
+  run." (FR-transcribe-148, 149)
+- A second run with the singer option off asks with the sentence "The voices of the
+  last singer step do not change." (FR-transcribe-150)
 
 ## Out of scope
 

@@ -1,8 +1,10 @@
-import { useEffect, useRef, useState } from 'react'
+import { useRef, useState } from 'react'
 import type { TransferMode } from '../../lib/marks/transferRules.ts'
+import { blockText } from '../../lib/marks/editBlocks.ts'
 import { useSongStore } from '../../store/songStore.ts'
 import type { Mark } from '../../store/types.ts'
 import { useViewStore } from '../../store/viewStore.ts'
+import { ReasonButton } from '../timeline-editor/ReasonButton.tsx'
 import { ActionMenu } from './ActionMenu.tsx'
 import { startTransfer } from './transferCommands.ts'
 import { TransferConfirmDialog } from './TransferConfirmDialog.tsx'
@@ -22,7 +24,7 @@ function selectedPhrases(marks: readonly Mark[], ids: readonly string[]): Mark[]
 /**
  * Shows the "Phrase" menu button of the editor toolbar, for the selected phrases.
  * The menu has "Move to voice" and "Copy to voice". Each one opens the list of the other voices and "New voice".
- * The button is disabled unless one mark or more is selected and each selected mark is a phrase.
+ * The button does not act unless one mark or more is selected and each selected mark is a phrase. Its tooltip then states the cause.
  * The component also shows the confirm dialog of a transfer to a voice with phrases in the range.
  */
 export function PhraseMenu() {
@@ -30,23 +32,9 @@ export function PhraseMenu() {
   const selectedMarkIds = useViewStore((view) => view.selectedMarkIds)
   const [open, setOpen] = useState(false)
   const [mode, setMode] = useState<TransferMode | null>(null)
-  const wrapper = useRef<HTMLDivElement>(null)
   const button = useRef<HTMLButtonElement>(null)
   const phrases = selectedPhrases(marks ?? [], selectedMarkIds)
   const source = phrases[0]
-
-  useEffect(() => {
-    if (!open) return
-    // A press outside the menu closes it. The menu button toggles the menu itself.
-    function onPointerDown(event: PointerEvent) {
-      if (event.target instanceof Node && !wrapper.current?.contains(event.target)) {
-        setOpen(false)
-        setMode(null)
-      }
-    }
-    document.addEventListener('pointerdown', onPointerDown)
-    return () => document.removeEventListener('pointerdown', onPointerDown)
-  }, [open])
 
   function close(refocus: boolean) {
     setOpen(false)
@@ -66,18 +54,17 @@ export function PhraseMenu() {
   }
 
   return (
-    <div ref={wrapper} className="phrase-menu">
-      <button
+    <div className="phrase-menu">
+      <ReasonButton
         ref={button}
-        type="button"
-        className="button"
         aria-haspopup="menu"
         aria-expanded={open}
-        disabled={source === undefined}
-        onClick={() => (open ? close(false) : setOpen(true))}
+        reason={source === undefined ? blockText('select-phrase') : null}
+        hint="Move or copy the selected phrases to a voice"
+        onAct={() => (open ? close(false) : setOpen(true))}
       >
         Phrase
-      </button>
+      </ReasonButton>
       {open && source !== undefined && mode === null && (
         <ActionMenu
           label="Phrase"
@@ -85,6 +72,7 @@ export function PhraseMenu() {
             { label: MODE_LABELS.move, run: () => setMode('move') },
             { label: MODE_LABELS.copy, run: () => setMode('copy') },
           ]}
+          anchor={button}
           onClose={close}
         />
       )}
@@ -92,6 +80,7 @@ export function PhraseMenu() {
         <VoiceTargetList
           label={MODE_LABELS[mode]}
           excludeVoiceId={source.voiceId}
+          anchor={button}
           onChoose={choose}
           onClose={close}
         />

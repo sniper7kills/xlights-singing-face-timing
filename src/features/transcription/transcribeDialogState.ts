@@ -1,15 +1,18 @@
 import { RemoteError } from '../../lib/remote/response.ts'
 import { formatClock } from '../../lib/time/formatClock.ts'
+import { formatTime } from '../../lib/time/formatTime.ts'
 import { MAX_VOICES } from '../../lib/voices/voiceRules.ts'
 import { CHUNK_LENGTH_S, type Device } from './protocol.ts'
 import {
   NoWordsError,
+  type ReplaceQuestion,
   type RunStage,
   type SingerOutcome,
   type TranscribeMode,
   type TranscribeOutcome,
 } from './runTranscription.ts'
 import type { RunDataWrite } from './runRecord.ts'
+import type { LyricsFit } from '../../lib/text/lyricsFit.ts'
 import { TranscribeError } from './transcribeClient.ts'
 import { formatMegabytes } from '../audio-import/libraryFormat.ts'
 import { keptTracksBytes } from '../../lib/audio/pcm.ts'
@@ -42,10 +45,12 @@ export type RunState =
 
 /** The state of the transcribe dialog. The dialog closes in the state `done`. */
 export type DialogState =
-  | { status: 'idle' }
+  /** `stopped` is true for a few seconds after the person cancelled a run, so the dialog states what the cancel did. */
+  | { status: 'idle'; stopped?: true }
   | RunState
-  | { status: 'confirm-replace'; resume: RunState }
+  | { status: 'confirm-replace'; question: ReplaceQuestion; resume: RunState }
   | { status: 'low-match'; ratio: number; resume: RunState }
+  | { status: 'lyrics-fit'; fit: LyricsFit; resume: RunState }
   | {
       status: 'separation-failed'
       message: string
@@ -69,12 +74,14 @@ export type DialogEvent =
   | { type: 'upload'; percent: number }
   | { type: 'progress'; doneMs: number; totalMs: number }
   | { type: 'finishing' }
-  | { type: 'confirm-replace' }
+  | { type: 'confirm-replace'; question: ReplaceQuestion }
   | { type: 'confirm-low-match'; ratio: number }
+  | { type: 'confirm-lyrics-fit'; fit: LyricsFit }
   | { type: 'answer' }
   | { type: 'cancelled' }
   | { type: 'failed'; error: unknown }
   | { type: 'done' }
+  | { type: 'clear-stopped' }
 
 export const IDLE: DialogState = { status: 'idle' }
 
@@ -116,10 +123,11 @@ export function remoteWarning(host: string): string {
 /**
  * The copy of each failure of a remote run, from the edge case table in docs/specs/features/02-transcription.md.
  * The browser does not tell a CORS refusal from no connection, so the `network` copy names both causes.
+ * The plain cause comes first. The CORS cause is a second paragraph, after an empty line.
  */
 const REMOTE_COPY: Record<RemoteError['kind'], (error: RemoteError, origin: string) => string> = {
   network: ({ host }, origin) =>
-    `The app could not connect to ${host}. The server is not available, or its CORS settings block this page. Check that the server runs and sends the header Access-Control-Allow-Origin: ${origin}`,
+    `The app could not connect to ${host}. Check that the server runs and that the base URL is correct.\n\nIf the server runs: its CORS settings can block this page. Check that the server sends the header Access-Control-Allow-Origin: ${origin}`,
   auth: ({ host, status }) =>
     `${host} refused the API key (HTTP ${status}). Check the API key of the remote endpoint.`,
   'not-found': ({ host }) =>
@@ -289,16 +297,30 @@ const RUN_DATA_MESSAGE: Record<RunDataWrite, string | null> = {
   late: RUN_DATA_LATE_MESSAGE,
 }
 
+/** The toast sentence of a run whose audio tracks the app could not convert for storage. */
+export const TRACKS_FAILED_MESSAGE =
+  'The app could not keep the separated tracks. Run "Transcribe" again to try one more time.'
+
 /**
- * Returns the text of the toast after a run: the counts, then the sentence of the write of the run data when the write was not complete.
+ * Returns the text of the toast after a run: the counts, then a sentence for each part of the run data that the app did not keep.
  * See `countsText` for the counts.
  */
 export function outcomeText(
-  outcome: Pick<TranscribeOutcome, 'wordCount' | 'estimatedCount' | 'singers' | 'runData'>,
+  outcome: Pick<
+    TranscribeOutcome,
+    'wordCount' | 'estimatedCount' | 'singers' | 'runData' | 'tracksFailed' | 'wordsLeftOut'
+  >,
 ): string {
-  const message = RUN_DATA_MESSAGE[outcome.runData]
   const counts = countsText(outcome)
-  return message === null ? counts : `${counts}. ${message}`
+  const leftOut = outcome.wordsLeftOut ?? 0
+  const messages = [
+    leftOut > 0 ? wordsLeftOutMessage(leftOut) : null,
+    outcome.tracksFailed === true ? TRACKS_FAILED_MESSAGE : null,
+    RUN_DATA_MESSAGE[outcome.runData],
+  ].filter((message) => message !== null)
+  if (messages.length === 0) return counts
+  // The counts end with a sentence of the singer step when the step made no new voice.
+  return `${counts}${counts.endsWith('.') ? '' : '.'} ${messages.join(' ')}`
 }
 
 /**
@@ -319,6 +341,59 @@ function countsText(
   if (singers === undefined || (singers.status === 'split' && voiceCount > 1)) return counts
   return `${counts}. ${singerMessage(singers)}`
 }
+
+/**
+ * Returns the question before a run whose lyrics have more words than the range has room for.
+ * @param fit The counts of `fitLyricsLines`.
+ * @param selection True for a run over the time selection, false for the full song.
+ */
+export function lyricsFitMessage(fit: LyricsFit, selection: boolean): string {
+  const where = selection ? 'The time selection has' : 'This song has'
+  return `The lyrics have ${fit.wordCount} words. ${where} room for about ${fit.room} words. ${leftOutText(fit)}`
+}
+
+/** Returns the sentence that states which lyrics the run leaves out. */
+function leftOutText(fit: LyricsFit): string {
+  if (!fit.firstLineCut) return `The app leaves out the lines after line ${fit.keptLineCount}.`
+  const after = fit.lineCount > 1 ? ', and the lines after line 1' : ''
+  return `The app leaves out the words of line 1 that do not fit${after}.`
+}
+
+/** The hint under the lyrics field. It states the rule for characters of `parseLyrics`. */
+export const LYRICS_HINT =
+  'The app uses each word that has a letter or a digit. It leaves out other words, such as & or an emoji.'
+
+/** Returns the toast sentence for the words that a run left out because it cannot use them. */
+export function wordsLeftOutMessage(count: number): string {
+  return `The app left out ${count} ${count === 1 ? 'word' : 'words'} that it cannot use.`
+}
+
+/** Returns the names in quotes, joined as a list: "A", "A" and "B", or "A", "B" and "C". */
+function quotedList(names: readonly string[]): string {
+  const quoted = names.map((name) => `"${name}"`)
+  const last = quoted.pop()
+  return quoted.length === 0 ? (last ?? '') : `${quoted.join(', ')} and ${last ?? ''}`
+}
+
+/**
+ * Returns the replace question, for example "The run replaces the 12 marks of "Lead" from 0:00.000 to 0:28.900."
+ * When singer voices of the last run lose marks too, the question names each voice and gives the sum of the marks:
+ * "The run replaces 20 marks from 0:00.000 to 0:28.900: the marks of "Lead", and the marks of "Singer 2" from the last run."
+ * When the run leaves the singer voices of the last run as they are, the question adds a sentence that says so.
+ */
+export function replaceQuestionMessage(question: ReplaceQuestion): string {
+  const { markCount, voiceName, range } = question
+  const names = question.singerVoiceNames ?? []
+  const where = `from ${formatTime(range.startMs)} to ${formatTime(range.endMs)}`
+  const text =
+    names.length === 0
+      ? `The run replaces ${markCount === 1 ? 'the 1 mark' : `the ${markCount} marks`} of "${voiceName}" ${where}.`
+      : `The run replaces ${markCount} ${markCount === 1 ? 'mark' : 'marks'} ${where}: the marks of "${voiceName}", and the marks of ${quotedList(names)} from the last run.`
+  return question.singerVoicesKept === true ? `${text} ${SINGER_VOICES_KEPT}` : text
+}
+
+/** The sentence of the replace question for a run that leaves the singer voices of the last run as they are. */
+export const SINGER_VOICES_KEPT = 'The voices of the last singer step do not change.'
 
 /** Returns the copy of the low-match warning for a match ratio from 0 to 1. */
 export function lowMatchMessage(ratio: number): string {
@@ -473,10 +548,7 @@ export function isActive(state: DialogState): boolean {
  * A run event that arrives after the run stopped changes nothing.
  */
 export function transcribeDialogReducer(state: DialogState, event: DialogEvent): DialogState {
-  if (event.type === 'start') {
-    // A lyrics-only run uses no speech model, so its first step is the align step.
-    return event.mode === 'model' ? { status: 'preparing' } : { status: 'finishing' }
-  }
+  if (event.type === 'start' || event.type === 'clear-stopped') return dialogStep(state, event)
   if (!isActive(state)) return state
   if (isAudioStepEvent(event)) return audioStep(state, event)
   return event.type === 'answer' ||
@@ -485,6 +557,16 @@ export function transcribeDialogReducer(state: DialogState, event: DialogEvent):
     event.type === 'done'
     ? endStep(state, event)
     : runStep(state, event)
+}
+
+/** Returns the state after a start, or after the end of the message of a cancel. */
+function dialogStep(
+  state: DialogState,
+  event: Extract<DialogEvent, { type: 'start' | 'clear-stopped' }>,
+): DialogState {
+  if (event.type === 'clear-stopped') return state.status === 'idle' ? IDLE : state
+  // A lyrics-only run uses no speech model, so its first step is the align step.
+  return event.mode === 'model' ? { status: 'preparing' } : { status: 'finishing' }
 }
 
 type RunEvent = Extract<
@@ -498,6 +580,7 @@ type RunEvent = Extract<
       | 'finishing'
       | 'confirm-replace'
       | 'confirm-low-match'
+      | 'confirm-lyrics-fit'
   }
 >
 
@@ -526,10 +609,25 @@ function runStep(state: DialogState, event: RunEvent): DialogState {
       return { status: 'transcribing', doneMs: event.doneMs, totalMs: event.totalMs }
     case 'finishing':
       return { status: 'finishing' }
+    default:
+      return isRunState(state) ? questionState(state, event) : state
+  }
+}
+
+type QuestionEvent = Extract<
+  DialogEvent,
+  { type: 'confirm-replace' | 'confirm-low-match' | 'confirm-lyrics-fit' }
+>
+
+/** Returns the question state of an event that asks the person, with the run state to resume after the answer. */
+function questionState(resume: RunState, event: QuestionEvent): DialogState {
+  switch (event.type) {
     case 'confirm-replace':
-      return isRunState(state) ? { status: 'confirm-replace', resume: state } : state
+      return { status: 'confirm-replace', question: event.question, resume }
     case 'confirm-low-match':
-      return isRunState(state) ? { status: 'low-match', ratio: event.ratio, resume: state } : state
+      return { status: 'low-match', ratio: event.ratio, resume }
+    case 'confirm-lyrics-fit':
+      return { status: 'lyrics-fit', fit: event.fit, resume }
   }
 }
 
@@ -584,7 +682,7 @@ function endStep(state: DialogState, event: EndEvent): DialogState {
     case 'answer':
       return shownRunState(state) ?? state
     case 'cancelled':
-      return IDLE
+      return { status: 'idle', stopped: true }
     case 'failed':
       return { status: 'error', message: errorMessage(event.error) }
     case 'done':

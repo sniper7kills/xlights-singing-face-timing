@@ -1,5 +1,12 @@
 import { expect, type Page, test } from '@playwright/test'
 
+/** Returns the pattern of a mark tooltip: the label on the first line, then the start and the end. */
+function markTitle(label: string): RegExp {
+  return new RegExp(
+    `^${label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\n\\d+:\\d{2}\\.\\d{3} to \\d+:\\d{2}\\.\\d{3}$`,
+  )
+}
+
 const LYRICS = [
   '[Verse 1]',
   'Silent night, holy night!',
@@ -42,7 +49,7 @@ test('makes the sections "Verse 1" and "Chorus" from the lyrics tags, and one un
   const endMs = await verseEnd.getAttribute('aria-valuenow')
   expect(Number(endMs)).toBeGreaterThan(0)
   await expect(chorusStart).toHaveAttribute('aria-valuenow', endMs ?? '')
-  await expect(phrases.first()).toHaveAttribute('title', 'Silent night, holy night!')
+  await expect(phrases.first()).toHaveAttribute('title', markTitle('Silent night, holy night!'))
 
   await page.keyboard.press('ControlOrMeta+z')
 

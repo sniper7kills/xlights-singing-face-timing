@@ -9,6 +9,7 @@ import {
 import { storeNewSong } from '../features/audio-import/storeNewSong.ts'
 import { listSongs, loadSong } from '../store/db.ts'
 import { useSongStore } from '../store/songStore.ts'
+import { setPageNotice } from './pageNotice.ts'
 import { SongLibraryPage } from './SongLibraryPage.tsx'
 
 const MB = 1024 * 1024
@@ -160,12 +161,44 @@ describe('SongLibraryPage', () => {
     expect(await listSongs()).toEqual([])
   })
 
-  it('shows no demo button when songs exist', async () => {
+  it('shows the demo button and the file limits beside "Add a song" when songs exist', async () => {
     await storeNewSong({ name: 'carol', durationMs: 3000, audio })
 
     render(<SongLibraryPage databaseStatus="ready" />)
 
     await screen.findByRole('region', { name: 'Your songs' })
-    expect(screen.queryByRole('button', { name: 'Try the demo song' })).not.toBeInTheDocument()
+    const dropZone = screen.getByRole('region', { name: 'Drop zone' })
+    expect(within(dropZone).getByRole('button', { name: 'Try the demo song' })).toBeEnabled()
+    expect(dropZone).toHaveTextContent('200 MB and 15 minutes at most')
+  })
+
+  it.each([
+    ['no songs exist', false],
+    ['songs exist', true],
+  ])('states the purpose of the app above the drop zone when %s', async (_, withSong) => {
+    if (withSong) await storeNewSong({ name: 'carol', durationMs: 3000, audio })
+
+    render(<SongLibraryPage databaseStatus="ready" />)
+
+    const intro = await screen.findByText(/^Make the face models of your xLights show sing\./)
+    expect(intro).toHaveTextContent(
+      'Make the face models of your xLights show sing. Add a song, and the app finds each word and its mouth shapes, then gives you a timing file for the Faces effect.',
+    )
+    const dropZone = screen.getByRole('region', { name: 'Drop zone' })
+    expect(intro.compareDocumentPosition(dropZone) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+
+  it('shows the message for a song that the editor did not find, one time only', async () => {
+    setPageNotice('song-not-found')
+
+    const view = render(<SongLibraryPage databaseStatus="ready" />)
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'The app did not find this song. It is possible that the song was deleted.',
+    )
+    view.unmount()
+    render(<SongLibraryPage databaseStatus="ready" />)
+    await screen.findByRole('heading', { name: 'No songs yet' })
+    expect(screen.queryByRole('alert')).toBeNull()
   })
 })

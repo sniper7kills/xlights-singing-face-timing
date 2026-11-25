@@ -10,6 +10,7 @@ import { useViewStore } from '../../store/viewStore.ts'
 import { Inspector } from './Inspector.tsx'
 import { resetMarkUi, useMarkUiStore } from './markUiStore.ts'
 import { MOUTH_SHAPES } from './mouthShapes.ts'
+import { StatusLine } from './StatusLine.tsx'
 
 const VOICE = 'song-1-voice'
 
@@ -109,17 +110,102 @@ describe('Inspector fields', () => {
     expect(stored('w2')?.endMs).toBe(13_500)
   })
 
-  it('shows "Use m:ss.mmm" for a typed time that is not a time and changes nothing', async () => {
+  it('shows "Use m:ss.mmm or seconds" for a typed text that is not a time and changes nothing', async () => {
     const user = userEvent.setup()
     render(<Inspector />)
     select('w2')
     const start = await screen.findByRole('textbox', { name: 'Start' })
     await user.clear(start)
     await user.type(start, 'soon{Enter}')
-    expect(await screen.findByRole('alert')).toHaveTextContent('Use m:ss.mmm')
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Use m:ss.mmm or seconds, for example 0:03.500 or 3.5.',
+    )
     expect(start).toHaveAttribute('aria-invalid', 'true')
     expect(stored('w2')?.startMs).toBe(12_000)
     expect(steps()).toBe(0)
+  })
+
+  it('sets 3 500 ms for the plain seconds "3.5"', async () => {
+    const user = userEvent.setup()
+    render(<Inspector />)
+    select('p1')
+    const start = await screen.findByRole('textbox', { name: 'Start' })
+    await user.clear(start)
+    await user.type(start, '3.5{Enter}')
+    expect(stored('p1')?.startMs).toBe(3500)
+  })
+
+  it('states the end of the song for a time after it', async () => {
+    const user = userEvent.setup()
+    render(<Inspector />)
+    select('w2')
+    const end = await screen.findByRole('textbox', { name: 'End' })
+    await user.clear(end)
+    await user.type(end, '0:99.000{Enter}')
+    expect(await screen.findByRole('alert')).toHaveTextContent('The song ends at 0:20.000.')
+    expect(stored('w2')?.endMs).toBe(14_000)
+  })
+
+  it('states a time of 0 or more for a negative time, and asks for a time for an empty field', async () => {
+    const user = userEvent.setup()
+    render(<Inspector />)
+    select('w2')
+    const end = await screen.findByRole('textbox', { name: 'End' })
+    await user.clear(end)
+    await user.type(end, '-1{Enter}')
+    expect(await screen.findByRole('alert')).toHaveTextContent('Type a time of 0 or more.')
+    await user.clear(end)
+    await user.type(end, '{Enter}')
+    await waitFor(() =>
+      expect(screen.getByRole('alert')).toHaveTextContent(
+        'Type a time, for example 0:03.500 or 3.5.',
+      ),
+    )
+  })
+
+  it('gives back the stored time when the focus leaves a wrong text, and shows the error in the status line', async () => {
+    const user = userEvent.setup()
+    render(
+      <>
+        <Inspector />
+        <StatusLine />
+      </>,
+    )
+    select('w2')
+    const end = await screen.findByRole('textbox', { name: 'End' })
+    await user.clear(end)
+    await user.type(end, 'soon')
+    await user.tab()
+    await waitFor(() => expect(end).toHaveValue('0:14.000'))
+    expect(end).toHaveAttribute('aria-invalid', 'false')
+    expect(screen.getByRole('status')).toHaveTextContent(
+      'Use m:ss.mmm or seconds, for example 0:03.500 or 3.5.',
+    )
+  })
+
+  it('shows the time that the app used and states the rule in the status line', async () => {
+    const user = userEvent.setup()
+    render(
+      <>
+        <Inspector />
+        <StatusLine />
+      </>,
+    )
+    select('w2')
+    const end = await screen.findByRole('textbox', { name: 'End' })
+    await user.clear(end)
+    await user.type(end, '0:13.512{Enter}')
+    await waitFor(() => expect(end).toHaveValue('0:13.500'))
+    expect(screen.getByRole('status')).toHaveTextContent(
+      'The app used 0:13.500, a multiple of the frame size.',
+    )
+
+    await user.clear(end)
+    await user.type(end, '0:15.000{Enter}')
+    await waitFor(() => expect(end).toHaveValue('0:14.000'))
+    expect(screen.getByRole('status')).toHaveTextContent(
+      'The app used 0:14.000, the edge of the parent mark.',
+    )
   })
 
   it('gives back the stored time and clears the error on Escape', async () => {

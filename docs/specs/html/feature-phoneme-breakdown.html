@@ -233,6 +233,26 @@ body.rv-open .layout { padding-right:21rem; }
 </li>
 </ul>
 <p>changes length.</p>
+<ul>
+<li>FR-phoneme-21 — The entry form of a new entry starts on the entry type "Sounds
+</li>
+</ul>
+<p>like spelling".</p>
+<ul>
+<li>FR-phoneme-22 — The entry form shows the mouth shapes of the typed entry before
+</li>
+</ul>
+<p>the save.</p>
+<ul>
+<li>FR-phoneme-23 — The link "Show the list of symbols" opens the reference table of
+</li>
+</ul>
+<p>CMU symbols in view.</p>
+<ul>
+<li>FR-phoneme-24 — The import report states the cause of each of the first 10
+</li>
+</ul>
+<p>skipped lines.</p>
 <h3 id="phoneme-breakdown-user-flows">User flows</h3>
 <h4 id="phoneme-breakdown-break-down-a-word">Break down a word</h4>
 <div class="diagram"><pre class="mermaid">flowchart TD
@@ -264,8 +284,8 @@ body.rv-open .layout { padding-right:21rem; }
   A[Person selects the unknown-word counter] --&gt; B[Editor selects the next unknown word]
   B --&gt; C[Person opens Add to custom dictionary]
   C --&gt; D{Entry type}
+  D -- Sounds like, the default --&gt; F[Person types known words, e.g. sore block]
   D -- CMU symbols --&gt; E[Person types symbols]
-  D -- Sounds like --&gt; F[Person types known words, e.g. ROO DOLF]
   E --&gt; G{All symbols valid?}
   F --&gt; H{All parts in a dictionary?}
   G -- no --&gt; X[Field error names the bad symbol]
@@ -280,7 +300,9 @@ body.rv-open .layout { padding-right:21rem; }
 </li>
 <li>The person opens "Add to custom dictionary".
 </li>
-<li>The person types CMU symbols, or a "sounds like" spelling.
+<li>The person types a "sounds like" spelling, or CMU symbols.
+</li>
+<li>The form shows the mouth shapes of the entry.
 </li>
 <li>The app validates the entry.
 </li>
@@ -318,18 +340,37 @@ body.rv-open .layout { padding-right:21rem; }
 </li>
 <li>Import report, no bad line: "1 entry imported." or "3 entries imported."
 </li>
-<li>Import report, one bad line: "3 entries imported. 1 line skipped (line 3)."
-</li>
-<li>Import report, 2 to 10 bad lines: "1 entry imported. 2 lines skipped (lines 3,
+<li>Import report, bad lines: "3 entries imported. 2 lines skipped." Under it, one
 </li>
 </ul>
-<p>7)."</p>
+<p>line for each of the first 10 bad lines: "Line &lt;number&gt;: &lt;cause&gt;", for example "Line 3: no symbols." and "Line 4: “ZZ” is not a symbol."</p>
 <ul>
-<li>Import report, more than 10 bad lines: "3 entries imported. 14 lines skipped
+<li>Import report, more than 10 bad lines: after the 10 causes, "4 more lines
 </li>
 </ul>
-<p>(lines 2, 5, 9, 11, 12, 15, 16, 20, 21, 22 and 4 more)."</p>
+<p>skipped."</p>
 <ul>
+<li>Causes of a bad import line, in the order of the check:
+<ul>
+<li>The line has a word and no symbols: "no symbols."
+</li>
+<li>Other spaces: "use two spaces after the word and one space between the
+</li>
+</ul>
+</li>
+</ul>
+<p>symbols."</p>
+<ul>
+<li>The word has no letter: "the word has no letter."
+<ul>
+<li>The word has more than 40 characters: "the word has more than 40 characters."
+</li>
+<li>A bad symbol: "“&lt;item&gt;” is not a symbol."
+</li>
+</ul>
+</li>
+<li>The import report shows under the "Import" button.
+</li>
 <li>Entry form titles: "Add a word" and "Edit RUDOLPH". Submit buttons: "Add entry"
 </li>
 </ul>
@@ -337,20 +378,35 @@ body.rv-open .layout { padding-right:21rem; }
 <ul>
 <li>Entry form fields: "Word", "CMU symbols" and "Sounds like".
 </li>
-<li>Entry type: the group "Entry type" with the choices "Symbols" and "Sounds like
+<li>Entry type: the group "Entry type" with the choices "Sounds like spelling" and
 </li>
 </ul>
-<p>spelling".</p>
+<p>"Symbols". A new entry starts on "Sounds like spelling". An edit starts on "Symbols".</p>
 <ul>
 <li>Hint of "CMU symbols": "Put one space between the symbols, for example R UW1 D
 </li>
 </ul>
-<p>AA0 L F. The app changes lower case to upper case."</p>
+<p>AA0 L F. The app changes lower case to upper case. The symbols come from the CMU Pronouncing Dictionary."</p>
 <ul>
-<li>Hint of "Sounds like": "Type known words with a space between them, for example
+<li>Under the hint of "CMU symbols": the link "Show the list of symbols". It opens
 </li>
 </ul>
-<p>ROO DOLF."</p>
+<p>the reference table, scrolls it into view and moves the focus to its title.</p>
+<ul>
+<li>Hint of "Sounds like": "Type the word as it sounds, with words that you know.
+</li>
+</ul>
+<p>Example: "sore block"."</p>
+<ul>
+<li>Mouth shape preview, under the field, when the typed entry gives CMU symbols:
+</li>
+</ul>
+<p>"Mouth shapes: &lt;phoneme labels&gt;", for example "Mouth shapes: etc O etc MBP L AI etc" for "sore block". The preview uses the mapping table and the merge rule.</p>
+<ul>
+<li>Focus: if the form opens with a word from the song, the focus starts in the field
+</li>
+</ul>
+<p>of the entry type: "Sounds like" for a new entry, "CMU symbols" for an edit.</p>
 <ul>
 <li>Empty word: "Type a word."
 </li>
@@ -538,12 +594,13 @@ validateSymbols(text: string): { ok: true } | { ok: false; bad: string }</code><
 <tr><td>Word is one frame long with 4 phonemes</td><td>One phoneme: the highest weight, earliest on a tie.</td></tr>
 <tr><td>Custom entry with symbol <code>XX</code></td><td>Field error: "XX is not a CMU symbol."</td></tr>
 <tr><td>"Sounds like" part not in any dictionary</td><td>Field error: "The app does not know ROODOLF. Use shorter known words."</td></tr>
-<tr><td>Import file has a bad line</td><td>The app imports the good lines and reports "2 lines skipped" with the line numbers.</td></tr>
+<tr><td>Import file has a bad line</td><td>The app imports the good lines and reports "2 lines skipped" with the line number and the cause of each.</td></tr>
 <tr><td>Import has a word that exists</td><td>The imported entry replaces the old entry.</td></tr>
 <tr><td>Label with only punctuation, for example <code>-</code></td><td>The word gets one <code>etc</code> phoneme and is unknown.</td></tr>
 <tr><td>The app cannot read or write the custom dictionary</td><td>"The app could not read or write the custom dictionary. Reload the page."</td></tr>
 <tr><td>The break down fails for a reason other than the dictionary file</td><td>"The app could not break down the words. Select Retry." The words stay without phonemes.</td></tr>
-<tr><td>An import line has a word with no letter, or with digits only</td><td>The app skips the line and reports its number.</td></tr>
+<tr><td>An import line has a word with no letter, or with digits only</td><td>The app skips the line and reports "Line &lt;number&gt;: the word has no letter."</td></tr>
+<tr><td>The dictionary does not load while the person types a "sounds like" spelling</td><td>The form shows no mouth shape preview. The submit shows the load message.</td></tr>
 <tr><td>Two import lines give the same word</td><td>The later line wins. The file counts as one entry.</td></tr>
 </table></div>
 <h3 id="phoneme-breakdown-acceptance-criteria">Acceptance criteria</h3>
@@ -596,6 +653,20 @@ validateSymbols(text: string): { ok: true } | { ok: false; bad: string }</code><
 </li>
 </ul>
 <p>(FR-phoneme-13)</p>
+<ul>
+<li>The form opens on "Sounds like spelling" with its text. (FR-phoneme-21)
+</li>
+<li>The form shows the mouth shapes of the entry before the save. (FR-phoneme-22)
+</li>
+<li>The link "Show the list of symbols" shows the reference table inside the
+</li>
+</ul>
+<p>viewport. (FR-phoneme-23)</p>
+<ul>
+<li>The import report states a cause for each of the first 10 skipped lines.
+</li>
+</ul>
+<p>(FR-phoneme-24)</p>
 <ul>
 <li>An edited entry changes the phonemes of matching unedited words. (FR-phoneme-14,
 </li>

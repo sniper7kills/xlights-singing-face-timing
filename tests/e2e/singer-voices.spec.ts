@@ -157,3 +157,87 @@ test('a run with the count 3 in "Singers" makes three voices, and the next dialo
     next.getByRole('group', { name: 'Singers' }).getByRole('radio', { name: '3' }),
   ).toBeChecked()
 })
+
+/** Returns the text of each body row of the table, as a list of cells. */
+async function tableRows(table: Locator): Promise<string[][]> {
+  const rows = table.locator('tbody tr')
+  const result: string[][] = []
+  for (let index = 0; index < (await rows.count()); index += 1)
+    result.push(await rows.nth(index).locator('td, th').allInnerTexts())
+  return result
+}
+
+/**
+ * Runs a transcribe run with both options on and the singer count.
+ * With `replaces`, the run asks the replace question first: the function returns its text and selects "Continue".
+ */
+async function runWithSingers(page: Page, count: string, replaces = false): Promise<string> {
+  const dialog = await openDialog(page)
+  // The dialog reads the stored options after it opens, and that read replaces a choice made before it ends.
+  // The run before this one stored both options on, so the checked box shows that the read ended.
+  if (replaces) await expect(dialog.getByRole('checkbox', { name: SINGERS })).toBeChecked()
+  await dialog.getByRole('checkbox', { name: SEPARATE }).check()
+  await dialog.getByRole('checkbox', { name: SINGERS }).check()
+  await dialog.getByRole('group', { name: 'Singers' }).getByRole('radio', { name: count }).check()
+  await dialog.getByRole('button', { name: 'Start' }).click()
+  let text = ''
+  if (replaces) {
+    const question = dialog.locator('.dialog-confirm')
+    await expect(question).toBeVisible()
+    text = (await question.textContent()) ?? ''
+    await dialog.getByRole('button', { name: 'Continue' }).click()
+  }
+  // The run has three worker steps, so it takes longer than the default timeout.
+  await expect(dialog).toBeHidden({ timeout: 20_000 })
+  // The next run reads the stored run data, and the write of the run data can end after the dialog closes.
+  await expect(
+    page.locator('.editor-top').getByRole('button', { name: 'Run report' }),
+  ).not.toHaveAttribute('aria-disabled', 'true', { timeout: 20_000 })
+  return text
+}
+
+test('two runs with "Singers" 2 and then 4 give four voices that agree with the rows and the run report', async ({
+  page,
+}) => {
+  await createSong(page)
+  await runWithSingers(page, '2')
+  await expect(rail(page).getByRole('listitem')).toHaveCount(2)
+
+  const question = await runWithSingers(page, '4', true)
+
+  expect(question).toMatch(
+    /^The run replaces \d+ marks from 0:00\.000 to 0:28\.\d{3}: the marks of "Lead Vocals", and the marks of "Singer 2" from the last run\.$/,
+  )
+  const names = ['Lead Vocals', 'Singer 2', 'Singer 3', 'Singer 4']
+  await expect(rail(page).getByRole('listitem')).toHaveCount(4)
+  for (const name of names) await expect(voiceButton(page, name)).toBeVisible()
+  const group = page.getByRole('group', { name: 'Audio tracks' })
+  await expect(group.locator('.track-row[data-row^="singer:"]')).toHaveCount(4, { timeout: 20_000 })
+  for (const name of names)
+    await expect(group.getByRole('button', { name: `Mute ${name}`, exact: true })).toBeVisible()
+
+  await page.locator('.editor-top').getByRole('button', { name: 'Run report' }).click()
+  const panel = page.getByRole('dialog', { name: 'Run report' })
+  const voices = panel.getByRole('table', { name: 'The voices that hold phrases of the run' })
+  await expect(voices).toBeVisible()
+  expect((await tableRows(voices)).map((row) => row[0])).toEqual(names)
+})
+
+test('a run with the singer option off states that the singer voices of the last run do not change', async ({
+  page,
+}) => {
+  await createSong(page)
+  await runWithSingers(page, '2')
+  const dialog = await openDialog(page)
+  await dialog.getByRole('checkbox', { name: SINGERS }).uncheck()
+
+  await dialog.getByRole('button', { name: 'Start' }).click()
+
+  // The question follows a read of the run data, which is slow on a busy test computer.
+  await expect(dialog.locator('.dialog-confirm')).toHaveText(
+    /^The run replaces the \d+ marks of "Lead Vocals" from 0:00\.000 to 0:28\.\d{3}\. The voices of the last singer step do not change\.$/,
+    { timeout: 20_000 },
+  )
+  await dialog.getByRole('button', { name: 'Cancel' }).click()
+  await expect(rail(page).getByRole('listitem')).toHaveCount(2)
+})

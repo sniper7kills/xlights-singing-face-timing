@@ -177,7 +177,7 @@ describe('AddWordAction', () => {
     const dialog = screen.getByRole('dialog', { name: 'Custom dictionary' })
     expect(dialog).toBeInTheDocument()
     expect(screen.getByRole('textbox', { name: 'Word' })).toHaveValue('ZXQV')
-    expect(screen.getByRole('textbox', { name: 'CMU symbols' })).toHaveFocus()
+    expect(screen.getByRole('textbox', { name: 'Sounds like' })).toHaveFocus()
   })
 
   it('keeps the dialog open when the word becomes known', async () => {

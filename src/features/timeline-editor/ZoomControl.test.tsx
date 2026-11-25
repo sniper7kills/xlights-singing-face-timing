@@ -1,8 +1,13 @@
 import { fireEvent, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { makeSongContent } from '../../store/fixtures.test-helpers.ts'
+import { useSongStore } from '../../store/songStore.ts'
+import type { Mark } from '../../store/types.ts'
 import { useViewStore } from '../../store/viewStore.ts'
 import { EditorToolbar } from './EditorToolbar.tsx'
+import { SHORTCUT_KEYS } from './editorShortcuts.ts'
+import { useEditorKeys } from './useEditorKeys.ts'
 import { ZoomControl } from './ZoomControl.tsx'
 
 // 1000 px for a song of 20 000 ms fits the song at 50 px for each second.
@@ -118,4 +123,114 @@ describe('ZoomControl', () => {
 
     expect(useViewStore.getState().pxPerSecond).toBe(100)
   })
+
+  describe('with an open song', () => {
+    // The test song has the word `song-1-word` from 0 to 1000 ms.
+    beforeEach(() => {
+      const content = makeSongContent()
+      useSongStore.setState({
+        current: { ...content, song: { ...content.song, durationMs: DURATION_MS } },
+      })
+    })
+
+    afterEach(() => {
+      useSongStore.setState({ current: null })
+    })
+
+    it('changes the zoom by 40% or more after 5 arrow keys on the slider', async () => {
+      useViewStore.setState({ pxPerSecond: 31, scrollMs: 0 })
+      renderToolbar()
+      const user = userEvent.setup()
+
+      await user.click(slider())
+      useViewStore.setState({ pxPerSecond: 31, scrollMs: 0 })
+      await user.keyboard('{ArrowRight>5/}')
+
+      expect(useViewStore.getState().pxPerSecond).toBeGreaterThanOrEqual(31 * 1.4)
+    })
+
+    it('keeps the selected mark in place when the slider moves', () => {
+      // The word from 10 000 to 11 000 ms has its middle at 550 px with the scroll at 5000 ms.
+      const content = makeSongContent()
+      const word: Mark = {
+        id: 'w',
+        voiceId: 'song-1-voice',
+        layer: 'word',
+        label: 'night',
+        startMs: 10_000,
+        endMs: 11_000,
+        parentId: null,
+        edited: false,
+      }
+      useSongStore.setState({
+        current: { ...content, song: { ...content.song, durationMs: DURATION_MS }, marks: [word] },
+      })
+      useViewStore.setState({ pxPerSecond: 100, scrollMs: 5000, playTimeMs: 15_000 })
+      useViewStore.getState().selectMarks(['w'])
+      renderToolbar()
+
+      fireEvent.change(slider(), { target: { value: '150' } })
+
+      const { pxPerSecond, scrollMs } = useViewStore.getState()
+      expect((10_500 - scrollMs) * ((pxPerSecond ?? 0) / 1000)).toBeCloseTo(550)
+    })
+
+    it('scrolls the least to show all of the selected mark after a zoom', () => {
+      // The word from 0 to 1000 ms has its middle at 50 px. The anchor alone puts its start left of the stage.
+      useViewStore.setState({ pxPerSecond: 100, scrollMs: 0, playTimeMs: 15_000 })
+      useViewStore.getState().selectMarks(['song-1-word'])
+      renderToolbar()
+
+      fireEvent.change(slider(), { target: { value: '150' } })
+
+      expect(useViewStore.getState()).toMatchObject({ pxPerSecond: 150, scrollMs: 0 })
+    })
+
+    it('shows the selected word in the middle of the stage after "Zoom to selection"', async () => {
+      useViewStore.getState().selectMarks(['song-1-word'])
+      renderToolbar()
+
+      await userEvent.click(screen.getByRole('button', { name: 'Zoom to selection' }))
+
+      // 1000 ms with a margin of 10% on each side fills 1000 px at 833 px for each second.
+      expect(useViewStore.getState().pxPerSecond).toBeCloseTo(833.3, 0)
+    })
+
+    it('runs "Zoom to selection" with the Z key', async () => {
+      useViewStore.getState().setSelection({ startMs: 4000, endMs: 6000 })
+      render(<EditorShortcutsHost />)
+      renderToolbar()
+
+      await userEvent.keyboard('z')
+
+      expect(useViewStore.getState().pxPerSecond).toBeCloseTo(416.7, 0)
+    })
+
+    it('states the reason on "Zoom to selection" with nothing selected', () => {
+      renderToolbar()
+
+      expect(screen.getByRole('button', { name: 'Zoom to selection' })).toHaveAttribute(
+        'aria-disabled',
+        'true',
+      )
+      expect(screen.getByRole('button', { name: 'Zoom to selection' })).toHaveAccessibleDescription(
+        'Select a mark or a time range first.',
+      )
+    })
+
+    it('shows the full song after "Fit song"', async () => {
+      useViewStore.setState({ pxPerSecond: 400, scrollMs: 3000 })
+      renderToolbar()
+
+      await userEvent.click(screen.getByRole('button', { name: 'Fit song' }))
+
+      expect(useViewStore.getState()).toMatchObject({ pxPerSecond: null, scrollMs: 0 })
+    })
+  })
 })
+
+/** Registers the shortcut table, the same as the editor page. */
+function EditorShortcutsHost() {
+  useEditorKeys(SHORTCUT_KEYS)
+  return null
+}

@@ -4,6 +4,7 @@ import { safeFileName } from '../xtiming/names.ts'
 import {
   divisionRuleText,
   knownYesNo,
+  type NamedVoice,
   phraseRuleText,
   type ReportSeparationModel,
   type RunReport,
@@ -11,7 +12,9 @@ import {
   selectedSingersText,
   type StepDurations,
   stepTimes,
+  type VoicePhrases,
 } from './runReport.ts'
+import { singerSummary } from './singerSummary.ts'
 
 /** One fact of a panel section: a label and its value with the unit. */
 export type PanelFact = { label: string; value: string }
@@ -19,10 +22,24 @@ export type PanelFact = { label: string; value: string }
 /** A table of a panel section. Each row has one cell for each column. */
 export type PanelTable = { caption: string; columns: string[]; rows: string[][] }
 
+/** The title of the part that folds and holds the numbers for a bug report. */
+export const DETAILS_TITLE = 'Details for a bug report'
+
+/**
+ * The part of a section that folds, closed by default: the numbers for a bug report.
+ * - `terms`: one sentence for each term of the part.
+ */
+export type PanelDetails = {
+  terms: PanelFact[]
+  facts: PanelFact[]
+  tables: PanelTable[]
+}
+
 /**
  * One section of the run report panel.
- * - `text`: a sentence before the facts, or the one sentence of a section with no data.
+ * - `text`: the sentences before the facts, or the one sentence of a section with no data.
  * - `items`: lines that the panel shows as a list, for example the warnings.
+ * - `details`: the part that folds, or null.
  */
 export type PanelSection = {
   title: string
@@ -30,29 +47,29 @@ export type PanelSection = {
   facts: PanelFact[]
   tables: PanelTable[]
   items: string[]
+  details: PanelDetails | null
 }
 
 /**
- * Returns a time in seconds with one decimal, for example `12.3 s` for 12 340 ms.
- * The panel shows each time of a run in this format.
+ * Returns a time in seconds with each millisecond and one decimal or more, for example `12.34 s` for 12 340 ms.
+ * The panel and the copied text show each time of a run in this format, so the copied text keeps each millisecond.
  * @param ms The time in milliseconds.
  */
 export function formatSeconds(ms: number): string {
-  return `${(ms / 1000).toFixed(1)} s`
+  return `${(ms / 1000).toFixed(3).replace(/0{1,2}$/, '')} s`
 }
 
 /**
- * Returns the date and the time of an ISO 8601 text in the local time of the person.
+ * Returns the date and the time of an ISO 8601 text in the local time of the person, and the UTC time after it.
+ * For example `Nov 25, 2026, 12:34:05 AM (2026-11-25 05:34:05 UTC)`.
  * @param iso The ISO 8601 date and time, for example the `startedAt` of a report.
  * @param locale The locale of the text. The default is the locale of the browser.
  * @param timeZone The time zone of the text. The default is the time zone of the computer.
  */
 export function formatStartTime(iso: string, locale?: string, timeZone?: string): string {
-  return new Date(iso).toLocaleString(locale, {
-    dateStyle: 'medium',
-    timeStyle: 'medium',
-    timeZone,
-  })
+  const date = new Date(iso)
+  const local = date.toLocaleString(locale, { dateStyle: 'medium', timeStyle: 'medium', timeZone })
+  return `${local} (${date.toISOString().slice(0, 19).replace('T', ' ')} UTC)`
 }
 
 /**
@@ -65,7 +82,7 @@ export function reportFileName(songName: string): string {
 }
 
 function section(title: string, change: Partial<PanelSection>): PanelSection {
-  return { title, text: null, facts: [], tables: [], items: [], ...change }
+  return { title, text: null, facts: [], tables: [], items: [], details: null, ...change }
 }
 
 function countText(value: number | null): string {
@@ -141,29 +158,6 @@ function separationSection(report: RunReport): PanelSection {
   })
 }
 
-/**
- * Returns the sentence that states the result of the singer step in plain words.
- * @param singers The singer section of a report.
- */
-export function singerStatusText(singers: SingerSection): string {
-  switch (singers.status) {
-    case 'option-off':
-      return 'The singer step did not run, because the option was off.'
-    case 'no-vocals':
-      return 'The singer step did not run, because the run had no separated vocals.'
-    case 'split':
-      return `The singer step put the phrases on ${singers.voicesMade ?? 'an unknown count of'} voices.`
-    case 'one-singer':
-      return 'The singer step found one singer, so all phrases stay on one voice.'
-    case 'capped':
-      return 'The singer step found more singers than the song has free voices.'
-    case 'failed':
-      return `The singer step failed (${singers.failureKind ?? 'unknown'}). The phrases stay on the voice of the run.`
-    case 'cancelled':
-      return 'The person cancelled the singer step. The phrases stay on the voice of the run.'
-  }
-}
-
 function groupResult(group: RawGroup, diagnostics: SingerDiagnostics): string {
   const { fate } = group
   if (fate.kind === 'kept')
@@ -177,7 +171,7 @@ function diagnosticTables(diagnostics: SingerDiagnostics): PanelTable[] {
   return [
     {
       caption: 'The groups straight after the clustering',
-      columns: ['Group', 'Sung time', 'Embeddings', 'Result'],
+      columns: ['Group', 'Sung time', 'Voice prints', 'Result'],
       rows: diagnostics.rawGroups.map((group) => [
         String(group.group),
         formatSeconds(group.sungMs),
@@ -187,7 +181,7 @@ function diagnosticTables(diagnostics: SingerDiagnostics): PanelTable[] {
     },
     {
       caption: 'The final singers',
-      columns: ['Singer', 'Sung time', 'Ranges'],
+      columns: ['Singer', 'Sung time', 'Singer ranges'],
       rows: diagnostics.singers.map((singer) => [
         String(singer.singer),
         formatSeconds(singer.sungMs),
@@ -197,37 +191,98 @@ function diagnosticTables(diagnostics: SingerDiagnostics): PanelTable[] {
   ]
 }
 
+function distanceText(diagnostics: SingerDiagnostics): string {
+  const distances = diagnostics.centroidDistances
+  if (distances === null) return 'none (fewer than 2 groups)'
+  return `${distances.min} / ${distances.median} / ${distances.max}`
+}
+
 function diagnosticFacts(diagnostics: SingerDiagnostics): PanelFact[] {
-  const { settings, centroidDistances: distances } = diagnostics
+  const { settings } = diagnostics
   return [
     { label: 'Audio', value: formatSeconds(diagnostics.audioMs) },
+    { label: 'Windows', value: String(diagnostics.windowCount) },
+    { label: 'Frames with a singer', value: String(diagnostics.framesWithSpeech) },
     { label: 'Sung time', value: formatSeconds(diagnostics.sungMs) },
-    { label: 'Embeddings', value: String(diagnostics.embeddingCount) },
-    { label: 'Embeddings dropped (not finite)', value: String(diagnostics.droppedEmbeddings) },
+    { label: 'Voice prints (embeddings)', value: String(diagnostics.embeddingCount) },
+    { label: 'Voice prints dropped (not finite)', value: String(diagnostics.droppedEmbeddings) },
     { label: 'Merge threshold', value: String(settings.threshold) },
-    { label: 'Minimum group size', value: `${settings.minGroupSize} embeddings` },
+    { label: 'Minimum group size', value: `${settings.minGroupSize} voice prints` },
     { label: 'Highest count of singers', value: String(settings.maxSingers) },
     {
       label: 'Short singer limits',
       value: `${Math.round(settings.minSingerShare * 100)}% of the sung time, ${formatSeconds(settings.minSingerMs)}`,
     },
-    ...(distances === null
-      ? []
-      : [
-          {
-            label: 'Centroid distances (smallest / median / largest)',
-            value: `${distances.min} / ${distances.median} / ${distances.max}`,
-          },
-        ]),
+    { label: 'Centroid distances (smallest / median / largest)', value: distanceText(diagnostics) },
+    { label: 'Groups', value: String(diagnostics.rawGroupCount) },
+    { label: 'Final singers', value: String(diagnostics.finalSingerCount) },
+  ]
+}
+
+/** The sentence that explains each term of the details part. */
+const SINGER_TERMS: PanelFact[] = [
+  {
+    label: 'Voice print (embedding)',
+    value:
+      'A list of numbers that the app computes from a short part of the vocals to describe the voice in it.',
+  },
+  {
+    label: 'Window',
+    value: 'A part of 10 seconds of the vocals that the app reads at one time.',
+  },
+  {
+    label: 'Frame with a singer',
+    value: 'A short step of a window in which one or more singers sing.',
+  },
+  { label: 'Sung time', value: 'The time in which one or more singers sing.' },
+  {
+    label: 'Group',
+    value:
+      'A set of voice prints that are close to each other, so the app takes them as one singer.',
+  },
+  {
+    label: 'Merge threshold',
+    value:
+      'The app puts two groups together when the distance between their centres is less than this value.',
+  },
+  {
+    label: 'Centroid distance',
+    value:
+      'The distance between the centres of two groups, where a small distance means that two voices sound alike.',
+  },
+  {
+    label: 'Minimum group size',
+    value: 'A group with fewer voice prints than this value joins the closest larger group.',
+  },
+  {
+    label: 'Highest count of singers',
+    value: 'The largest count of singers that the app keeps.',
+  },
+  {
+    label: 'Short singer limits',
+    value: 'A singer with less sung time than one of these limits joins another singer.',
+  },
+  { label: 'Singer range', value: 'A time range in which one singer sings.' },
+]
+
+function detailFacts(singers: SingerSection): PanelFact[] {
+  return [
+    {
+      label: 'Step result',
+      value:
+        singers.failureKind === null
+          ? singers.status
+          : `${singers.status} (${singers.failureKind})`,
+    },
+    { label: 'Singer ranges', value: countText(singers.rangeCount) },
+    { label: 'Phrase rule', value: phraseRuleText(singers.rule) },
+    { label: 'Phrase division', value: divisionRuleText(singers.rule) },
   ]
 }
 
 function assignmentFacts(singers: SingerSection): PanelFact[] {
   return [
     { label: 'Singers selected', value: selectedSingersText(singers.selected) },
-    { label: 'Singer ranges', value: countText(singers.rangeCount) },
-    { label: 'Phrase rule', value: phraseRuleText(singers.rule) },
-    { label: 'Phrase division', value: divisionRuleText(singers.rule) },
     { label: 'Phrases divided', value: countText(singers.phrasesDivided ?? null) },
     {
       label: 'Singers with one phrase or more',
@@ -238,25 +293,42 @@ function assignmentFacts(singers: SingerSection): PanelFact[] {
       label: 'Phrases with more than one singer (copied to each voice)',
       value: countText(singers.phrasesWithMoreSingers),
     },
+    { label: 'Voices made', value: countText(singers.voicesMade) },
   ]
 }
 
 function singerSection(singers: SingerSection): PanelSection {
-  const text = singerStatusText(singers)
+  const text = singerSummary(singers).join(' ')
   if (singers.status === 'option-off' || singers.status === 'no-vocals')
     return section('Singers', { text })
   const { diagnostics } = singers
   return section('Singers', {
-    text: diagnostics === null ? `${text} The singer search gave no diagnostics.` : text,
-    tables: diagnostics === null ? [] : diagnosticTables(diagnostics),
-    facts: [
-      ...(diagnostics === null ? [] : diagnosticFacts(diagnostics)),
-      ...assignmentFacts(singers),
-    ],
+    text,
+    facts: assignmentFacts(singers),
+    details: {
+      terms: diagnostics === null ? SINGER_TERMS.slice(-1) : SINGER_TERMS,
+      tables: diagnostics === null ? [] : diagnosticTables(diagnostics),
+      facts: [
+        ...detailFacts(singers),
+        ...(diagnostics === null
+          ? [{ label: 'Diagnostics', value: 'none: the singer search gave no numbers' }]
+          : diagnosticFacts(diagnostics)),
+      ],
+    },
   })
 }
 
-function voiceSection(report: RunReport): PanelSection {
+/**
+ * Returns the name of a voice of the report as the panel shows it.
+ * A voice with an id shows its present name, or its name in the report with " (deleted)" when the song no longer has it.
+ * A report from before issue #173 has no id, so the panel shows the name in the report.
+ */
+function voiceName(voice: VoicePhrases, present: readonly NamedVoice[] | undefined): string {
+  if (voice.voiceId === undefined || present === undefined) return voice.name
+  return present.find((entry) => entry.id === voice.voiceId)?.name ?? `${voice.name} (deleted)`
+}
+
+function voiceSection(report: RunReport, present: readonly NamedVoice[] | undefined): PanelSection {
   if (report.voices.length === 0)
     return section('Voices', { text: 'No voice holds phrases of the run.' })
   return section('Voices', {
@@ -265,7 +337,7 @@ function voiceSection(report: RunReport): PanelSection {
         caption: 'The voices that hold phrases of the run',
         columns: ['Voice', 'Phrases', 'Made by the run'],
         rows: report.voices.map((voice) => [
-          voice.name,
+          voiceName(voice, present),
           String(voice.phraseCount),
           voice.made === true ? 'yes' : 'no',
         ]),
@@ -281,6 +353,8 @@ function markSection(report: RunReport): PanelSection {
       { label: 'Words', value: String(report.wordCount) },
       { label: 'Estimated words', value: String(report.estimatedCount) },
       { label: 'Unknown words', value: String(report.unknownCount) },
+      { label: 'Lyrics lines left out', value: countText(report.linesLeftOut ?? null) },
+      { label: 'Words left out', value: countText(report.wordsLeftOut ?? null) },
     ],
   })
 }
@@ -296,17 +370,20 @@ function noteSection(report: RunReport): PanelSection {
  * Each value holds its unit. The sections hold no label of a mark.
  * @param report The stored report of a run.
  * @param formatDate Returns the start time as a text. The default is the local time of the person.
+ * @param voices The present voices of the song. The Voices section shows the present name of each voice of the run.
+ * Without it, the section shows the names in the report.
  */
 export function reportPanel(
   report: RunReport,
   formatDate: (iso: string) => string = (iso) => formatStartTime(iso),
+  voices?: readonly NamedVoice[],
 ): PanelSection[] {
   return [
     runSection(report, formatDate),
     stepSection(report.durationsMs),
     separationSection(report),
     singerSection(report.singers),
-    voiceSection(report),
+    voiceSection(report, voices),
     markSection(report),
     noteSection(report),
   ]

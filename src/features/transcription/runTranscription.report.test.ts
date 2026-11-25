@@ -82,6 +82,7 @@ function handlers(controller = new AbortController()): TranscribeRunHandlers {
     onFinishing: vi.fn(),
     confirmReplace: vi.fn(async () => true),
     confirmLowMatch: vi.fn(async () => true),
+    confirmLyricsFit: vi.fn(async () => true),
     onSeparationDownload: vi.fn(),
     onSeparationProgress: vi.fn(),
     confirmNoSeparation: vi.fn(async () => true),
@@ -338,6 +339,38 @@ describe('runTranscription stores the run report', () => {
       separationModel: 'none',
       wordCount: 2,
     })
+  })
+
+  it('stores the counts of the lines and the words left out, and no word of the lyrics', async () => {
+    const lyrics = `${Array.from({ length: 200 }, () => 'Zyxwvut Quokkaberry one two three').join('\n')}\n& 😀`
+
+    await runTranscription(
+      { voiceId: VOICE, speechModelId: 'whisper-base', mode: 'lyrics-only', lyrics },
+      fakeClient(),
+      handlers(),
+    )
+
+    const run = await savedRun()
+    expect(run.report).toMatchObject({ linesLeftOut: expect.any(Number), wordsLeftOut: 0 })
+    expect(run.report.linesLeftOut).toBeGreaterThan(0)
+    const json = JSON.stringify(run)
+    expect(json).not.toContain('Zyxwvut')
+    expect(json).not.toContain('Quokkaberry')
+  })
+
+  it('stores the count of the parts of the lyrics that the run cannot use', async () => {
+    await runTranscription(
+      {
+        voiceId: VOICE,
+        speechModelId: 'whisper-base',
+        mode: 'lyrics-only',
+        lyrics: 'one & two 😀',
+      },
+      fakeClient(),
+      handlers(),
+    )
+
+    expect((await savedRun()).report).toMatchObject({ linesLeftOut: 0, wordsLeftOut: 2 })
   })
 
   it('adds a report line when the break down fails', async () => {

@@ -4,7 +4,6 @@ import {
   alignedTable,
   buildRunReport,
   createStepClock,
-  reportToText,
   type RunFacts,
   type SingerSection,
   voicePhrases,
@@ -124,196 +123,6 @@ describe('buildRunReport', () => {
   })
 })
 
-describe('reportToText', () => {
-  const text = reportToText(
-    buildRunReport(
-      facts({
-        separationFallback: true,
-        notes: [
-          {
-            step: 'separation',
-            kind: 'memory',
-            text: 'separation failed: memory; continued with the fast model',
-          },
-        ],
-      }),
-    ),
-  )
-  const lines = text.trimEnd().split('\n')
-
-  it('starts each section with a heading line after an empty line', () => {
-    for (const heading of [
-      '[Run]',
-      '[Counts]',
-      '[Singers]',
-      '[Step times]',
-      '[Warnings and failures]',
-    ]) {
-      const index = lines.indexOf(heading)
-      expect(index).toBeGreaterThan(0)
-      expect(lines[index - 1]).toBe('')
-    }
-  })
-
-  it('writes one fact with its unit on each line', () => {
-    expect(lines).toContain('Source: browser')
-    expect(lines).toContain('Remote endpoint host: none')
-    expect(lines).toContain('Speech model: whisper-base')
-    expect(lines).toContain('Separation model: spleeter')
-    expect(lines).toContain('Changed to the fast model: yes')
-    expect(lines).toContain('Words: 3')
-    expect(lines).toContain('Range: 0 ms to 30000 ms (30000 ms)')
-    expect(lines).toContain('Frame size: 50 ms')
-    expect(lines).toContain('Separate the vocals: 4000 ms')
-    expect(lines).toContain('"Singer 2": 1 phrases')
-    expect(lines).toContain('separation failed: memory; continued with the fast model')
-    expect(text.endsWith('\n')).toBe(true)
-  })
-
-  it('writes the singer diagnostics and what the app did with them', () => {
-    expect(lines).toContain('Step: split')
-    expect(lines).toContain('Embeddings dropped (not finite): 1')
-    expect(lines).toContain('Merge threshold: 0.705')
-    expect(lines).toContain('Short singer limits: 5% of the sung time, 3000 ms')
-    expect(lines).toContain('Centroid distances (smallest / median / largest): 0.52 / 0.81 / 1.1')
-    expect(lines).toContain('Raw groups: 3')
-    expect(lines).toContain('Final singers: 2')
-    expect(lines).toContain(
-      'Phrase rule: the singer with the most time; a second singer with 80% of that time and 1 s or more',
-    )
-    expect(lines).toContain(
-      'Phrase division: at a change of singer, when each part has 1 word or more and 1 s or more',
-    )
-    expect(lines).toContain('Phrases divided: 3')
-    expect(lines).toContain('Phrases with more than one singer (copied to each voice): 0')
-    expect(lines).toContain('Phrases with no singer range: 1')
-    expect(lines).toContain('Voices made: 2')
-  })
-
-  it('writes "not known" for the rule and the divided phrases of a report of an earlier version', () => {
-    const earlier = singers()
-    delete earlier.rule
-    delete earlier.phrasesDivided
-    const text = reportToText(buildRunReport(facts({ singers: earlier }))).split('\n')
-
-    expect(text).toContain('Phrase rule: not known')
-    expect(text).toContain('Phrase division: not known')
-    expect(text).toContain('Phrases divided: not known')
-  })
-
-  it('writes the raw groups as a table with aligned columns', () => {
-    const header = lines.find((line) => line.trimStart().startsWith('group'))
-    const joined = lines.find((line) => line.includes('joined group 0: under 3 seconds'))
-    expect(header).toBeDefined()
-    expect(joined).toBeDefined()
-    expect(header?.indexOf('result')).toBe(joined?.indexOf('joined'))
-    expect(lines.some((line) => line.includes('kept as singer 1'))).toBe(true)
-  })
-
-  it('writes the step and its cause after a failed singer step, with no diagnostics', () => {
-    const failed = reportToText(
-      buildRunReport(
-        facts({
-          singers: singers({
-            status: 'failed',
-            failureKind: 'memory',
-            diagnostics: null,
-            rangeCount: null,
-            singersWithPhrases: null,
-            phrasesWithNoSinger: null,
-            phrasesWithMoreSingers: null,
-            voicesMade: null,
-          }),
-        }),
-      ),
-    )
-    expect(failed).toContain(
-      'Step: failed (memory)\nSingers selected: not recorded\nDiagnostics: none\n',
-    )
-    expect(failed).toContain('Voices made: not known\n')
-  })
-
-  it.each([
-    ['automatic', 'Singers selected: Automatic'],
-    [2, 'Singers selected: 2'],
-    [undefined, 'Singers selected: not recorded'],
-  ] as const)('writes the choice of "Singers" %s after the step', (selected, line) => {
-    const text = reportToText(buildRunReport(facts({ singers: singers({ selected }) })))
-    expect(text).toContain(`Step: split\n${line}\n`)
-  })
-
-  it('writes only the step when the singer option is off', () => {
-    const off = reportToText(buildRunReport(facts({ singers: singers({ status: 'option-off' }) })))
-    expect(off).toContain('[Singers]\nStep: option-off\n\n')
-  })
-
-  it('writes a kept group with no range and no distances for one raw group', () => {
-    const one = reportToText(
-      buildRunReport(
-        facts({
-          singers: singers({
-            diagnostics: {
-              ...DIAGNOSTICS,
-              rawGroups: [
-                { group: 0, sungMs: 10, embeddingCount: 1, fate: { kind: 'kept', singer: null } },
-              ],
-              centroidDistances: null,
-              singers: [],
-            },
-          }),
-        }),
-      ),
-    )
-    expect(one).toContain('kept, no range after the range limits')
-    expect(one).toContain('none (fewer than 2 raw groups)')
-  })
-
-  it('names the host of a remote run, a lyrics-only run and no step times', () => {
-    const remote = reportToText(
-      buildRunReport(facts({ source: 'remote', endpointHost: 'api.openai.com', device: null })),
-    )
-    expect(remote).toContain('Remote endpoint host: api.openai.com\n')
-    expect(remote).toContain('Device: none\n')
-    const lyrics = reportToText(
-      buildRunReport(facts({ mode: 'lyrics-only', speechModel: null, durationsMs: {} })),
-    )
-    expect(lyrics).toContain('Mode: lyrics only\nSpeech model: none\n')
-    expect(lyrics).toContain('[Step times]\nnone\n')
-  })
-
-  it('writes the track count and the kept flag in the vocal separation section', () => {
-    const kept = reportToText(buildRunReport(facts({ trackCount: 2, tracksKept: false })))
-    expect(kept).toMatch(/\[Vocal separation\]\n(.+\n){2}Audio tracks: 2\nTracks kept: no\n/)
-    expect(lines).toContain('Audio tracks: not known')
-    expect(lines).toContain('Tracks kept: not known')
-    expect(reportToText(buildRunReport(facts({ tracksKept: true })))).toContain('Tracks kept: yes')
-  })
-
-  it('writes the build, or "not known" for a report with no build', () => {
-    expect(lines).toContain('Build: not known')
-    const built = reportToText(buildRunReport(facts({ build: 'abc1234' })))
-    expect(built).toContain('[Run]\nBuild: abc1234\n')
-  })
-
-  it('marks each voice that the run made', () => {
-    const made = reportToText(
-      buildRunReport(
-        facts({
-          voices: [
-            { name: 'Lead Vocals', phraseCount: 2, made: false },
-            { name: 'Singer 2', phraseCount: 1, made: true },
-          ],
-        }),
-      ),
-    )
-    expect(made).toContain('"Lead Vocals": 2 phrases\n"Singer 2": 1 phrases, made by the run\n')
-  })
-
-  it('writes no lyrics word', () => {
-    for (const word of LYRIC_WORDS) expect(text).not.toContain(word)
-  })
-})
-
 describe('alignedTable', () => {
   it('pads each column but the last to its widest cell', () => {
     expect(
@@ -367,8 +176,8 @@ describe('voicePhrases', () => {
         ['b'],
       ),
     ).toEqual([
-      { name: 'Lead', phraseCount: 1, made: false },
-      { name: 'Harmony', phraseCount: 1, made: true },
+      { name: 'Lead', voiceId: 'a', phraseCount: 1, made: false },
+      { name: 'Harmony', voiceId: 'b', phraseCount: 1, made: true },
     ])
   })
 })

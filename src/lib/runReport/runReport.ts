@@ -1,10 +1,5 @@
 // The run report holds counts, names of models, voice names and times only. It never holds a lyrics word, an API key, a URL or audio.
-import {
-  type FinalSinger,
-  joinReasonText,
-  type RawGroup,
-  type SingerDiagnostics,
-} from '../singers/diagnostics.ts'
+import type { SingerDiagnostics } from '../singers/diagnostics.ts'
 
 /** A step of a transcribe run that the report times. */
 export type RunStep =
@@ -19,7 +14,7 @@ export type RunStep =
   | 'singers'
   | 'breakDown'
 
-/** The text of each step in `reportToText` and in the run report panel, in the order of a run. */
+/** The text of each step in the run report panel and in the copied text, in the order of a run. */
 const STEP_TEXT: Record<RunStep, string> = {
   prepare: 'Prepare the audio',
   separationDownload: 'Load the vocal separation model',
@@ -53,9 +48,11 @@ export type ReportSeparationModel = 'spleeter' | 'demucs' | 'none'
 
 /**
  * The count of phrases of the run on one voice.
- * `made` is true for a voice that the singer step added. A report of an earlier version of the app has no `made`.
+ * - `name`: the name of the voice at the end of the run.
+ * - `made`: true for a voice that the singer step added. A report of an earlier version of the app has no `made`.
+ * - `voiceId`: the id of the voice, so the panel can show its present name. A report from before issue #173 has no `voiceId`.
  */
-export type VoicePhrases = { name: string; phraseCount: number; made?: boolean }
+export type VoicePhrases = { name: string; phraseCount: number; made?: boolean; voiceId?: string }
 
 /**
  * The result of the singer step:
@@ -151,6 +148,10 @@ export type RunReport = {
   estimatedCount: number
   /** The words that no dictionary has. */
   unknownCount: number
+  /** The lyrics lines that the run left out, because the range has no room for their words. A report of an earlier version has no value. */
+  linesLeftOut?: number
+  /** The words that the run left out, because it cannot use them. A report of an earlier version has no value. */
+  wordsLeftOut?: number
   /** The part of the song that the run read. */
   range: { startMs: number; endMs: number }
   frameMs: number
@@ -202,6 +203,8 @@ export function buildRunReport(facts: RunFacts): RunReport {
     wordCount: words.length,
     estimatedCount: words.filter((mark) => mark.estimated === true).length,
     unknownCount: words.filter((mark) => mark.unknown === true).length,
+    ...(facts.linesLeftOut === undefined ? {} : { linesLeftOut: facts.linesLeftOut }),
+    ...(facts.wordsLeftOut === undefined ? {} : { wordsLeftOut: facts.wordsLeftOut }),
     range: facts.range,
     frameMs: facts.frameMs,
     durationsMs: facts.durationsMs,
@@ -209,17 +212,10 @@ export function buildRunReport(facts: RunFacts): RunReport {
   }
 }
 
-function yesNo(value: boolean): string {
-  return value ? 'yes' : 'no'
-}
-
-function countText(value: number | null | undefined): string {
-  return value == null ? 'not known' : String(value)
-}
-
 /** Returns the text of a yes or no fact, or 'not known' for a report of an earlier version of the app. */
 export function knownYesNo(value: boolean | undefined): string {
-  return value === undefined ? 'not known' : yesNo(value)
+  if (value === undefined) return 'not known'
+  return value ? 'yes' : 'no'
 }
 
 /**
@@ -255,126 +251,6 @@ export function alignedTable(rows: readonly (readonly string[])[]): string[] {
   )
 }
 
-function fateText(group: RawGroup, diagnostics: SingerDiagnostics): string {
-  const { fate } = group
-  if (fate.kind === 'kept')
-    return fate.singer === null
-      ? 'kept, no range after the range limits'
-      : `kept as singer ${fate.singer}`
-  return `joined group ${fate.into}: ${joinReasonText(fate.reason, diagnostics.settings)}`
-}
-
-function rawGroupLines(diagnostics: SingerDiagnostics): string[] {
-  if (diagnostics.rawGroups.length === 0) return []
-  return alignedTable([
-    ['group', 'sung ms', 'embeddings', 'result'],
-    ...diagnostics.rawGroups.map((group) => [
-      String(group.group),
-      String(group.sungMs),
-      String(group.embeddingCount),
-      fateText(group, diagnostics),
-    ]),
-  ])
-}
-
-function finalSingerLines(singers: readonly FinalSinger[]): string[] {
-  if (singers.length === 0) return []
-  return alignedTable([
-    ['singer', 'sung ms', 'ranges'],
-    ...singers.map((singer) => [
-      String(singer.singer),
-      String(singer.sungMs),
-      String(singer.rangeCount),
-    ]),
-  ])
-}
-
-function distanceText(diagnostics: SingerDiagnostics): string {
-  const distances = diagnostics.centroidDistances
-  if (distances === null) return 'none (fewer than 2 raw groups)'
-  return `${distances.min} / ${distances.median} / ${distances.max}`
-}
-
-function diagnosticLines(diagnostics: SingerDiagnostics | null): string[] {
-  if (diagnostics === null) return ['Diagnostics: none']
-  const { settings } = diagnostics
-  return [
-    `Audio: ${diagnostics.audioMs} ms`,
-    `Windows: ${diagnostics.windowCount}`,
-    `Frames with a singer: ${diagnostics.framesWithSpeech}`,
-    `Sung time: ${diagnostics.sungMs} ms`,
-    `Embeddings: ${diagnostics.embeddingCount}`,
-    `Embeddings dropped (not finite): ${diagnostics.droppedEmbeddings}`,
-    `Merge threshold: ${settings.threshold}`,
-    `Minimum group size: ${settings.minGroupSize} embeddings`,
-    `Highest count of singers: ${settings.maxSingers}`,
-    `Short singer limits: ${Math.round(settings.minSingerShare * 100)}% of the sung time, ${settings.minSingerMs} ms`,
-    `Centroid distances (smallest / median / largest): ${distanceText(diagnostics)}`,
-    `Raw groups: ${diagnostics.rawGroupCount}`,
-    ...rawGroupLines(diagnostics),
-    `Final singers: ${diagnostics.finalSingerCount}`,
-    ...finalSingerLines(diagnostics.singers),
-  ]
-}
-
-function singerLines(singers: SingerSection): string[] {
-  const status =
-    singers.failureKind === null ? singers.status : `${singers.status} (${singers.failureKind})`
-  if (singers.status === 'option-off' || singers.status === 'no-vocals')
-    return ['[Singers]', `Step: ${status}`]
-  return [
-    '[Singers]',
-    `Step: ${status}`,
-    `Singers selected: ${selectedSingersText(singers.selected)}`,
-    ...diagnosticLines(singers.diagnostics),
-    `Singer ranges: ${countText(singers.rangeCount)}`,
-    `Phrase rule: ${phraseRuleText(singers.rule)}`,
-    `Phrase division: ${divisionRuleText(singers.rule)}`,
-    `Phrases divided: ${countText(singers.phrasesDivided ?? null)}`,
-    `Singers with one phrase or more: ${countText(singers.singersWithPhrases)}`,
-    `Phrases with no singer range: ${countText(singers.phrasesWithNoSinger)}`,
-    `Phrases with more than one singer (copied to each voice): ${countText(singers.phrasesWithMoreSingers)}`,
-    `Voices made: ${countText(singers.voicesMade)}`,
-  ]
-}
-
-function runLines(report: RunReport): string[] {
-  const { startMs, endMs } = report.range
-  return [
-    '[Run]',
-    `Build: ${report.build ?? 'not known'}`,
-    `Source: ${report.source}`,
-    `Remote endpoint host: ${report.endpointHost ?? 'none'}`,
-    `Mode: ${report.mode === 'model' ? 'speech model' : 'lyrics only'}`,
-    `Speech model: ${report.speechModel ?? 'none'}`,
-    `Device: ${report.device ?? 'none'}`,
-    `Range: ${startMs} ms to ${endMs} ms (${endMs - startMs} ms)`,
-    `Frame size: ${report.frameMs} ms`,
-    '',
-    '[Vocal separation]',
-    `Separation model: ${report.separationModel}`,
-    `Changed to the fast model: ${yesNo(report.separationFallback)}`,
-    `Audio tracks: ${countText(report.trackCount)}`,
-    `Tracks kept: ${knownYesNo(report.tracksKept)}`,
-  ]
-}
-
-function countLines(report: RunReport): string[] {
-  return [
-    '[Counts]',
-    `Phrases: ${report.phraseCount}`,
-    `Words: ${report.wordCount}`,
-    `Estimated words: ${report.estimatedCount}`,
-    `Unknown words: ${report.unknownCount}`,
-    '',
-    '[Voices]',
-    ...report.voices.map(
-      (voice) =>
-        `"${voice.name}": ${voice.phraseCount} phrases${voice.made === true ? ', made by the run' : ''}`,
-    ),
-  ]
-}
-
 /**
  * Returns the text and the time of each step that ran, in the order of a run.
  * @param durations The time of each step of a run.
@@ -384,33 +260,6 @@ export function stepTimes(durations: StepDurations): { text: string; ms: number 
     const ms = durations[step]
     return ms === undefined ? [] : [{ text: STEP_TEXT[step], ms }]
   })
-}
-
-function stepLines(durations: StepDurations): string[] {
-  const steps = stepTimes(durations).map(({ text, ms }) => `${text}: ${ms} ms`)
-  return ['[Step times]', ...(steps.length === 0 ? ['none'] : steps)]
-}
-
-function noteLines(notes: readonly RunNote[]): string[] {
-  return ['[Warnings and failures]', ...(notes.length === 0 ? ['none'] : notes.map((n) => n.text))]
-}
-
-/**
- * Returns the report as plain text to paste into a chat or to save as `report.txt`.
- * Each section starts with a heading line in brackets. Each line holds one fact, with its unit.
- * The text holds the names of the voices and no lyrics.
- * @param report The report of a run.
- */
-export function reportToText(report: RunReport): string {
-  const sections = [
-    runLines(report),
-    countLines(report),
-    singerLines(report.singers),
-    stepLines(report.durationsMs),
-    noteLines(report.notes),
-  ]
-  const head = ['Transcribe run report', `Started: ${report.startedAt}`]
-  return `${[head, ...sections].map((lines) => lines.join('\n')).join('\n\n')}\n`
 }
 
 /** Measures the time of each step of a run. A step that starts two times adds both times. */
@@ -460,6 +309,7 @@ export function voicePhrases(
 ): VoicePhrases[] {
   return voices.map((voice) => ({
     name: voice.name,
+    voiceId: voice.id,
     made: madeIds.includes(voice.id),
     phraseCount: marks.filter(
       (mark) =>

@@ -86,29 +86,64 @@ describe('checkTracks', () => {
   })
 
   describe('a selected voice has no marks', () => {
-    it('gives an error for a timing track with three empty layers in grouping voice', () => {
+    it('gives a warning with the next action for a timing track with three empty layers', () => {
       const marks = cleanMarks()
       const opts = options({ voiceIds: ['lead', 'harmony'] })
       const findings = check(buildTracks(song, voices, [], marks, opts), marks, opts)
 
       expect(findings).toEqual([
         {
-          type: 'error',
+          type: 'warning',
           check: 'voice-no-marks',
-          message: '“Harmony” has no marks.',
+          message: '“Harmony” has no marks. Clear its check box, or add marks.',
           voiceId: 'harmony',
         },
       ])
     })
 
-    it('gives an error for a voice that grouping voice-section omits', () => {
+    it('gives a warning for a voice that grouping voice-section omits', () => {
       const marks = cleanMarks()
       const opts = options({ voiceIds: ['lead', 'harmony'], grouping: 'voice-section' })
       const tracks = buildTracks(song, voices, [], marks, opts)
 
       expect(tracks.map((track) => track.voiceId)).toEqual(['lead'])
       expect(check(tracks, marks, opts).map((f) => [f.type, f.check, f.voiceId])).toEqual([
-        ['error', 'voice-no-marks', 'harmony'],
+        ['warning', 'voice-no-marks', 'harmony'],
+      ])
+    })
+
+    it('gives one no-marks error when no selected voice has marks', () => {
+      const marks = cleanMarks()
+      const opts = options({ voiceIds: ['harmony'] })
+
+      expect(check(buildTracks(song, voices, [], marks, opts), marks, opts)).toEqual([
+        {
+          type: 'error',
+          check: 'no-marks',
+          message: 'No marks to export. Select a voice with marks.',
+        },
+        {
+          type: 'warning',
+          check: 'voice-left-out',
+          message:
+            '“Lead Vocals” has marks, and it is not in this export. Select its check box to add it.',
+          voiceId: 'lead',
+        },
+      ])
+    })
+
+    it('warns for each voice with marks that is not selected, and the warning does not block the export', () => {
+      const marks = cleanMarks()
+      const opts = options({ voiceIds: [] })
+
+      expect(check([], marks, opts)).toEqual([
+        {
+          type: 'warning',
+          check: 'voice-left-out',
+          message:
+            '“Lead Vocals” has marks, and it is not in this export. Select its check box to add it.',
+          voiceId: 'lead',
+        },
       ])
     })
 

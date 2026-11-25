@@ -3,7 +3,7 @@ import { saveSong } from '../db.ts'
 import { makeSongContent } from '../fixtures.test-helpers.ts'
 import { useSongStore } from '../songStore.ts'
 import type { Mark, SongContent } from '../types.ts'
-import { hasMarksInRange, replaceMarksInRange } from './replaceMarksInRange.ts'
+import { countMarksInRange, hasMarksInRange, replaceMarksInRange } from './replaceMarksInRange.ts'
 import { deleteVoice } from './voices.ts'
 
 const VOICE = 'song-1-voice'
@@ -163,6 +163,153 @@ describe('replaceMarksInRange', () => {
   })
 })
 
+describe('replaceMarksInRange with the singer voices of the last run', () => {
+  const current = () => {
+    const song = useSongStore.getState().current
+    if (song === null) throw new Error('No song is open.')
+    return song
+  }
+  const THIRD_VOICE = 'third-voice'
+  const singers = (...voiceIds: string[]) =>
+    voiceIds.map((voiceId) => ({ voiceId, removable: true }))
+  const addMarksAndVoice = () =>
+    useSongStore.getState().apply((song) => ({
+      ...song,
+      voices: [
+        ...song.voices,
+        { id: THIRD_VOICE, songId: song.song.id, name: 'Singer 3', order: 2, color: '#7ae582' },
+      ],
+      marks: [
+        ...song.marks,
+        mark('third-phrase', 'phrase', 3000, 4000, null, THIRD_VOICE),
+        mark('other-late', 'phrase', 15_000, 16_000, null, OTHER_VOICE),
+      ],
+    }))
+
+  it('clears the range on each singer voice and writes the new marks in one undo step', () => {
+    addMarksAndVoice()
+    const before = current()
+
+    replaceMarksInRange(
+      VOICE,
+      { startMs: 0, endMs: 5000 },
+      NEW_MARKS,
+      singers(OTHER_VOICE, THIRD_VOICE),
+    )
+
+    expect(ids()).toEqual(
+      [
+        'crossing-phrase',
+        'late-phrase',
+        'late-word',
+        'new-phrase',
+        'new-word',
+        'other-late',
+      ].sort(),
+    )
+    expect(useSongStore.getState().history.past).toHaveLength(2)
+    useSongStore.getState().undo()
+    expect(current()).toStrictEqual(before)
+  })
+
+  it('removes a singer voice with no mark left and numbers the order of the other voices again', () => {
+    addMarksAndVoice()
+
+    replaceMarksInRange(
+      VOICE,
+      { startMs: 0, endMs: 5000 },
+      NEW_MARKS,
+      singers(OTHER_VOICE, THIRD_VOICE),
+    )
+
+    expect(current().voices.map((voice) => [voice.id, voice.order])).toEqual([
+      [VOICE, 0],
+      [OTHER_VOICE, 1],
+    ])
+  })
+
+  it('keeps a singer voice that has marks outside the range', () => {
+    addMarksAndVoice()
+
+    replaceMarksInRange(VOICE, { startMs: 0, endMs: 5000 }, NEW_MARKS, singers(OTHER_VOICE))
+
+    expect(current().voices.map((voice) => voice.id)).toEqual([VOICE, OTHER_VOICE, THIRD_VOICE])
+    expect(ids()).toContain('third-phrase')
+  })
+
+  it('cuts a singer phrase that crosses an edge of the range by the range rules', () => {
+    useSongStore.getState().apply((song) => ({
+      ...song,
+      marks: [
+        ...song.marks.filter((item) => item.voiceId !== OTHER_VOICE),
+        mark('other-phrase', 'phrase', 3000, 7000, null, OTHER_VOICE),
+        mark('other-in', 'word', 3000, 4000, 'other-phrase', OTHER_VOICE),
+        mark('other-out', 'word', 6000, 7000, 'other-phrase', OTHER_VOICE),
+      ],
+    }))
+
+    replaceMarksInRange(VOICE, { startMs: 0, endMs: 5000 }, NEW_MARKS, singers(OTHER_VOICE))
+
+    const other = current().marks.filter((item) => item.voiceId === OTHER_VOICE)
+    expect(other.map((item) => [item.id, item.startMs, item.endMs])).toEqual([
+      ['other-phrase', 6000, 7000],
+      ['other-out', 6000, 7000],
+    ])
+  })
+
+  it('ignores the voice of the run and an unknown id in the singer voices', () => {
+    replaceMarksInRange(VOICE, { startMs: 0, endMs: 5000 }, NEW_MARKS, singers(VOICE, 'gone'))
+
+    expect(current().voices.map((voice) => voice.id)).toEqual([VOICE, OTHER_VOICE])
+    expect(ids()).toContain('other-phrase')
+  })
+
+  it('keeps a singer voice of the last run that had no mark before the step, and records no step', () => {
+    useSongStore.getState().apply((song) => ({
+      ...song,
+      marks: song.marks.filter((item) => item.voiceId !== OTHER_VOICE),
+    }))
+
+    replaceMarksInRange(VOICE, { startMs: 15_000, endMs: 20_000 }, [], singers(OTHER_VOICE))
+
+    expect(current().voices.map((voice) => voice.id)).toEqual([VOICE, OTHER_VOICE])
+    expect(useSongStore.getState().history.past).toHaveLength(1)
+  })
+
+  it('removes a singer voice that the step empties, and the undo brings it back exactly', () => {
+    addMarksAndVoice()
+    useSongStore.getState().apply((song) => ({
+      ...song,
+      marks: song.marks.filter((item) => item.id !== 'third-phrase'),
+    }))
+    const before = current()
+
+    replaceMarksInRange(
+      VOICE,
+      { startMs: 0, endMs: 5000 },
+      NEW_MARKS,
+      singers(OTHER_VOICE, THIRD_VOICE),
+    )
+
+    // The third voice had no mark before the step, so it stays. The other voice loses its marks in the range and keeps "other-late".
+    expect(current().voices.map((voice) => voice.id)).toEqual([VOICE, OTHER_VOICE, THIRD_VOICE])
+    replaceMarksInRange(VOICE, { startMs: 0, endMs: 20_000 }, NEW_MARKS, singers(OTHER_VOICE))
+    expect(current().voices.map((voice) => voice.id)).toEqual([VOICE, THIRD_VOICE])
+    useSongStore.getState().undo()
+    useSongStore.getState().undo()
+    expect(current()).toStrictEqual(before)
+  })
+
+  it('clears the voice of the last run in the range and keeps the voice when it becomes empty', () => {
+    replaceMarksInRange(VOICE, { startMs: 0, endMs: 20_000 }, NEW_MARKS, [
+      { voiceId: OTHER_VOICE, removable: false },
+    ])
+
+    expect(current().voices.map((voice) => voice.id)).toEqual([VOICE, OTHER_VOICE])
+    expect(current().marks.filter((item) => item.voiceId === OTHER_VOICE)).toEqual([])
+  })
+})
+
 describe('hasMarksInRange', () => {
   it('finds a mark of the voice that lies fully inside the range', () => {
     expect(hasMarksInRange(content, VOICE, { startMs: 11_000, endMs: 20_000 })).toBe(true)
@@ -178,5 +325,30 @@ describe('hasMarksInRange', () => {
 
   it('ignores the marks of another voice', () => {
     expect(hasMarksInRange(content, 'third-voice', { startMs: 0, endMs: 20_000 })).toBe(false)
+  })
+})
+
+describe('countMarksInRange', () => {
+  it('counts the marks of the voice on each layer that overlap the range', () => {
+    expect(countMarksInRange(content.marks, VOICE, { startMs: 0, endMs: 20_000 })).toBe(6)
+  })
+
+  it('counts a mark that crosses an edge and no mark that only touches it', () => {
+    expect(countMarksInRange(content.marks, VOICE, { startMs: 10_000, endMs: 12_000 })).toBe(1)
+  })
+
+  it('counts no mark of another voice', () => {
+    expect(countMarksInRange(content.marks, OTHER_VOICE, { startMs: 5000, endMs: 20_000 })).toBe(0)
+  })
+
+  it('gives a count above 0 exactly when hasMarksInRange is true', () => {
+    for (const range of [
+      { startMs: 0, endMs: 20_000 },
+      { startMs: 14_000, endMs: 20_000 },
+      { startMs: 2000, endMs: 9000 },
+    ])
+      expect(countMarksInRange(content.marks, VOICE, range) > 0).toBe(
+        hasMarksInRange(content, VOICE, range),
+      )
   })
 })

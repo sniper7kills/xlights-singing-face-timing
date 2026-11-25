@@ -74,6 +74,7 @@ function handlers(controller = new AbortController()): TranscribeRunHandlers {
     onFinishing: vi.fn(),
     confirmReplace: vi.fn(async () => true),
     confirmLowMatch: vi.fn(async () => true),
+    confirmLyricsFit: vi.fn(async () => true),
     onSeparationDownload: vi.fn(),
     onSeparationProgress: vi.fn(),
     confirmNoSeparation: vi.fn(async () => true),
@@ -786,5 +787,106 @@ describe('runTranscription with a remote endpoint', () => {
 
     expect(FakeXhr.instances).toEqual([])
     expect(labels('phrase')).toEqual(['Silent night, holy night', 'All is calm'])
+  })
+})
+
+describe('runTranscription with lyrics that do not fit in the range', () => {
+  const longLyrics = Array.from(
+    { length: 200 },
+    (_, i) => `Line number ${i + 1} sings a little song`,
+  ).join('\n')
+
+  it('asks before the run with the counts, and keeps the lines that fit', async () => {
+    const run = handlers()
+
+    const outcome = await runTranscription({ ...lyricsOnly, lyrics: longLyrics }, fakeClient(), run)
+
+    expect(run.confirmLyricsFit).toHaveBeenCalledWith({
+      wordCount: 1400,
+      room: 600,
+      keptLineCount: 85,
+      lineCount: 200,
+      firstLineCut: false,
+    })
+    expect(labels('phrase')).toHaveLength(85)
+    expect(labels('phrase').at(-1)).toBe('Line number 85 sings a little song')
+    expect(outcome.wordCount).toBe(595)
+    expect(outcome.wordsLeftOut).toBeUndefined()
+  })
+
+  it('changes no mark when the person declines', async () => {
+    const run = handlers()
+    vi.mocked(run.confirmLyricsFit).mockResolvedValue(false)
+
+    await expect(
+      runTranscription({ ...lyricsOnly, lyrics: longLyrics }, fakeClient(), run),
+    ).rejects.toMatchObject({ kind: 'cancelled' })
+    expect(marks()).toEqual([])
+  })
+
+  it('asks nothing when the lyrics fit', async () => {
+    const run = handlers()
+
+    await runTranscription(lyricsOnly, fakeClient(), run)
+
+    expect(run.confirmLyricsFit).not.toHaveBeenCalled()
+  })
+
+  it('counts only the parts with a letter or a digit, so lyrics that fit with & and emoji ask nothing', async () => {
+    const run = handlers()
+    const words = Array.from({ length: 500 }, (_, i) => `word${i}`)
+    const lyrics = [words.slice(0, 250).join(' & '), words.slice(250).join(' 😀 — ')].join('\n')
+
+    await runTranscription({ ...lyricsOnly, lyrics }, fakeClient(), run)
+
+    expect(run.confirmLyricsFit).not.toHaveBeenCalled()
+    expect(labels('word')).toHaveLength(500)
+  })
+
+  it('asks before a run whose first line alone has more words than the room', async () => {
+    const run = handlers()
+    const lyrics = Array.from({ length: 700 }, (_, i) => `word${i}`).join(' ')
+
+    await runTranscription({ ...lyricsOnly, lyrics }, fakeClient(), run)
+
+    expect(run.confirmLyricsFit).toHaveBeenCalledWith({
+      wordCount: 700,
+      room: 600,
+      keptLineCount: 1,
+      lineCount: 1,
+      firstLineCut: true,
+    })
+    expect(labels('word')).toHaveLength(600)
+  })
+
+  it('asks before a speech model run with lyrics that do not fit', async () => {
+    const run = handlers()
+
+    await runTranscription({ ...modelRequest, lyrics: longLyrics }, fakeClient(), run)
+
+    expect(run.confirmLyricsFit).toHaveBeenCalledOnce()
+    expect(labels('phrase')).toHaveLength(85)
+  })
+})
+
+describe('runTranscription with parts of the lyrics that it cannot use', () => {
+  it('returns the count of the parts with no letter and no digit, and writes no mark for them', async () => {
+    const outcome = await runTranscription(
+      { ...lyricsOnly, lyrics: 'Café "naïve" — <b>bold</b> & 你好 😀 \'tis' },
+      fakeClient(),
+      handlers(),
+    )
+
+    expect(outcome.wordsLeftOut).toBe(3)
+    expect(outcome.wordCount).toBe(5)
+  })
+
+  it('counts a word of the speech model that gives no label', async () => {
+    const words = [...WORDS, { text: ' ♪', startMs: 1300, endMs: 1500 }]
+
+    const outcome = await runTranscription(modelRequest, fakeClient(words), handlers())
+
+    expect(outcome.wordsLeftOut).toBe(1)
+    expect(outcome.wordCount).toBe(2)
   })
 })

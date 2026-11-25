@@ -63,7 +63,9 @@ test('shows the fields of a clicked word and changes the word for a typed end ti
 
   await end.fill('later')
   await end.press('Enter')
-  await expect(fields.getByRole('alert')).toHaveText('Use m:ss.mmm')
+  await expect(fields.getByRole('alert')).toHaveText(
+    'Use m:ss.mmm or seconds, for example 0:03.500 or 3.5.',
+  )
   await expect(fields.getByText('1500 ms · 30 frames')).toBeVisible()
 })
 

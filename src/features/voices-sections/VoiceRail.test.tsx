@@ -35,10 +35,48 @@ describe('VoiceRail', () => {
     render(<VoiceRail />)
 
     expect(screen.getByRole('complementary', { name: 'Voices' })).toBeInTheDocument()
-    expect(rows().map((row) => row.textContent)).toEqual(['Lead3 phrases☺⋯', 'Backing1 phrase☺⋯'])
+    expect(rows().map((row) => row.textContent)).toEqual(['1Lead3 phrases☺⋯', '2Backing1 phrase☺⋯'])
     expect(selectButton('Lead')).toHaveAccessibleDescription('3 phrases')
     expect(selectButton('Lead')).toHaveAttribute('aria-pressed', 'true')
     expect(selectButton('Backing')).toHaveAttribute('aria-pressed', 'false')
+    expect(rows()[0]).toHaveAttribute('aria-current', 'true')
+    expect(rows()[1]).not.toHaveAttribute('aria-current')
+  })
+
+  it('gives each of 12 rows its number, and the full name in the tooltip and the accessible name', () => {
+    for (let n = 0; n < 10; n += 1) addVoice('song-1')
+    render(<VoiceRail />)
+
+    expect(rows().map((row) => row.querySelector('.voice-number')?.textContent)).toEqual(
+      Array.from({ length: 12 }, (_, index) => String(index + 1)),
+    )
+    expect(selectButton('Voice 10')).toHaveAttribute('title', 'Voice 10')
+    expect(selectButton('Lead')).toHaveAttribute('title', 'Lead')
+    expect(new Set(useSongStore.getState().current?.voices.map((voice) => voice.color)).size).toBe(
+      12,
+    )
+  })
+
+  it('moves the current mark to the row of a voice after a click', async () => {
+    render(<VoiceRail />)
+
+    await userEvent.click(selectButton('Backing'))
+
+    expect(rows()[1]).toHaveAttribute('aria-current', 'true')
+    expect(rows()[0]).not.toHaveAttribute('aria-current')
+  })
+
+  it('shows the hint about groups of face models after the first click on "Add voice"', async () => {
+    const content = testContent()
+    useSongStore.setState({ current: { ...content, voices: content.voices.slice(0, 1) } })
+    render(<VoiceRail />)
+    const hint = 'Use one voice for each group of face models that sing together.'
+    expect(screen.queryByText(hint)).toBeNull()
+
+    await userEvent.click(screen.getByRole('button', { name: 'Add voice' }))
+
+    expect(await screen.findByText(hint)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Add voice' })).toHaveAccessibleDescription(hint)
   })
 
   it('shows a voice on the layers after a click and clears the mark selection', async () => {
@@ -72,7 +110,9 @@ describe('VoiceRail', () => {
     const add = screen.getByRole('button', { name: 'Add voice' })
     expect(add).toBeDisabled()
     expect(add).toHaveAttribute('title', 'A song has 12 voices at most.')
-    expect(add).toHaveAccessibleDescription('A song has 12 voices at most.')
+    expect(add).toHaveAccessibleDescription(
+      'A song has 12 voices at most. Use one voice for each group of face models that sing together.',
+    )
   })
 
   it('has no "Delete" in the menu of the only voice', async () => {
@@ -108,6 +148,24 @@ describe('VoiceRail rename', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent('A voice with this name exists.')
     expect(field).toHaveAttribute('aria-invalid', 'true')
     expect(voiceNames()).toEqual(['Lead', 'Backing'])
+  })
+
+  it('refuses a name of 61 characters with the length message and keeps a name of 60', async () => {
+    render(<VoiceRail />)
+    await userEvent.click(
+      within(await openMenu('Backing')).getByRole('menuitem', { name: 'Rename' }),
+    )
+
+    const field = screen.getByRole('textbox', { name: 'Voice name' })
+    await userEvent.clear(field)
+    await userEvent.type(field, `${'x'.repeat(61)}{Enter}`)
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'A voice name has 1 to 60 characters.',
+    )
+    expect(voiceNames()).toEqual(['Lead', 'Backing'])
+    await userEvent.type(field, '{Backspace}{Enter}')
+    expect(voiceNames()).toEqual(['Lead', 'x'.repeat(60)])
   })
 
   it('shows the name after the xLights import under the field and still saves the name', async () => {
@@ -174,7 +232,7 @@ describe('VoiceRail menu', () => {
     await userEvent.click(within(await openMenu('Lead')).getByRole('menuitem', { name: 'Colour' }))
 
     const colours = screen.getByRole('menu', { name: 'Colour of Lead' })
-    expect(within(colours).getAllByRole('menuitemradio')).toHaveLength(8)
+    expect(within(colours).getAllByRole('menuitemradio')).toHaveLength(12)
     await userEvent.click(within(colours).getByRole('menuitemradio', { name: 'Sky' }))
 
     expect(useSongStore.getState().current?.voices[0]?.color).toBe('#4cc9f0')
@@ -183,6 +241,51 @@ describe('VoiceRail menu', () => {
     await waitFor(() =>
       expect(screen.getByRole('button', { name: 'Actions for Lead' })).toHaveFocus(),
     )
+  })
+
+  it('keeps a stored colour that is not a preset colour, and checks no colour in the list', async () => {
+    const content = testContent()
+    const voices = content.voices.map((voice, index) =>
+      index === 0 ? { ...voice, color: '#123456' } : voice,
+    )
+    useSongStore.setState({ current: { ...content, voices } })
+    render(<VoiceRail />)
+
+    expect(selectButton('Lead').querySelector('.voice-chip')).toHaveStyle({ background: '#123456' })
+    await userEvent.click(within(await openMenu('Lead')).getByRole('menuitem', { name: 'Colour' }))
+    const colours = screen.getByRole('menu', { name: 'Colour of Lead' })
+    expect(within(colours).queryAllByRole('menuitemradio', { checked: true })).toHaveLength(0)
+    await userEvent.keyboard('{Escape}')
+    expect(useSongStore.getState().current?.voices[0]?.color).toBe('#123456')
+  })
+
+  it('shows the menu outside the rail, so that the rail cannot clip it', async () => {
+    render(<VoiceRail />)
+
+    const menu = await openMenu('Backing')
+
+    expect(screen.getByRole('complementary', { name: 'Voices' })).not.toContainElement(menu)
+    expect(menu.closest('.floating-menu')?.parentElement).toBe(document.body)
+  })
+
+  it('moves the focus from the menu to the next control with Tab, and closes the menu', async () => {
+    render(<VoiceRail />)
+    await openMenu('Lead')
+
+    await userEvent.tab()
+
+    expect(screen.getByRole('button', { name: 'Backing' })).toHaveFocus()
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument()
+  })
+
+  it('gives the focus back to the menu button with Shift+Tab, and closes the menu', async () => {
+    render(<VoiceRail />)
+    await openMenu('Lead')
+
+    await userEvent.tab({ shift: true })
+
+    expect(screen.getByRole('button', { name: 'Actions for Lead' })).toHaveFocus()
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument()
   })
 
   it('moves the second voice up with the keyboard', async () => {
@@ -227,6 +330,8 @@ describe('VoiceRail mute', () => {
     render(<VoiceRail />)
     const mute = screen.getByRole('button', { name: 'Mute face preview of Backing' })
     expect(mute).toHaveAttribute('aria-pressed', 'false')
+    expect(mute).toHaveAttribute('title', 'Mute face preview of Backing')
+    expect(mute).toHaveTextContent('☺')
 
     await userEvent.click(mute)
 

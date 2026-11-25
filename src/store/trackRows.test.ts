@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { RunReport, SingerSection } from '../lib/runReport/runReport.ts'
-import { trackRows } from './trackRows.ts'
+import { lastRunVoices, trackRows } from './trackRows.ts'
 import type { KeptTracks, Mark, RunData, Voice } from './types.ts'
 
 const TRACKS: KeptTracks = {
@@ -128,5 +128,116 @@ describe('trackRows', () => {
   it('gives no row to a voice with no singer range', () => {
     const rows = trackRows(data('split'), VOICES, [phrase('p1', 'v1', 0, 2000)])
     expect(rows.map((row) => row.id)).toEqual(['vocals', 'instruments', 'singer:v1'])
+  })
+})
+
+/** A record with voice ids: the singers of each voice are fixed at the end of the run. */
+function dataWithIds(status: SingerSection['status'] = 'split'): RunData {
+  return {
+    ...data(status),
+    voices: [
+      { voiceId: 'v1', singers: [4], made: false },
+      { voiceId: 'v2', singers: [2], made: true },
+    ],
+  }
+}
+
+describe('trackRows with the voice ids of the run', () => {
+  it('keeps the row and the ranges of a renamed voice, under the new name', () => {
+    const renamed = VOICES.map((voice) =>
+      voice.id === 'v2' ? { ...voice, name: 'Test Alto' } : voice,
+    )
+
+    const rows = trackRows(dataWithIds(), renamed, MARKS).slice(2)
+
+    expect(rows).toEqual([
+      expect.objectContaining({ id: 'singer:v1', gate: [{ startMs: 100, endMs: 1900 }] }),
+      {
+        id: 'singer:v2',
+        name: 'Test Alto',
+        track: 'vocals',
+        gate: [{ startMs: 3100, endMs: 4900 }],
+        color: '#4dd0ff',
+      },
+    ])
+  })
+
+  it('gives no row and no range to a deleted voice, and the row of the other voice does not change', () => {
+    // A phrase of "Lead Vocals" touches the ranges of singer 2, so the rule by name would give them to it.
+    const marks = [...MARKS, phrase('p0', 'v1', 2900, 3200)]
+
+    const rows = trackRows(dataWithIds(), [VOICES[0] as Voice], marks).slice(2)
+
+    expect(rows).toEqual([
+      expect.objectContaining({ id: 'singer:v1', gate: [{ startMs: 100, endMs: 1900 }] }),
+    ])
+  })
+
+  it('reads the singers from the record, not from the phrases', () => {
+    // The phrases of v2 now lie in the ranges of singer 4, but the record keeps singer 2 on v2.
+    const moved = [phrase('p1', 'v2', 0, 2000), phrase('p2', 'v2', 3000, 5000)]
+
+    const rows = trackRows(dataWithIds(), VOICES, moved).slice(2)
+
+    expect(rows.map((row) => [row.id, row.gate])).toEqual([
+      ['singer:v1', [{ startMs: 100, endMs: 1900 }]],
+      ['singer:v2', [{ startMs: 3100, endMs: 4900 }]],
+    ])
+  })
+
+  it('shows the rows in the present voice order', () => {
+    const reordered = [VOICES[1] as Voice, VOICES[0] as Voice]
+
+    expect(
+      trackRows(dataWithIds(), reordered, MARKS)
+        .slice(2)
+        .map((row) => row.id),
+    ).toEqual(['singer:v2', 'singer:v1'])
+  })
+
+  it('gives no row to a voice of the run with no singer, or to a voice that is not in the record', () => {
+    const extra: Voice = { id: 'v3', songId: 's', name: 'Other', order: 2, color: '#fff' }
+    const record = {
+      ...dataWithIds(),
+      voices: [{ voiceId: 'v1', singers: [], made: false }],
+    }
+
+    expect(trackRows(record, [...VOICES, extra], MARKS)).toHaveLength(2)
+  })
+
+  it('gives no singer row when the singer step did not split', () => {
+    expect(trackRows(dataWithIds('failed'), VOICES, MARKS)).toHaveLength(2)
+  })
+})
+
+describe('lastRunVoices', () => {
+  const ids = (result: { voice: Voice; made: boolean }[]) =>
+    result.map(({ voice, made }) => [voice.id, made])
+
+  it('gives the voice of the last run and its singer voices, by id, also after a rename', () => {
+    const third: Voice = { id: 'v3', songId: 's', name: 'Singer 3', order: 2, color: '#7ae582' }
+    const renamed = [
+      ...VOICES.map((voice) => (voice.id === 'v2' ? { ...voice, name: 'Test Alto' } : voice)),
+      third,
+    ]
+
+    expect(ids(lastRunVoices(dataWithIds(), renamed, 'v3'))).toEqual([
+      ['v1', false],
+      ['v2', true],
+    ])
+  })
+
+  it('leaves out the voice of the new run and a deleted voice', () => {
+    expect(ids(lastRunVoices(dataWithIds(), VOICES, 'v2'))).toEqual([['v1', false]])
+    expect(lastRunVoices(dataWithIds(), [VOICES[0] as Voice], 'v1')).toEqual([])
+  })
+
+  it('gives no voice for a song with no run data', () => {
+    expect(lastRunVoices(undefined, VOICES, 'v1')).toEqual([])
+  })
+
+  it('finds the voices by the names in the report for a record with no voice ids', () => {
+    expect(ids(lastRunVoices(data('split'), VOICES, 'v1'))).toEqual([['v2', true]])
+    expect(ids(lastRunVoices(data('split'), VOICES, 'v2'))).toEqual([['v1', false]])
   })
 })

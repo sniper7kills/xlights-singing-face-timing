@@ -1,6 +1,6 @@
 import { MAX_SECTION_NAME } from '../../lib/sections/sectionRules.ts'
 import type { SectionTag } from '../../lib/sections/tagSections.ts'
-import { normaliseForMatch } from '../../lib/text/normalise.ts'
+import { isLyricsWord } from '../../lib/text/normalise.ts'
 import type { AlignedPhrase, AlignedWord, TimedWord } from './types.ts'
 
 const PHRASE_GAP_MS = 700
@@ -77,19 +77,56 @@ export function parseSectionTags(lyrics: string): SectionTag[] {
   return tags
 }
 
+/**
+ * Returns the lyrics up to the end of the lyrics line with the index `count`, in the order of `parseLyrics`.
+ * The run leaves out the later lines when the lyrics do not fit in the range. A tag after the last kept line goes with the later lines.
+ * @param lyrics The lyrics that the person supplies.
+ * @param count The count of lines with a word to keep.
+ */
+export function keepLyricsLines(lyrics: string, count: number): string {
+  if (count <= 0) return ''
+  const raw = lyrics.split(/\r?\n/)
+  let kept = 0
+  const end = raw.findIndex((line) => {
+    const read = readLine(line)
+    if (read !== null && 'words' in read) kept += 1
+    return kept === count
+  })
+  return end < 0 ? lyrics : raw.slice(0, end + 1).join('\n')
+}
+
+/**
+ * Returns the count of parts of the lyrics lines that are not a word: a part between spaces with no letter and no digit, such as `&` or an emoji.
+ * The run leaves these parts out. A tag line holds no such part, because it is not sung.
+ * @param lyrics The lyrics that the person supplies.
+ */
+export function countPartsLeftOut(lyrics: string): number {
+  return lyrics.split(/\r?\n/).reduce((count, raw) => {
+    const line = raw.trim()
+    if (line === '' || TAG_LINE.test(line)) return count
+    return count + line.split(/\s+/).filter((part) => !isLyricsWord(part)).length
+  }, 0)
+}
+
 type LyricsLine = { words: string[] } | { tag: string }
+
+/** Returns one lyrics line as a tag or as its words, or null for a line with no word. */
+function readLine(raw: string): LyricsLine | null {
+  const line = raw.trim()
+  if (TAG_LINE.test(line))
+    return { tag: line.slice(1, -1).trim().slice(0, MAX_SECTION_NAME).trimEnd() }
+  const words = line.split(/\s+/).filter(isLyricsWord)
+  return words.length > 0 ? { words } : null
+}
 
 /**
  * Returns each lyrics line that is a tag or that has a word.
  * `parseLyrics` and `parseSectionTags` share this function, so the line index of a tag matches the phrases.
  */
 function readLyricsLines(lyrics: string): LyricsLine[] {
-  return lyrics.split(/\r?\n/).flatMap((raw): LyricsLine[] => {
-    const line = raw.trim()
-    if (TAG_LINE.test(line))
-      return [{ tag: line.slice(1, -1).trim().slice(0, MAX_SECTION_NAME).trimEnd() }]
-    const words = line.split(/\s+/).filter((part) => normaliseForMatch(part) !== '')
-    return words.length > 0 ? [{ words }] : []
+  return lyrics.split(/\r?\n/).flatMap((raw) => {
+    const line = readLine(raw)
+    return line === null ? [] : [line]
   })
 }
 

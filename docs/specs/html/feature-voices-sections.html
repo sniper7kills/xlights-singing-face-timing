@@ -262,6 +262,33 @@ body.rv-open .layout { padding-right:21rem; }
 </li>
 </ul>
 <p>long as the top singer of the phrase.</p>
+<ul>
+<li>FR-voice-30 — A new run with the singer step replaces the marks of each voice of
+</li>
+</ul>
+<p>the last run in its range, so no phrase is on two voices because of an earlier run.</p>
+<ul>
+<li>FR-voice-31 — A singer voice of the last run goes when the replace removes its
+</li>
+</ul>
+<p>last mark, in the undo step of the marks of the run.</p>
+<ul>
+<li>FR-voice-32 — Each row of the voice rail shows its row number before the voice
+</li>
+</ul>
+<p>name.</p>
+<ul>
+<li>FR-voice-33 — The row of the shown voice has a mark that is not colour alone.
+</li>
+<li>FR-voice-34 — Each voice of a song with 12 voices gets a different preset colour.
+</li>
+<li>FR-voice-35 — A lost focus of the name field of a new section adds the section.
+</li>
+<li>FR-voice-36 — The status line names the section that makes a new section shorter.
+</li>
+<li>FR-voice-37 — Each menu of the editor stays inside the window.
+</li>
+</ul>
 <h3 id="voices-sections-user-flows">User flows</h3>
 <h4 id="voices-sections-divide-one-transcript-between-two-singers">Divide one transcript between two singers</h4>
 <div class="diagram"><pre class="mermaid">flowchart TD
@@ -332,6 +359,7 @@ body.rv-open .layout { padding-right:21rem; }
   C --&gt; D{Overlaps a section?}
   D -- yes --&gt; E[App trims the new section to the free range]
   E -- free range under 1 second --&gt; F[Message: no room for a section here]
+  E -- trimmed --&gt; H[Status line: the section starts after or ends before a section]
   D -- no --&gt; G[Section shows in the section band]
   E --&gt; G</pre></div>
 <ol>
@@ -339,19 +367,30 @@ body.rv-open .layout { padding-right:21rem; }
 </li>
 <li>The person selects "Add section".
 </li>
-<li>The person types a name.
+<li>The person types a name. <code>Enter</code> or a click elsewhere adds the section.
 </li>
-<li>The app trims the section if it overlaps another section.
+</ol>
+<p><code>Escape</code> cancels.</p>
+<ol>
+<li>The app trims the section if it overlaps another section. The status line
 </li>
+</ol>
+<p>names the section in the way.</p>
+<ol>
 <li>The section band shows the section.
 </li>
 </ol>
 <h3 id="voices-sections-screens-states">Screens &amp; states</h3>
-<p><strong>Voice rail</strong> (left region of the editor, see <a href="../mockups/02-editor.html">mockups/02-editor.html</a>, owned by <a href="feature-timeline-editor.html">04-timeline-editor.md</a>). Each voice row shows the colour chip, the name, the phrase count, a mute button for the face preview and a menu (rename, colour, move up, move down, delete).</p>
+<p><strong>Voice rail</strong> (left region of the editor, see <a href="../mockups/02-editor.html">mockups/02-editor.html</a>, owned by <a href="feature-timeline-editor.html">04-timeline-editor.md</a>). Each voice row shows the row number, the colour chip, the name, the phrase count, a mute button for the face preview and a menu (rename, colour, move up, move down, delete).</p>
 <ul>
 <li>one voice: the row has no delete action.
 </li>
-<li>many voices: the selected voice has a highlighted row.
+<li>many voices: the row of the shown voice has a bar at its left edge, a border, a
+</li>
+</ul>
+<p>background and a bold name. It has <code>aria-current</code>.</p>
+<ul>
+<li>two voices or more: the hint under "Add voice".
 </li>
 <li>12 voices: the "Add voice" button is disabled with the tooltip "A song has 12
 </li>
@@ -423,7 +462,44 @@ body.rv-open .layout { padding-right:21rem; }
 <li>The voice rail has the name "Voices". Each row has the voice name, its count of
 </li>
 </ul>
-<p>phrases, a mute button for the face preview ("Mute face preview of &lt;voice name&gt;") and a menu "Actions for &lt;voice name&gt;" with "Rename", "Colour", "Move up", "Move down" and "Delete". The 8 colours are Amber, Sky, Green, Pink, Violet, Red, Teal and Lime. "Add voice" is disabled at 12 voices, with the note "A song has 12 voices at most."</p>
+<p>phrases, a mute button for the face preview ("Mute face preview of &lt;voice name&gt;") and a menu "Actions for &lt;voice name&gt;" with "Rename", "Colour", "Move up", "Move down" and "Delete". The 8 colours are Amber, Sky, Green, Pink, Violet, Red, Teal, Lime, Blue, Magenta, Silver and Brown. "Add voice" is disabled at 12 voices, with the note "A song has 12 voices at most."</p>
+<ul>
+<li>Each row of the voice rail shows its number in the rail, 1 to 12, before the
+</li>
+</ul>
+<p>name. The rail can cut a long name. The tooltip and the accessible name of the row have the full name. The number is not in the accessible name.</p>
+<ul>
+<li>The row of the shown voice has a bar at its left edge, a border, a background,
+</li>
+</ul>
+<p>a bold name and <code>aria-current</code>. The bar has the accent colour: 9.83:1 on the panel in the dark theme and 4.98:1 in the light theme.</p>
+<ul>
+<li>"Add voice" does not change the shown voice. The feature file stated no rule
+</li>
+</ul>
+<p>before issue #167, so the app keeps this behaviour.</p>
+<ul>
+<li>With two voices or more, or after a click on "Add voice", the rail shows the
+</li>
+</ul>
+<p>hint "Use one voice for each group of face models that sing together." under "Add voice".</p>
+<ul>
+<li>The mute button has the tooltip "Mute face preview of &lt;voice name&gt;". When the
+</li>
+</ul>
+<p>voice is muted, the button has <code>aria-pressed</code>, the glyph ⊘ in place of ☺, a border and a background.</p>
+<ul>
+<li>A new voice gets the first preset colour that no voice of the song has. When
+</li>
+</ul>
+<p>each preset colour is in use, it gets the colour at the voice count, modulo 12. So 12 voices have 12 colours. A stored colour that is not a preset colour stays. The colour list then checks no colour.</p>
+<ul>
+<li>The contrast of the preset colours, measured with the WCAG formula. The chip of
+</li>
+</ul>
+<p>a colour has a border in the muted text colour: 6.07:1 on the panel in the dark theme and 5.07:1 in the light theme. So each chip shows on the panel in both themes. The phrase text column is the dark text <code>#0b0f1a</code> on the colour.</p>
+<p>| Colour | Value | On the dark panel <code>#121829</code> | On the light panel <code>#fffaf0</code> | Dark text <code>#0b0f1a</code> on it | |---|---|---|---|---| | Amber | <code>#ffb238</code> | 9.83 | 1.73 | 10.64 | | Sky | <code>#4cc9f0</code> | 9.19 | 1.85 | 9.95 | | Green | <code>#7ae582</code> | 11.24 | 1.51 | 12.17 | | Pink | <code>#f472b6</code> | 6.67 | 2.55 | 7.22 | | Violet | <code>#a78bfa</code> | 6.49 | 2.62 | 7.03 | | Red | <code>#f87171</code> | 6.39 | 2.66 | 6.92 | | Teal | <code>#2dd4bf</code> | 9.49 | 1.79 | 10.28 | | Lime | <code>#c0ca33</code> | 9.88 | 1.72 | 10.69 | | Blue | <code>#5b8cff</code> | 5.59 | 3.04 | 6.05 | | Magenta | <code>#e05ad8</code> | 5.57 | 3.05 | 6.04 | | Silver | <code>#c3c9d6</code> | 10.64 | 1.60 | 11.52 | | Brown | <code>#b5835a</code> | 5.35 | 3.17 | 5.79 |</p>
+<p>The light text of the dark theme, <code>#f3ead7</code>, has 1.31:1 to 2.76:1 on the colours. So text on a voice colour uses the dark text in both themes.</p>
 <ul>
 <li>A wrong voice name shows "A voice name has 1 to 60 characters." or "A voice name
 </li>
@@ -448,7 +524,7 @@ body.rv-open .layout { padding-right:21rem; }
 <li>The "Phrase" button of the toolbar has "Move to voice" and "Copy to voice".
 </li>
 </ul>
-<p>Each shows the other voices and "New voice". If phrases of the target voice overlap the range, the app asks: "&lt;voice name&gt; has &lt;n&gt; phrases in this range. Replace them?" with "Continue" and "Cancel". A replace removes each such phrase with its words and phonemes. A move or a copy with its replace is one undo step.</p>
+<p>Its tooltip is "Move or copy the selected phrases to a voice". If the selection is not only phrases, the button does not act, and its tooltip is "Select a phrase first." The rule for a button that cannot act is in <a href="feature-timeline-editor.html#behaviour-rules">04-timeline-editor.md</a>. Each shows the other voices and "New voice". If phrases of the target voice overlap the range, the app asks: "&lt;voice name&gt; has &lt;n&gt; phrases in this range. Replace them?" with "Continue" and "Cancel". A replace removes each such phrase with its words and phonemes. A move or a copy with its replace is one undo step.</p>
 <ul>
 <li>The row "Other voices" shows a bar for each phrase of each other voice, in the
 </li>
@@ -463,12 +539,50 @@ body.rv-open .layout { padding-right:21rem; }
 <li>The band "Sections" is above the time ruler. "Add section" makes a section
 </li>
 </ul>
-<p>from the time selection, with the name "Section N" or a typed name of 40 characters at most. With no free range of 1 second, the note is "No room for a section here. Select a free range of 1 second or more."</p>
+<p>from the time selection at the click, with the name "Section N" or a typed name of 40 characters at most. <code>Enter</code> or a lost focus of the name field adds the section. <code>Escape</code> cancels. A lost focus with a name of only spaces adds nothing. A reload while the field is open adds nothing.</p>
+<ul>
+<li>When the app makes a new section shorter than the time selection because of a
+</li>
+</ul>
+<p>section, the status line of the editor says "The section starts at &lt;time&gt;, after "&lt;name&gt;"." or "The section ends at &lt;time&gt;, before "&lt;name&gt;"." A section that is shorter at both ends gets both texts. A range that only snaps to the frame size or stops at the song end gets no text. The rule is <code>sectionTrimNote</code> in <code>src/lib/sections/sectionRules.ts</code>. With no free range of 1 second, the note is "No room for a section here. Select a free range of 1 second or more." The tooltip of "Add section" is "Add a section for the time selection". With no time selection, the button does not act, and its tooltip is "Drag on the waveform to select a time range first."</p>
 <ul>
 <li>A section has the menu "Actions for &lt;section name&gt;" with "Rename", "Move
 </li>
 </ul>
 <p>section to voice" and "Delete". A delete has no confirm dialog. A click on a section selects its time range and scrolls the stage to its start. A dragged edge snaps to the frame size and stops at the adjacent section.</p>
+<ul>
+<li><strong>Menus.</strong> Each menu of the editor follows one rule, <code>menuPosition</code> in
+</li>
+</ul>
+<p><code>src/lib/layout/menuPosition.ts</code>: the voice menu and its colour list, the phrase menu and its list of voices, the section menu and its list of voices, and the phoneme list.</p>
+<ul>
+<li>The menu opens below its button, with its left edge at the left edge of the
+</li>
+</ul>
+<p>button.</p>
+<ul>
+<li>With no room on the right, the right edge of the menu goes to the right edge
+</li>
+</ul>
+<p>of the button. With no room below, the menu opens above the button.</p>
+<ul>
+<li>The menu never leaves the window.
+<ul>
+<li>The menu is in a portal with a fixed position, so the stage and the rail
+</li>
+</ul>
+</li>
+</ul>
+<p>cannot clip it.</p>
+<ul>
+<li>On a scroll or a resize, the menu follows its button. It does not close.
+<ul>
+<li>The keys stay the same. <code>Tab</code> moves on from the button and closes the menu.
+</li>
+</ul>
+</li>
+</ul>
+<p><code>Shift+Tab</code> gives the focus to the button and closes the menu.</p>
 <ul>
 <li>A change of the frame size snaps the sections in the same undo step. A section
 </li>
@@ -573,6 +687,11 @@ body.rv-open .layout { padding-right:21rem; }
 </ul>
 <p>voice of the run stay.</p>
 <ul>
+<li>A new run with the singer step first replaces the marks in the range of each
+</li>
+</ul>
+<p>voice of the last run, and removes a singer voice from which it removed the last mark. The rules are in <a href="feature-transcription.html#behaviour-rules">02-transcription.md</a>, "Singer voices of the last run". (FR-voice-30, 31)</p>
+<ul>
 <li>A run has these undo steps, in this order: the marks of the run, the sections of
 </li>
 </ul>
@@ -607,6 +726,10 @@ phrasesInSection(voiceId, sectionId): Mark[]</code></pre>
 <tr><td>Section edge dragged over another section</td><td>The edge stops at the other section.</td></tr>
 <tr><td>Section shorter than 1 second after a drag</td><td>The edge stops at 1 second.</td></tr>
 <tr><td>Delete a section</td><td>The marks stay. Only the section goes.</td></tr>
+<tr><td>New section overlaps "Verse 1" at its start</td><td>The section starts where "Verse 1" ends. The status line: "The section starts at &lt;time&gt;, after "Verse 1"."</td></tr>
+<tr><td>Click elsewhere while the name field of a new section is open</td><td>The app adds the section with the name in the field.</td></tr>
+<tr><td>Menu of a section that ends at the song end</td><td>The menu opens inside the window.</td></tr>
+<tr><td>Stored voice colour that is not a preset colour</td><td>The voice keeps the colour.</td></tr>
 <tr><td>A phrase spans two sections</td><td>It belongs to the section that holds its middle.</td></tr>
 <tr><td>Singer step finds one singer</td><td>No new voice. The phrases stay on the voice of the run.</td></tr>
 <tr><td>Singer step finds more singers than free voices</td><td>The song keeps 12 voices. The singers with the least phrase time go to the nearest earlier singer.</td></tr>
@@ -716,6 +839,46 @@ phrasesInSection(voiceId, sectionId): Mark[]</code></pre>
 </li>
 </ul>
 <p>(FR-voice-27, 28)</p>
+<ul>
+<li>Two runs with "Singers" 2 and then 4 on the demo song give 4 voices. The voice
+</li>
+</ul>
+<p>rail, the track rows and the run report agree. (FR-voice-30, 31)</p>
+<ul>
+<li>The undo steps of the second run restore the result of the first run exactly.
+</li>
+</ul>
+<p>(FR-voice-31)</p>
+<ul>
+<li>With 12 voices, each row shows a number and has a tooltip with the full name.
+</li>
+</ul>
+<p>(FR-voice-32)</p>
+<ul>
+<li>After a click on a voice, its row has <code>aria-current</code> and the bar, and the other
+</li>
+</ul>
+<p>rows do not. (FR-voice-33)</p>
+<ul>
+<li>12 voices that each take the next colour have 12 different colours.
+</li>
+</ul>
+<p>(FR-voice-34)</p>
+<ul>
+<li>A click elsewhere after "Add section" adds the section with the name in the
+</li>
+</ul>
+<p>field, and it is there after a reload. (FR-voice-35)</p>
+<ul>
+<li>A section from 0:14 to 0:23 after "Verse 1" from 0:00 to 0:16 shows "The section
+</li>
+</ul>
+<p>starts at 0:16.000, after "Verse 1"." (FR-voice-36)</p>
+<ul>
+<li>The menu of a section that ends at the song end is inside the window at 1440 px
+</li>
+</ul>
+<p>and at 1024 px wide. (FR-voice-37)</p>
 <h3 id="voices-sections-out-of-scope">Out of scope</h3>
 <ul>
 <li>The names of the singers. A singer voice has the name "Singer N".

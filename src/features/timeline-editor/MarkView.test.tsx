@@ -1,5 +1,7 @@
 import { render, screen } from '@testing-library/react'
-import { beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { makeSongContent } from '../../store/fixtures.test-helpers.ts'
+import { useSongStore } from '../../store/songStore.ts'
 import type { Mark } from '../../store/types.ts'
 import { useViewStore } from '../../store/viewStore.ts'
 import { MarkView } from './MarkView.tsx'
@@ -91,5 +93,57 @@ describe('MarkView', () => {
     const item = renderMark({ layer: 'phrase', estimated: true })
 
     expect(item).not.toHaveAttribute('data-estimated')
+  })
+
+  describe('a short or a narrow mark', () => {
+    beforeEach(() => {
+      // The song has a frame size of 50 ms.
+      useSongStore.setState({ current: makeSongContent() })
+    })
+
+    afterEach(() => {
+      useSongStore.setState({ current: null })
+    })
+
+    it('gives a word of 2 frames the short look and tells a screen reader', () => {
+      const item = renderMark({ startMs: 0, endMs: 100 })
+
+      expect(item).toHaveAttribute('data-short', 'true')
+      expect(item).toHaveTextContent('Zxqv (short mark)')
+    })
+
+    it('gives a word of 3 frames no short look', () => {
+      expect(renderMark({ startMs: 0, endMs: 150 })).not.toHaveAttribute('data-short')
+    })
+
+    it('gives a phoneme of 1 frame no short look', () => {
+      expect(renderMark({ layer: 'phoneme', label: 'O', endMs: 50 })).not.toHaveAttribute(
+        'data-short',
+      )
+    })
+
+    it('draws a mark of 1 frame at its own width with no visible label', () => {
+      // At 0.1 px for each ms, 50 ms is 5 px.
+      const item = renderMark({ startMs: 0, endMs: 50 })
+
+      expect(item).toHaveStyle({ width: '5px' })
+      expect(item).toHaveAttribute('data-narrow', 'true')
+      expect(item.querySelector('.mark-label')).toBeNull()
+      expect(item).toHaveTextContent(/^Zxqv/)
+    })
+
+    it('puts the handles of a narrow selected mark outside the mark', () => {
+      useViewStore.getState().selectMarks(['w1'])
+      const item = renderMark({ startMs: 0, endMs: 50 })
+
+      expect(item).toHaveAttribute('data-handles', 'outer')
+      expect(item.querySelectorAll('[data-edge]')).toHaveLength(2)
+    })
+
+    it('keeps the handles of a wide selected mark inside the mark', () => {
+      useViewStore.getState().selectMarks(['w1'])
+
+      expect(renderMark({})).toHaveAttribute('data-handles', 'inner')
+    })
   })
 })

@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import { flushAutosave } from './autosave.ts'
+import { dropPendingChange, flushAutosave } from './autosave.ts'
 import { loadSong } from './db.ts'
 import { emptyHistory, recordStep, redoStep, undoStep, type History } from './history.ts'
 import type { SongContent } from './types.ts'
@@ -18,6 +18,8 @@ export type SongStoreState = {
   /**
    * Reads the song from the database and makes it the open song, with an empty history.
    * A pending change is saved before the read, so the open does not lose it.
+   * If that save of a different song fails, the change goes away and the error stays in the
+   * autosave store, so a later change of this song cannot replace it in the wrong song.
    * Returns false, and closes the open song, if no song has the id.
    * A later open or close wins: the store ignores the song of an earlier open.
    * Rejects if the database cannot read the song.
@@ -48,6 +50,7 @@ export const useSongStore = create<SongStoreState>()((set, get) => ({
     const request = ++lastRequest
     // A change that is not saved is newer than the database copy.
     const unsaved = await flushAutosave()
+    if (unsaved && unsaved.song.id !== songId) dropPendingChange(unsaved)
     const content = unsaved?.song.id === songId ? unsaved : await loadSong(songId)
     if (request === lastRequest) set({ current: content ?? null, history: emptyHistory() })
     return content !== undefined

@@ -126,7 +126,7 @@ button {
   background: var(--panel2);
 }
 
-.button:hover:not(:disabled) {
+.button:hover:not(:disabled, [aria-disabled='true']) {
   border-color: var(--amber);
 }
 
@@ -137,7 +137,8 @@ button {
   font-weight: 700;
 }
 
-.button:disabled {
+.button:disabled,
+.button[aria-disabled='true'] {
   cursor: not-allowed;
   opacity: 0.5;
 }
@@ -184,9 +185,12 @@ button {
   padding: 14px 18px;
 }
 
-.drop-zone.compact .drop-zone-note,
-.drop-zone.compact .drop-zone-hint {
+.drop-zone.compact .drop-zone-note {
   display: none;
+}
+
+.drop-zone.compact .drop-zone-hint {
+  font-size: 13px;
 }
 
 .drop-zone p {
@@ -265,8 +269,53 @@ button {
 
 .editor {
   display: grid;
-  grid-template-columns: 180px minmax(0, 1fr) 280px;
+  grid-template-columns: var(--voices-column, 216px) minmax(0, 1fr) var(--inspector-column, 280px);
   gap: 16px;
+}
+
+/* A folded side panel keeps only its fold button, so the stage takes the width. */
+.editor[data-voices='folded'] {
+  --voices-column: 40px;
+}
+
+.editor[data-inspector='folded'] {
+  --inspector-column: 40px;
+}
+
+.editor[data-voices='folded'] > .voice-rail > :not(.panel-fold),
+.editor[data-inspector='folded'] > .inspector > :not(.panel-fold) {
+  display: none;
+}
+
+.editor[data-voices='folded'] > .voice-rail,
+.editor[data-inspector='folded'] > .inspector {
+  padding: 4px;
+}
+
+/* The fold button sits on the edge of the panel next to the stage. */
+.panel-fold {
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--panel2);
+  color: var(--ink);
+  font: 700 16px var(--mono);
+  cursor: pointer;
+}
+
+.panel-fold[data-panel='voices'] {
+  justify-self: end;
+}
+
+.panel-fold[data-panel='inspector'] {
+  justify-self: start;
+}
+
+.panel-fold:focus-visible {
+  outline: 2px solid var(--amber);
+  outline-offset: 2px;
 }
 
 /*
@@ -350,10 +399,10 @@ button {
 
 .voice-select {
   display: grid;
-  grid-template-columns: 12px minmax(0, 1fr);
-  gap: 8px;
+  grid-template-columns: auto 12px minmax(0, 1fr);
+  gap: 4px;
   align-items: center;
-  padding: 7px 8px;
+  padding: 7px 3px;
   border: 1px solid transparent;
   border-radius: 8px;
   background: none;
@@ -361,7 +410,18 @@ button {
   text-align: left;
 }
 
-/* The selected row has a border, a background and a bold name, so the rail does not show it by colour alone. */
+/* The shown voice has a bar at its left edge, a border, a background and a bold name, so the rail does not show it by colour alone. */
+.voice-row[aria-current='true']::before {
+  position: absolute;
+  top: 4px;
+  bottom: 4px;
+  left: -8px;
+  width: 4px;
+  border-radius: 2px;
+  background: var(--amber);
+  content: '';
+}
+
 .voice-select[aria-pressed='true'] {
   border-color: var(--line);
   background: var(--panel2);
@@ -371,15 +431,31 @@ button {
   font-weight: 700;
 }
 
+/* The muted text on --panel2 is under 4.5:1 in the light theme, so the shown row uses the ink colour. */
+.voice-select[aria-pressed='true'] .voice-number,
+.voice-select[aria-pressed='true'] .voice-count {
+  color: var(--ink);
+}
+
 .voice-select:hover {
   border-color: var(--line);
 }
 
+/* The number tells apart two voice names that the rail cuts at the same place. */
+.voice-number {
+  min-width: 2ch;
+  color: var(--mute);
+  font: 10px var(--mono);
+  text-align: right;
+}
+
+/* The border has a contrast of 3:1 or more on the panel in both themes, also for a light voice colour. */
 .voice-chip {
   display: inline-block;
+  flex: none;
   width: 12px;
   height: 12px;
-  border: 1px solid var(--line);
+  border: 1px solid var(--mute);
   border-radius: 50%;
 }
 
@@ -395,7 +471,10 @@ button {
 }
 
 .voice-count {
+  overflow: hidden;
   color: var(--mute);
+  text-overflow: ellipsis;
+  white-space: nowrap;
   font: 11px var(--mono);
 }
 
@@ -419,7 +498,7 @@ button {
 }
 
 .voice-menu-button {
-  padding: 4px 8px;
+  padding: 4px 6px;
   border: 1px solid transparent;
   border-radius: 6px;
   background: none;
@@ -432,7 +511,7 @@ button {
 }
 
 .voice-mute-button {
-  padding: 4px 6px;
+  padding: 4px;
   border: 1px solid transparent;
   border-radius: 6px;
   background: none;
@@ -443,18 +522,26 @@ button {
   border-color: var(--line);
 }
 
-/* A muted voice has a dimmed glyph as well as the crossed glyph, so the state does not rely on colour alone. */
+/* A muted voice has the crossed glyph, a border and a background, so the state does not rely on colour alone. */
 .voice-mute-button[aria-pressed='true'] {
+  border-color: var(--mute);
+  background: var(--panel2);
   color: var(--mute);
 }
 
+/* A menu of the editor is in a portal with a fixed position. `FloatingMenu` sets its top and left. */
+.floating-menu {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 20;
+}
+
 .voice-menu {
-  position: absolute;
-  top: 100%;
-  right: 0;
-  z-index: 5;
   display: grid;
   min-width: 150px;
+  max-height: calc(100vh - 8px);
+  overflow-y: auto;
   padding: 4px;
   border: 1px solid var(--line);
   border-radius: 8px;
@@ -652,6 +739,24 @@ button {
   background: var(--panel);
 }
 
+/* The skip link shows only when it has the focus, so a mouse user does not see it. */
+.skip-link:not(:focus) {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.skip-link:focus {
+  padding: 8px 14px;
+  border: 2px solid var(--amber);
+  border-radius: 8px;
+  background: var(--panel);
+  color: var(--ink);
+}
+
 .editor-top a.button {
   color: inherit;
   text-decoration: none;
@@ -727,12 +832,7 @@ button {
   position: relative;
 }
 
-/* The toolbar is at the bottom of the editor, so the menu opens above the button. */
 .action-menu {
-  position: absolute;
-  bottom: 100%;
-  left: 0;
-  z-index: 5;
   display: grid;
   min-width: 170px;
   max-height: 320px;
@@ -771,8 +871,14 @@ button {
   font: 12px var(--mono);
 }
 
+.zoom-control label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .zoom-control input {
-  width: 220px;
+  width: 160px;
   accent-color: var(--amber);
 }
 
@@ -782,9 +888,22 @@ button {
   gap: 12px;
 }
 
-.undo-redo {
+.undo-redo,
+.mark-actions {
   display: flex;
   gap: 6px;
+}
+
+/* The help line and the status line sit under the stage, so the text is near the marks that it is about. */
+.editor-lines {
+  display: grid;
+  gap: 4px;
+  color: var(--mute);
+  font-size: 13px;
+}
+
+.editor-lines p {
+  margin: 0;
 }
 
 .button[aria-pressed='true'] {
@@ -818,13 +937,18 @@ button {
   font-weight: 700;
 }
 
-.segment:disabled {
+.segment:disabled,
+.segment[aria-disabled='true'] {
   cursor: not-allowed;
   opacity: 0.5;
 }
 
 .segment:focus-visible {
   outline-offset: -2px;
+}
+
+.narrow-note p {
+  margin: 0;
 }
 
 .narrow-note[hidden] {
@@ -834,7 +958,9 @@ button {
 .narrow-note {
   display: grid;
   min-height: 60vh;
-  place-items: center;
+  place-content: center;
+  justify-items: center;
+  gap: 16px;
   margin: 0;
   color: var(--mute);
   font: 600 18px var(--display);
@@ -864,12 +990,19 @@ button {
   border-bottom: 1px solid var(--line);
 }
 
+.track-heading {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  padding-right: 6px;
+  background: var(--panel);
+}
+
 .track-fold {
   display: block;
-  width: 100%;
   padding: 2px 6px;
   border: 0;
-  background: var(--panel);
+  background: none;
   color: var(--ink);
   font: 700 10px var(--mono);
   letter-spacing: 0.12em;
@@ -877,66 +1010,92 @@ button {
   text-transform: uppercase;
 }
 
+.track-plays {
+  overflow: hidden;
+  color: var(--mute);
+  font: 10px var(--mono);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.track-note {
+  margin: 0;
+  padding: 2px 6px;
+  color: var(--mute);
+  font-size: 12px;
+}
+
 /*
- * The list shows at most four rows (48 px and a 1 px border each) and scrolls inside, so the layers stay on the screen.
+ * The list shows at most four rows and scrolls inside, so the layers stay on the screen: the "Song" row (a 20 px line
+ * and a 1 px border) and three track rows (a 20 px line, a 32 px waveform and a 1 px border each).
  * The scroll bar covers the right edge of the rows, so each canvas keeps the width of the stage and its time scale.
  */
 .track-list {
-  max-height: calc(4 * 49px);
+  max-height: calc(21px + 3 * 53px);
   overflow-x: hidden;
   overflow-y: auto;
 }
 
 .track-row {
-  position: relative;
-  height: 48px;
   border-top: 1px solid var(--line);
 }
 
 .track-wave {
   display: block;
-  height: 100%;
+  height: 32px;
 }
 
-/* The controls sit over the left edge of the row, above the play cursor, so a press reaches them. */
+/*
+ * The name and the controls of a row sit on a line above its waveform, at the left edge as the names of the layers,
+ * so they cover no part of the waveform. The line sits above the play cursor, so a press reaches the controls.
+ */
 .row-controls {
-  position: absolute;
-  top: 4px;
-  left: 4px;
+  position: relative;
   z-index: 4;
   display: flex;
   align-items: center;
   gap: 4px;
-  padding: 2px 4px;
-  border: 1px solid var(--line);
-  border-radius: 6px;
+  height: 20px;
+  padding: 0 6px;
   background: var(--panel);
   cursor: default;
 }
 
 .row-name {
-  padding: 0 4px;
+  padding-right: 4px;
   color: var(--ink);
-  font: 700 11px var(--mono);
+  font: 700 10px var(--mono);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.row-sound {
+  font-size: 11px;
+  line-height: 1;
 }
 
 .row-toggle {
-  min-width: 24px;
-  padding: 1px 4px;
+  padding: 0 6px;
   border: 1px solid var(--line);
   border-radius: 4px;
   background: var(--panel2);
   color: var(--ink);
-  font: 11px var(--mono);
+  font: 10px var(--mono);
+  line-height: 16px;
 }
 
-/* A pressed toggle gets a fill, a bold letter and an inset frame, so the state does not rely on colour alone. */
+/* A pressed toggle gets a fill, a bold label and an inset frame, so the state does not rely on colour alone. */
 .row-toggle[aria-pressed='true'] {
   border-color: var(--amber-ink);
   background: var(--amber);
   box-shadow: inset 0 0 0 1px var(--amber-ink);
   color: var(--amber-ink);
   font-weight: 700;
+}
+
+.track-failed {
+  margin: 0;
+  padding: 4px 6px;
 }
 
 .waveform-missing {
@@ -1028,12 +1187,6 @@ button {
   border: 0;
   background: none;
   color: var(--ink);
-}
-
-/* The band is at the top of the stage, and the stage clips its content, so a section menu opens below the block. */
-.section-band .action-menu {
-  top: 100%;
-  bottom: auto;
 }
 
 .section-edge {
@@ -1204,6 +1357,66 @@ button {
   right: 0;
 }
 
+/*
+ * A narrow mark draws from its start to its end and no wider, so it has no padding and no border.
+ * Only a screen reader reads its label, and the tooltip shows it.
+ */
+.mark[data-narrow='true'] {
+  min-width: 0;
+  padding: 0;
+  border-width: 0;
+}
+
+.mark[data-narrow='true']::before {
+  display: none;
+}
+
+/* An outline would cover the adjacent marks, so a narrow selected mark shows the fill and the outer handles. */
+.mark[data-narrow='true'][aria-current='true'] {
+  outline: none;
+  background: var(--amber);
+}
+
+/* A short phrase or word has a lower bar with stripes, so the person sees it without colour alone. */
+.mark[data-short='true'] {
+  top: 10px;
+  background-image: repeating-linear-gradient(
+    135deg,
+    transparent 0 3px,
+    color-mix(in srgb, var(--ink) 40%, transparent) 3px 5px
+  );
+}
+
+/*
+ * The handles of a narrow selected mark hang under the bar, outside the mark.
+ * Each is 10 px wide, and it does not cover the bar of the adjacent mark.
+ */
+.mark[data-handles='outer'] {
+  overflow: visible;
+}
+
+.mark[data-handles='outer'] .mark-handle {
+  top: 100%;
+  bottom: auto;
+  width: 10px;
+  height: 8px;
+}
+
+.mark[data-handles='outer'] .mark-handle[data-edge='start'] {
+  right: 100%;
+  left: auto;
+}
+
+.mark[data-handles='outer'] .mark-handle[data-edge='end'] {
+  left: 100%;
+  right: auto;
+}
+
+.mark[data-handles='outer'] .mark-handle::after {
+  width: 100%;
+  border-radius: 0 0 3px 3px;
+}
+
 .layer-body {
   position: relative;
 }
@@ -1225,7 +1438,10 @@ button {
   font: 13px var(--body);
 }
 
+/* The list is fixed in the window, so it does not change the scroll height of the stage. */
 .phoneme-menu {
+  position: fixed;
+  z-index: 20;
   display: grid;
   grid-template-columns: repeat(5, auto);
   gap: 4px;
@@ -1331,6 +1547,28 @@ button {
   background: var(--p-WQ);
 }
 
+/* The heading names the shown voice on the line of the phrase layer name, so the layers keep their height. */
+.layers-voice {
+  position: absolute;
+  top: 0;
+  right: 6px;
+  z-index: 1;
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  max-width: 70%;
+  height: 17px;
+  margin: 0;
+  color: var(--ink);
+  font: 600 11px var(--body);
+}
+
+.layers-voice-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .layers-empty {
   display: grid;
   gap: 12px;
@@ -1392,6 +1630,12 @@ button {
   grid-column: 1 / -1;
 }
 
+.library-intro {
+  max-width: 70ch;
+  margin: 0;
+  font-size: 17px;
+}
+
 .library-aside {
   display: grid;
   gap: 16px;
@@ -1422,6 +1666,10 @@ button {
   margin: 0;
   font: 12px var(--mono);
   color: var(--mute);
+}
+
+.card-note a {
+  color: var(--amber);
 }
 
 .card-note + .card-note {
@@ -1494,7 +1742,7 @@ button {
 .song-open {
   display: grid;
   flex: 1;
-  grid-template-columns: 1fr auto;
+  grid-template-columns: minmax(0, 1fr) auto;
   gap: 14px;
   align-items: center;
   min-width: 0;
@@ -1507,7 +1755,10 @@ button {
 .song-open b {
   display: block;
   overflow: hidden;
+  color: var(--amber);
   font: 600 16px var(--display);
+  text-decoration: underline;
+  text-underline-offset: 3px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -1524,6 +1775,7 @@ button {
 
 .song-actions {
   display: flex;
+  flex: none;
   gap: 6px;
 }
 
@@ -1539,6 +1791,10 @@ button {
 
 .song-confirm p {
   margin: 0;
+}
+
+.song-form .field-hint {
+  flex-basis: 100%;
 }
 
 .song-confirm p:nth-of-type(2) {
@@ -1590,6 +1846,33 @@ button {
   border-radius: 12px;
   background: var(--panel);
   color: var(--ink);
+}
+
+/* The title and the buttons stay in view. Only the options scroll. */
+.transcribe-dialog {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.transcribe-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  /* The focus ring of a control at the edge stays inside the scroll area. */
+  padding: 3px;
+  margin: -3px;
+}
+
+.transcribe-footer {
+  display: grid;
+  flex: none;
+  gap: 10px;
+}
+
+/* An empty line in a message starts a second paragraph. */
+.transcribe-dialog .message {
+  white-space: pre-line;
 }
 
 .phrase-label-dialog p {
@@ -1808,6 +2091,19 @@ button {
   cursor: pointer;
 }
 
+.dialog-field > .link-button {
+  justify-self: start;
+}
+
+.import-summary {
+  margin: 0;
+}
+
+.import-causes {
+  margin: 4px 0 0;
+  padding-left: 20px;
+}
+
 @media (max-width: 760px) {
   .library {
     grid-template-columns: 1fr;
@@ -1835,6 +2131,49 @@ button {
   border-radius: 14px;
   background: var(--panel);
   color: var(--ink);
+}
+
+/*
+ * A modal dialog with a fixed head, a body that scrolls, and a fixed button row.
+ * The head and the button row stay in view, so the result of an action shows beside its button.
+ */
+.dialog-frame {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  max-height: 100%;
+  min-height: 0;
+  overflow: hidden;
+  padding: 0;
+}
+
+.dialog-head,
+.dialog-foot,
+.dialog-message {
+  flex: none;
+  min-width: 0;
+  padding: 14px 20px;
+}
+
+.dialog-head {
+  border-bottom: 1px solid var(--line);
+}
+
+.dialog-body {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden auto;
+  padding: 14px 20px;
+}
+
+.dialog-message {
+  margin: 0;
+  padding-block: 8px 0;
+}
+
+.dialog-foot {
+  border-top: 1px solid var(--line);
 }
 
 .export-dialog:focus {
@@ -1868,13 +2207,16 @@ button {
   gap: 16px;
 }
 
+/* A fieldset and a grid item take the width of their content by default, which is wider than the column. */
 .export-column {
   display: grid;
   gap: 12px;
   align-content: start;
+  min-width: 0;
 }
 
 .export-group {
+  min-width: 0;
   margin: 0;
   padding: 10px 12px;
   border: 1px solid var(--line);
@@ -1926,6 +2268,22 @@ button {
   display: flex;
   align-items: center;
   gap: 10px;
+}
+
+.export-tracks input {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.export-tracks span {
+  flex: none;
+}
+
+.export-group h3,
+.finding,
+.export-steps li,
+.export-done {
+  overflow-wrap: anywhere;
 }
 
 .export-checks summary {
@@ -1987,11 +2345,13 @@ button.finding:hover {
 
 .export-foot {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 8px;
 }
 
 .export-done {
+  min-width: 0;
   font: 12px var(--mono);
   color: var(--ink);
 }
@@ -2053,6 +2413,11 @@ button.finding:hover {
   margin: 0;
 }
 
+/* The class sets a display value, so the hidden toast needs this rule. */
+.toast[hidden] {
+  display: none;
+}
+
 .link-button {
   padding: 0;
   border: 0;
@@ -2107,6 +2472,42 @@ button.finding:hover {
 .report-facts dd {
   margin: 0;
   font-family: var(--mono);
+}
+
+.report-details {
+  margin-top: 10px;
+}
+
+.report-details summary {
+  margin-bottom: 8px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.report-details h4 {
+  margin: 10px 0 6px;
+  font: 600 13px var(--body);
+}
+
+/* A term and its sentence: the term in bold, the sentence in the body font. */
+.report-terms {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+}
+
+.report-terms dt {
+  display: inline;
+  font-weight: 600;
+}
+
+.report-terms dt::after {
+  content: ': ';
+}
+
+.report-terms dd {
+  display: inline;
+  margin: 0;
 }
 
 .report-table {

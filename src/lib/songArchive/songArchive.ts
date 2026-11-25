@@ -116,7 +116,7 @@ function readmeText(songName: string, lines: readonly string[], frameMs: number)
     'This zip file holds these files:',
     ...lines,
     '',
-    'To import a timing file into xLights, do these steps. The export dialog of the app shows the same steps.',
+    'To import a timing file into xLights, do these steps. The app shows the same steps after an export.',
     importStepsText(frameMs),
     '',
   ].join('\n')

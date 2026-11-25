@@ -50,6 +50,23 @@ waveform, plays the audio and keeps the song in the browser for later visits.
 - FR-audio-19 — The app saves the open song 1 second after the last change.
 - FR-audio-20 — The song library shows the storage that the app uses and the
   storage that the browser allows.
+- FR-audio-21 — The song library states the purpose of the app above the drop
+  zone.
+- FR-audio-22 — The song library credits the speech model, the vocal separation
+  models, the singer models and the dictionary, with their licences.
+- FR-audio-23 — The app starts a save of the open song 2 seconds after the first
+  change that is not saved, also while changes continue.
+- FR-audio-24 — While a change is not saved, the browser asks the person to
+  confirm a reload or a close of the page.
+- FR-audio-25 — The app starts a save of the open song when the page becomes
+  hidden or unloads.
+- FR-audio-26 — The link back to the song library opens the library after the
+  save of the open song ends. If the save does not end in 3 seconds, the editor
+  stays open and shows "The app could not save the song. Try again."
+- FR-audio-27 — If a different tab saves the open song, the editor shows a notice
+  until the person closes it.
+- FR-audio-28 — A save that does not end in 10 seconds counts as failed. The next
+  change starts a new save.
 
 ## User flows
 
@@ -94,11 +111,28 @@ flowchart TD
 ## Screens & states
 
 **Song library** — mockup: [mockups/01-song-library.html](../mockups/01-song-library.html).
-Regions: header, drop zone, song list, storage meter, "How it works" strip.
+Regions: header, purpose text, drop zone, song list, storage meter, "How it works"
+strip.
 
+- Purpose text, above the drop zone in each state: "Make the face models of your
+  xLights show sing. Add a song, and the app finds each word and its mouth shapes,
+  then gives you a timing file for the Faces effect."
 - empty: the drop zone fills the main area. The "Try the demo song" button shows.
 - loading: the drop zone shows "Decoding <file name>" with a progress bar.
-- populated: the drop zone is a compact band above the song list.
+- populated: the drop zone is a compact band above the song list. The band keeps
+  "Try the demo song" and the file limits. The song name has the style of a link.
+  A long song name ends with an ellipsis, and its tooltip shows the full name.
+- rename: under the name field, the hint "A song name has 1 to 80 characters."
+  shows for an empty name and for a name of 80 characters.
+- delete confirm: "Delete “<song name>”?", then "The app deletes its audio file,
+  voices, sections and marks. You cannot undo this."
+- credits, in the "How it works" strip. Each link opens in a new tab.
+  - "The transcribe step uses the Whisper speech model of OpenAI (MIT), in the ONNX
+    files of onnx-community."
+  - "The vocal separation option uses the 2-stem model of Spleeter by Deezer and
+    the htdemucs model of Demucs by Meta. The code of each project has the MIT
+    licence. The licence notes state the facts about the weights."
+  - The CMU Pronouncing Dictionary and the singer models, as before.
 - error: a message band above the drop zone shows the failure text.
 - drag-over: the drop zone has a bright border and the text "Drop to add".
 
@@ -128,6 +162,17 @@ Regions: header, drop zone, song list, storage meter, "How it works" strip.
 - Deleting a song deletes its audio file, voices, sections and marks.
 - The demo song is a normal song. The person can edit and delete it.
 - 200 MB means 200 × 1024 × 1024 bytes.
+- A save writes the full song. It deletes each stored voice, section and mark that
+  the open song does not have, also a record that a different tab added. So the
+  tab that saves last keeps its version, and the stored marks keep the mark rules.
+- A save reads the stored keys of the song before it deletes. A save that starts
+  when the page becomes hidden or unloads skips the read only when the tab knows
+  the stored keys of the song. Then the save can complete after the page unloads.
+- After a save of a song in a different tab, the tab no longer knows the stored
+  keys of that song. A browser with no `BroadcastChannel` shows no notice.
+- If a save of a song fails and the person then opens a different song, the
+  change that is not saved goes away, and the editor keeps the message of the
+  failure.
 
 ## Data touched
 
@@ -137,6 +182,20 @@ Regions: header, drop zone, song list, storage meter, "How it works" strip.
 - Reads `APP_SETTINGS.defaultFrameMs` for the `frameMs` of a new song.
 
 ## Interfaces
+
+**BroadcastChannel.** `new BroadcastChannel(name)` connects the browsing
+contexts of one origin. `postMessage(message)` sends the message to each other
+channel object with the same name, not to the sender. The `message` event gives
+the message in `data`. `close()` stops the messages. Baseline since March 2022.
+The app uses the name `singing-face-timing` and sends `{ songId }`.
+Verified against: https://developer.mozilla.org/en-US/docs/Web/API/BroadcastChannel
+(last modified 2024-06-03, retrieved 2026-11-25).
+
+**IDBTransaction.commit().** It commits an active transaction and does not wait
+for the events of its requests. Older browsers, for example Safari before 15, do
+not have it, so the app calls it only when it exists.
+Verified against: https://developer.mozilla.org/en-US/docs/Web/API/IDBTransaction/commit
+(last modified 2024-07-19, retrieved 2026-11-25).
 
 **Web Audio.** `BaseAudioContext.decodeAudioData(arrayBuffer)` returns a Promise
 that fulfils with an `AudioBuffer`. The decoded audio has the sample rate of the
@@ -210,8 +269,12 @@ createDemoSong(): Promise<Song>
 | The demo song files do not load | "The demo song did not load. Check the connection and retry." |
 | The app cannot read the audio from browser storage | "The app could not read the audio from browser storage. Reload the page." |
 | Persistent storage refused | A note beside the storage meter: "The browser can remove songs when disk space is low. Export your work." |
-| Several files dropped | The app takes the first audio file and shows "Only one file was added." |
+| Several files dropped | The app takes the first audio file and shows "Only one file was added." The editor shows the note again as a toast after it opens. |
 | Reload during decode | The song does not exist. The library shows no partial song. |
+| Reload or close while a change is not saved | The browser asks the person to confirm. The browser shows its own text. |
+| The page unloads before a save ends | The browser can stop the save. The song keeps the last save that ended. |
+| A different tab saves the open song | "This song is open in a different tab. The tab that saves last keeps its version. Close one of the tabs." The notice has a "Close" button. |
+| A save does not end in its time limit | "The app could not save the song. Try again." |
 
 ## Acceptance criteria
 
@@ -235,6 +298,31 @@ createDemoSong(): Promise<Song>
 - The first song triggers one persistent-storage request. (FR-audio-18)
 - An edit followed by a reload 2 seconds later keeps the edit. (FR-audio-19)
 - The storage meter shows used and allowed space in MB. (FR-audio-20)
+- The first page states the purpose of the app above the drop zone. (FR-audio-21)
+- With one song or more, the demo song and the limits are visible, and the song
+  name has the style of a link. (FR-audio-17)
+- A song name of 80 characters with no space stays inside its row at 1440 px and
+  at 1024 px. (FR-audio-1)
+- The rename field shows the hint for an empty name and for a name at the limit.
+  (FR-audio-15)
+- The delete dialog states that the delete is permanent. (FR-audio-16)
+- Two dropped files show the note after the editor opens. (FR-audio-3)
+- The credits name the speech model and the vocal separation models. (FR-audio-22)
+- With a change each 200 ms for 10 seconds, the app saves the song 4 times or
+  more. (FR-audio-23)
+- 10 edits with 100 ms between them, then a reload 300 ms after the last edit:
+  the edits are there after the reload, or the browser asked first. (FR-audio-23,
+  24, 25)
+- A reload with nothing to save shows no question. (FR-audio-24)
+- The song library lists the saved song name after the back link. (FR-audio-26)
+- With a save that does not end, the back link shows the save message after 3
+  seconds, and the editor stays open. (FR-audio-26)
+- Two tabs hold the same song. Tab B replaces a word and saves. Tab A moves a
+  different word and saves. The stored marks are the marks of tab A. (FR-audio-27)
+- Tab A shows the notice after tab B saves the song that is open in tab A.
+  (FR-audio-27)
+- After a save that does not end in 10 seconds, the next change saves the song.
+  (FR-audio-28)
 
 ## Out of scope
 

@@ -119,3 +119,41 @@ Consequences:
   the media elements.
 - A browser that needs an action for each element (for example Safari on iOS) was
   not tested on a real device. The prime in the click follows the MDN text above.
+
+## Changes for issues #173 and #174 (2026-11-25)
+
+Context: the track rows found the voices of a run by the names in the run report.
+A renamed voice then lost its row. The rule that gives each singer to a voice then
+gave the ranges of that singer to a different voice, so the row of "Lead Vocals"
+showed the vocals of the full song. A second run with the singer step also left the
+singer voices of the first run in the song.
+
+Decisions:
+
+- The run data stores `voices`: the id of each voice that the run wrote marks to,
+  with the singer numbers of that voice and `made` for a voice that the singer step
+  added. The app gives each singer to a voice one time, at the end of the run, with
+  the rule of `singersOfVoices` (`src/lib/singers/singerRanges.ts`).
+- A singer row finds its voice by the id. The row shows the present name and colour
+  of the voice, in the present voice order. A rename changes only the name of the
+  row. A deleted voice has no row, and its ranges go to no other row. An undo of the
+  delete restores the voice with the same id, so the row comes back.
+- Each row of the run report stores the voice id too. The report panel shows the
+  present name of the voice, or "<name> (deleted)". The stored report and its text
+  do not change.
+- A record from before issue #173 has no ids. The rows keep the rule by name for it.
+- A run with the singer step replaces the result of the last run: the marks in the
+  range of its own voice and of each voice that the singer step of the last run
+  added. The voice of the new run is never such a voice. A singer voice with no mark
+  left goes in the same undo step, so the new singer step can use its name again.
+
+Consequences:
+
+- The app keeps one run record for each song, not a history. After an undo of the
+  second run, the song shows the result of the first run, but the stored record is
+  the record of the second run. Its ids name the voices of the second run. So the
+  singer voices of the first run get no row, and the report panel marks the voices
+  of the second run as deleted. The row of the voice of the run stays, with the
+  singer ranges of the second run. The next run writes a new record again.
+- A singer row no longer follows phrase moves between voices after the run. The
+  singers of each voice are fixed at the end of the run.

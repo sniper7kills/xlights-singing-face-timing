@@ -3,7 +3,8 @@ import {
   openTrackMix,
   readTrackMix,
   setFolded,
-  setHasTracks,
+  setBlockedRows,
+  setShownRows,
   toggleMute,
   toggleSolo,
   useTrackMixStore,
@@ -17,7 +18,8 @@ afterEach(() => {
     soloed: [],
     folded: false,
     songId: null,
-    hasTracks: false,
+    rows: [],
+    blocked: [],
   })
 })
 
@@ -29,7 +31,8 @@ describe('track mix store', () => {
       muted: {},
       soloed: [],
       folded: false,
-      hasTracks: false,
+      rows: [],
+      blocked: [],
     })
   })
 
@@ -52,6 +55,7 @@ describe('track mix store', () => {
     toggleSolo('vocals')
     toggleSolo('instruments')
     expect(useTrackMixStore.getState().soloed).toEqual(['vocals', 'instruments'])
+    expect(useTrackMixStore.getState().muted).toEqual({ vocals: false, instruments: false })
     toggleSolo('vocals')
     expect(useTrackMixStore.getState().soloed).toEqual(['instruments'])
   })
@@ -76,9 +80,35 @@ describe('track mix store', () => {
     expect(localStorage.length).toBe(0)
   })
 
-  it('records whether the song has tracks', () => {
-    setHasTracks(true)
-    expect(useTrackMixStore.getState().hasTracks).toBe(true)
+  it('records the shown rows and the blocked rows, and clears them when a song opens', () => {
+    setShownRows([{ id: 'song', name: 'Song' }])
+    setBlockedRows(['vocals'])
+    expect(useTrackMixStore.getState()).toMatchObject({
+      rows: [{ id: 'song', name: 'Song' }],
+      blocked: ['vocals'],
+    })
+    openTrackMix('song-1')
+    expect(useTrackMixStore.getState()).toMatchObject({ rows: [], blocked: [] })
+  })
+
+  it('clears the mute of a muted row with one click on "Solo"', () => {
+    openTrackMix('song-1')
+    toggleSolo('vocals')
+    expect(useTrackMixStore.getState()).toMatchObject({
+      muted: { vocals: false },
+      soloed: ['vocals'],
+    })
+  })
+
+  it('ends the solo and mutes the row with one click on "Mute" of a soloed row', () => {
+    openTrackMix('song-1')
+    toggleSolo('song')
+    toggleMute('song')
+    expect(useTrackMixStore.getState()).toMatchObject({ muted: { song: true }, soloed: [] })
+    expect(JSON.parse(localStorage.getItem('sft.tracks.song-1') ?? 'null')).toMatchObject({
+      muted: { song: true },
+      soloed: [],
+    })
   })
 })
 

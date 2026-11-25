@@ -1,6 +1,19 @@
-import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react'
+import {
+  type MouseEvent,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from 'react'
+import { setPageNotice, usePageNotice } from '../../app/pageNotice.ts'
 import { LIBRARY_HASH } from '../../app/routes.ts'
-import { useAutosaveStore, useSaveState } from '../../store/autosave.ts'
+import {
+  flushBeforeLeave,
+  SaveTimeoutError,
+  useAutosaveStore,
+  useSaveState,
+} from '../../store/autosave.ts'
 import { StorageFullError } from '../../store/db.ts'
 import { readSavedView, saveView } from '../../store/savedView.ts'
 import { keepSelectionInSong } from '../../store/selectionSync.ts'
@@ -23,14 +36,29 @@ import { VoiceRail } from '../voices-sections/VoiceRail.tsx'
 import { outcomeText } from '../transcription/transcribeDialogState.ts'
 import { ExportAction } from '../xtiming-export/ExportAction.tsx'
 import { EditorToolbar } from './EditorToolbar.tsx'
+import { HelpLine } from './HelpLine.tsx'
 import { Inspector } from './Inspector.tsx'
 import { Layers } from './Layers.tsx'
+import { MarkActions } from './MarkActions.tsx'
+import { OtherTabNotice } from './OtherTabNotice.tsx'
+import { useFoldAttributes } from './PanelFold.tsx'
 import { resetMarkUi } from './markUiStore.ts'
 import { ShortcutList } from './ShortcutList.tsx'
+import { StatusLine } from './StatusLine.tsx'
 import { TransportControls } from './TransportControls.tsx'
 import { UndoRedoButtons } from './UndoRedoButtons.tsx'
 import { Waveform } from './Waveform.tsx'
 import { ZoomControl } from './ZoomControl.tsx'
+
+/** The note of a drop with several files. The copy is in `docs/specs/features/01-audio-import.md`. */
+const ONE_FILE_NOTE = 'Only one file was added.'
+
+type Toast = { text: string; reportStored: boolean }
+
+/** Returns the toast of the note for a drop with several files, or null when the drop had one file. */
+function oneFileToast(oneFileAdded: boolean): Toast | null {
+  return oneFileAdded ? { text: ONE_FILE_NOTE, reportStored: false } : null
+}
 
 /** The narrowest window that shows the editor, in pixels. */
 const MIN_EDITOR_WIDTH_PX = 1024
@@ -55,6 +83,40 @@ function loadDictionaryForWords() {
   if (marks.some((mark) => mark.layer === 'word')) void loadDictionaries().catch(() => undefined)
 }
 
+/**
+ * Moves the focus to "Play", or to the first control of the toolbar while the audio is not ready.
+ * A disabled button takes no focus, so the toolbar is the second choice.
+ */
+function skipToTransport(event: MouseEvent<HTMLAnchorElement>) {
+  event.preventDefault()
+  const editor = event.currentTarget.closest('.editor')
+  const play = editor?.querySelector<HTMLButtonElement>('.transport .play:not(:disabled)')
+  const tool = editor?.querySelector<HTMLElement>(
+    '.editor-toolbar button:not(:disabled), .editor-toolbar input',
+  )
+  const target = play ?? tool
+  target?.focus()
+}
+
+/**
+ * Opens the song library after the save of a pending change ends (FR-audio-26).
+ * The library then lists the saved song. A failed save does not stop the leave: the change
+ * stays in memory, and the next open of the song shows it.
+ * A save that does not end in LEAVE_WAIT_MS keeps the person on the song, and the editor shows the message.
+ */
+function leaveForLibrary(event: MouseEvent<HTMLAnchorElement>) {
+  if (useAutosaveStore.getState().saveState === 'saved') return
+  event.preventDefault()
+  void flushBeforeLeave().then((saved) => {
+    if (saved) window.location.hash = LIBRARY_HASH
+  })
+}
+
+/** Returns true for a save failure that has a message for the person in the feature file. */
+function hasSaveMessage(error: Error | null): error is Error {
+  return error instanceof StorageFullError || error instanceof SaveTimeoutError
+}
+
 type EditorPageProps = {
   songId: string
 }
@@ -68,14 +130,20 @@ export function EditorPage({ songId }: EditorPageProps) {
   const selectedVoiceId = useViewStore((state) => state.selectedVoiceId)
   const selection = useViewStore((state) => state.selection)
   const [dialogOpen, setDialogOpen] = useState(false)
+  const [shortcutsOpen, setShortcutsOpen] = useState(false)
   const [running, setRunning] = useState(false)
-  const [toast, setToast] = useState<{ text: string; reportStored: boolean } | null>(null)
+  const oneFileAdded = usePageNotice('one-file-added')
+  // The song library is gone when the editor opens, so the editor shows the note of the drop.
+  const [toast, setToast] = useState<Toast | null>(() => oneFileToast(oneFileAdded))
   const [breakDownFailure, setBreakDownFailure] = useState<BreakDownFailure | null>(null)
   const opener = useRef<HTMLElement | null>(null)
   const narrow = useSyncExternalStore(subscribeToResize, isNarrowWindow)
+  const folds = useFoldAttributes()
 
   const openTranscribeDialog = useCallback(() => {
     opener.current = document.activeElement instanceof HTMLElement ? document.activeElement : null
+    // The toast of the last run stays until the person closes it or starts a new run.
+    setToast(null)
     setDialogOpen(true)
   }, [])
 
@@ -123,8 +191,11 @@ export function EditorPage({ songId }: EditorPageProps) {
       // A song that the app cannot read gets the same result as a deleted song.
       .catch(() => false)
       .then((found) => {
-        // A link to a deleted song goes back to the song library, the same as an unknown hash.
-        if (active && !found) window.location.replace(LIBRARY_HASH)
+        // A link to a deleted song goes back to the song library, and the library names the cause.
+        if (active && !found) {
+          setPageNotice('song-not-found')
+          window.location.replace(LIBRARY_HASH)
+        }
         if (active && found) loadDictionaryForWords()
       })
     return () => {
@@ -141,13 +212,26 @@ export function EditorPage({ songId }: EditorPageProps) {
   const voice = selectedVoice(content.voices, selectedVoiceId)
   return (
     <>
-      <p className="narrow-note" role="status" hidden={!narrow}>
-        The editor needs a window that is 1024 px wide or more.
-      </p>
+      <div className="narrow-note" hidden={!narrow}>
+        <p role="status">The editor needs a window that is 1024 px wide or more.</p>
+        <a className="button" href={LIBRARY_HASH} onClick={leaveForLibrary}>
+          Back to the song library
+        </a>
+      </div>
       {/* The editor stays mounted in a narrow window, so the audio and the view stay loaded. */}
-      <section className="editor" aria-labelledby="editor-title" hidden={narrow}>
+      {/* A folded side panel keeps only its fold button, and CSS gives the stage the width. */}
+      <section className="editor" aria-labelledby="editor-title" hidden={narrow} {...folds}>
         <div className="editor-top">
-          <a className="button" href={LIBRARY_HASH} aria-label="Back to song library">
+          {/* The routes use the hash, so the link moves the focus itself and keeps the hash. */}
+          <a className="skip-link" href="#transport" onClick={skipToTransport}>
+            Skip to the transport
+          </a>
+          <a
+            className="button"
+            href={LIBRARY_HASH}
+            aria-label="Back to song library"
+            onClick={leaveForLibrary}
+          >
             <span aria-hidden="true">←</span>
           </a>
           <h2 id="editor-title">{song.name}</h2>
@@ -165,12 +249,22 @@ export function EditorPage({ songId }: EditorPageProps) {
           <RunReportAction />
           <CustomDictionaryAction />
           <ExportAction />
+          <button
+            type="button"
+            className="button"
+            aria-keyshortcuts="?"
+            title="Show the keyboard shortcuts (?)"
+            onClick={() => setShortcutsOpen(true)}
+          >
+            Shortcuts
+          </button>
           <span className="save-state" role="status">
             {saveState === 'saved' ? 'Saved' : 'Saving'}
           </span>
         </div>
         <VoiceRail />
-        {saveError instanceof StorageFullError && (
+        <OtherTabNotice songId={songId} />
+        {hasSaveMessage(saveError) && (
           <p className="message" role="alert">
             {saveError.message}
           </p>
@@ -183,10 +277,16 @@ export function EditorPage({ songId }: EditorPageProps) {
           />
           <GhostRow content={content} />
         </Waveform>
+        {/* The inspector comes first, so the grid puts it beside the stage, and the lines go under the stage. */}
         <Inspector />
+        <div className="editor-lines">
+          <HelpLine />
+          <StatusLine />
+        </div>
         <EditorToolbar>
           <TransportControls />
           <ZoomControl durationMs={song.durationMs} />
+          <MarkActions />
           <UndoRedoButtons />
           <UnknownWordCounter />
           <AddWordAction />
@@ -203,14 +303,14 @@ export function EditorPage({ songId }: EditorPageProps) {
             onDone={finishTranscribe}
           />
         )}
-        <ShortcutList />
+        <ShortcutList open={shortcutsOpen} onOpenChange={setShortcutsOpen} />
         <BreakDownNotice failure={breakDownFailure} onChange={setBreakDownFailure} />
         {toast !== null && (
           <RunToast
             text={toast.text}
             reportStored={toast.reportStored}
             songId={songId}
-            onDone={hideToast}
+            onClose={hideToast}
           />
         )}
       </section>

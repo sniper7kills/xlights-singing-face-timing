@@ -56,6 +56,52 @@ describe('startSaveOnPageHide', () => {
     expect(await savedName()).toBe('Holy Night')
   })
 
+  it('starts the save in the same task as the pagehide event', () => {
+    const save = vi.spyOn(db, 'saveSong')
+
+    window.dispatchEvent(new Event('pagehide'))
+
+    // A page that unloads runs no later task, so the transaction must start before the handler task ends.
+    expect(save).toHaveBeenCalledTimes(1)
+    expect(save).toHaveBeenCalledWith(expect.anything(), undefined, { unloading: true })
+  })
+
+  it('marks the save of a page that becomes hidden as a save of a page that unloads', () => {
+    const save = vi.spyOn(db, 'saveSong')
+
+    setVisibility('hidden')
+
+    expect(save).toHaveBeenCalledWith(expect.anything(), undefined, { unloading: true })
+  })
+
+  it('asks to confirm a leave while a change is not saved, and stops after the save', async () => {
+    const leave = () => {
+      const event = new Event('beforeunload', { cancelable: true })
+      window.dispatchEvent(event)
+      return event.defaultPrevented
+    }
+    expect(leave()).toBe(true)
+
+    window.dispatchEvent(new Event('pagehide'))
+    await vi.waitFor(() => expect(useAutosaveStore.getState().saveState).toBe('saved'))
+
+    expect(leave()).toBe(false)
+  })
+
+  it('adds the beforeunload listener only while a change is not saved', async () => {
+    const add = vi.spyOn(window, 'addEventListener')
+    const remove = vi.spyOn(window, 'removeEventListener')
+
+    window.dispatchEvent(new Event('pagehide'))
+    await vi.waitFor(() => expect(useAutosaveStore.getState().saveState).toBe('saved'))
+    expect(remove).toHaveBeenCalledWith('beforeunload', expect.any(Function))
+
+    useSongStore
+      .getState()
+      .apply((content) => ({ ...content, song: { ...content.song, name: 'Holy Night 2' } }))
+    expect(add).toHaveBeenCalledWith('beforeunload', expect.any(Function))
+  })
+
   it('saves nothing when the page becomes visible', () => {
     const save = vi.spyOn(db, 'saveSong')
 

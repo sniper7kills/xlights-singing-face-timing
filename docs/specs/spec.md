@@ -65,7 +65,10 @@ The user's request, verbatim:
 | audio file | noun | The file that the person loads. It holds the recording. | track, media, upload |
 | audio track | noun | One audio signal of a song: the song audio, the vocals or the instruments. A timing track is a different term: it holds marks, not audio. | stem, channel |
 | track row | noun | One row of the stage under the waveform that shows one audio track, with "Mute" and "Solo". A layer is a different term: it holds marks. | lane, strip |
+| side panel | noun | The voice rail or the inspector of the editor. The person folds each one, so the stage gets the width. | sidebar, drawer, pane |
 | solo | verb | To make one track row or more the only rows that sound. | isolate |
+| sound sign | noun | The speaker sign on a track row that shows whether the row sounds now. | speaker icon, audio indicator |
+| voice print | noun | A list of numbers that the singer step computes from a short part of the vocals. Two parts with close voice prints probably have the same singer. The details of the run report also give the technical term "embedding". | fingerprint, voice signature |
 | voice | noun | One singer or one vocal part in a song. One voice becomes one timing track. | singer, face, character, part |
 | singer | noun | A person who sings in the audio of a song. The app estimates the singers and gives each one a voice. A singer is the person in the audio, and a voice is the row in the app, so a voice is never called a singer. | speaker, vocalist, performer |
 | section | noun | A named time range of the song, for example "Chorus 1". | segment, region, part |
@@ -76,6 +79,7 @@ The user's request, verbatim:
 | word | noun | A mark on the word layer. It holds one sung word. | token |
 | phoneme | noun | A mark on the phoneme layer. Its label is one of the ten xLights mouth shapes. | viseme, mouth shape mark |
 | phoneme label | noun | One of `AI`, `E`, `etc`, `FV`, `L`, `MBP`, `O`, `rest`, `U`, `WQ`. | viseme name |
+| mouth shape | noun | The mouth that the Faces effect of xLights shows for one phoneme label. The app names a mouth shape by its phoneme label. | viseme |
 | CMU symbol | noun | One sound symbol from the CMU Pronouncing Dictionary, for example `AY1`. | ARPAbet, CMU phoneme |
 | dictionary | noun | The table that gives the CMU symbols for a word. | lexicon |
 | custom dictionary | noun | The table of words that the person adds or changes. It takes priority over the dictionary. | user library, overrides |
@@ -313,6 +317,7 @@ erDiagram
   }
   RUN_DATA {
     string songId PK
+    object voices
     object tracks
     object singerSegments
     object report
@@ -347,6 +352,10 @@ erDiagram
   the last completed transcribe run. A new run replaces the full record. Deleting
   the song deletes it in the same transaction. It holds no lyrics, no label of a
   mark and no API key.
+  `voices` lists each voice that the run wrote marks to as `{ voiceId, singers,
+  made }`. `singers` holds the singer numbers of that voice, and `made` is true for
+  a voice that the singer step added. A record from before issue #173 has no
+  `voices`.
   `tracks` holds `vocals` and `instruments`, each `{ startMs, sampleRate, samples }`
   with 16-bit PCM samples in one channel at 22 050 Hz. A run with no kept tracks,
   and a record from before issue #129, have no `tracks`. The storage meter of the
@@ -378,7 +387,8 @@ erDiagram
   Text contrast is 4.5:1 or more. The editor does not rely on colour alone: each
   phoneme shows its label as text.
 - **Themes.** The app has a light theme and a dark theme. The default follows the
-  operating system setting.
+  operating system setting. The browser keeps the choice of the person in
+  `localStorage`, and the choice wins over the operating system setting.
 - **i18n.** The UI is English only in v1. Labels accept any Unicode text.
 - **Performance targets.** The editor scrolls and zooms at 60 frames per second
   with 3 000 marks on screen-size hardware from 2020 or later. The first load of the
