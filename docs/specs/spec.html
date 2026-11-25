@@ -199,6 +199,7 @@ body.rv-open .layout { padding-right:21rem; }
 <tr><td>CORS</td><td>noun</td><td>Cross-Origin Resource Sharing: the HTTP headers that let a server accept a request from a page of another origin. A remote endpoint needs them for the app.</td><td>cross-site permission</td></tr>
 <tr><td>API key</td><td>noun</td><td>The secret text that a remote endpoint can ask for. The app sends it only to the base URL of the remote endpoint.</td><td>token, password, secret</td></tr>
 <tr><td>device</td><td>noun</td><td>The part of the computer that runs the speech model: the graphics card (<code>webgpu</code>) or the CPU (<code>wasm</code>).</td><td>backend, processor, hardware</td></tr>
+<tr><td>vocal separation</td><td>noun</td><td>The step that removes the instruments from the audio before a transcribe run.</td><td>stem split, demix, isolation</td></tr>
 <tr><td>transcribe</td><td>verb</td><td>To run the speech model on the audio file and get words with times.</td><td>recognise, sync, analyse</td></tr>
 <tr><td>align</td><td>verb</td><td>To match the transcribed words with lyrics that the person supplies.</td><td>reconcile, merge</td></tr>
 <tr><td>break down</td><td>verb</td><td>To convert a word into phonemes.</td><td>split, expand, decompose</td></tr>
@@ -239,8 +240,11 @@ body.rv-open .layout { padding-right:21rem; }
 </li>
 <li>The app does not place Faces effects on models. The person does that in xLights.
 </li>
-<li>The app does not separate vocals from instruments in v1.
+<li>The app does not separate the vocals on a server, and it does not separate
 </li>
+</ul>
+<p>stems other than the vocals.</p>
+<ul>
 <li>The app does not have accounts, a server database or shared songs.
 </li>
 <li>The app does not read or write Papagayo <code>.pgo</code> files in v1.
@@ -657,7 +661,7 @@ body.rv-open .layout { padding-right:21rem; }
 <li><strong>Speech model accuracy on songs.</strong> Whisper is trained on speech. Music and
 </li>
 </ol>
-<p>harmony lower the accuracy of words and times. Mitigation: the lyrics align flow in <a href="html/feature-transcription.html">features/02-transcription.md</a> and the editor. Epic 2 measured the demo song: the base speech model returned 15 words for the choir clip, with one wrong line. The spec has no accuracy criterion for a song. Vocal separation (to transcribe the voice without the instruments) is an accepted later option. It is not in v1. A spec update adds it if real songs show the need.</p>
+<p>harmony lower the accuracy of words and times. Mitigation: the lyrics align flow in <a href="html/feature-transcription.html">features/02-transcription.md</a> and the editor. Epic 2 measured the demo song: the base speech model returned 15 words for the choir clip, with one wrong line. The spec has no accuracy criterion for a song. Vocal separation (to transcribe the voice without the instruments) is an option in the transcribe dialog, off by default (issue #117).</p>
 <ol>
 <li><strong>Word times need the right model export.</strong> The docs confirm
 </li>
@@ -754,6 +758,11 @@ body.rv-open .layout { padding-right:21rem; }
 </li>
 </ul>
 <p>endpoint" (issue #101). The person can select a remote endpoint that is compatible with the OpenAI transcription API, for example a self-hosted server. The privacy promise changes: audio leaves the browser only when the person selects a remote endpoint, and the app shows the host first. The Content-Security-Policy <code>connect-src</code> allows any <code>https</code> address and <code>http</code> on <code>localhost</code> (<code>docs/adr/0007</code>).</p>
+<ul>
+<li>2026-11-24 — The maintainer asked to "file the Demucs issue; allow it to be an
+</li>
+</ul>
+<p>optional addition" (issue #117). The transcribe dialog has the check box "Separate the vocals first", off by default. The vocal separation runs in the browser before the speech model or the remote endpoint reads the audio. A failure lets the person continue with no separation.</p>
 <h2 id="issue-map">Issue map</h2>
 <p>Written by <code>/spec-to-issues</code> on 2026-11-24. Repository: <code>sniper7kills/xlights-singing-face-timing</code>.</p>
 <p>The spec has one editor epic. The tracker has two, because 30 requirements do not fit one batch.</p>

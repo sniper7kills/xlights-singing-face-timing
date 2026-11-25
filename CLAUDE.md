@@ -22,6 +22,7 @@ shortcuts, undo and redo, loop play, play speed, the frame size control, the
 inspector and the face preview. A song has voices and sections: the person adds
 voices, moves or copies phrases between voices, and makes sections by hand or
 from tags in the lyrics. Production exists and each commit on `main` deploys.
+The transcribe dialog has the option "Separate the vocals first", off by default.
 The manual xLights import check (issue #79) is next.
 
 ## Design
