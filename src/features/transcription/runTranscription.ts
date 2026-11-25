@@ -122,6 +122,8 @@ export type TranscribeOutcome = {
   singers?: SingerOutcome
   /** The result of the write of the run data. See `RunDataWrite`. */
   runData: RunDataWrite
+  /** True when the run asked for the audio tracks and the app could not convert them. Without it, no conversion failed. */
+  tracksFailed?: true
 }
 
 /** A break down that did not run, and the words that it leaves without phonemes. */
@@ -269,7 +271,13 @@ export async function runTranscription(
     breakDownFailure,
     ...singers,
     runData,
+    ...tracksFailure(record),
   }
+}
+
+/** Returns the field `tracksFailed` when the app could not convert the audio tracks of the run, else no field. */
+function tracksFailure(record: RunRecord): Pick<TranscribeOutcome, 'tracksFailed'> {
+  return record.notes.includes(TRACKS_FAILED_NOTE) ? { tracksFailed: true } : {}
 }
 
 /** Returns the handlers with each step of the run timed for the report. */

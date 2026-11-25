@@ -201,6 +201,24 @@ describe('outcomeText', () => {
   })
 })
 
+describe('outcomeText after a run that could not keep the tracks', () => {
+  it('adds the sentence that the app could not keep the separated tracks', () => {
+    expect(
+      outcomeText({ wordCount: 214, estimatedCount: 9, runData: 'stored', tracksFailed: true }),
+    ).toBe(
+      '214 words, 9 estimated. The app could not keep the separated tracks. Run "Transcribe" again to try one more time.',
+    )
+  })
+
+  it('puts the tracks sentence before the sentence of the run data', () => {
+    expect(
+      outcomeText({ wordCount: 2, estimatedCount: 0, runData: 'failed', tracksFailed: true }),
+    ).toBe(
+      '2 words, 0 estimated. The app could not keep the separated tracks. Run "Transcribe" again to try one more time. The app could not store the run report.',
+    )
+  })
+})
+
 describe('outcomeText after a write of the run data that was not complete', () => {
   it('adds the storage full sentence when the app kept no tracks', () => {
     expect(outcomeText({ wordCount: 214, estimatedCount: 9, runData: 'storage-full' })).toBe(

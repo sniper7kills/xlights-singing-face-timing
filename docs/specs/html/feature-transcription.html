@@ -722,6 +722,22 @@ body.rv-open .layout { padding-right:21rem; }
 </li>
 </ul>
 <p>singer step divided.</p>
+<h4 id="transcription-failures-that-the-person-sees-issue-153">Failures that the person sees (issue #153)</h4>
+<ul>
+<li>FR-transcribe-128 — If the browser cannot store the remote endpoint, the dialog
+</li>
+</ul>
+<p>shows a message under the endpoint panel.</p>
+<ul>
+<li>FR-transcribe-129 — If the browser cannot store a choice of the transcribe
+</li>
+</ul>
+<p>dialog, the dialog shows one message for all choices.</p>
+<ul>
+<li>FR-transcribe-130 — If the app cannot convert the audio tracks of a run, the
+</li>
+</ul>
+<p>toast states it.</p>
 <h3 id="transcription-user-flows">User flows</h3>
 <h4 id="transcription-transcribe-a-song">Transcribe a song</h4>
 <div class="diagram"><pre class="mermaid">sequenceDiagram
@@ -1495,7 +1511,9 @@ spreadLyrics(lyrics: string, startMs: number, endMs: number): AlignedPhrase[]</c
 <tr><td>Singer step: more singers than free voices, and the song has 12 voices</td><td>No new voice. The toast adds "The song has 12 voices, so the app cannot add a voice for each singer. All phrases stay on &lt;voice name&gt;."</td></tr>
 <tr><td>Singer step: more singers than free voices, and the song has room for some singers</td><td>The app adds a voice for each free voice. The toast adds "The song has room for &lt;k&gt; more voices. The other singers stay on &lt;voice name&gt;."</td></tr>
 <tr><td>Kept audio tracks: the browser storage is full</td><td>The run completes. The app stores the report and the singer ranges with no audio tracks. The report has the line "audio tracks not kept: the browser storage is full". The toast adds "The browser storage is full, so the app did not keep the separated tracks."</td></tr>
-<tr><td>Kept audio tracks: the browser cannot resample the tracks</td><td>The run completes with no audio tracks. The report has the line "audio tracks not kept: the app could not convert the tracks".</td></tr>
+<tr><td>Kept audio tracks: the browser cannot resample the tracks</td><td>The run completes with no audio tracks. The report has the line "audio tracks not kept: the app could not convert the tracks". The toast adds "The app could not keep the separated tracks. Run "Transcribe" again to try one more time."</td></tr>
+<tr><td>The browser cannot store the remote endpoint</td><td>Under the endpoint panel: "The app could not store the remote endpoint in this browser. It works until you reload the page." The run uses the endpoint.</td></tr>
+<tr><td>The browser cannot store a choice of the transcribe dialog</td><td>The dialog shows one message for all choices: "The app could not store the choices of this dialog in this browser. They work until you reload the page." The run uses the choices.</td></tr>
 <tr><td>The write of the run data does not end in 5 seconds</td><td>The run completes. The toast shows no "Run report" link and adds "The app still stores the run report. It shows in "Run report" when it is ready." When the write ends, "Run report" and the track rows show the new run. If the storage is full, the app stores the report with no audio tracks and its line "audio tracks not kept: the browser storage is full".</td></tr>
 <tr><td>The write of the run data fails</td><td>The run completes. The toast shows no "Run report" link and adds "The app could not store the run report."</td></tr>
 <tr><td>A newer version of the app wrote the database</td><td>The song library shows "This browser holds data from a newer version of the app. Reload the page. If the message stays, close the other tabs of the app and reload."</td></tr>

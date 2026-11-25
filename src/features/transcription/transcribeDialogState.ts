@@ -289,16 +289,28 @@ const RUN_DATA_MESSAGE: Record<RunDataWrite, string | null> = {
   late: RUN_DATA_LATE_MESSAGE,
 }
 
+/** The toast sentence of a run whose audio tracks the app could not convert for storage. */
+export const TRACKS_FAILED_MESSAGE =
+  'The app could not keep the separated tracks. Run "Transcribe" again to try one more time.'
+
 /**
- * Returns the text of the toast after a run: the counts, then the sentence of the write of the run data when the write was not complete.
+ * Returns the text of the toast after a run: the counts, then a sentence for each part of the run data that the app did not keep.
  * See `countsText` for the counts.
  */
 export function outcomeText(
-  outcome: Pick<TranscribeOutcome, 'wordCount' | 'estimatedCount' | 'singers' | 'runData'>,
+  outcome: Pick<
+    TranscribeOutcome,
+    'wordCount' | 'estimatedCount' | 'singers' | 'runData' | 'tracksFailed'
+  >,
 ): string {
-  const message = RUN_DATA_MESSAGE[outcome.runData]
   const counts = countsText(outcome)
-  return message === null ? counts : `${counts}. ${message}`
+  const messages = [
+    outcome.tracksFailed === true ? TRACKS_FAILED_MESSAGE : null,
+    RUN_DATA_MESSAGE[outcome.runData],
+  ].filter((message) => message !== null)
+  if (messages.length === 0) return counts
+  // The counts end with a sentence of the singer step when the step made no new voice.
+  return `${counts}${counts.endsWith('.') ? '' : '.'} ${messages.join(' ')}`
 }
 
 /**

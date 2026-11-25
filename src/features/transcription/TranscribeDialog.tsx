@@ -73,6 +73,14 @@ import {
   transcribeDialogReducer,
 } from './transcribeDialogState.ts'
 
+/** The message when the browser cannot store the remote endpoint. */
+const ENDPOINT_UNSTORED_MESSAGE =
+  'The app could not store the remote endpoint in this browser. It works until you reload the page.'
+
+/** The message when the browser cannot store a choice of the dialog. All choices share it. */
+const CHOICES_UNSTORED_MESSAGE =
+  'The app could not store the choices of this dialog in this browser. They work until you reload the page.'
+
 const DEVICE_NOTE: Record<Device, string> = {
   webgpu: 'Uses your graphics card (WebGPU)',
   wasm: 'WebGPU is not available. Transcription is slower on this browser.',
@@ -114,7 +122,12 @@ export function TranscribeDialog({
   const [keepTracks, setKeepTracks] = useState(DEFAULT_SETTINGS.keepTracks)
   const [singerCount, setSingerCount] = useState(DEFAULT_SETTINGS.singerCount)
   const [range, setRange] = useState<TimeRange | undefined>(undefined)
-  const remote = useRemoteChoice()
+  const [choicesUnstored, setChoicesUnstored] = useState(false)
+  // The choice applies to this run even when the browser cannot store it, so a failed write only shows a message.
+  const storeSetting = useCallback((change: Partial<AppSettings>) => {
+    void updateSettings(change).catch(() => setChoicesUnstored(true))
+  }, [])
+  const remote = useRemoteChoice(storeSetting)
   const { restore } = remote
   const dialogRef = useRef<HTMLDivElement>(null)
   const run = useTranscribeRun(onDone)
@@ -162,38 +175,32 @@ export function TranscribeDialog({
 
   function selectSpeechModel(id: string) {
     setSpeechModelId(id)
-    // The choice applies to this run even when the browser storage is full.
-    void updateSettings({ speechModelId: id }).catch(() => undefined)
+    storeSetting({ speechModelId: id })
   }
 
   function selectSeparate(checked: boolean) {
     setSeparate(checked)
-    // The choice applies to this run even when the browser storage is full.
-    void updateSettings({ separateVocals: checked }).catch(() => undefined)
+    storeSetting({ separateVocals: checked })
   }
 
   function selectSeparationModel(model: SeparationModelId) {
     setSeparationModel(model)
-    // The choice applies to this run even when the browser storage is full.
-    void updateSettings({ separationModel: model }).catch(() => undefined)
+    storeSetting({ separationModel: model })
   }
 
   function selectKeepTracks(checked: boolean) {
     setKeepTracks(checked)
-    // The choice applies to this run even when the browser storage is full.
-    void updateSettings({ keepTracks: checked }).catch(() => undefined)
+    storeSetting({ keepTracks: checked })
   }
 
   function selectSingers(checked: boolean) {
     setSingers(checked)
-    // The choice applies to this run even when the browser storage is full.
-    void updateSettings({ singerVoices: checked }).catch(() => undefined)
+    storeSetting({ singerVoices: checked })
   }
 
   function selectSingerCount(choice: SingerCountChoice) {
     setSingerCount(choice)
-    // The choice applies to this run even when the browser storage is full.
-    void updateSettings({ singerCount: choice }).catch(() => undefined)
+    storeSetting({ singerCount: choice })
   }
 
   function start() {
@@ -255,6 +262,7 @@ export function TranscribeDialog({
                 onEdit={remote.edit}
                 onSave={remote.save}
               />
+              <AlertMessage shown={remote.endpointUnstored} text={ENDPOINT_UNSTORED_MESSAGE} />
             </fieldset>
           ) : (
             <>
@@ -320,6 +328,7 @@ export function TranscribeDialog({
             <RangeChoices selection={selection} range={range} onChange={setRange} />
           </fieldset>
         </fieldset>
+        <AlertMessage shown={choicesUnstored} text={CHOICES_UNSTORED_MESSAGE} />
         {usesRemote && <RemoteNotice remote={remote} />}
         <ProgressArea state={state} meter={meter} />
         <DialogMessage state={state} />
@@ -344,6 +353,16 @@ export function TranscribeDialog({
         </div>
       </div>
     </div>
+  )
+}
+
+/** Shows a message in an alert while `shown` is true. */
+function AlertMessage({ shown, text }: { shown: boolean; text: string }) {
+  if (!shown) return null
+  return (
+    <p className="message" role="alert">
+      {text}
+    </p>
   )
 }
 
@@ -650,10 +669,11 @@ type RemoteChoice = ReturnType<typeof useRemoteChoice>
  * Returns the "Where to transcribe" choice, the stored remote endpoint and the functions that change them.
  * The endpoint fields open when the person selects "Remote endpoint" with no stored endpoint.
  */
-function useRemoteChoice() {
+function useRemoteChoice(storeSetting: (change: Partial<AppSettings>) => void) {
   const [source, setSource] = useState<TranscribeSource>(DEFAULT_SETTINGS.transcribeSource)
   const [endpoint, setEndpoint] = useState<RemoteEndpoint>(DEFAULT_SETTINGS.remoteEndpoint)
   const [editing, setEditing] = useState(false)
+  const [endpointUnstored, setEndpointUnstored] = useState(false)
   const stored = endpoint.baseUrl !== ''
   const blocked = stored && isMixedContent(globalThis.location.protocol, endpoint.baseUrl)
 
@@ -666,20 +686,23 @@ function useRemoteChoice() {
   function selectSource(next: TranscribeSource) {
     setSource(next)
     if (next === 'remote' && !stored) setEditing(true)
-    // The choice applies to this run even when the browser storage is full.
-    void updateSettings({ transcribeSource: next }).catch(() => undefined)
+    storeSetting({ transcribeSource: next })
   }
 
   function save(next: RemoteEndpoint) {
     setEndpoint(next)
     setEditing(false)
-    void updateSettings({ remoteEndpoint: next }).catch(() => undefined)
+    setEndpointUnstored(false)
+    // The endpoint works for the life of the page even when the browser cannot store it.
+    void updateSettings({ remoteEndpoint: next }).catch(() => setEndpointUnstored(true))
   }
 
   return {
     source,
     endpoint,
     editing,
+    /** True when the browser could not store the last saved endpoint. */
+    endpointUnstored,
     /** The host of the stored endpoint, or null when the person has stored none. */
     host: stored ? endpointHost(endpoint.baseUrl) : null,
     /** True when the browser blocks the call to the stored endpoint as mixed content. */
@@ -778,6 +801,7 @@ function useTranscribeRun(onDone: (outcome: TranscribeOutcome) => void) {
       const stamped = withFailureTimes(deviceSpeeds, Date.now())
       speedsRef.current = stamped
       // The failure time of an earlier record starts the wait before the app tries WebGPU again.
+      // The speeds are measurements, not a choice of the person, and the next run measures again, so a failed write shows no message.
       if (stamped !== deviceSpeeds)
         void updateSettings({ deviceSpeeds: speedsRef.current }).catch(() => undefined)
       setWebgpu(available)
@@ -803,6 +827,7 @@ function useTranscribeRun(onDone: (outcome: TranscribeOutcome) => void) {
           speed,
           Date.now(),
         )
+        // The next run measures the speed again, so a failed write shows no message.
         void updateSettings({ deviceSpeeds: speedsRef.current }).catch(() => undefined)
       }
       // A remote run can start before the WebGPU check ends. It uses no device.

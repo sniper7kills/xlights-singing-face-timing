@@ -281,6 +281,15 @@ leaves the browser, and the app shows the host before each run.
 - FR-transcribe-127 — The singer section states the count of phrases that the
   singer step divided.
 
+### Failures that the person sees (issue #153)
+
+- FR-transcribe-128 — If the browser cannot store the remote endpoint, the dialog
+  shows a message under the endpoint panel.
+- FR-transcribe-129 — If the browser cannot store a choice of the transcribe
+  dialog, the dialog shows one message for all choices.
+- FR-transcribe-130 — If the app cannot convert the audio tracks of a run, the
+  toast states it.
+
 ## User flows
 
 ### Transcribe a song
@@ -942,7 +951,9 @@ from 0 to 1.
 | Singer step: more singers than free voices, and the song has 12 voices | No new voice. The toast adds "The song has 12 voices, so the app cannot add a voice for each singer. All phrases stay on <voice name>." |
 | Singer step: more singers than free voices, and the song has room for some singers | The app adds a voice for each free voice. The toast adds "The song has room for <k> more voices. The other singers stay on <voice name>." |
 | Kept audio tracks: the browser storage is full | The run completes. The app stores the report and the singer ranges with no audio tracks. The report has the line "audio tracks not kept: the browser storage is full". The toast adds "The browser storage is full, so the app did not keep the separated tracks." |
-| Kept audio tracks: the browser cannot resample the tracks | The run completes with no audio tracks. The report has the line "audio tracks not kept: the app could not convert the tracks". |
+| Kept audio tracks: the browser cannot resample the tracks | The run completes with no audio tracks. The report has the line "audio tracks not kept: the app could not convert the tracks". The toast adds "The app could not keep the separated tracks. Run "Transcribe" again to try one more time." |
+| The browser cannot store the remote endpoint | Under the endpoint panel: "The app could not store the remote endpoint in this browser. It works until you reload the page." The run uses the endpoint. |
+| The browser cannot store a choice of the transcribe dialog | The dialog shows one message for all choices: "The app could not store the choices of this dialog in this browser. They work until you reload the page." The run uses the choices. |
 | The write of the run data does not end in 5 seconds | The run completes. The toast shows no "Run report" link and adds "The app still stores the run report. It shows in "Run report" when it is ready." When the write ends, "Run report" and the track rows show the new run. If the storage is full, the app stores the report with no audio tracks and its line "audio tracks not kept: the browser storage is full". |
 | The write of the run data fails | The run completes. The toast shows no "Run report" link and adds "The app could not store the run report." |
 | A newer version of the app wrote the database | The song library shows "This browser holds data from a newer version of the app. Reload the page. If the message stays, close the other tabs of the app and reload." |

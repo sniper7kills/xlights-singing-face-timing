@@ -2,6 +2,7 @@ import { act, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { RemoteError } from '../../lib/remote/response.ts'
+import * as db from '../../store/db.ts'
 import { loadSettings, updateSettings } from '../../store/settings.ts'
 import { hasWebGpu } from './device.ts'
 import { testConnection } from './remoteClient.ts'
@@ -63,6 +64,7 @@ beforeEach(() => {
 afterEach(() => {
   vi.unstubAllGlobals()
   vi.clearAllMocks()
+  vi.restoreAllMocks()
 })
 
 function lastRun(): HeldRun {
@@ -169,6 +171,38 @@ describe('TranscribeDialog "Where to transcribe"', () => {
       }),
     )
     expect(document.body.textContent).not.toContain(KEY)
+  })
+
+  it('keeps the endpoint for this page and shows a message when the browser cannot store it', async () => {
+    const { user, start } = await renderDialog()
+    await user.click(screen.getByRole('radio', { name: 'Remote endpoint' }))
+    await fillEndpoint(user, { baseUrl: 'http://localhost:8000/v1' })
+    vi.spyOn(db, 'putRecord').mockRejectedValue(new Error('QuotaExceededError'))
+
+    await user.click(screen.getByRole('button', { name: 'Save endpoint' }))
+
+    expect(
+      await screen.findByText(
+        'The app could not store the remote endpoint in this browser. It works until you reload the page.',
+      ),
+    ).toBeInTheDocument()
+    expect(screen.getByText(WARNING)).toBeInTheDocument()
+    expect(start).toBeEnabled()
+  })
+
+  it('shows one message when the browser cannot store a choice of the dialog', async () => {
+    const { user } = await renderDialog()
+    vi.spyOn(db, 'putRecord').mockRejectedValue(new Error('QuotaExceededError'))
+
+    await user.click(screen.getByRole('radio', { name: /^small/ }))
+    await user.click(screen.getByRole('checkbox', { name: 'Separate the vocals first' }))
+
+    expect(
+      await screen.findAllByText(
+        'The app could not store the choices of this dialog in this browser. They work until you reload the page.',
+      ),
+    ).toHaveLength(1)
+    expect(screen.getByRole('radio', { name: /^small/ })).toBeChecked()
   })
 
   it.each([
