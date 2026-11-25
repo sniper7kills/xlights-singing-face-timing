@@ -859,6 +859,77 @@ button {
   background: repeating-linear-gradient(90deg, var(--panel2) 0 6px, transparent 6px 12px);
 }
 
+/* The track rows sit under the song waveform. Each canvas has the width of the stage, so it shares the time scale. */
+.track-rows {
+  border-bottom: 1px solid var(--line);
+}
+
+.track-fold {
+  display: block;
+  width: 100%;
+  padding: 2px 6px;
+  border: 0;
+  background: var(--panel);
+  color: var(--ink);
+  font: 700 10px var(--mono);
+  letter-spacing: 0.12em;
+  text-align: left;
+  text-transform: uppercase;
+}
+
+.track-row {
+  position: relative;
+  height: 48px;
+  border-top: 1px solid var(--line);
+}
+
+.track-wave {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+/* The controls sit over the left edge of the row, above the play cursor, so a press reaches them. */
+.row-controls {
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  z-index: 4;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 4px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--panel);
+  cursor: default;
+}
+
+.row-name {
+  padding: 0 4px;
+  color: var(--ink);
+  font: 700 11px var(--mono);
+}
+
+.row-toggle {
+  min-width: 24px;
+  padding: 1px 4px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: var(--panel2);
+  color: var(--ink);
+  font: 11px var(--mono);
+}
+
+/* A pressed toggle gets a fill, a bold letter and an inset frame, so the state does not rely on colour alone. */
+.row-toggle[aria-pressed='true'] {
+  border-color: var(--amber-ink);
+  background: var(--amber);
+  box-shadow: inset 0 0 0 1px var(--amber-ink);
+  color: var(--amber-ink);
+  font-weight: 700;
+}
+
 .waveform-missing {
   display: grid;
   gap: 10px;

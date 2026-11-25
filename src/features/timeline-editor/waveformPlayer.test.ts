@@ -18,6 +18,7 @@ let fake: {
   pause: ReturnType<typeof vi.fn>
   setPlaybackRate: ReturnType<typeof vi.fn>
   destroy: ReturnType<typeof vi.fn>
+  getMediaElement: ReturnType<typeof vi.fn>
 }
 let onTime: ReturnType<typeof vi.fn<(ms: number) => void>>
 
@@ -45,6 +46,7 @@ beforeEach(() => {
     pause: vi.fn(),
     setPlaybackRate: vi.fn(),
     destroy: vi.fn(),
+    getMediaElement: vi.fn(() => document.createElement('audio')),
   }
   onTime = vi.fn()
   usePlayerStore.setState({ player: null, looping: false, playRate: 1 })

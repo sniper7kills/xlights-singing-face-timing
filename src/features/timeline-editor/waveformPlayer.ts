@@ -24,6 +24,8 @@ export type WaveformListeners = {
 
 /** The waveform and the audio play of one song. The component tests replace this module. */
 export type WaveformPlayer = {
+  /** The media element that plays the song audio. The track mixer follows it (ADR 0010). */
+  media: HTMLMediaElement
   /** Starts play at the play time and ends a loop. Rejects if the browser refuses to play the audio. */
   play: () => Promise<void>
   /** Pauses play and ends a loop. */
@@ -134,7 +136,17 @@ export async function createWaveformPlayer(
     throw new ImportError({ kind: 'decode' })
   }
 
+  const media = waveSurfer.getMediaElement()
+  if (media === null) {
+    waveSurfer.destroy()
+    throw new ImportError({ kind: 'decode' })
+  }
+  // The element joins the page with no controls, so it shows nothing, and an E2E test can read its play state.
+  media.dataset.audioRow = 'song'
+  container.append(media)
+
   const player: WaveformPlayer = {
+    media,
     play: () => {
       endLoop()
       return waveSurfer.play()
