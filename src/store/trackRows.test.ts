@@ -163,7 +163,10 @@ describe('trackRows with the voice ids of the run', () => {
   })
 
   it('gives no row and no range to a deleted voice, and the row of the other voice does not change', () => {
-    const rows = trackRows(dataWithIds(), [VOICES[0] as Voice], MARKS).slice(2)
+    // A phrase of "Lead Vocals" touches the ranges of singer 2, so the rule by name would give them to it.
+    const marks = [...MARKS, phrase('p0', 'v1', 2900, 3200)]
+
+    const rows = trackRows(dataWithIds(), [VOICES[0] as Voice], marks).slice(2)
 
     expect(rows).toEqual([
       expect.objectContaining({ id: 'singer:v1', gate: [{ startMs: 100, endMs: 1900 }] }),
