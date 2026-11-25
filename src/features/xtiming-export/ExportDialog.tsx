@@ -4,44 +4,88 @@ import { buildTracks } from '../../lib/xtiming/buildTracks.ts'
 import { checkTracks } from '../../lib/xtiming/checkTracks.ts'
 import { exportFiles, type ExportFile } from '../../lib/xtiming/exportFiles.ts'
 import { defaultTrackNames } from '../../lib/xtiming/names.ts'
-import type { ExportOptions } from '../../lib/xtiming/types.ts'
+import type { Finding } from '../../lib/xtiming/types.ts'
+import { ZipLimitError } from '../../lib/zip/writeZip.ts'
 import { saveExportOptions, StorageFullError } from '../../store/db.ts'
 import type { SongContent } from '../../store/types.ts'
 import { useViewStore } from '../../store/viewStore.ts'
 import { ChecksList } from './ChecksList.tsx'
+import type { DialogExportOptions } from './exportOptionsStore.ts'
 import { FilePreview } from './FilePreview.tsx'
 import { ImportSteps } from './ImportSteps.tsx'
 import { PackagingGroup } from './PackagingGroup.tsx'
 import { plural } from './plural.ts'
+import { buildSongZip, zipNote, type ZipDownload } from './songZip.ts'
+import { AUDIO_READ_MESSAGE, useZipSource, type ZipSourceState } from './useZipSource.ts'
 
 type ExportDialogProps = {
   /** The open song with its voices, sections and marks. */
   content: SongContent
   /** The options that the dialog opens with. */
-  initialOptions: ExportOptions
+  initialOptions: DialogExportOptions
   onClose: () => void
   /**
    * Receives the files of the export after the person selects "Download".
    * The dialog stores the export options of the song before the call, and shows the done state after it.
    */
   onDownload: (files: ExportFile[]) => void
+  /** Receives the zip file after the person selects "Download zip". */
+  onDownloadZip: (zip: ZipDownload) => void
 }
 
-function doneLine(trackCount: number, files: ExportFile[]): string {
+function doneLine(trackCount: number, files: readonly { name: string }[]): string {
   const target = files.length === 1 && files[0] ? files[0].name : plural(files.length, 'file')
   return `${plural(trackCount, 'timing track')} written to ${target}`
+}
+
+// The read of the audio bytes or the ZIP32 limit can stop the zip file. Each one has its own message.
+async function tryBuildZip(
+  ...args: Parameters<typeof buildSongZip>
+): Promise<ZipDownload | { message: string }> {
+  try {
+    return await buildSongZip(...args)
+  } catch (error) {
+    return { message: error instanceof ZipLimitError ? error.message : AUDIO_READ_MESSAGE }
+  }
+}
+
+type DownloadButtonInput = {
+  empty: boolean
+  findings: readonly Finding[]
+  /** The count of `.xtiming` files of the export options. */
+  fileCount: number
+  zip: boolean
+  zipSource: ZipSourceState
+}
+
+// The zip file needs the stored audio file, so "Download zip" waits for a good read.
+function downloadButton({ empty, findings, fileCount, zip, zipSource }: DownloadButtonInput) {
+  const blocked = findings.some((finding) => finding.type === 'error')
+  const waits = zip && typeof zipSource !== 'object'
+  return {
+    disabled: empty || blocked || fileCount === 0 || waits,
+    label: zip ? 'Download zip' : 'Download',
+    fileCount: zip ? 1 : fileCount,
+  }
 }
 
 /**
  * Shows the export dialog: the voices, the grouping, the packaging, the options, the timing
  * track names, the checks, a preview of the file and the xLights import steps.
  * "Download" is disabled while an error finding exists or the export has no timing track.
+ * With "Everything as one zip file" selected, the button reads "Download zip" and also waits for a good read of the audio file.
  * After a download the dialog stays open in the done state: a confirmation line and the import steps expanded.
  */
-export function ExportDialog({ content, initialOptions, onClose, onDownload }: ExportDialogProps) {
+export function ExportDialog({
+  content,
+  initialOptions,
+  onClose,
+  onDownload,
+  onDownloadZip,
+}: ExportDialogProps) {
   const { song, voices, sections, marks } = content
   const [options, setOptions] = useState(initialOptions)
-  const [storageMessage, setStorageMessage] = useState<string | null>(null)
+  const [message, setMessage] = useState<string | null>(null)
   const [done, setDone] = useState<string | null>(null)
   const [stepsOpen, setStepsOpen] = useState(false)
   const dialogRef = useRef<HTMLDivElement>(null)
@@ -62,18 +106,25 @@ export function ExportDialog({ content, initialOptions, onClose, onDownload }: E
     [tracks, song.name, options.packaging],
   )
 
+  const zip = options.zip === true
+  const zipSource = useZipSource(song.id, zip)
+  const note = useMemo(
+    () => zipNote({ content, tracks, packaging: options.packaging }, zipSource),
+    [content, tracks, options.packaging, zipSource],
+  )
+
   const defaultNames = useMemo(() => defaultTrackNames(voices, sections), [voices, sections])
 
   const empty = marks.length === 0
   const noVoice = options.voiceIds.length === 0
-  const blocked = findings.some((finding) => finding.type === 'error')
   const firstFile = files[0]
+  const button = downloadButton({ empty, findings, fileCount: files.length, zip, zipSource })
 
   useEffect(() => {
     dialogRef.current?.focus()
   }, [])
 
-  function change(update: Partial<ExportOptions>) {
+  function change(update: Partial<DialogExportOptions>) {
     setDone(null)
     setOptions((current) => ({ ...current, ...update }))
   }
@@ -109,11 +160,26 @@ export function ExportDialog({ content, initialOptions, onClose, onDownload }: E
       })
     } catch (error) {
       if (!(error instanceof StorageFullError)) throw error
-      setStorageMessage(error.message)
+      setMessage(error.message)
+      return
+    }
+    if (zip && typeof zipSource === 'object') {
+      const result = await tryBuildZip({ content, tracks, packaging: options.packaging }, zipSource)
+      if ('message' in result) {
+        setMessage(result.message)
+        return
+      }
+      onDownloadZip(result)
+      finish([result])
       return
     }
     onDownload(files)
-    setDone(doneLine(tracks.length, files))
+    finish(files)
+  }
+
+  function finish(downloaded: readonly { name: string }[]) {
+    setMessage(null)
+    setDone(doneLine(tracks.length, downloaded))
     setStepsOpen(true)
   }
 
@@ -192,6 +258,9 @@ export function ExportDialog({ content, initialOptions, onClose, onDownload }: E
               packaging={options.packaging}
               fileCount={files.length}
               onChange={(packaging) => change({ packaging })}
+              zip={zip}
+              zipNote={note}
+              onZipChange={(checked) => change({ zip: checked })}
             />
             <fieldset className="export-group">
               <legend>Options</legend>
@@ -234,14 +303,14 @@ export function ExportDialog({ content, initialOptions, onClose, onDownload }: E
             <ImportSteps frameMs={song.frameMs} open={stepsOpen} onToggle={setStepsOpen} />
           </div>
         </div>
-        {storageMessage && (
+        {message && (
           <p className="message" role="alert">
-            {storageMessage}
+            {message}
           </p>
         )}
         <div className="export-foot">
           <small>
-            {plural(tracks.length, 'timing track')} · {plural(files.length, 'file')}
+            {plural(tracks.length, 'timing track')} · {plural(button.fileCount, 'file')}
           </small>
           <span className="spacer" />
           {/* The live region exists before the done line, so a screen reader announces the line. */}
@@ -259,11 +328,11 @@ export function ExportDialog({ content, initialOptions, onClose, onDownload }: E
           <button
             type="button"
             className="button primary"
-            disabled={empty || blocked || files.length === 0}
+            disabled={button.disabled}
             aria-describedby={noVoice ? voiceHintId : undefined}
             onClick={() => void download()}
           >
-            Download
+            {button.label}
           </button>
         </div>
       </div>

@@ -11,7 +11,9 @@ Current state: the foundation and the song library exist. The person can create 
 song from an audio file, see the song list, rename a song, delete a song and try
 the demo song. The editor shows the waveform and plays the audio. The person can transcribe a song with a speech model
 in the browser, or create phrases from lyrics, and see the marks on three layers.
-The person can export `.xtiming` files from the export dialog. A transcribe run
+The person can export `.xtiming` files from the export dialog.
+The export dialog also gives one zip file with the timing files, the audio file and
+the song data. A transcribe run
 breaks down each word into phonemes with the dictionary, and the person manages a
 custom dictionary. The editor shows unknown words. The person edits marks on the
 layers with the mouse: move, resize, label, phoneme label and add. The transcribe

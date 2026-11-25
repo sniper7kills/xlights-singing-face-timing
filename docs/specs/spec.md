@@ -91,6 +91,7 @@ The user's request, verbatim:
 | snap | verb | To move a time to the nearest multiple of the frame size. | quantise, round |
 | frame size | noun | The length of one xLights frame in milliseconds. | frame rate, FPS, tick |
 | export | verb | To write an `.xtiming` file and give it to the person as a download. | save, generate, publish |
+| zip file | noun | One `.zip` file from the export dialog that holds the timing files, the audio file and the song data of one song. | archive, bundle, package |
 | face model | noun | The xLights model that shows a singing face. | prop, face |
 | editor | noun | The screen that shows the waveform and the layers of the selected voice. | timeline, workspace |
 
@@ -573,6 +574,10 @@ None of these blocks approval. Each one names the epic that settles it.
 - 2026-11-24 — The maintainer decided: "Demucs weights licence is acceptable, go
   ahead with #122". The transcribe dialog has the choice "Separation model", with
   Spleeter as the default and Demucs as an experimental second model (issue #122).
+- 2026-11-24 — The maintainer asked: "for the export/download we should have the
+  ability to get a zip of everything" (issue #132). The export dialog has the
+  check box "Everything as one zip file". The app writes the zip file in the
+  browser with no compression and no library.
 
 - 2026-11-24 — The maintainer said: "they should be shown as seperate tracks in the
   GUI as seperate waveforms and the ability to play/mute each track. additionally

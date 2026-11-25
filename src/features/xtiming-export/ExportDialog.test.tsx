@@ -29,6 +29,7 @@ function renderDialog(content: SongContent, options: ExportOptions = makeOptions
       initialOptions={options}
       onClose={onClose}
       onDownload={onDownload}
+      onDownloadZip={vi.fn()}
     />,
   )
   return { onClose, onDownload }
