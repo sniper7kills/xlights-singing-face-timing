@@ -1,6 +1,7 @@
 import { type KeyboardEvent, type PointerEvent, useId, useRef, useState } from 'react'
 import { previewSectionEdge, type SectionEdge } from '../../lib/sections/sectionRules.ts'
 import { formatTime } from '../../lib/time/formatTime.ts'
+import { importNameHint } from '../../lib/xtiming/names.ts'
 import type { TimeRange } from '../../lib/time/timeRange.ts'
 import { stepSectionEdge, updateSection } from '../../store/actions/sections.ts'
 import { useSongStore } from '../../store/songStore.ts'
@@ -108,6 +109,7 @@ export function SectionBlock({ section, scale, durationMs }: SectionBlockProps) 
   const descriptionId = useId()
   const [preview, setPreview] = useState<TimeRange | null>(null)
   const [renaming, setRenaming] = useState(false)
+  const [hint, setHint] = useState<string | null>(null)
   const nameButton = useRef<HTMLButtonElement>(null)
   const { leftPx, widthPx } = rangeToPx(scale, preview ?? section)
 
@@ -119,6 +121,7 @@ export function SectionBlock({ section, scale, durationMs }: SectionBlockProps) 
 
   function endRename(text: string | null, refocus: boolean) {
     setRenaming(false)
+    setHint(null)
     if (text !== null) updateSection(section.id, { name: text })
     if (refocus) nameButton.current?.focus()
   }
@@ -164,7 +167,13 @@ export function SectionBlock({ section, scale, durationMs }: SectionBlockProps) 
             name="Section name"
             onSave={(text, refocus) => endRename(text, refocus)}
             onCancel={() => endRename(null, true)}
+            onTextChange={(text) => setHint(importNameHint(text))}
           />
+          {hint !== null && (
+            <p className="field-hint" role="status">
+              {hint}
+            </p>
+          )}
         </div>
       )}
     </div>

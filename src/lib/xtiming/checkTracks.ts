@@ -2,6 +2,7 @@ import type { Mark, Song, Voice } from '../../store/types.ts'
 import { PHONEME_LABELS } from '../dictionary/cmuSymbols.ts'
 import { formatTime } from '../time/formatTime.ts'
 import { snap } from '../time/snap.ts'
+import { nameAfterImport } from './names.ts'
 import type { ExportMark, ExportOptions, ExportTrack, Finding } from './types.ts'
 
 const PHONEME_LABEL_SET: ReadonlySet<string> = new Set(PHONEME_LABELS)
@@ -10,13 +11,18 @@ const PHONEME_LABEL_SET: ReadonlySet<string> = new Set(PHONEME_LABELS)
  * Returns the findings of the checks before export, errors first, then warnings.
  *
  * Each check has one name in `Finding.check`:
- * - Errors: `voice-no-marks`, `duplicate-name`, `empty-name`, `bad-phoneme-label`, `end-not-after-start`.
- * - Warnings: `word-no-phoneme`, `unknown-word`, `estimated-word`, `short-mark`, `ends-after-song`.
+ * - Errors: `voice-no-marks`, `duplicate-name`, `empty-name`, `import-name-empty`, `bad-phoneme-label`,
+ *   `end-not-after-start`.
+ * - Warnings: `import-name-changed`, `import-name-same`, `word-no-phoneme`, `unknown-word`, `estimated-word`,
+ *   `short-mark`, `ends-after-song`.
  *
  * The rules:
  * - A selected voice has no marks when no timing track of the voice holds a mark.
  *   Grouping `voice-section` omits such a voice, so the check reads `options.voiceIds`.
  * - A name with only spaces is empty. Two empty names give two `empty-name` errors and no `duplicate-name` error.
+ * - The import checks use `nameAfterImport`. A name with only spaces after the import gives `import-name-empty`.
+ * - Two different names that give the same name after the import give `import-name-same`, because xLights adds
+ *   `_1` to the second name (src-core/render/SequenceFile.cpp:903-926 of xLights 2026.21).
  * - A word has a phoneme when a stored phoneme has the word as its parent.
  * - A mark is short when the snap of its stored start and end times gives less than one frame size.
  *   A stored time before 0 counts as 0, as in `buildTracks`.
@@ -48,6 +54,7 @@ export function checkTracks(
   const findings = [
     ...voiceFindings(tracks, options.voiceIds, voiceName),
     ...nameFindings(tracks, voiceName),
+    ...importNameFindings(tracks),
   ]
   for (const track of tracks) {
     const [phrases, words, phonemes] = track.layers
@@ -112,6 +119,49 @@ function nameFindings(
       })
     }
     seenNames.add(track.name)
+  }
+  return findings
+}
+
+/**
+ * Returns the findings about the name changes of the xLights import.
+ * A name that is empty or a duplicate before the import has its own finding, so these checks skip it.
+ */
+function importNameFindings(tracks: readonly ExportTrack[]): Finding[] {
+  const findings: Finding[] = []
+  // The key is the name after the import. The value is the first name in the file that gives it.
+  const firstByName = new Map<string, string>()
+  for (const track of tracks) {
+    if (track.name.trim() === '') continue
+    const after = nameAfterImport(track.name)
+    const { voiceId } = track
+    if (after.trim() === '') {
+      findings.push({
+        type: 'error',
+        check: 'import-name-empty',
+        message: `xLights cannot use the timing track name “${track.name}”. Use letters from A to Z, digits or spaces.`,
+        voiceId,
+      })
+      continue
+    }
+    if (after !== track.name) {
+      findings.push({
+        type: 'warning',
+        check: 'import-name-changed',
+        message: `xLights shows the timing track “${track.name}” as “${after}”. xLights removes = < > & " ' and characters that are not ASCII from a name.`,
+        voiceId,
+      })
+    }
+    const first = firstByName.get(after)
+    if (first === undefined) firstByName.set(after, track.name)
+    else if (first !== track.name) {
+      findings.push({
+        type: 'warning',
+        check: 'import-name-same',
+        message: `xLights gives these timing tracks almost the same name: “${after}” and “${after}_1”. Change a voice name or a section name.`,
+        voiceId,
+      })
+    }
   }
   return findings
 }

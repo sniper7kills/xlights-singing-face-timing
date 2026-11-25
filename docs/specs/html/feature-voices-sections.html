@@ -414,6 +414,11 @@ body.rv-open .layout { padding-right:21rem; }
 </ul>
 <p>cannot contain &lt;, &gt;, &amp; or "."</p>
 <ul>
+<li>If the typed name in the voice name field or the section name field has a
+</li>
+</ul>
+<p>character that xLights removes on import, the field shows the hint "xLights shows this name as “&lt;name after the import&gt;”." The hint is not an error, and the app saves the name. See the checks in <a href="feature-xtiming-export.html#behaviour-rules">06-xtiming-export.md</a>.</p>
+<ul>
 <li>A delete of a voice asks first: "The app deletes “&lt;voice name&gt;” and its marks."
 </li>
 </ul>
@@ -587,6 +592,16 @@ phrasesInSection(voiceId, sectionId): Mark[]</code></pre>
 <ul>
 <li>A renamed section shows the new name. (FR-voice-16)
 </li>
+<li>The typed voice name <code>Noël</code> shows the hint "xLights shows this name as “Nol”."
+</li>
+</ul>
+<p>The app saves <code>Noël</code>. (FR-voice-3)</p>
+<ul>
+<li>The typed section name <code>Refrán</code> shows the hint "xLights shows this name as
+</li>
+</ul>
+<p>“Refrn”." The app saves <code>Refrán</code>. (FR-voice-16)</p>
+<ul>
 <li>A dragged section edge snaps to the frame size and stops at the adjacent
 </li>
 </ul>

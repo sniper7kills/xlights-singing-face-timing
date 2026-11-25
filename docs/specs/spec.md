@@ -584,6 +584,8 @@ None of these blocks approval. Each one names the epic that settles it.
   GUI as seperate waveforms and the ability to play/mute each track. additionally
   some debug info should be visable" (epic #128). Each completed transcribe run
   stores a run report for the song, with the singer diagnostics first (issue #129).
+- 2026-11-24 — The export checks warn when the xLights import changes a timing
+  track name, and the name fields show the name after the import (issue #143).
 
 ## Issue map
 

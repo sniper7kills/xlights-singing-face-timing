@@ -1631,6 +1631,19 @@ button {
   color: var(--red);
 }
 
+.field-hint {
+  margin: 4px 0 0;
+  font-size: 12px;
+  color: var(--mute);
+}
+
+.section-rename .field-hint {
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: var(--bg);
+  white-space: nowrap;
+}
+
 .remote-endpoint {
   display: grid;
 }

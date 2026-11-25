@@ -117,6 +117,25 @@ describe('SectionBand', () => {
     expect(sections()[0]?.name).toBe('Bridge')
   })
 
+  it('shows the name after the xLights import under the field and still saves the name', async () => {
+    open([section('a', 1000, 3000, 'Verse')])
+
+    await userEvent.click(within(await openMenu('Verse')).getByRole('menuitem', { name: 'Rename' }))
+    const field = screen.getByRole('textbox', { name: 'Section name' })
+    await userEvent.clear(field)
+    await userEvent.type(field, 'Refrán')
+
+    expect(await screen.findByRole('status')).toHaveTextContent(
+      'xLights shows this name as “Refrn”.',
+    )
+
+    await userEvent.keyboard('{Enter}')
+
+    expect(await screen.findByRole('button', { name: 'Refrán' })).toHaveFocus()
+    expect(sections()[0]?.name).toBe('Refrán')
+    expect(screen.queryByRole('status')).not.toBeInTheDocument()
+  })
+
   it('deletes a section and leaves every mark the same', async () => {
     open([section('a', 1000, 3000, 'Verse')])
     const marks = useSongStore.getState().current?.marks

@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest'
 import {
   defaultTrackName,
   defaultTrackNames,
+  importNameHint,
+  nameAfterImport,
   songFileName,
   trackFileName,
   trackKey,
@@ -70,5 +72,56 @@ describe('trackFileName', () => {
 
   it('replaces the unsafe file characters in the song name and the timing track name', () => {
     expect(trackFileName('AC/DC', 'Lead: "Bon"?')).toBe('AC_DC - Lead_ _Bon__.xtiming')
+  })
+})
+
+describe('nameAfterImport', () => {
+  it.each(['=', '<', '>', '&', '"', "'"])('removes %s from a name', (character) => {
+    expect(nameAfterImport(`Lead${character}Vocals`)).toBe('LeadVocals')
+  })
+
+  it('removes a letter that is not ASCII', () => {
+    expect(nameAfterImport('Noël')).toBe('Nol')
+  })
+
+  it('removes each letter of a name in another script', () => {
+    expect(nameAfterImport('Chœur 合唱')).toBe('Chur ')
+  })
+
+  it('removes an emoji', () => {
+    expect(nameAfterImport('Lead 🎤')).toBe('Lead ')
+  })
+
+  it('removes the control characters and keeps the DEL character', () => {
+    expect(nameAfterImport('A\tB\nC\u007f')).toBe('ABC\u007f')
+  })
+
+  it('gives an empty name for a name with only removed characters', () => {
+    expect(nameAfterImport('Ééé')).toBe('')
+  })
+
+  it('keeps the spaces at the start and at the end', () => {
+    expect(nameAfterImport(' Lead ')).toBe(' Lead ')
+  })
+
+  it.each(['Lead Vocals', 'Lead Vocals - Chorus 2', 'A_b-c (1) [x] {y} ~!@#$%^*+?/\\|;:,.`'])(
+    'keeps %s',
+    (name) => {
+      expect(nameAfterImport(name)).toBe(name)
+    },
+  )
+
+  it('gives the name of the real import of issue #79', () => {
+    expect(nameAfterImport('Lead & "Co" <café>')).toBe('Lead  Co caf')
+  })
+})
+
+describe('importNameHint', () => {
+  it('gives the name after the import for a name that changes', () => {
+    expect(importNameHint('Café')).toBe('xLights shows this name as “Caf”.')
+  })
+
+  it('gives null for a name that does not change', () => {
+    expect(importNameHint('Lead Vocals')).toBeNull()
   })
 })

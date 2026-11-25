@@ -1,5 +1,6 @@
 import { type KeyboardEvent, useEffect, useId, useRef, useState } from 'react'
 import { voiceNameError } from '../../lib/voices/voiceRules.ts'
+import { importNameHint } from '../../lib/xtiming/names.ts'
 import { setVoicePreviewMuted } from '../../store/actions/setPreviewMuted.ts'
 import { renameVoice } from '../../store/actions/voices.ts'
 import type { Voice } from '../../store/types.ts'
@@ -39,12 +40,15 @@ export function VoiceRow({
   const [menuOpen, setMenuOpen] = useState(false)
   const [renaming, setRenaming] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  // The hint shows how xLights changes the name. It is not an error, so the name still saves.
+  const [hint, setHint] = useState<string | null>(null)
   // A control that the next render removes cannot keep the focus, so the row moves the focus after the render.
   const [focus, setFocus] = useState<Focus>(null)
   const row = useRef<HTMLLIElement>(null)
   const selectButton = useRef<HTMLButtonElement>(null)
   const menuButton = useRef<HTMLButtonElement>(null)
   const errorId = useId()
+  const hintId = useId()
   const nameId = useId()
   const countId = useId()
   // A save or a cancel removes the field, and the removal can blur it, so the field reports one result only.
@@ -81,6 +85,7 @@ export function VoiceRow({
     finished.current = true
     renameVoice(voice.id, text)
     setRenaming(false)
+    setHint(null)
     return true
   }
 
@@ -93,6 +98,7 @@ export function VoiceRow({
       finished.current = true
       setRenaming(false)
       setError(null)
+      setHint(null)
       setFocus('select')
     }
   }
@@ -106,16 +112,25 @@ export function VoiceRow({
             aria-label="Voice name"
             defaultValue={voice.name}
             aria-invalid={error !== null}
-            aria-describedby={error === null ? undefined : errorId}
+            aria-describedby={
+              [error === null ? '' : errorId, hint === null ? '' : hintId].join(' ').trim() ||
+              undefined
+            }
             // The field opens from the menu, so the person types at once.
             autoFocus
             onFocus={(event) => event.currentTarget.select()}
             onKeyDown={onNameKeyDown}
+            onChange={(event) => setHint(importNameHint(event.currentTarget.value))}
             onBlur={(event) => save(event.currentTarget.value)}
           />
           {error !== null && (
             <p id={errorId} className="field-error" role="alert">
               {error}
+            </p>
+          )}
+          {hint !== null && (
+            <p id={hintId} className="field-hint" role="status">
+              {hint}
             </p>
           )}
         </div>

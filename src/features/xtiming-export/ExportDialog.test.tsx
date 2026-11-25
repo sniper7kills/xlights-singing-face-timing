@@ -272,6 +272,40 @@ describe('ExportDialog', () => {
     expect(screen.getByText(/Checks · 1 error/)).toBeInTheDocument()
   })
 
+  it('shows a warning with the name after the xLights import and keeps "Download" enabled', async () => {
+    const user = userEvent.setup()
+    renderDialog(twoVoices)
+
+    const name = screen.getByRole('textbox', { name: 'Name of the timing track for Santa' })
+    await user.clear(name)
+    await user.type(name, 'Café')
+
+    expect(await screen.findByText(/Checks · 0 errors · 1 warning/)).toBeInTheDocument()
+    expect(
+      screen.getByText(
+        'xLights shows the timing track “Café” as “Caf”. xLights removes = < > & " \' and characters that are not ASCII from a name.',
+      ),
+    ).toBeInTheDocument()
+    expect(download()).toBeEnabled()
+  })
+
+  it('disables "Download" when a timing track name is empty after the xLights import', async () => {
+    const user = userEvent.setup()
+    renderDialog(twoVoices)
+
+    const name = screen.getByRole('textbox', { name: 'Name of the timing track for Santa' })
+    await user.clear(name)
+    await user.type(name, 'Ééé')
+
+    expect(await screen.findByText(/Checks · 1 error/)).toBeInTheDocument()
+    expect(
+      screen.getByText(
+        'xLights cannot use the timing track name “Ééé”. Use letters from A to Z, digits or spaces.',
+      ),
+    ).toBeInTheDocument()
+    expect(download()).toBeDisabled()
+  })
+
   it('closes and selects the mark of a finding that the person clicks', async () => {
     const user = userEvent.setup()
     const marks = makeSungPhrase('v1', 1000).filter((mark) => mark.layer !== 'phoneme')
