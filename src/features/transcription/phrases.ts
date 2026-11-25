@@ -1,3 +1,5 @@
+import { MAX_SECTION_NAME } from '../../lib/sections/sectionRules.ts'
+import type { SectionTag } from '../../lib/sections/tagSections.ts'
 import { normaliseForMatch } from '../../lib/text/normalise.ts'
 import type { AlignedPhrase, AlignedWord, TimedWord } from './types.ts'
 
@@ -55,12 +57,40 @@ export function spreadWords(texts: string[], startMs: number, endMs: number): Al
  * @param lyrics The lyrics that the person supplies, one phrase for each line.
  */
 export function parseLyrics(lyrics: string): string[][] {
-  return lyrics
-    .split(/\r?\n/)
-    .map((line) => line.trim())
-    .filter((line) => !TAG_LINE.test(line))
-    .map((line) => line.split(/\s+/).filter((part) => normaliseForMatch(part) !== ''))
-    .filter((words) => words.length > 0)
+  return readLyricsLines(lyrics).flatMap((line) => ('words' in line ? [line.words] : []))
+}
+
+/**
+ * Returns the `[Name]` tags of the lyrics, in order.
+ * Each tag gets the index, in the result of `parseLyrics`, of the first lyrics line after it.
+ * Two tags in sequence get the same index. A tag after the last lyrics line gets the count of lines.
+ * A tag with an empty name, such as `[ ]`, gives no entry.
+ * @param lyrics The lyrics that the person supplies.
+ */
+export function parseSectionTags(lyrics: string): SectionTag[] {
+  const tags: SectionTag[] = []
+  let lineIndex = 0
+  for (const line of readLyricsLines(lyrics)) {
+    if ('words' in line) lineIndex += 1
+    else if (line.tag !== '') tags.push({ name: line.tag, lineIndex })
+  }
+  return tags
+}
+
+type LyricsLine = { words: string[] } | { tag: string }
+
+/**
+ * Returns each lyrics line that is a tag or that has a word.
+ * `parseLyrics` and `parseSectionTags` share this function, so the line index of a tag matches the phrases.
+ */
+function readLyricsLines(lyrics: string): LyricsLine[] {
+  return lyrics.split(/\r?\n/).flatMap((raw): LyricsLine[] => {
+    const line = raw.trim()
+    if (TAG_LINE.test(line))
+      return [{ tag: line.slice(1, -1).trim().slice(0, MAX_SECTION_NAME).trimEnd() }]
+    const words = line.split(/\s+/).filter((part) => normaliseForMatch(part) !== '')
+    return words.length > 0 ? [{ words }] : []
+  })
 }
 
 /**

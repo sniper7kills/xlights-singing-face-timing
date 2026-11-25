@@ -86,7 +86,6 @@ async function renderDialog(selection: TimeRange | null = null) {
   const view = render(
     <TranscribeDialog
       voiceId="voice-1"
-      durationMs={220_000}
       selection={selection}
       onActiveChange={onActiveChange}
       onClose={onClose}
@@ -333,6 +332,7 @@ describe('TranscribeDialog', () => {
       speechModelId: 'whisper-base',
       mode: 'model',
       lyrics: 'Silent night',
+      addSections: false,
     })
     expect(progress()).toHaveTextContent('Preparing audio, 0:00 elapsed')
     expect(onActiveChange).toHaveBeenLastCalledWith(true)
@@ -749,6 +749,46 @@ describe('TranscribeDialog', () => {
 
     expect(start).toBeDisabled()
     expect(start).toHaveAccessibleDescription('Paste the lyrics to use Lyrics only.')
+  })
+
+  it('offers the sections only for lyrics with a tag, checked by default', async () => {
+    const { user, start } = await renderDialog()
+    const lyrics = screen.getByLabelText('Lyrics (optional)')
+    const offer = () =>
+      screen.queryByRole('checkbox', { name: 'Add sections from the [Name] tags' })
+    await user.click(lyrics)
+    await user.paste('Silent night')
+    expect(offer()).toBeNull()
+
+    await user.paste('\n[Chorus]\nAll is calm')
+
+    expect(offer()).toBeChecked()
+    await user.click(start)
+    expect(lastRun().request).toMatchObject({
+      lyrics: 'Silent night\n[Chorus]\nAll is calm',
+      addSections: true,
+    })
+  })
+
+  it('sends addSections false when the person clears the check box', async () => {
+    const { user, start } = await renderDialog()
+    await user.click(screen.getByLabelText('Lyrics (optional)'))
+    await user.paste('[Verse 1]\nSilent night')
+
+    await user.click(screen.getByRole('checkbox', { name: 'Add sections from the [Name] tags' }))
+    await user.click(screen.getByRole('checkbox', { name: 'Lyrics only' }))
+    await user.click(start)
+
+    expect(lastRun().request).toMatchObject({ mode: 'lyrics-only', addSections: false })
+  })
+
+  it('offers no sections for lyrics with a tag and no word', async () => {
+    const { user } = await renderDialog()
+    await user.click(screen.getByLabelText('Lyrics (optional)'))
+
+    await user.paste('[Chorus]')
+
+    expect(screen.queryByRole('checkbox', { name: /Add sections/ })).toBeNull()
   })
 
   it('moves the focus to "Cancel" when a run starts', async () => {

@@ -15,7 +15,7 @@ import type { TimeRange } from '../../lib/time/timeRange.ts'
 import { DEFAULT_SETTINGS, loadSettings, updateSettings } from '../../store/settings.ts'
 import type { AppSettings, DeviceSpeeds, TranscribeSource } from '../../store/types.ts'
 import { hasWebGpu, pickDevice, withFailureTimes, withSpeed } from './device.ts'
-import { parseLyrics } from './phrases.ts'
+import { parseLyrics, parseSectionTags } from './phrases.ts'
 import { type Device, SPEECH_MODELS } from './protocol.ts'
 import { RemoteEndpointPanel } from './RemoteEndpointPanel.tsx'
 import {
@@ -56,9 +56,6 @@ const DEVICE_NOTE: Record<Device, string> = {
 type TranscribeDialogProps = {
   /** The voice that receives the marks. */
   voiceId: string
-  /** The duration of the song. */
-  // TODO(#91): Remove the prop after #30 merges. The progress text reads the audio time from the run since #91, and EditorPage.tsx belongs to #30.
-  durationMs: number
   /** The time selection of the editor. Without one, the dialog offers the full song only. */
   selection: TimeRange | null
   /** Receives true when a run starts and false when it stops. */
@@ -85,6 +82,7 @@ export function TranscribeDialog({
   const [speechModelId, setSpeechModelId] = useState(DEFAULT_SETTINGS.speechModelId)
   const [lyrics, setLyrics] = useState('')
   const [lyricsOnly, setLyricsOnly] = useState(false)
+  const [tagSections, setTagSections] = useState(true)
   const [range, setRange] = useState<TimeRange | undefined>(undefined)
   const remote = useRemoteChoice()
   const { restore } = remote
@@ -95,6 +93,7 @@ export function TranscribeDialog({
   const meter = active ? run.meter : null
   // Lyrics with no word, such as one "[Chorus]" line, give no phrase, so they count as no lyrics.
   const hasLyrics = parseLyrics(lyrics).length > 0
+  const hasTags = offersTagSections(lyrics)
   const needsLyrics = lyricsOnly && !hasLyrics
   const usesRemote = remote.appliesTo(lyricsOnly)
   const canStart = remote.canStart(usesRemote, run.webgpu !== null) && !needsLyrics
@@ -139,6 +138,7 @@ export function TranscribeDialog({
       lyrics: hasLyrics ? lyrics : undefined,
       range,
       remote: usesRemote ? remote.endpoint : undefined,
+      addSections: hasTags && tagSections,
     })
   }
 
@@ -212,6 +212,7 @@ export function TranscribeDialog({
             Lyrics (optional)
             <textarea rows={5} value={lyrics} onChange={(event) => setLyrics(event.target.value)} />
           </label>
+          <TagSectionsChoice shown={hasTags} checked={tagSections} onChange={setTagSections} />
           <label className="choice">
             <input
               type="checkbox"
@@ -249,6 +250,33 @@ export function TranscribeDialog({
         </div>
       </div>
     </div>
+  )
+}
+
+/** Returns true when the lyrics have a `[Name]` tag and a word. A tag with no lyrics line gives no phrase, so it gives no section. */
+function offersTagSections(lyrics: string): boolean {
+  return parseSectionTags(lyrics).length > 0 && parseLyrics(lyrics).length > 0
+}
+
+type TagSectionsChoiceProps = {
+  /** True when the lyrics have a `[Name]` tag and a word. */
+  shown: boolean
+  checked: boolean
+  onChange: (checked: boolean) => void
+}
+
+/** Shows the check box that adds a section for each `[Name]` tag of the lyrics. */
+function TagSectionsChoice({ shown, checked, onChange }: TagSectionsChoiceProps) {
+  if (!shown) return null
+  return (
+    <label className="choice">
+      <input
+        type="checkbox"
+        checked={checked}
+        onChange={(event) => onChange(event.target.checked)}
+      />
+      Add sections from the [Name] tags
+    </label>
   )
 }
 

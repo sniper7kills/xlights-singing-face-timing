@@ -197,7 +197,6 @@ export function EditorPage({ songId }: EditorPageProps) {
         {dialogOpen && voice !== undefined && (
           <TranscribeDialog
             voiceId={voice.id}
-            durationMs={song.durationMs}
             selection={selection}
             onActiveChange={setRunning}
             onClose={closeTranscribeDialog}
