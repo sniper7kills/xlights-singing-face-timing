@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
 import { storeNewSong } from '../features/audio-import/storeNewSong.ts'
 import { App } from './App.tsx'
+import { setPageNotice } from './pageNotice.ts'
 import { LIBRARY_HASH, songHash } from './routes.ts'
 import { applyStoredTheme } from './theme.ts'
 
@@ -167,6 +168,27 @@ describe('App', () => {
     try {
       render(<App />)
       expect(await screen.findByRole('heading', { level: 2, name: 'carol' })).toBeInTheDocument()
+    } finally {
+      window.location.hash = ''
+    }
+  })
+
+  it('does not show the toast of song A in the editor of song B after a change of the hash', async () => {
+    const songA = await storeNewSong({ name: 'carol', durationMs: 3000, audio })
+    const songB = await storeNewSong({ name: 'noel', durationMs: 3000, audio })
+    setPageNotice('one-file-added')
+    window.location.hash = songHash(songA.id)
+    try {
+      render(<App />)
+      expect(await screen.findByText('Only one file was added.')).toBeInTheDocument()
+
+      act(() => {
+        window.location.hash = songHash(songB.id)
+        window.dispatchEvent(new HashChangeEvent('hashchange'))
+      })
+
+      expect(await screen.findByRole('heading', { level: 2, name: 'noel' })).toBeInTheDocument()
+      expect(screen.queryByText('Only one file was added.')).toBeNull()
     } finally {
       window.location.hash = ''
     }
