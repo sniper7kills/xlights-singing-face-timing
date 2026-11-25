@@ -4,6 +4,7 @@ import { CHUNK_LENGTH_S, type Device } from './protocol.ts'
 import {
   NoWordsError,
   type RunStage,
+  type SingerOutcome,
   type TranscribeMode,
   type TranscribeOutcome,
 } from './runTranscription.ts'
@@ -27,6 +28,10 @@ export type RunState =
   | { status: 'sending'; percent: number | null }
   | { status: 'waiting' }
   | { status: 'finishing' }
+  | { status: 'singers-loading' }
+  | { status: 'singers-downloading'; percent: number }
+  | { status: 'singers-started' }
+  | { status: 'finding-singers'; doneMs: number; totalMs: number }
 
 /** The state of the transcribe dialog. The dialog closes in the state `done`. */
 export type DialogState =
@@ -46,6 +51,8 @@ export type DialogEvent =
   | { type: 'separation-download'; percent: number }
   | { type: 'separation-progress'; doneMs: number; totalMs: number }
   | { type: 'confirm-no-separation'; error: unknown }
+  | { type: 'singers-download'; percent: number }
+  | { type: 'singers-progress'; doneMs: number; totalMs: number }
   | { type: 'upload'; percent: number }
   | { type: 'progress'; doneMs: number; totalMs: number }
   | { type: 'finishing' }
@@ -167,17 +174,55 @@ export function separationNote(host: string | null): string {
   return `The app removes the instruments before it finds the words. This step downloads a model one time and adds time to the run. ${where}`
 }
 
+/** The note under the check box "Put each singer on its own voice". */
+export const SINGER_NOTE =
+  'The app estimates which singer sings each phrase, and makes one voice for each singer. Check the result. Use "Move to voice" to correct a phrase.'
+
+/** The hint of the check box "Put each singer on its own voice" while "Separate the vocals first" is off. */
+export const SINGER_HINT = 'Select "Separate the vocals first" to use this option.'
+
+/**
+ * Returns the sentences that the toast adds when the singer step made no new voice.
+ * The download and memory failures name their cause. Each other failure shares one message.
+ * @param singers The outcome of a singer step. A `split` outcome gives the message for one singer.
+ */
+export function singerMessage(singers: SingerOutcome): string {
+  const stay = `All phrases stay on ${singers.voiceName}.`
+  switch (singers.status) {
+    case 'split':
+      return `The app found one singer. ${stay}`
+    case 'cancelled':
+      return `The app stopped the search for the singers. ${stay}`
+    case 'no-vocals':
+      return `The app finds the singers only in separated vocals. ${stay}`
+    case 'failed':
+      if (singers.kind === 'download')
+        return `The app could not download the singer model. Check the connection. ${stay}`
+      if (singers.kind === 'memory')
+        return `This browser does not have enough memory to find the singers of this song. ${stay}`
+      return `The app could not find the singers. ${stay}`
+  }
+}
+
 /** Returns true when the error is the stop of a run that the person asked for. */
 export function isCancel(error: unknown): boolean {
   return error instanceof TranscribeError && error.kind === 'cancelled'
 }
 
-/** Returns the text of the toast after a run, for example "214 words, 9 estimated". */
+/**
+ * Returns the text of the toast after a run, for example "214 words, 9 estimated".
+ * After a singer step that made voices, the text names the voice count, for example "214 words on 3 voices, 9 estimated".
+ * After a singer step that made no voice, the text adds the message of `singerMessage`.
+ */
 export function outcomeText(
-  outcome: Pick<TranscribeOutcome, 'wordCount' | 'estimatedCount'>,
+  outcome: Pick<TranscribeOutcome, 'wordCount' | 'estimatedCount' | 'singers'>,
 ): string {
-  const words = outcome.wordCount === 1 ? 'word' : 'words'
-  return `${outcome.wordCount} ${words}, ${outcome.estimatedCount} estimated`
+  const words = `${outcome.wordCount} ${outcome.wordCount === 1 ? 'word' : 'words'}`
+  const { singers } = outcome
+  if (singers?.status === 'split' && singers.voiceCount > 1)
+    return `${words} on ${singers.voiceCount} voices, ${outcome.estimatedCount} estimated`
+  const counts = `${words}, ${outcome.estimatedCount} estimated`
+  return singers === undefined ? counts : `${counts}. ${singerMessage(singers)}`
 }
 
 /** Returns the copy of the low-match warning for a match ratio from 0 to 1. */
@@ -202,6 +247,10 @@ const STATE_LABEL: Record<RunState['status'], (host: string) => string> = {
   sending: (host) => `Sending audio to ${host}`,
   waiting: (host) => `Waiting for ${host}`,
   finishing: () => 'Aligning lyrics and breaking down words',
+  'singers-loading': () => 'Loading singer model',
+  'singers-downloading': () => 'Downloading singer model',
+  'singers-started': () => 'Finding the singers',
+  'finding-singers': () => 'Finding the singers',
 }
 
 /**
@@ -221,7 +270,9 @@ export function showsElapsed(state: RunState): boolean {
     state.status === 'separation-started' ||
     state.status === 'loading' ||
     state.status === 'started' ||
-    state.status === 'waiting'
+    state.status === 'waiting' ||
+    state.status === 'singers-loading' ||
+    state.status === 'singers-started'
   )
 }
 
@@ -236,9 +287,11 @@ export function progressText(state: RunState, elapsedMs: number, host: string): 
   switch (state.status) {
     case 'downloading':
     case 'separation-downloading':
+    case 'singers-downloading':
     case 'sending':
       return `${label}, ${state.percent}%`
     case 'transcribing':
+    case 'finding-singers':
       return `${label}, ${formatClock(state.doneMs)} of ${formatClock(state.totalMs)}`
     case 'separating':
       // The step adds time to the run, so the person also sees the time from the "Start" click.
@@ -293,11 +346,8 @@ export function deviceLine(device: Device, speed: RunSpeed | null): string {
 
 /** Returns the value of the progress bar from 0 to 1, or undefined for a bar with no value. */
 export function progressValue(state: RunState): number | undefined {
-  if (state.status === 'downloading' || state.status === 'separation-downloading')
-    return state.percent / 100
-  if (state.status === 'sending' && state.percent !== null) return state.percent / 100
-  if (state.status === 'transcribing' || state.status === 'separating')
-    return state.totalMs > 0 ? Math.min(1, state.doneMs / state.totalMs) : 0
+  if ('percent' in state) return state.percent === null ? undefined : state.percent / 100
+  if ('doneMs' in state) return state.totalMs > 0 ? Math.min(1, state.doneMs / state.totalMs) : 0
   return undefined
 }
 
@@ -316,7 +366,7 @@ export function transcribeDialogReducer(state: DialogState, event: DialogEvent):
     return event.mode === 'model' ? { status: 'preparing' } : { status: 'finishing' }
   }
   if (!isActive(state)) return state
-  if (isSeparationEvent(event)) return separationStep(state, event)
+  if (isAudioStepEvent(event)) return audioStep(state, event)
   return event.type === 'answer' ||
     event.type === 'cancelled' ||
     event.type === 'failed' ||
@@ -347,6 +397,8 @@ const STAGE_STATE: Record<RunStage, RunState> = {
   transcribing: { status: 'started' },
   sending: { status: 'sending', percent: null },
   waiting: { status: 'waiting' },
+  'singers-download': { status: 'singers-loading' },
+  'finding-singers': { status: 'singers-started' },
 }
 type EndEvent = Extract<DialogEvent, { type: 'answer' | 'cancelled' | 'failed' | 'done' }>
 
@@ -369,27 +421,40 @@ function runStep(state: DialogState, event: RunEvent): DialogState {
   }
 }
 
-type SeparationEvent = Extract<
+type AudioStepEvent = Extract<
   DialogEvent,
-  { type: 'separation-download' | 'separation-progress' | 'confirm-no-separation' }
+  {
+    type:
+      | 'separation-download'
+      | 'separation-progress'
+      | 'confirm-no-separation'
+      | 'singers-download'
+      | 'singers-progress'
+  }
 >
 
-const SEPARATION_EVENT_TYPES: ReadonlySet<DialogEvent['type']> = new Set([
+const AUDIO_STEP_EVENT_TYPES: ReadonlySet<DialogEvent['type']> = new Set([
   'separation-download',
   'separation-progress',
   'confirm-no-separation',
+  'singers-download',
+  'singers-progress',
 ])
 
-function isSeparationEvent(event: DialogEvent): event is SeparationEvent {
-  return SEPARATION_EVENT_TYPES.has(event.type)
+function isAudioStepEvent(event: DialogEvent): event is AudioStepEvent {
+  return AUDIO_STEP_EVENT_TYPES.has(event.type)
 }
 
-function separationStep(state: DialogState, event: SeparationEvent): DialogState {
+function audioStep(state: DialogState, event: AudioStepEvent): DialogState {
   switch (event.type) {
     case 'separation-download':
       return { status: 'separation-downloading', percent: event.percent }
     case 'separation-progress':
       return { status: 'separating', doneMs: event.doneMs, totalMs: event.totalMs }
+    case 'singers-download':
+      return { status: 'singers-downloading', percent: event.percent }
+    case 'singers-progress':
+      return { status: 'finding-singers', doneMs: event.doneMs, totalMs: event.totalMs }
     case 'confirm-no-separation':
       return isRunState(state)
         ? {

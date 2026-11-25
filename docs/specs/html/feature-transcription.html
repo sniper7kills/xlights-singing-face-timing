@@ -365,6 +365,53 @@ body.rv-open .layout { padding-right:21rem; }
 </li>
 </ul>
 <p>with no separation, or cancels it.</p>
+<ul>
+<li>FR-transcribe-47 — The transcribe dialog has the check box "Put each singer on its
+</li>
+</ul>
+<p>own voice". It is off by default.</p>
+<ul>
+<li>FR-transcribe-48 — The app remembers the last choice of "Put each singer on its own
+</li>
+</ul>
+<p>voice".</p>
+<ul>
+<li>FR-transcribe-49 — The dialog disables "Put each singer on its own voice" while
+</li>
+</ul>
+<p>"Separate the vocals first" is off.</p>
+<ul>
+<li>FR-transcribe-50 — The dialog hides "Put each singer on its own voice" for "Lyrics
+</li>
+</ul>
+<p>only".</p>
+<ul>
+<li>FR-transcribe-51 — With the option on, the singer step runs after the run writes
+</li>
+</ul>
+<p>its marks. It reads the separated vocals of the run at 16 kHz.</p>
+<ul>
+<li>FR-transcribe-52 — The singer step runs in a Web Worker in the browser. It sends no
+</li>
+</ul>
+<p>audio out of the browser.</p>
+<ul>
+<li>FR-transcribe-53 — With the option off, the app loads no file of the singer step.
+</li>
+<li>FR-transcribe-54 — The dialog shows the download progress of the singer model and
+</li>
+</ul>
+<p>the progress of the singer step.</p>
+<ul>
+<li>FR-transcribe-55 — "Cancel" during the singer step stops the step and keeps the
+</li>
+</ul>
+<p>marks of the run.</p>
+<ul>
+<li>FR-transcribe-56 — After a failed singer step, the marks of the run stay on the
+</li>
+</ul>
+<p>voice of the run, and the toast states the failure.</p>
 <h3 id="transcription-user-flows">User flows</h3>
 <h4 id="transcription-transcribe-a-song">Transcribe a song</h4>
 <div class="diagram"><pre class="mermaid">sequenceDiagram
@@ -493,6 +540,32 @@ body.rv-open .layout { padding-right:21rem; }
 </li>
 </ol>
 <p>no separation" and "Cancel". "Continue with no separation" goes on with the audio of the song.</p>
+<h4 id="transcription-put-each-singer-on-its-own-voice">Put each singer on its own voice</h4>
+<ol>
+<li>The person selects "Separate the vocals first".
+</li>
+<li>The person selects "Put each singer on its own voice".
+</li>
+<li>The person selects "Start".
+</li>
+<li>The run separates the vocals, finds the words and writes the marks, as for a run
+</li>
+</ol>
+<p>with vocal separation.</p>
+<ol>
+<li>The singers worker downloads the singer model if the browser does not have it.
+</li>
+<li>The singers worker finds the time ranges of each singer in the separated vocals.
+</li>
+<li>The app gives each phrase of the run to its singers, and puts each singer on its
+</li>
+</ol>
+<p>own voice. See the singer rules in <a href="feature-voices-sections.html#behaviour-rules">05-voices-sections.md</a>.</p>
+<ol>
+<li>The app closes the dialog. The toast names the count of voices, for example "214
+</li>
+</ol>
+<p>words on 3 voices, 9 estimated".</p>
 <h4 id="transcription-create-phrases-from-lyrics-without-a-speech-model">Create phrases from lyrics without a speech model</h4>
 <ol>
 <li>The person selects "Lyrics only" in the transcribe dialog.
@@ -593,6 +666,25 @@ body.rv-open .layout { padding-right:21rem; }
 </li>
 </ul>
 <p>separation" and "Cancel".</p>
+<p><strong>Put each singer on its own voice.</strong> The check box comes after "Separate the vocals first". "Lyrics only" hides it. While "Separate the vocals first" is off, the check box is disabled, and the hint under it reads "Select "Separate the vocals first" to use this option." The note under the check box reads "The app estimates which singer sings each phrase, and makes one voice for each singer. Check the result. Use "Move to voice" to correct a phrase."</p>
+<p>The states of the singer step come after finishing, because the step starts after the run writes its marks:</p>
+<ul>
+<li>singers loading: "Loading singer model, 0:03 elapsed" with a bar that has no end.
+</li>
+</ul>
+<p>"Cancel" enabled.</p>
+<ul>
+<li>singers downloading: "Downloading singer model, 42%" with a bar. "Cancel" enabled.
+</li>
+<li>finding singers: "Finding the singers, 1:12 of 3:40" with a bar. Before the first
+</li>
+</ul>
+<p>progress, "Finding the singers, 0:12 elapsed" with a bar that has no end. "Cancel" enabled.</p>
+<ul>
+<li>done: the dialog closes. With two voices or more, the toast reads "214 words on 3
+</li>
+</ul>
+<p>voices, 9 estimated". Otherwise, the toast adds the message of the outcome to "214 words, 9 estimated". See <a href="#edge-cases--failures">Edge cases &amp; failures</a>.</p>
 <p><strong>Where to transcribe.</strong> The choice "Where to transcribe" comes first in the dialog, with "In this browser" and "Remote endpoint". "Lyrics only" disables the choice, because a lyrics-only run sends no audio.</p>
 <p>With "Remote endpoint" selected:</p>
 <ul>
@@ -800,6 +892,11 @@ body.rv-open .layout { padding-right:21rem; }
 </ul>
 <p>vocals first".</p>
 <ul>
+<li>Reads and writes <code>APP_SETTINGS.singerVoices</code>, the last choice of "Put each singer
+</li>
+</ul>
+<p>on its own voice".</p>
+<ul>
 <li>Reads and writes <code>APP_SETTINGS.deviceSpeeds</code>: for each speech model, the measured
 </li>
 </ul>
@@ -964,6 +1061,16 @@ type ErrorKind = 'download' | 'device' | 'memory' | 'unknown'
 { type: 'result'; runId: number; vocals: Float32Array } // one channel, 44.1 kHz, the length of the input
 { type: 'error'; runId: number; kind: 'download' | 'memory' | 'model' | 'unknown'; detail: string }</code></pre>
 <p>The app converts the vocals to 16 kHz in an <code>OfflineAudioContext</code> at 16 000 Hz: a buffer source plays a buffer at 44 100 Hz, and <code>startRendering()</code> returns the resampled <code>AudioBuffer</code>. A buffer can have a sample rate that is not the rate of the context, and the browser resamples it. Sources: https://developer.mozilla.org/en-US/docs/Web/API/OfflineAudioContext/startRendering, https://developer.mozilla.org/en-US/docs/Web/API/BaseAudioContext/createBuffer and https://developer.mozilla.org/en-US/docs/Web/API/AudioBuffer/copyToChannel (retrieved 2026-11-24).</p>
+<p><strong>Singer step, <code>src/workers/singers.worker.ts</code>.</strong> The types are in <code>src/features/singer-voices/protocol.ts</code>. The client <code>findSingers(vocals, { onDownload, onProgress, signal })</code> starts one worker for each run and terminates it at the end or at "Cancel". The worker calls the engine of <code>createSingerFinder()</code> in <code>src/features/singer-voices/engine/index.ts</code>. When <code>__SINGERS_FIXTURE__</code> is true, the client starts <code>singersFixture.worker.ts</code>, which downloads no model.</p>
+<pre class="code"><code>interface SingerSegment { startMs: number; endMs: number; singer: number } // singer 0, 1, 2 … in order of first appearance
+// to worker (SingersRequest)
+{ type: 'find-singers'; runId: number; vocals: Float32Array } // one channel, 16 kHz
+// from worker (SingersMessage)
+{ type: 'download'; runId: number; loadedBytes: number; totalBytes: number }
+{ type: 'progress'; runId: number; doneMs: number; totalMs: number }
+{ type: 'result'; runId: number; segments: SingerSegment[] }
+{ type: 'error'; runId: number; kind: 'download' | 'memory' | 'model' | 'unknown'; detail: string }</code></pre>
+<p>The times of a segment start at the start of the vocals. A range run adds the start of the range. The singer model and its documentation are in the ADR of issue #119.</p>
 <p><strong>Pure functions, <code>src/features/transcription/</code>:</strong></p>
 <pre class="code"><code>alignLyrics(transcribed: TimedWord[], lyrics: string): AlignResult
 groupIntoPhrases(words: TimedWord[]): AlignedPhrase[]
@@ -999,6 +1106,13 @@ spreadLyrics(lyrics: string, startMs: number, endMs: number): AlignedPhrase[]</c
 <tr><td>Vocal separation: the model fails, or another failure</td><td>"The vocal separation did not work. Continue with no separation, or cancel." with "Continue with no separation" and "Cancel".</td></tr>
 <tr><td>Vocal separation: the person selects "Cancel" during the step</td><td>The app stops the worker. No mark changes. The dialog goes back to idle with no message.</td></tr>
 <tr><td>Vocal separation: the person selects "Continue with no separation"</td><td>The run goes on with the audio of the song, as with the option off.</td></tr>
+<tr><td>Singer step: one singer found</td><td>No new voice. The toast adds "The app found one singer. All phrases stay on &lt;voice name&gt;."</td></tr>
+<tr><td>Singer step: the model does not download</td><td>The marks stay. The toast adds "The app could not download the singer model. Check the connection. All phrases stay on &lt;voice name&gt;."</td></tr>
+<tr><td>Singer step: out of memory</td><td>The marks stay. The toast adds "This browser does not have enough memory to find the singers of this song. All phrases stay on &lt;voice name&gt;."</td></tr>
+<tr><td>Singer step: the model fails, or another failure</td><td>The marks stay. The toast adds "The app could not find the singers. All phrases stay on &lt;voice name&gt;."</td></tr>
+<tr><td>Singer step: the person selects "Cancel" during the step</td><td>The app stops the worker. The marks of the run stay. The dialog closes, and the toast adds "The app stopped the search for the singers. All phrases stay on &lt;voice name&gt;."</td></tr>
+<tr><td>Singer step: the vocal separation failed and the person selected "Continue with no separation"</td><td>The step does not run. The toast adds "The app finds the singers only in separated vocals. All phrases stay on &lt;voice name&gt;."</td></tr>
+<tr><td>Singer step: more singers than free voices</td><td>The song keeps 12 voices or fewer. See the singer rules in <a href="feature-voices-sections.html#behaviour-rules">05-voices-sections.md</a>.</td></tr>
 <tr><td>Remote endpoint: the browser asks for the permission to reach the local network</td><td>The run waits for the answer of the person. If the person refuses, the dialog shows the message for no connection.</td></tr>
 </table></div>
 <h3 id="transcription-acceptance-criteria">Acceptance criteria</h3>
@@ -1153,13 +1267,62 @@ spreadLyrics(lyrics: string, startMs: number, endMs: number): AlignedPhrase[]</c
 </li>
 </ul>
 <p>from the audio of the song. (FR-transcribe-46)</p>
+<ul>
+<li>The dialog opens with "Put each singer on its own voice" off when the person has
+</li>
+</ul>
+<p>made no choice. (FR-transcribe-47)</p>
+<ul>
+<li>The dialog opens with the last choice of "Put each singer on its own voice".
+</li>
+</ul>
+<p>(FR-transcribe-48)</p>
+<ul>
+<li>With "Separate the vocals first" off, "Put each singer on its own voice" is
+</li>
+</ul>
+<p>disabled and shows the hint. (FR-transcribe-49)</p>
+<ul>
+<li>With "Lyrics only" selected, the dialog shows no "Put each singer on its own
+</li>
+</ul>
+<p>voice". (FR-transcribe-50)</p>
+<ul>
+<li>With both options on, the progress text shows "Finding the singers" after
+</li>
+</ul>
+<p>"Transcribing". (FR-transcribe-51, 54)</p>
+<ul>
+<li>With both options on, the browser requests the singers worker file and sends no
+</li>
+</ul>
+<p>request with audio outside the app. (FR-transcribe-52)</p>
+<ul>
+<li>With the option off, the browser requests no file of the singers worker. An E2E
+</li>
+</ul>
+<p>test checks the requests of a run. (FR-transcribe-53)</p>
+<ul>
+<li>"Cancel" during the singer step keeps the marks of the run on the voice of the
+</li>
+</ul>
+<p>run. (FR-transcribe-55)</p>
+<ul>
+<li>After a failed singer step, the marks stay on the voice of the run, and the toast
+</li>
+</ul>
+<p>names the voice. (FR-transcribe-56)</p>
 <h3 id="transcription-out-of-scope">Out of scope</h3>
 <ul>
 <li>Separation of stems other than the vocals.
 </li>
 <li>Vocal separation on a server.
 </li>
-<li>Detecting which singer sings a word.
+<li>Detecting which singer sings each word. The singer step gives singers to phrases.
+</li>
+<li>Two clean audio signals for singers who sing at the same time.
+</li>
+<li>The names of the singers.
 </li>
 <li>Languages other than English.
 </li>

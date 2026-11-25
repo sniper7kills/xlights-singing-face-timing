@@ -64,6 +64,7 @@ The user's request, verbatim:
 | song | noun | One audio file plus all voices, sections and marks that belong to it. The app saves a song in the browser. | project, session, document |
 | audio file | noun | The file that the person loads. It holds the recording. | track, media, upload |
 | voice | noun | One singer or one vocal part in a song. One voice becomes one timing track. | singer, face, character, part |
+| singer | noun | A person who sings in the audio of a song. The app estimates the singers and gives each one a voice. A singer is the person in the audio, and a voice is the row in the app, so a voice is never called a singer. | speaker, vocalist, performer |
 | section | noun | A named time range of the song, for example "Chorus 1". | segment, region, part |
 | timing track | noun | The xLights element that holds layers of marks. One `<timing>` element in an `.xtiming` file. | lyric track, timing element |
 | layer | noun | One of the three rows of a voice: the phrase layer, the word layer or the phoneme layer. | row, tier, level |
@@ -551,6 +552,12 @@ None of these blocks approval. Each one names the epic that settles it.
   "Separate the vocals first", off by default. The vocal separation runs in the
   browser before the speech model or the remote endpoint reads the audio. A
   failure lets the person continue with no separation.
+- 2026-11-24 — The maintainer said: "ideally the demucs integration will breack out
+  each vocal singinger into its own voice in the program as well" (issue #119). The
+  transcribe dialog has the check box "Put each singer on its own voice", off by
+  default. It needs "Separate the vocals first". After the marks, the app estimates
+  the singer of each phrase, and puts each singer on its own voice as a further
+  undo step.
 
 ## Issue map
 

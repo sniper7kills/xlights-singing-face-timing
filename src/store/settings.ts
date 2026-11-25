@@ -13,6 +13,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   transcribeSource: 'browser',
   remoteEndpoint: { baseUrl: '', apiKey: '', model: 'whisper-1' },
   separateVocals: false,
+  singerVoices: false,
 }
 
 /**
