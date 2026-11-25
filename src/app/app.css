@@ -355,9 +355,9 @@ button {
 .voice-select {
   display: grid;
   grid-template-columns: auto 12px minmax(0, 1fr);
-  gap: 6px;
+  gap: 4px;
   align-items: center;
-  padding: 7px 6px;
+  padding: 7px 3px;
   border: 1px solid transparent;
   border-radius: 8px;
   background: none;
@@ -398,9 +398,9 @@ button {
 
 /* The number tells apart two voice names that the rail cuts at the same place. */
 .voice-number {
-  min-width: 1.6em;
+  min-width: 2ch;
   color: var(--mute);
-  font: 11px var(--mono);
+  font: 10px var(--mono);
   text-align: right;
 }
 
@@ -1436,17 +1436,20 @@ button {
   background: var(--p-WQ);
 }
 
-/* The heading names the shown voice above the phrase layer. */
+/* The heading names the shown voice on the line of the phrase layer name, so the layers keep their height. */
 .layers-voice {
+  position: absolute;
+  top: 0;
+  right: 6px;
+  z-index: 1;
   display: flex;
   gap: 6px;
   align-items: center;
-  min-width: 0;
+  max-width: 70%;
+  height: 17px;
   margin: 0;
-  padding: 4px 6px;
-  border-bottom: 1px solid var(--line);
   color: var(--ink);
-  font: 600 13px var(--body);
+  font: 600 11px var(--body);
 }
 
 .layers-voice-name {
