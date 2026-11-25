@@ -186,6 +186,10 @@ async function runWithSingers(page: Page, count: string, replaces = false): Prom
   }
   // The run has three worker steps, so it takes longer than the default timeout.
   await expect(dialog).toBeHidden({ timeout: 20_000 })
+  // The next run reads the stored run data, and the write of the run data can end after the dialog closes.
+  await expect(
+    page.locator('.editor-top').getByRole('button', { name: 'Run report' }),
+  ).not.toHaveAttribute('aria-disabled', 'true', { timeout: 20_000 })
   return text
 }
 
@@ -226,8 +230,10 @@ test('a run with the singer option off states that the singer voices of the last
 
   await dialog.getByRole('button', { name: 'Start' }).click()
 
+  // The question follows a read of the run data, which is slow on a busy test computer.
   await expect(dialog.locator('.dialog-confirm')).toHaveText(
     /^The run replaces the \d+ marks of "Lead Vocals" from 0:00\.000 to 0:28\.\d{3}\. The voices of the last singer step do not change\.$/,
+    { timeout: 20_000 },
   )
   await dialog.getByRole('button', { name: 'Cancel' }).click()
   await expect(rail(page).getByRole('listitem')).toHaveCount(2)
