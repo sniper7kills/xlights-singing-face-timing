@@ -56,6 +56,14 @@ describe('separateVocals', () => {
     expect(worker.received[0]?.transfer).toEqual([audio.left.buffer, audio.right.buffer])
   })
 
+  it('posts the model of the run', () => {
+    const worker = new FakeWorker()
+
+    void separateVocals(stereo(), { model: 'demucs' }, () => worker)
+
+    expect(worker.received[0]?.message.model).toBe('demucs')
+  })
+
   it('names a buffer one time when both channels share it', () => {
     const channel = new Float32Array(4)
     const { worker } = start({ left: channel, right: channel, sampleRate: 44100 })

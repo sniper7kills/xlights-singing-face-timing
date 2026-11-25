@@ -1,4 +1,5 @@
 // The entity types of the data model in docs/specs/spec.md. Times are whole milliseconds.
+import type { SeparationModelId } from '../features/vocal-separation/protocol.ts'
 import type { RemoteEndpoint } from '../lib/remote/endpoint.ts'
 
 /** The length of one xLights frame in milliseconds. */
@@ -108,6 +109,8 @@ export type AppSettings = {
   separateVocals: boolean
   /** The last choice of the check box "Put each singer on its own voice" of the transcribe dialog. */
   singerVoices: boolean
+  /** The last choice of "Separation model" of the transcribe dialog. */
+  separationModel: SeparationModelId
 }
 
 /** Where a transcribe run finds the words: the speech model in this browser, or a remote endpoint. */

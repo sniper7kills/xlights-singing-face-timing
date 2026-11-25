@@ -334,6 +334,7 @@ describe('TranscribeDialog', () => {
       lyrics: 'Silent night',
       addSections: false,
       separateVocals: false,
+      separationModel: 'spleeter',
       singerVoices: false,
     })
     expect(progress()).toHaveTextContent('Preparing audio, 0:00 elapsed')

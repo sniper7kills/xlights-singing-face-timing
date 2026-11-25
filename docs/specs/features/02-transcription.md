@@ -114,24 +114,35 @@ leaves the browser, and the app shows the host before each run.
 - FR-transcribe-45 — "Cancel" stops the vocal separation.
 - FR-transcribe-46 — After a failed vocal separation, the person continues the run
   with no separation, or cancels it.
-- FR-transcribe-47 — The transcribe dialog has the check box "Put each singer on its
+- FR-transcribe-47 — With "Separate the vocals first" on, the dialog shows the
+  choice "Separation model". The default is "Fast (Spleeter, 79 MB)".
+- FR-transcribe-48 — The app remembers the last choice of "Separation model".
+- FR-transcribe-49 — The app downloads the Demucs model only for a run with Demucs
+  selected.
+- FR-transcribe-50 — The Demucs engine uses the `webgpu` device when the separate
+  worker gets a WebGPU adapter. Else it uses the `wasm` device.
+- FR-transcribe-51 — With Demucs selected and no WebGPU adapter, the dialog shows a
+  memory and time warning before the run.
+- FR-transcribe-52 — After a memory failure of Demucs, the person can run the
+  vocal separation again with the fast model.
+- FR-transcribe-53 — The transcribe dialog has the check box "Put each singer on its
   own voice (experimental)". It is off by default.
-- FR-transcribe-48 — The app remembers the last choice of "Put each singer on its own
+- FR-transcribe-54 — The app remembers the last choice of "Put each singer on its own
   voice".
-- FR-transcribe-49 — The dialog disables "Put each singer on its own voice" while
+- FR-transcribe-55 — The dialog disables "Put each singer on its own voice" while
   "Separate the vocals first" is off.
-- FR-transcribe-50 — The dialog hides "Put each singer on its own voice" for "Lyrics
+- FR-transcribe-56 — The dialog hides "Put each singer on its own voice" for "Lyrics
   only".
-- FR-transcribe-51 — With the option on, the singer step runs after the run writes
+- FR-transcribe-57 — With the option on, the singer step runs after the run writes
   its marks. It reads the separated vocals of the run at 16 kHz.
-- FR-transcribe-52 — The singer step runs in a Web Worker in the browser. It sends no
+- FR-transcribe-58 — The singer step runs in a Web Worker in the browser. It sends no
   audio out of the browser.
-- FR-transcribe-53 — With the option off, the app loads no file of the singer step.
-- FR-transcribe-54 — The dialog shows the download progress of the singer model and
+- FR-transcribe-59 — With the option off, the app loads no file of the singer step.
+- FR-transcribe-60 — The dialog shows the download progress of the singer model and
   the progress of the singer step.
-- FR-transcribe-55 — "Cancel" during the singer step stops the step and keeps the
+- FR-transcribe-61 — "Cancel" during the singer step stops the step and keeps the
   marks of the run.
-- FR-transcribe-56 — After a failed singer step, the marks of the run stay on the
+- FR-transcribe-62 — After a failed singer step, the marks of the run stay on the
   voice of the run, and the toast states the failure.
 
 ## User flows
@@ -236,6 +247,8 @@ sequenceDiagram
 8. If the vocal separation fails, the dialog shows the message with "Continue with
    no separation" and "Cancel". "Continue with no separation" goes on with the audio
    of the song.
+9. If Demucs fails for memory, the dialog also shows "Use the fast model". "Use the
+   fast model" runs the vocal separation again with Spleeter.
 
 ### Put each singer on its own voice
 
@@ -322,9 +335,27 @@ the speech model or the remote endpoint:
 - separation failed: the message of the failure, with "Continue with no
   separation" and "Cancel".
 
+**Separation model.** The choice comes under the note of "Separate the vocals
+first". It shows only when the check box is on. It is a radio group with two
+choices. The sizes come from the model list in
+`src/features/vocal-separation/engine/separationModels.ts`:
+
+- "Fast (Spleeter, 79 MB)", the default.
+- "Demucs, experimental (181 MB, much slower)". Nobody ran the Demucs engine in the
+  built app before issue #122 merged, so the label says "experimental".
+
+The note under the check box states the size of the selected model. With Demucs
+selected, the load and download states name the model: "Loading Demucs vocal
+separation model, 0:03 elapsed" and "Downloading Demucs vocal separation model,
+42%". With Demucs selected and no WebGPU adapter in the browser, the dialog shows
+the warning "Demucs needs about 4 GB of memory and several minutes for a song on
+this browser." before the run. After a memory failure of Demucs, the separation
+failed state has three actions: "Use the fast model", "Continue with no separation"
+and "Cancel".
+
 **Put each singer on its own voice.** The label of the check box is "Put each singer
 on its own voice (experimental)". The check box comes after "Separate the vocals
-first". "Lyrics only" hides it. While "Separate the vocals first" is off, the check
+first" and its "Separation model" choice. "Lyrics only" hides it. While "Separate the vocals first" is off, the check
 box is disabled, and the hint under it reads "Select "Separate the vocals first" to
 use this option." The note under the check box reads "The app estimates which singer
 sings each phrase, and makes one voice for each singer. Check the result. Use "Move
@@ -453,6 +484,9 @@ Each base URL that the app refuses shows a message:
   IndexedDB and goes only to the base URL.
 - Reads and writes `APP_SETTINGS.separateVocals`, the last choice of "Separate the
   vocals first".
+- Reads and writes `APP_SETTINGS.separationModel` (`'spleeter' | 'demucs'`), the
+  last choice of "Separation model". A value that the app does not know gives
+  `'spleeter'`.
 - Reads and writes `APP_SETTINGS.singerVoices`, the last choice of "Put each singer
   on its own voice".
 - Reads and writes `APP_SETTINGS.deviceSpeeds`: for each speech model, the measured
@@ -603,13 +637,15 @@ the browser cache.
 
 **Vocal separation, `src/workers/separate.worker.ts`.** The types are in
 `src/features/vocal-separation/protocol.ts`. The client
-`separateVocals(audio, { onDownload, onProgress, signal })` starts one worker for
-each run and terminates it at the end or at "Cancel".
+`separateVocals(audio, { onDownload, onProgress, signal, model })` starts one worker
+for each run and terminates it at the end or at "Cancel". The worker makes the
+engine of `model`. A request with no `model` uses `'spleeter'`. The Demucs engine
+and `demucs-web` are a separate chunk that the worker imports only for `'demucs'`.
 
 ```ts
 interface StereoAudio { left: Float32Array; right: Float32Array; sampleRate: 44100 }
 // to worker (SeparateRequest)
-{ type: 'separate'; runId: number; audio: StereoAudio }
+{ type: 'separate'; runId: number; audio: StereoAudio; model?: 'spleeter' | 'demucs' }
 // from worker (SeparateMessage)
 { type: 'download'; runId: number; loadedBytes: number; totalBytes: number }
 { type: 'progress'; runId: number; doneMs: number; totalMs: number }
@@ -697,6 +733,10 @@ from 0 to 1.
 | Vocal separation: the model fails, or another failure | "The vocal separation did not work. Continue with no separation, or cancel." with "Continue with no separation" and "Cancel". |
 | Vocal separation: the person selects "Cancel" during the step | The app stops the worker. No mark changes. The dialog goes back to idle with no message. |
 | Vocal separation: the person selects "Continue with no separation" | The run goes on with the audio of the song, as with the option off. |
+| Demucs: out of memory | The message for out of memory, with "Use the fast model", "Continue with no separation" and "Cancel". |
+| Demucs: the person selects "Use the fast model" | The run separates the vocals again with Spleeter. The stored choice does not change. |
+| Demucs: the `webgpu` device fails | The engine runs the model again on the `wasm` device. The progress starts again at 0. |
+| Demucs: the model file has the wrong size or SHA-256 | The message for a failed download. The browser cache keeps no copy. |
 | Singer step: one singer found | No new voice. The toast adds "The app found one singer. All phrases stay on <voice name>." |
 | Singer step: the model does not download | The marks stay. The toast adds "The app could not download the singer model. Check the connection. All phrases stay on <voice name>." |
 | Singer step: out of memory | The marks stay. The toast adds "This browser does not have enough memory to find the singers of this song. All phrases stay on <voice name>." |
@@ -773,24 +813,35 @@ from 0 to 1.
   (FR-transcribe-45)
 - After a failed vocal separation, "Continue with no separation" creates the marks
   from the audio of the song. (FR-transcribe-46)
-- The dialog opens with "Put each singer on its own voice" off when the person has
-  made no choice. (FR-transcribe-47)
-- The dialog opens with the last choice of "Put each singer on its own voice".
+- With the check box on and no stored choice, "Fast (Spleeter, 79 MB)" is selected.
+  (FR-transcribe-47)
+- After a reload, the dialog opens with the last choice of "Separation model".
   (FR-transcribe-48)
+- With the fast model selected, a run requests no file of the Demucs engine. An E2E
+  test checks the requests of a run. (FR-transcribe-49)
+- With Demucs selected, the dialog shows "181 MB" before the run. (FR-transcribe-49)
+- With Demucs selected and no WebGPU adapter, the dialog shows the warning before the
+  run. (FR-transcribe-51)
+- After a memory failure of Demucs, "Use the fast model" runs the vocal separation
+  with Spleeter, and the run goes on. (FR-transcribe-52)
+- The dialog opens with "Put each singer on its own voice" off when the person has
+  made no choice. (FR-transcribe-53)
+- The dialog opens with the last choice of "Put each singer on its own voice".
+  (FR-transcribe-54)
 - With "Separate the vocals first" off, "Put each singer on its own voice" is
-  disabled and shows the hint. (FR-transcribe-49)
+  disabled and shows the hint. (FR-transcribe-55)
 - With "Lyrics only" selected, the dialog shows no "Put each singer on its own
-  voice". (FR-transcribe-50)
+  voice". (FR-transcribe-56)
 - With both options on, the progress text shows "Finding the singers" after
-  "Transcribing". (FR-transcribe-51, 54)
+  "Transcribing". (FR-transcribe-57, 60)
 - With both options on, the browser requests the singers worker file and sends no
-  request with audio outside the app. (FR-transcribe-52)
+  request with audio outside the app. (FR-transcribe-58)
 - With the option off, the browser requests no file of the singers worker. An E2E
-  test checks the requests of a run. (FR-transcribe-53)
+  test checks the requests of a run. (FR-transcribe-59)
 - "Cancel" during the singer step keeps the marks of the run on the voice of the
-  run. (FR-transcribe-55)
+  run. (FR-transcribe-61)
 - After a failed singer step, the marks stay on the voice of the run, and the toast
-  names the voice. (FR-transcribe-56)
+  names the voice. (FR-transcribe-62)
 
 ## Out of scope
 

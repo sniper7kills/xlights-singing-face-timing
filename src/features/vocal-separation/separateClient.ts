@@ -1,4 +1,9 @@
-import type { SeparateMessage, SeparateRequest, StereoAudio } from './protocol.ts'
+import type {
+  SeparateMessage,
+  SeparateRequest,
+  SeparationModelId,
+  StereoAudio,
+} from './protocol.ts'
 import type { SeparationFailureKind } from './separationFailure.ts'
 
 declare global {
@@ -38,6 +43,8 @@ export type SeparateHandlers = {
   onProgress?: (doneMs: number, totalMs: number) => void
   /** Stops the separation. The client then terminates the worker. */
   signal?: AbortSignal
+  /** The model of the run. With no model, the worker uses 'spleeter'. */
+  model?: SeparationModelId
 }
 
 function createDefaultWorker(): SeparateWorkerLike {
@@ -98,7 +105,7 @@ export function separateVocals(
     }
     // Two channels can share one buffer, and a transfer list that names a buffer two times throws.
     const transfer = [...new Set([audio.left.buffer, audio.right.buffer])]
-    worker.postMessage({ type: 'separate', runId, audio }, transfer)
+    worker.postMessage({ type: 'separate', runId, audio, model: handlers.model }, transfer)
   })
 }
 
