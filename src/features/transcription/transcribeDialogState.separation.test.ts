@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { SeparateError } from '../vocal-separation/separateClient.ts'
 import {
+  DEMUCS_WASM_WARNING,
   type DialogState,
   IDLE,
   progressText,
@@ -8,6 +9,7 @@ import {
   type RunState,
   SEPARATION_COPY,
   separationErrorMessage,
+  separationModelLabel,
   separationNote,
   shownRunState,
   stateLabel,
@@ -74,6 +76,7 @@ describe('the separation states of the transcribe dialog', () => {
     expect(state).toEqual({
       status: 'separation-failed',
       message: SEPARATION_COPY.memory,
+      fastModel: false,
       resume: running,
     })
     expect(shownRunState(state)).toEqual(running)
@@ -129,5 +132,58 @@ describe('separationNote', () => {
     expect(separationNote('whisper.test')).toBe(
       'The app removes the instruments before it finds the words. This step downloads a model of 79 MB one time and adds time to the run. The app separates the vocals in this browser, and then sends the vocals to whisper.test.',
     )
+  })
+})
+
+describe('the separation model of the transcribe dialog', () => {
+  const running: RunState = { status: 'separating', doneMs: 1000, totalMs: 2000 }
+
+  it('labels each model choice with the download size of the model list', () => {
+    expect(separationModelLabel('spleeter')).toBe('Fast (Spleeter, 79 MB)')
+    expect(separationModelLabel('demucs')).toBe('Demucs, experimental (181 MB, much slower)')
+  })
+
+  it('states the download size of the selected model in the note', () => {
+    expect(separationNote(null, 'demucs')).toContain('downloads a model of 181 MB one time')
+    expect(separationNote(null)).toContain('downloads a model of 79 MB one time')
+  })
+
+  it('names Demucs in the load and download steps of a Demucs run', () => {
+    expect(progressText({ status: 'separation-loading' }, 3000, '', 'demucs')).toBe(
+      'Loading Demucs vocal separation model, 0:03 elapsed',
+    )
+    expect(stateLabel({ status: 'separation-downloading', percent: 42 }, '', 'demucs')).toBe(
+      'Downloading Demucs vocal separation model',
+    )
+  })
+
+  it('has the warning text of the feature file', () => {
+    expect(DEMUCS_WASM_WARNING).toBe(
+      'Demucs needs about 4 GB of memory and several minutes for a song on this browser.',
+    )
+  })
+
+  it('offers the fast model after a memory failure of Demucs', () => {
+    const state = transcribeDialogReducer(running, {
+      type: 'confirm-no-separation',
+      error: new SeparateError('memory', 'std::bad_alloc'),
+      model: 'demucs',
+    })
+
+    expect(state).toMatchObject({ status: 'separation-failed', fastModel: true })
+    expect(state).toMatchObject({ message: SEPARATION_COPY.memory })
+  })
+
+  it.each<['spleeter' | 'demucs', 'memory' | 'model']>([
+    ['spleeter', 'memory'],
+    ['demucs', 'model'],
+  ])('does not offer the fast model after a %s failure of kind %s', (model, kind) => {
+    const state = transcribeDialogReducer(running, {
+      type: 'confirm-no-separation',
+      error: new SeparateError(kind, 'detail'),
+      model,
+    })
+
+    expect(state).toMatchObject({ status: 'separation-failed', fastModel: false })
   })
 })

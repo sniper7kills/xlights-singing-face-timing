@@ -16,17 +16,24 @@ import { DEFAULT_SETTINGS, loadSettings, updateSettings } from '../../store/sett
 import type { AppSettings, DeviceSpeeds, TranscribeSource } from '../../store/types.ts'
 import { hasWebGpu, pickDevice, withFailureTimes, withSpeed } from './device.ts'
 import { parseLyrics, parseSectionTags } from './phrases.ts'
+import {
+  isSeparationModelId,
+  SEPARATION_MODELS,
+} from '../vocal-separation/engine/separationModels.ts'
+import type { SeparationModelId } from '../vocal-separation/protocol.ts'
 import { type Device, SPEECH_MODELS } from './protocol.ts'
 import { RemoteEndpointPanel } from './RemoteEndpointPanel.tsx'
 import {
   type RunStage,
   runTranscription,
+  type SeparationAnswer,
   type TranscribeMode,
   type TranscribeOutcome,
   type TranscribeRequest,
 } from './runTranscription.ts'
 import { createTranscribeClient, type TranscribeClient } from './transcribeClient.ts'
 import {
+  DEMUCS_WASM_WARNING,
   type DialogEvent,
   type DialogState,
   deviceLine,
@@ -42,6 +49,8 @@ import {
   progressValue,
   remoteWarning,
   type RunSpeed,
+  type RunState,
+  separationModelLabel,
   separationNote,
   runSpeed,
   shownRunState,
@@ -86,6 +95,7 @@ export function TranscribeDialog({
   const [lyricsOnly, setLyricsOnly] = useState(false)
   const [tagSections, setTagSections] = useState(true)
   const [separate, setSeparate] = useState(DEFAULT_SETTINGS.separateVocals)
+  const [separationModel, setSeparationModel] = useState(DEFAULT_SETTINGS.separationModel)
   const [range, setRange] = useState<TimeRange | undefined>(undefined)
   const remote = useRemoteChoice()
   const { restore } = remote
@@ -111,6 +121,8 @@ export function TranscribeDialog({
         if (SPEECH_MODELS.some((model) => model.id === settings.speechModelId))
           setSpeechModelId(settings.speechModelId)
         setSeparate(settings.separateVocals)
+        if (isSeparationModelId(settings.separationModel))
+          setSeparationModel(settings.separationModel)
         restore(settings)
       })
     if (dialogRef.current !== null) tabStops(dialogRef.current)[0]?.focus()
@@ -140,6 +152,12 @@ export function TranscribeDialog({
     void updateSettings({ separateVocals: checked }).catch(() => undefined)
   }
 
+  function selectSeparationModel(model: SeparationModelId) {
+    setSeparationModel(model)
+    // The choice applies to this run even when the browser storage is full.
+    void updateSettings({ separationModel: model }).catch(() => undefined)
+  }
+
   function start() {
     void run.start({
       voiceId,
@@ -150,6 +168,7 @@ export function TranscribeDialog({
       remote: usesRemote ? remote.endpoint : undefined,
       addSections: hasTags && tagSections,
       separateVocals: !lyricsOnly && separate,
+      separationModel,
     })
   }
 
@@ -235,6 +254,9 @@ export function TranscribeDialog({
             remote={usesRemote}
             host={remote.host}
             onChange={selectSeparate}
+            model={separationModel}
+            webgpu={run.webgpu}
+            onModelChange={selectSeparationModel}
           />
           <fieldset className="choice-group">
             <legend>Range</legend>
@@ -304,10 +326,27 @@ type SeparateChoiceProps = {
   /** The host of the stored remote endpoint, or null when the person has stored none. */
   host: string | null
   onChange: (checked: boolean) => void
+  /** The selected vocal separation model. */
+  model: SeparationModelId
+  /** True when the browser gives a WebGPU adapter, or null before the check ends. */
+  webgpu: boolean | null
+  onModelChange: (model: SeparationModelId) => void
 }
 
-/** Shows the check box "Separate the vocals first" and the note that tells where the audio goes. */
-function SeparateChoice({ shown, checked, remote, host, onChange }: SeparateChoiceProps) {
+/**
+ * Shows the check box "Separate the vocals first", the note that tells where the audio goes, and the "Separation model" choice.
+ * The choice shows only with the check box on.
+ */
+function SeparateChoice({
+  shown,
+  checked,
+  remote,
+  host,
+  onChange,
+  model,
+  webgpu,
+  onModelChange,
+}: SeparateChoiceProps) {
   const noteId = useId()
   if (!shown) return null
   return (
@@ -322,8 +361,42 @@ function SeparateChoice({ shown, checked, remote, host, onChange }: SeparateChoi
         Separate the vocals first
       </label>
       <p id={noteId} className="dialog-note">
-        {separationNote(remote ? host : null)}
+        {separationNote(remote ? host : null, model)}
       </p>
+      {checked && <SeparationModelChoice model={model} webgpu={webgpu} onChange={onModelChange} />}
+    </>
+  )
+}
+
+type SeparationModelChoiceProps = {
+  model: SeparationModelId
+  /** True when the browser gives a WebGPU adapter, or null before the check ends. */
+  webgpu: boolean | null
+  onChange: (model: SeparationModelId) => void
+}
+
+/** Shows the "Separation model" choice, and the Demucs warning when the browser gives no WebGPU adapter. */
+function SeparationModelChoice({ model, webgpu, onChange }: SeparationModelChoiceProps) {
+  return (
+    <>
+      <fieldset className="choice-group">
+        <legend>Separation model</legend>
+        {SEPARATION_MODELS.map(({ id }) => (
+          <label key={id} className="choice">
+            <input
+              type="radio"
+              name="separation-model"
+              value={id}
+              checked={model === id}
+              onChange={() => onChange(id)}
+            />
+            {separationModelLabel(id)}
+          </label>
+        ))}
+      </fieldset>
+      {model === 'demucs' && webgpu === false && (
+        <p className="dialog-confirm">{DEMUCS_WASM_WARNING}</p>
+      )}
     </>
   )
 }
@@ -481,6 +554,8 @@ type RunMeter = {
   speed: RunSpeed | null
   /** True after the watchdog moved the run from WebGPU to `wasm`. */
   slowDevice: boolean
+  /** The vocal separation model of the run. "Use the fast model" changes it to Spleeter. */
+  separationModel: SeparationModelId
 }
 
 /** Returns the meter after a step of the run. A new start of the run in the worker measures the speed again. */
@@ -506,7 +581,7 @@ function useTranscribeRun(onDone: (outcome: TranscribeOutcome) => void) {
   const [meter, setMeter] = useState<RunMeter | null>(null)
   const clientRef = useRef<TranscribeClient | null>(null)
   const runRef = useRef<AbortController | null>(null)
-  const answerRef = useRef<((value: boolean) => void) | null>(null)
+  const answerRef = useRef<((value: SeparationAnswer) => void) | null>(null)
   const speedsRef = useRef<Record<string, DeviceSpeeds>>({})
   const speechModelRef = useRef('')
 
@@ -570,11 +645,12 @@ function useTranscribeRun(onDone: (outcome: TranscribeOutcome) => void) {
       const send = (event: DialogEvent) => {
         if (!controller.signal.aborted) dispatch(event)
       }
-      const ask = (event: DialogEvent) =>
-        new Promise<boolean>((resolve) => {
+      const askAnswer = (event: DialogEvent) =>
+        new Promise<SeparationAnswer>((resolve) => {
           answerRef.current = resolve
           send(event)
         })
+      const ask = (event: DialogEvent) => askAnswer(event).then((value) => value === true)
       setMeter({
         mode: request.mode,
         host: request.remote === undefined ? null : endpointHost(request.remote.baseUrl),
@@ -582,6 +658,7 @@ function useTranscribeRun(onDone: (outcome: TranscribeOutcome) => void) {
         runAtMs: null,
         speed: null,
         slowDevice: false,
+        separationModel: request.separationModel ?? 'spleeter',
       })
       send({ type: 'start', mode: request.mode })
       try {
@@ -593,7 +670,8 @@ function useTranscribeRun(onDone: (outcome: TranscribeOutcome) => void) {
             send({ type: 'separation-download', percent: downloadPercent(loaded, total) }),
           onSeparationProgress: (doneMs, totalMs) =>
             send({ type: 'separation-progress', doneMs, totalMs }),
-          confirmNoSeparation: (error) => ask({ type: 'confirm-no-separation', error }),
+          confirmNoSeparation: (error, model) =>
+            askAnswer({ type: 'confirm-no-separation', error, model }),
           onUpload: (loaded, total) =>
             send({ type: 'upload', percent: downloadPercent(loaded, total) }),
           onStage: (stage) => {
@@ -620,9 +698,11 @@ function useTranscribeRun(onDone: (outcome: TranscribeOutcome) => void) {
     [onDone, webgpu],
   )
 
-  function answer(value: boolean) {
+  function answer(value: SeparationAnswer) {
     const resolve = answerRef.current
     answerRef.current = null
+    if (value === 'fast-model')
+      setMeter((current) => current && { ...current, separationModel: 'spleeter' })
     dispatch({ type: 'answer' })
     resolve?.(value)
   }
@@ -672,6 +752,17 @@ type ProgressAreaProps = {
   meter: RunMeter | null
 }
 
+/** Returns the progress text and the live region text of a run state, or two empty texts when no run is active. */
+function runTexts(runState: RunState | null, elapsedMs: number, meter: RunMeter | null) {
+  if (runState === null) return { progress: '', label: '' }
+  const host = meter?.host ?? ''
+  const model = meter?.separationModel ?? 'spleeter'
+  return {
+    progress: progressText(runState, elapsedMs, host, model),
+    label: stateLabel(runState, host, model),
+  }
+}
+
 /**
  * Shows the progress text and bar of the run, and the message after the watchdog.
  * The text changes each second before the first progress, so the live region holds only the name of the state.
@@ -680,15 +771,12 @@ function ProgressArea({ state, meter }: ProgressAreaProps) {
   const runState = shownRunState(state)
   // The clock runs for the full run. A clock that starts again after the download shows an old elapsed time for up to one second.
   const now = useNow(runState !== null)
-  const elapsedMs = now - (meter?.startedAtMs ?? now)
-  const host = meter?.host ?? ''
+  const texts = runTexts(runState, now - (meter?.startedAtMs ?? now), meter)
   return (
     <div className="dialog-progress">
-      <p className="transcribe-progress">
-        {runState === null ? '' : progressText(runState, elapsedMs, host)}
-      </p>
+      <p className="transcribe-progress">{texts.progress}</p>
       <p className="visually-hidden" role="status" aria-live="polite">
-        {runState === null ? '' : stateLabel(runState, host)}
+        {texts.label}
       </p>
       {runState !== null && <progress aria-hidden="true" max={1} value={progressValue(runState)} />}
       {meter?.slowDevice === true && (
@@ -748,16 +836,7 @@ function DialogActions({ state, run, onRetry, onClose }: DialogActionsProps) {
       </>
     )
   if (state.status === 'separation-failed')
-    return (
-      <>
-        <button type="button" className="button primary" onClick={() => run.answer(true)}>
-          Continue with no separation
-        </button>
-        <button type="button" className="button" onClick={run.cancel}>
-          Cancel
-        </button>
-      </>
-    )
+    return <SeparationFailedActions fastModel={state.fastModel} run={run} />
   return (
     <>
       {state.status === 'error' && (
@@ -767,6 +846,29 @@ function DialogActions({ state, run, onRetry, onClose }: DialogActionsProps) {
       )}
       <button type="button" className="button" onClick={onClose}>
         Close
+      </button>
+    </>
+  )
+}
+
+/** Shows the actions after a failed vocal separation. "Use the fast model" shows only after a Demucs memory failure. */
+function SeparationFailedActions({ fastModel, run }: { fastModel: boolean; run: TranscribeRun }) {
+  return (
+    <>
+      {fastModel && (
+        <button type="button" className="button primary" onClick={() => run.answer('fast-model')}>
+          Use the fast model
+        </button>
+      )}
+      <button
+        type="button"
+        className={fastModel ? 'button' : 'button primary'}
+        onClick={() => run.answer(true)}
+      >
+        Continue with no separation
+      </button>
+      <button type="button" className="button" onClick={run.cancel}>
+        Cancel
       </button>
     </>
   )

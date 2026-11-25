@@ -365,6 +365,33 @@ body.rv-open .layout { padding-right:21rem; }
 </li>
 </ul>
 <p>with no separation, or cancels it.</p>
+<ul>
+<li>FR-transcribe-47 — With "Separate the vocals first" on, the dialog shows the
+</li>
+</ul>
+<p>choice "Separation model". The default is "Fast (Spleeter, 79 MB)".</p>
+<ul>
+<li>FR-transcribe-48 — The app remembers the last choice of "Separation model".
+</li>
+<li>FR-transcribe-49 — The app downloads the Demucs model only for a run with Demucs
+</li>
+</ul>
+<p>selected.</p>
+<ul>
+<li>FR-transcribe-50 — The Demucs engine uses the <code>webgpu</code> device when the separate
+</li>
+</ul>
+<p>worker gets a WebGPU adapter. Else it uses the <code>wasm</code> device.</p>
+<ul>
+<li>FR-transcribe-51 — With Demucs selected and no WebGPU adapter, the dialog shows a
+</li>
+</ul>
+<p>memory and time warning before the run.</p>
+<ul>
+<li>FR-transcribe-52 — After a memory failure of Demucs, the person can run the
+</li>
+</ul>
+<p>vocal separation again with the fast model.</p>
 <h3 id="transcription-user-flows">User flows</h3>
 <h4 id="transcription-transcribe-a-song">Transcribe a song</h4>
 <div class="diagram"><pre class="mermaid">sequenceDiagram
@@ -493,6 +520,11 @@ body.rv-open .layout { padding-right:21rem; }
 </li>
 </ol>
 <p>no separation" and "Cancel". "Continue with no separation" goes on with the audio of the song.</p>
+<ol>
+<li>If Demucs fails for memory, the dialog also shows "Use the fast model". "Use the
+</li>
+</ol>
+<p>fast model" runs the vocal separation again with Spleeter.</p>
 <h4 id="transcription-create-phrases-from-lyrics-without-a-speech-model">Create phrases from lyrics without a speech model</h4>
 <ol>
 <li>The person selects "Lyrics only" in the transcribe dialog.
@@ -593,6 +625,15 @@ body.rv-open .layout { padding-right:21rem; }
 </li>
 </ul>
 <p>separation" and "Cancel".</p>
+<p><strong>Separation model.</strong> The choice comes under the note of "Separate the vocals first". It shows only when the check box is on. It is a radio group with two choices. The sizes come from the model list in <code>src/features/vocal-separation/engine/separationModels.ts</code>:</p>
+<ul>
+<li>"Fast (Spleeter, 79 MB)", the default.
+</li>
+<li>"Demucs, experimental (181 MB, much slower)". Nobody ran the Demucs engine in the
+</li>
+</ul>
+<p>built app before issue #122 merged, so the label says "experimental".</p>
+<p>The note under the check box states the size of the selected model. With Demucs selected, the load and download states name the model: "Loading Demucs vocal separation model, 0:03 elapsed" and "Downloading Demucs vocal separation model, 42%". With Demucs selected and no WebGPU adapter in the browser, the dialog shows the warning "Demucs needs about 4 GB of memory and several minutes for a song on this browser." before the run. After a memory failure of Demucs, the separation failed state has three actions: "Use the fast model", "Continue with no separation" and "Cancel".</p>
 <p><strong>Where to transcribe.</strong> The choice "Where to transcribe" comes first in the dialog, with "In this browser" and "Remote endpoint". "Lyrics only" disables the choice, because a lyrics-only run sends no audio.</p>
 <p>With "Remote endpoint" selected:</p>
 <ul>
@@ -800,6 +841,11 @@ body.rv-open .layout { padding-right:21rem; }
 </ul>
 <p>vocals first".</p>
 <ul>
+<li>Reads and writes <code>APP_SETTINGS.separationModel</code> (<code>'spleeter' | 'demucs'</code>), the
+</li>
+</ul>
+<p>last choice of "Separation model". A value that the app does not know gives <code>'spleeter'</code>.</p>
+<ul>
 <li>Reads and writes <code>APP_SETTINGS.deviceSpeeds</code>: for each speech model, the measured
 </li>
 </ul>
@@ -954,10 +1000,10 @@ type ErrorKind = 'download' | 'device' | 'memory' | 'unknown'
 { type: 'result'; runId: string; words: TimedWord[] }
 { type: 'error'; runId?: string; kind: ErrorKind; detail: string }</code></pre>
 <p><code>TimedWord</code> is <code>{ text: string; startMs: number; endMs: number }</code>. The client stops a run by terminating the worker, and the next run loads the speech model again from the browser cache.</p>
-<p><strong>Vocal separation, <code>src/workers/separate.worker.ts</code>.</strong> The types are in <code>src/features/vocal-separation/protocol.ts</code>. The client <code>separateVocals(audio, { onDownload, onProgress, signal })</code> starts one worker for each run and terminates it at the end or at "Cancel".</p>
+<p><strong>Vocal separation, <code>src/workers/separate.worker.ts</code>.</strong> The types are in <code>src/features/vocal-separation/protocol.ts</code>. The client <code>separateVocals(audio, { onDownload, onProgress, signal, model })</code> starts one worker for each run and terminates it at the end or at "Cancel". The worker makes the engine of <code>model</code>. A request with no <code>model</code> uses <code>'spleeter'</code>. The Demucs engine and <code>demucs-web</code> are a separate chunk that the worker imports only for <code>'demucs'</code>.</p>
 <pre class="code"><code>interface StereoAudio { left: Float32Array; right: Float32Array; sampleRate: 44100 }
 // to worker (SeparateRequest)
-{ type: 'separate'; runId: number; audio: StereoAudio }
+{ type: 'separate'; runId: number; audio: StereoAudio; model?: 'spleeter' | 'demucs' }
 // from worker (SeparateMessage)
 { type: 'download'; runId: number; loadedBytes: number; totalBytes: number }
 { type: 'progress'; runId: number; doneMs: number; totalMs: number }
@@ -999,6 +1045,10 @@ spreadLyrics(lyrics: string, startMs: number, endMs: number): AlignedPhrase[]</c
 <tr><td>Vocal separation: the model fails, or another failure</td><td>"The vocal separation did not work. Continue with no separation, or cancel." with "Continue with no separation" and "Cancel".</td></tr>
 <tr><td>Vocal separation: the person selects "Cancel" during the step</td><td>The app stops the worker. No mark changes. The dialog goes back to idle with no message.</td></tr>
 <tr><td>Vocal separation: the person selects "Continue with no separation"</td><td>The run goes on with the audio of the song, as with the option off.</td></tr>
+<tr><td>Demucs: out of memory</td><td>The message for out of memory, with "Use the fast model", "Continue with no separation" and "Cancel".</td></tr>
+<tr><td>Demucs: the person selects "Use the fast model"</td><td>The run separates the vocals again with Spleeter. The stored choice does not change.</td></tr>
+<tr><td>Demucs: the <code>webgpu</code> device fails</td><td>The engine runs the model again on the <code>wasm</code> device. The progress starts again at 0.</td></tr>
+<tr><td>Demucs: the model file has the wrong size or SHA-256</td><td>The message for a failed download. The browser cache keeps no copy.</td></tr>
 <tr><td>Remote endpoint: the browser asks for the permission to reach the local network</td><td>The run waits for the answer of the person. If the person refuses, the dialog shows the message for no connection.</td></tr>
 </table></div>
 <h3 id="transcription-acceptance-criteria">Acceptance criteria</h3>
@@ -1153,6 +1203,33 @@ spreadLyrics(lyrics: string, startMs: number, endMs: number): AlignedPhrase[]</c
 </li>
 </ul>
 <p>from the audio of the song. (FR-transcribe-46)</p>
+<ul>
+<li>With the check box on and no stored choice, "Fast (Spleeter, 79 MB)" is selected.
+</li>
+</ul>
+<p>(FR-transcribe-47)</p>
+<ul>
+<li>After a reload, the dialog opens with the last choice of "Separation model".
+</li>
+</ul>
+<p>(FR-transcribe-48)</p>
+<ul>
+<li>With the fast model selected, a run requests no file of the Demucs engine. An E2E
+</li>
+</ul>
+<p>test checks the requests of a run. (FR-transcribe-49)</p>
+<ul>
+<li>With Demucs selected, the dialog shows "181 MB" before the run. (FR-transcribe-49)
+</li>
+<li>With Demucs selected and no WebGPU adapter, the dialog shows the warning before the
+</li>
+</ul>
+<p>run. (FR-transcribe-51)</p>
+<ul>
+<li>After a memory failure of Demucs, "Use the fast model" runs the vocal separation
+</li>
+</ul>
+<p>with Spleeter, and the run goes on. (FR-transcribe-52)</p>
 <h3 id="transcription-out-of-scope">Out of scope</h3>
 <ul>
 <li>Separation of stems other than the vocals.

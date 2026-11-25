@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { createFixtureSeparator, monoMix } from './engine/fixtureSeparator.ts'
-import type { SeparateMessage, StereoAudio } from './protocol.ts'
+import type { SeparateMessage, SeparationModelId, StereoAudio } from './protocol.ts'
 import { SeparationFailure, separationFailureKind } from './separationFailure.ts'
 import type { Separator } from './separator.ts'
 import { serveSeparator } from './serveSeparator.ts'
@@ -13,7 +13,7 @@ const audio: StereoAudio = {
 
 function serve(separator: Separator) {
   const posted: { message: SeparateMessage; transfer?: Transferable[] }[] = []
-  const createEngine = vi.fn(() => separator)
+  const createEngine = vi.fn<(model: SeparationModelId) => Separator>(() => separator)
   const handle = serveSeparator(createEngine, (message, transfer) =>
     posted.push({ message, transfer }),
   )
@@ -51,6 +51,22 @@ describe('serveSeparator', () => {
     await handle({ type: 'separate', runId: 2, audio })
 
     expect(createEngine).toHaveBeenCalledTimes(1)
+  })
+
+  it('makes the engine of the model of the request', async () => {
+    const { handle, createEngine } = serve({ separate: async () => new Float32Array(1) })
+
+    await handle({ type: 'separate', runId: 1, audio, model: 'demucs' })
+
+    expect(createEngine).toHaveBeenCalledExactlyOnceWith('demucs')
+  })
+
+  it('makes the Spleeter engine for a request with no model', async () => {
+    const { handle, createEngine } = serve({ separate: async () => new Float32Array(1) })
+
+    await handle({ type: 'separate', runId: 1, audio })
+
+    expect(createEngine).toHaveBeenCalledExactlyOnceWith('spleeter')
   })
 
   it('ignores a message that is not a request', async () => {

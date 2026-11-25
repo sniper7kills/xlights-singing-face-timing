@@ -7,6 +7,7 @@ import { encodeWav } from '../../lib/remote/wav.ts'
 import type { TimeRange } from '../../lib/time/timeRange.ts'
 import { getAudioFile } from '../../store/db.ts'
 import { DictionaryLoadError } from '../phoneme-breakdown/loadDictionary.ts'
+import type { SeparationModelId } from '../vocal-separation/protocol.ts'
 import { separateVocals } from '../vocal-separation/separateClient.ts'
 import { decodeStereo, vocalsForSpeech } from '../vocal-separation/separationAudio.ts'
 import { useSongStore } from '../../store/songStore.ts'
@@ -54,7 +55,17 @@ export type TranscribeRequest = {
    * A lyrics-only run does not read it. Without it, the run uses the audio of the song.
    */
   separateVocals?: boolean
+  /** The vocal separation model of the run. Without it, the run uses 'spleeter'. */
+  separationModel?: SeparationModelId
 }
+
+/**
+ * The answer of the person after a failed vocal separation.
+ * - `true`: "Continue with no separation". The run uses the audio of the song.
+ * - `false`: "Cancel".
+ * - `'fast-model'`: "Use the fast model". The run separates the vocals again with Spleeter.
+ */
+export type SeparationAnswer = boolean | 'fast-model'
 
 /** The result of a run, for the toast "214 words, 9 estimated". */
 export type TranscribeOutcome = {
@@ -117,7 +128,7 @@ export type TranscribeRunHandlers = {
    * Resolves true for "Continue with no separation". The run then uses the audio of the song.
    * @param error The failure of the vocal separation. `SeparateError` gives its cause.
    */
-  confirmNoSeparation: (error: unknown) => Promise<boolean>
+  confirmNoSeparation: (error: unknown, model: SeparationModelId) => Promise<SeparationAnswer>
 }
 
 /** The speech model or the lyrics gave no word. */
@@ -315,21 +326,26 @@ async function findWords(
  * Returns the audio of the run as one channel at the speech model sample rate.
  * With `separateVocals`, the samples are the vocals. A range run separates only the audio of the range.
  * If the separation fails and the person selects "Continue with no separation", the samples are the audio of the song.
+ * If the person selects "Use the fast model", the step runs again with Spleeter.
+ * @param model The vocal separation model of this attempt.
  * Rejects as cancelled when the signal aborts or the person declines to continue.
  */
 async function speechSamples(
   request: TranscribeRequest,
   audio: Blob,
   handlers: TranscribeRunHandlers,
+  model: SeparationModelId = request.separationModel ?? 'spleeter',
 ): Promise<Float32Array> {
   if (request.separateVocals !== true) return resampleForSpeech(audio, request.range)
   try {
-    return await separatedSamples(audio, request.range, handlers)
+    return await separatedSamples(audio, request.range, model, handlers)
   } catch (error) {
     // A cancel during the step also rejects the separation, and it must not ask the person.
     stopIfCancelled(handlers.signal)
-    if (!(await handlers.confirmNoSeparation(error))) throw declined()
+    const answer = await handlers.confirmNoSeparation(error, model)
+    if (answer === false) throw declined()
     stopIfCancelled(handlers.signal)
+    if (answer === 'fast-model') return speechSamples(request, audio, handlers, 'spleeter')
     handlers.onStage('preparing')
     return resampleForSpeech(audio, request.range)
   }
@@ -339,6 +355,7 @@ async function speechSamples(
 async function separatedSamples(
   audio: Blob,
   range: TimeRange | undefined,
+  model: SeparationModelId,
   handlers: TranscribeRunHandlers,
 ): Promise<Float32Array> {
   const { signal } = handlers
@@ -348,6 +365,7 @@ async function separatedSamples(
   let separating = false
   const vocals = await separateVocals(stereo, {
     signal,
+    model,
     onDownload: handlers.onSeparationDownload,
     onProgress: (doneMs, totalMs) => {
       // The protocol has no message for the end of the model load, so the first progress starts the step.
