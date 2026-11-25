@@ -130,6 +130,8 @@ export function EditorPage({ songId }: EditorPageProps) {
 
   const openTranscribeDialog = useCallback(() => {
     opener.current = document.activeElement instanceof HTMLElement ? document.activeElement : null
+    // The toast of the last run stays until the person closes it or starts a new run.
+    setToast(null)
     setDialogOpen(true)
   }, [])
 
@@ -295,7 +297,7 @@ export function EditorPage({ songId }: EditorPageProps) {
             text={toast.text}
             reportStored={toast.reportStored}
             songId={songId}
-            onDone={hideToast}
+            onClose={hideToast}
           />
         )}
       </section>

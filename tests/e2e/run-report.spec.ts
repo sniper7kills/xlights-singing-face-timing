@@ -1,5 +1,6 @@
 import { expect, type Page, test } from '@playwright/test'
-import { reportToText, type RunReport } from '../../src/lib/runReport/runReport.ts'
+import { reportToText } from '../../src/lib/runReport/reportText.ts'
+import type { RunReport } from '../../src/lib/runReport/runReport.ts'
 
 // The fixture workers download no model. The transcribe fixture returns the 16 demo song words in 3 phrases.
 // The singers fixture gives two singers and diagnostics with three raw groups.
@@ -93,7 +94,7 @@ test('a run with separation and singer voices keeps a report with the singer sec
   expect(report?.voices.map((voice) => voice.name)).toEqual(['Lead Vocals', 'Singer 2'])
 
   const text = report === undefined ? '' : reportToText(report)
-  expect(text).toContain('[Singers]\nStep: split\n')
+  expect(text).toContain('[Summary]\nThe app found 2 singers and put the phrases on 2 voices.\n')
   const stored = JSON.stringify(run)
   for (const word of LYRIC_WORDS) {
     expect(text).not.toContain(word)

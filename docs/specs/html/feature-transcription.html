@@ -560,8 +560,11 @@ body.rv-open .layout { padding-right:21rem; }
 </ul>
 <p>shows a "Run report" link.</p>
 <ul>
-<li>FR-transcribe-84 — The toast stays while its link has the focus.
+<li>FR-transcribe-84 — The toast after a run stays until the person selects "Close"
 </li>
+</ul>
+<p>or starts a new run. It takes no focus, and its text is a polite status.</p>
+<ul>
 <li>FR-transcribe-85 — "Run report" opens the run report panel. The panel shows the
 </li>
 </ul>
@@ -813,6 +816,52 @@ body.rv-open .layout { padding-right:21rem; }
 </li>
 </ul>
 <p>time do not show.</p>
+<h4 id="transcription-voices-of-the-last-run-issues-173-and-174">Voices of the last run (issues #173 and #174)</h4>
+<ul>
+<li>FR-transcribe-146 — The run data stores the id of each voice that the run wrote
+</li>
+</ul>
+<p>marks to, with the singer numbers of that voice.</p>
+<ul>
+<li>FR-transcribe-147 — The run report panel shows the present name of each voice of
+</li>
+</ul>
+<p>the run. It shows "&lt;name&gt; (deleted)" for a voice that the song no longer has. The stored report does not change.</p>
+<ul>
+<li>FR-transcribe-148 — A run with "Put each singer on its own voice" replaces the
+</li>
+</ul>
+<p>marks in the range of each voice that the singer step of the last run added, also after a rename.</p>
+<ul>
+<li>FR-transcribe-149 — The replace question names each voice that loses marks, and
+</li>
+</ul>
+<p>its count is the sum of the marks of those voices.</p>
+<ul>
+<li>FR-transcribe-150 — A run with no singer step leaves the singer voices of the last
+</li>
+</ul>
+<p>run as they are, and the replace question states it.</p>
+<h4 id="transcription-summary-of-the-run-report-issue-176">Summary of the run report (issue #176)</h4>
+<ul>
+<li>FR-transcribe-151 — The "Singers" section of the run report starts with a
+</li>
+</ul>
+<p>summary in plain words: the result, the most probable reason and the next action.</p>
+<ul>
+<li>FR-transcribe-152 — The numbers for a bug report are in a part that folds, with
+</li>
+</ul>
+<p>one sentence for each term.</p>
+<ul>
+<li>FR-transcribe-153 — The copied text of the run report starts with the summary,
+</li>
+</ul>
+<p>and has the labels and the units of the panel.</p>
+<ul>
+<li>FR-transcribe-154 — The toast hides while the run report panel is open.
+</li>
+</ul>
 <h3 id="transcription-user-flows">User flows</h3>
 <h4 id="transcription-transcribe-a-song">Transcribe a song</h4>
 <div class="diagram"><pre class="mermaid">sequenceDiagram
@@ -1032,6 +1081,16 @@ body.rv-open .layout { padding-right:21rem; }
 </ul>
 <p>&lt;end&gt;." with "Continue" and "Cancel". The count is the count of marks of the voice on all layers that overlap the range. The same rule decides that the dialog asks. The times have the form <code>0:01.500</code>. For one mark, the text reads "the 1 mark".</p>
 <ul>
+<li>confirm with the singer voices of the last run (FR-transcribe-149): "The run
+</li>
+</ul>
+<p>replaces &lt;n&gt; marks from &lt;start&gt; to &lt;end&gt;: the marks of "&lt;voice name&gt;", and the marks of "Singer 2" and "Singer 3" from the last run." <code>&lt;n&gt;</code> is the sum of the marks of all named voices. The text names only a singer voice with a mark that overlaps the range. Three names or more read "Singer 2", "Singer 3" and "Singer 4". For one mark, the text reads "1 mark".</p>
+<ul>
+<li>confirm for a run with no singer step on a song with singer voices of the last
+</li>
+</ul>
+<p>run (FR-transcribe-150): the text adds "The voices of the last singer step do not change."</p>
+<ul>
 <li>question: while the dialog asks, the progress area shows no text and no bar,
 </li>
 </ul>
@@ -1205,24 +1264,78 @@ body.rv-open .layout { padding-right:21rem; }
 <p><strong>Run report panel.</strong> A modal dialog with the title "Run report" and the song name. "Escape" and "Close" close it, and the focus goes back to the control that opened it. If that control is gone, the focus goes to "Run report" in the top bar.</p>
 <div class="table-wrap"><table>
 <tr><th>Section</th><th>Content</th><th>Sentence with no data</th></tr>
-<tr><td>Run</td><td>The start time in local time, the build, the source, the host of the remote endpoint, the speech model, the device, the range, the frame size</td><td>—</td></tr>
+<tr><td>Run</td><td>The start time in local time with the UTC time after it, for example "Nov 25, 2026, 12:34:05 AM (2026-11-25 05:34:05 UTC)", the build, the source, the host of the remote endpoint, the speech model, the device, the range, the frame size</td><td>—</td></tr>
 <tr><td>Steps</td><td>A table with the time of each step, and the total</td><td>"The report has no step times."</td></tr>
 <tr><td>Vocal separation</td><td>The separation model, and "Changed to the fast model"</td><td>"The run did not separate the vocals."</td></tr>
-<tr><td>Singers</td><td>The result of the singer step in one sentence. A table of the groups after the clustering. A table of the final singers with the sung time and the count of ranges. The settings in force, the centroid distances, the singer ranges, the phrase rule, the phrase division, the phrases divided, the phrases with no singer and with more than one singer</td><td>"The singer step did not run, because the option was off." or "The singer step did not run, because the run had no separated vocals."</td></tr>
+<tr><td>Singers</td><td>The summary of the singer step (see below). The singers selected, the phrases divided, the singers with one phrase or more, the phrases with no singer, the phrases with more than one singer and the voices made. Then the part "Details for a bug report"</td><td>The summary only</td></tr>
 <tr><td>Voices</td><td>A table: the voice, its count of phrases, and "Made by the run"</td><td>"No voice holds phrases of the run."</td></tr>
 <tr><td>Marks</td><td>Phrases, words, estimated words, unknown words, lyrics lines left out, words left out</td><td>—</td></tr>
 <tr><td>Notes</td><td>Each warning and failure</td><td>"The run had no warning and no failure."</td></tr>
 </table></div>
-<p>The sentence of the singer step:</p>
+<p>Each time in the panel is in seconds with each millisecond and one decimal or more, for example "28.9 s" or "12.34 s".</p>
+<p>The summary of the singer step. The app makes it from the stored report only: the status of the step, the diagnostics, the choice of "Singers" and the counts of the phrases. It holds no lyrics. "The voice of the run" is the voice that the run wrote to.</p>
 <div class="table-wrap"><table>
-<tr><th>Result</th><th>Sentence</th></tr>
-<tr><td><code>split</code></td><td>"The singer step put the phrases on &lt;n&gt; voices."</td></tr>
-<tr><td><code>one-singer</code></td><td>"The singer step found one singer, so all phrases stay on one voice."</td></tr>
-<tr><td><code>capped</code></td><td>"The singer step found more singers than the song has free voices."</td></tr>
-<tr><td><code>failed</code></td><td>"The singer step failed (&lt;cause&gt;). The phrases stay on the voice of the run."</td></tr>
-<tr><td><code>cancelled</code></td><td>"The person cancelled the singer step. The phrases stay on the voice of the run."</td></tr>
+<tr><th>Result</th><th>Summary</th></tr>
+<tr><td>Option off</td><td>"The singer step did not run, because "Put each singer on its own voice" was off. To give each singer a voice, select that option and run again."</td></tr>
+<tr><td>No separated vocals</td><td>"The singer step did not run, because the run had no separated vocals. Select "Separate the vocals first" and run again."</td></tr>
+<tr><td>Failed: download</td><td>"The app could not download the singer model. The phrases stay on the voice of the run. Check the connection and run again."</td></tr>
+<tr><td>Failed: memory</td><td>"This browser did not have enough memory to find the singers. The phrases stay on the voice of the run. Run again on a shorter part of the song."</td></tr>
+<tr><td>Failed: other cause</td><td>"The singer step failed (&lt;cause&gt;). The phrases stay on the voice of the run. Run again. If the step fails again, copy this report into a bug report."</td></tr>
+<tr><td>Cancelled</td><td>"You stopped the singer step. The phrases stay on the voice of the run. Run again to find the singers."</td></tr>
+<tr><td>More singers than free voices</td><td>"The app found &lt;n&gt; singers, more than the song has free voices. A song has 12 voices at most. The singers with no free voice stay on the voice of the run. Delete the voices that you do not use, and run again."</td></tr>
+<tr><td>One singer, "Automatic"</td><td>"The app found 1 singer, so all phrases stay on one voice." Then the reason, then "If the song has more singers, select the count in "Singers" and run again."</td></tr>
+<tr><td>One singer, a count</td><td>"The app found 1 singer, and you selected &lt;n&gt;. All phrases stay on one voice." Then the reason, then "If a phrase is on the wrong voice, use "Move to voice" to correct it."</td></tr>
+<tr><td>Two singers or more</td><td>"The app found &lt;n&gt; singers and put the phrases on &lt;k&gt; voices." Then the sentences for the groups and the phrases, then "If a phrase is on the wrong voice, use "Move to voice" to correct it."</td></tr>
 </table></div>
-<p>With no diagnostics, the sentence adds "The singer search gave no diagnostics."</p>
+<p>The reason for one singer, from the diagnostics:</p>
+<ul>
+<li>If a smaller group joined the first group because it was small or short: "The
+</li>
+</ul>
+<p>app found &lt;n&gt; groups of voice prints, but the parts of other singers were short. So the app joined them with the first singer."</p>
+<ul>
+<li>Else, if the closest centroid distance is less than the merge threshold: "The
+</li>
+</ul>
+<p>singers sound alike to the app, so the app joined them into one singer."</p>
+<ul>
+<li>Else: "All voice prints of the song are close to each other. If the song has more
+</li>
+</ul>
+<p>singers, they sound alike to the app."</p>
+<ul>
+<li>With no diagnostics, the summary gives no reason.
+</li>
+</ul>
+<p>The sentences for the groups and the phrases, each only when its count is more than 0:</p>
+<ul>
+<li>More groups than the selected count: "The app found &lt;n&gt; groups of voice prints,
+</li>
+</ul>
+<p>and you selected &lt;k&gt;. The app joined the groups that sound most alike."</p>
+<ul>
+<li>"The app divided &lt;n&gt; phrases where the singer changes."
+</li>
+<li>"&lt;n&gt; phrases had more than one singer, so each voice of those singers got a copy."
+</li>
+<li>"&lt;n&gt; phrases had no singer, so they stay on the voice of the run."
+</li>
+</ul>
+<p><strong>Details for a bug report.</strong> A part that folds, closed by default, at the end of the "Singers" section. It holds the result of the step (for example <code>split</code> or <code>failed (memory)</code>), the singer ranges, the phrase rule, the phrase division, the singer diagnostics, the table of the groups after the clustering and the table of the final singers. With no diagnostics, it shows "Diagnostics: none: the singer search gave no numbers". Under the heading "Terms", one sentence explains each term:</p>
+<div class="table-wrap"><table>
+<tr><th>Term</th><th>Sentence</th></tr>
+<tr><td>Voice print (embedding)</td><td>"A list of numbers that the app computes from a short part of the vocals to describe the voice in it."</td></tr>
+<tr><td>Window</td><td>"A part of 10 seconds of the vocals that the app reads at one time."</td></tr>
+<tr><td>Frame with a singer</td><td>"A short step of a window in which one or more singers sing."</td></tr>
+<tr><td>Sung time</td><td>"The time in which one or more singers sing."</td></tr>
+<tr><td>Group</td><td>"A set of voice prints that are close to each other, so the app takes them as one singer."</td></tr>
+<tr><td>Merge threshold</td><td>"The app puts two groups together when the distance between their centres is less than this value."</td></tr>
+<tr><td>Centroid distance</td><td>"The distance between the centres of two groups, where a small distance means that two voices sound alike."</td></tr>
+<tr><td>Minimum group size</td><td>"A group with fewer voice prints than this value joins the closest larger group."</td></tr>
+<tr><td>Highest count of singers</td><td>"The largest count of singers that the app keeps."</td></tr>
+<tr><td>Short singer limits</td><td>"A singer with less sung time than one of these limits joins another singer."</td></tr>
+<tr><td>Singer range</td><td>"A time range in which one singer sings."</td></tr>
+</table></div>
 <p>The buttons: "Copy report", "Download report" and "Close". After a copy, a polite status line shows "The report is on the clipboard." If the browser refuses the copy, the status line shows "Press Ctrl+C to copy."</p>
 <h3 id="transcription-behaviour-rules">Behaviour rules</h3>
 <ul>
@@ -1366,6 +1479,40 @@ body.rv-open .layout { padding-right:21rem; }
 </li>
 </ul>
 </li>
+<li><strong>Singer voices of the last run</strong> (issue #174):
+<ul>
+<li>The singer voices of the last run are the voices that the singer step of the
+</li>
+</ul>
+</li>
+</ul>
+<p>last run added and that the song still has. The app finds them by the voice ids of the run data, so a renamed voice is still such a voice. Run data from before issue #173 has no ids, so the app finds them by the names in the report.</p>
+<ul>
+<li>The voice of the new run is never a singer voice of the last run, also when
+</li>
+</ul>
+<p>the last run added it.</p>
+<ul>
+<li>A speech model run with "Put each singer on its own voice" replaces the marks
+</li>
+</ul>
+<p>in the range of each singer voice of the last run, by the range rules above. Marks that the person added by hand inside the range go too.</p>
+<ul>
+<li>A singer voice of the last run with no mark left after the replace goes. So
+</li>
+</ul>
+<p>the singer step of the run can use the name "Singer 2" again. A singer voice with marks outside the range stays, and the new singer voices get the next free names.</p>
+<ul>
+<li>The replace of all voices and the removed voices are one undo step with the
+</li>
+</ul>
+<p>marks of the run. The undo steps of the run in order are: the singer step, the sections of the tags, then the marks with the replace. Each undo restores the song exactly, with the ids, the order, the colours and the mute state of each voice.</p>
+<ul>
+<li>A run with no singer step leaves the singer voices of the last run as they
+</li>
+</ul>
+<p>are. A lyrics-only run has no singer step.</p>
+<ul>
 <li>The worker handles one run at a time. The "Transcribe" action is disabled during
 </li>
 </ul>
@@ -1418,10 +1565,15 @@ body.rv-open .layout { padding-right:21rem; }
 </ul>
 <h3 id="transcription-data-touched">Data touched</h3>
 <ul>
-<li>Writes <code>RUN_DATA</code> for the song at the end of each completed run: the audio
+<li>Writes <code>RUN_DATA</code> for the song at the end of each completed run: the voices of
 </li>
 </ul>
-<p>tracks, the singer ranges and the run report. A new run replaces the full record.</p>
+<p>the run, the audio tracks, the singer ranges and the run report. A new run replaces the full record.</p>
+<ul>
+<li>Reads <code>RUN_DATA</code> before the replace question, for the singer voices of the last
+</li>
+</ul>
+<p>run.</p>
 <ul>
 <li>Reads and writes <code>APP_SETTINGS.keepTracks</code>, the last choice of "Keep the separated
 </li>
@@ -1690,18 +1842,15 @@ spreadLyrics(lyrics: string, startMs: number, endMs: number): AlignedPhrase[]</c
 <tr><td>Remote endpoint: the browser asks for the permission to reach the local network</td><td>The run waits for the answer of the person. If the person refuses, the dialog shows the message for no connection.</td></tr>
 </table></div>
 <h3 id="transcription-run-report">Run report</h3>
-<p>The report has these sections. <code>reportToText</code> writes them in this order. Each section starts with a heading line in brackets.</p>
+<p>The copied text ("Copy report", "Download report" and <code>report.txt</code> of the zip file) is the bug report. <code>reportToText</code> writes it from the sections of the panel, so it has the same labels, the same values and the same units as the panel.</p>
 <div class="table-wrap"><table>
-<tr><th>Section</th><th>Facts</th></tr>
-<tr><td>Header</td><td>"Transcribe run report", the start time of the run (ISO 8601)</td></tr>
-<tr><td><code>[Run]</code></td><td>The build of the app, source (<code>browser</code> or <code>remote</code>), the host of the remote endpoint, the mode, the speech model, the device, the range in ms, the frame size in ms</td></tr>
-<tr><td><code>[Vocal separation]</code></td><td>The separation model of the vocals (<code>spleeter</code>, <code>demucs</code> or <code>none</code>), "Changed to the fast model" (<code>yes</code> or <code>no</code>), "Audio tracks" (the count), "Tracks kept" (<code>yes</code> or <code>no</code>). A report from before issue #129 gives <code>not known</code> for the last two.</td></tr>
-<tr><td><code>[Counts]</code></td><td>Phrases, words, estimated words, unknown words, lyrics lines left out, words left out. A report from before issue #163 gives <code>not known</code> for the last two.</td></tr>
-<tr><td><code>[Voices]</code></td><td>Each voice that holds phrases of the run, with its count of phrases. A voice that the singer step made has ", made by the run".</td></tr>
-<tr><td><code>[Singers]</code></td><td>The result of the singer step, the choice of "Singers" ("Singers selected": <code>Automatic</code>, the count, or <code>not recorded</code>), the singer diagnostics, the singer ranges, the phrase rule, the phrase division, the phrases divided, the singers with one phrase or more, the phrases with no singer range, the phrases with more than one singer, the voices made</td></tr>
-<tr><td><code>[Step times]</code></td><td>The time of each step that ran, in ms</td></tr>
-<tr><td><code>[Warnings and failures]</code></td><td>One line for each warning or failure, for example "separation failed: memory; continued with the fast model"</td></tr>
+<tr><th>Part</th><th>Content</th></tr>
+<tr><td>Header</td><td>"Transcribe run report"</td></tr>
+<tr><td><code>[Summary]</code></td><td>The summary of the singer step, one sentence for each line</td></tr>
+<tr><td>One part for each section of the panel</td><td>A heading line in brackets, for example <code>[Run]</code>. Then the sentence of the section, except the summary. Then each table with its caption and aligned columns, each fact as "&lt;label&gt;: &lt;value&gt;", and each warning. The start time is the local time and the UTC time.</td></tr>
+<tr><td>"Details for a bug report:"</td><td>In the <code>[Singers]</code> part: each fact and each table of the details part. A table with no row shows "&lt;caption&gt;: none".</td></tr>
 </table></div>
+<p>A report from before issue #129 gives <code>not known</code> for "Audio tracks" and "Tracks kept". A report from before issue #163 gives <code>not known</code> for the lyrics lines and the words left out.</p>
 <h4 id="transcription-singer-diagnostics">Singer diagnostics</h4>
 <p>The singer search counts these numbers with no extra model call:</p>
 <ul>
@@ -2025,6 +2174,26 @@ spreadLyrics(lyrics: string, startMs: number, endMs: number): AlignedPhrase[]</c
 <ul>
 <li>The link in the toast opens the run report panel. (FR-transcribe-83)
 </li>
+<li>A report of a run that gave one voice with the singer option states the probable
+</li>
+</ul>
+<p>reason and the next action in its first lines. (FR-transcribe-151)</p>
+<ul>
+<li>Each term of the details part has one sentence that explains it.
+</li>
+</ul>
+<p>(FR-transcribe-152)</p>
+<ul>
+<li>The labels and units of the copied text are the same as in the panel.
+</li>
+</ul>
+<p>(FR-transcribe-153)</p>
+<ul>
+<li>The toast stays 20 seconds or more, and it does not cover the panel.
+</li>
+</ul>
+<p>(FR-transcribe-84, 154)</p>
+<ul>
 <li>"Copy report" puts text with the singer section and no word of the lyrics on the
 </li>
 </ul>
@@ -2086,6 +2255,21 @@ spreadLyrics(lyrics: string, startMs: number, endMs: number): AlignedPhrase[]</c
 </li>
 </ul>
 <p><code>tracks/instruments.wav</code> and <code>report.txt</code>. (FR-transcribe-115)</p>
+<ul>
+<li>After a rename of "Singer 2" to "Test Alto", the Voices table of the run report
+</li>
+</ul>
+<p>panel shows "Test Alto". After a delete, it shows "Singer 2 (deleted)". (FR-transcribe-146, 147)</p>
+<ul>
+<li>A second run with the singer step asks "The run replaces &lt;n&gt; marks from &lt;start&gt;
+</li>
+</ul>
+<p>to &lt;end&gt;: the marks of "Lead Vocals", and the marks of "Singer 2" from the last run." (FR-transcribe-148, 149)</p>
+<ul>
+<li>A second run with the singer option off asks with the sentence "The voices of the
+</li>
+</ul>
+<p>last singer step do not change." (FR-transcribe-150)</p>
 <h3 id="transcription-out-of-scope">Out of scope</h3>
 <ul>
 <li>Separation of stems other than the vocals.

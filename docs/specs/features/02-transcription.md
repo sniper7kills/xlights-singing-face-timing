@@ -201,7 +201,8 @@ leaves the browser, and the app shows the host before each run.
   shows the tooltip "No transcribe run for this song yet."
 - FR-transcribe-83 — If the run stored its run report, the toast after the run
   shows a "Run report" link.
-- FR-transcribe-84 — The toast stays while its link has the focus.
+- FR-transcribe-84 — The toast after a run stays until the person selects "Close"
+  or starts a new run. It takes no focus, and its text is a polite status.
 - FR-transcribe-85 — "Run report" opens the run report panel. The panel shows the
   run report of the last run of the song and is read-only.
 - FR-transcribe-86 — The panel shows the sections Run, Steps, Vocal separation,
@@ -327,6 +328,31 @@ leaves the browser, and the app shows the host before each run.
   count of marks that the run replaces.
 - FR-transcribe-145 — While a question shows, the progress bar and the elapsed
   time do not show.
+
+### Voices of the last run (issues #173 and #174)
+
+- FR-transcribe-146 — The run data stores the id of each voice that the run wrote
+  marks to, with the singer numbers of that voice.
+- FR-transcribe-147 — The run report panel shows the present name of each voice of
+  the run. It shows "<name> (deleted)" for a voice that the song no longer has. The
+  stored report does not change.
+- FR-transcribe-148 — A run with "Put each singer on its own voice" replaces the
+  marks in the range of each voice that the singer step of the last run added, also
+  after a rename.
+- FR-transcribe-149 — The replace question names each voice that loses marks, and
+  its count is the sum of the marks of those voices.
+- FR-transcribe-150 — A run with no singer step leaves the singer voices of the last
+  run as they are, and the replace question states it.
+
+### Summary of the run report (issue #176)
+
+- FR-transcribe-151 — The "Singers" section of the run report starts with a
+  summary in plain words: the result, the most probable reason and the next action.
+- FR-transcribe-152 — The numbers for a bug report are in a part that folds, with
+  one sentence for each term.
+- FR-transcribe-153 — The copied text of the run report starts with the summary,
+  and has the labels and the units of the panel.
+- FR-transcribe-154 — The toast hides while the run report panel is open.
 
 ## User flows
 
@@ -492,6 +518,15 @@ fully visible at 1440x900 and at 1024x768 with each option on.
   voice on all layers that overlap the range. The same rule decides that the
   dialog asks. The times have the form `0:01.500`. For one mark, the text reads
   "the 1 mark".
+- confirm with the singer voices of the last run (FR-transcribe-149): "The run
+  replaces <n> marks from <start> to <end>: the marks of "<voice name>", and the
+  marks of "Singer 2" and "Singer 3" from the last run." `<n>` is the sum of the
+  marks of all named voices. The text names only a singer voice with a mark that
+  overlaps the range. Three names or more read "Singer 2", "Singer 3" and
+  "Singer 4". For one mark, the text reads "1 mark".
+- confirm for a run with no singer step on a song with singer voices of the last
+  run (FR-transcribe-150): the text adds "The voices of the last singer step do not
+  change."
 - question: while the dialog asks, the progress area shows no text and no bar,
   because the run waits for the answer.
 - stopped: after a cancel, the dialog goes back to idle and shows "The run stopped.
@@ -661,25 +696,75 @@ it. If that control is gone, the focus goes to "Run report" in the top bar.
 
 | Section | Content | Sentence with no data |
 |---|---|---|
-| Run | The start time in local time, the build, the source, the host of the remote endpoint, the speech model, the device, the range, the frame size | — |
+| Run | The start time in local time with the UTC time after it, for example "Nov 25, 2026, 12:34:05 AM (2026-11-25 05:34:05 UTC)", the build, the source, the host of the remote endpoint, the speech model, the device, the range, the frame size | — |
 | Steps | A table with the time of each step, and the total | "The report has no step times." |
 | Vocal separation | The separation model, and "Changed to the fast model" | "The run did not separate the vocals." |
-| Singers | The result of the singer step in one sentence. A table of the groups after the clustering. A table of the final singers with the sung time and the count of ranges. The settings in force, the centroid distances, the singer ranges, the phrase rule, the phrase division, the phrases divided, the phrases with no singer and with more than one singer | "The singer step did not run, because the option was off." or "The singer step did not run, because the run had no separated vocals." |
+| Singers | The summary of the singer step (see below). The singers selected, the phrases divided, the singers with one phrase or more, the phrases with no singer, the phrases with more than one singer and the voices made. Then the part "Details for a bug report" | The summary only |
 | Voices | A table: the voice, its count of phrases, and "Made by the run" | "No voice holds phrases of the run." |
 | Marks | Phrases, words, estimated words, unknown words, lyrics lines left out, words left out | — |
 | Notes | Each warning and failure | "The run had no warning and no failure." |
 
-The sentence of the singer step:
+Each time in the panel is in seconds with each millisecond and one decimal or more,
+for example "28.9 s" or "12.34 s".
 
-| Result | Sentence |
+The summary of the singer step. The app makes it from the stored report only: the
+status of the step, the diagnostics, the choice of "Singers" and the counts of the
+phrases. It holds no lyrics. "The voice of the run" is the voice that the run
+wrote to.
+
+| Result | Summary |
 |---|---|
-| `split` | "The singer step put the phrases on <n> voices." |
-| `one-singer` | "The singer step found one singer, so all phrases stay on one voice." |
-| `capped` | "The singer step found more singers than the song has free voices." |
-| `failed` | "The singer step failed (<cause>). The phrases stay on the voice of the run." |
-| `cancelled` | "The person cancelled the singer step. The phrases stay on the voice of the run." |
+| Option off | "The singer step did not run, because "Put each singer on its own voice" was off. To give each singer a voice, select that option and run again." |
+| No separated vocals | "The singer step did not run, because the run had no separated vocals. Select "Separate the vocals first" and run again." |
+| Failed: download | "The app could not download the singer model. The phrases stay on the voice of the run. Check the connection and run again." |
+| Failed: memory | "This browser did not have enough memory to find the singers. The phrases stay on the voice of the run. Run again on a shorter part of the song." |
+| Failed: other cause | "The singer step failed (<cause>). The phrases stay on the voice of the run. Run again. If the step fails again, copy this report into a bug report." |
+| Cancelled | "You stopped the singer step. The phrases stay on the voice of the run. Run again to find the singers." |
+| More singers than free voices | "The app found <n> singers, more than the song has free voices. A song has 12 voices at most. The singers with no free voice stay on the voice of the run. Delete the voices that you do not use, and run again." |
+| One singer, "Automatic" | "The app found 1 singer, so all phrases stay on one voice." Then the reason, then "If the song has more singers, select the count in "Singers" and run again." |
+| One singer, a count | "The app found 1 singer, and you selected <n>. All phrases stay on one voice." Then the reason, then "If a phrase is on the wrong voice, use "Move to voice" to correct it." |
+| Two singers or more | "The app found <n> singers and put the phrases on <k> voices." Then the sentences for the groups and the phrases, then "If a phrase is on the wrong voice, use "Move to voice" to correct it." |
 
-With no diagnostics, the sentence adds "The singer search gave no diagnostics."
+The reason for one singer, from the diagnostics:
+
+- If a smaller group joined the first group because it was small or short: "The
+  app found <n> groups of voice prints, but the parts of other singers were short.
+  So the app joined them with the first singer."
+- Else, if the closest centroid distance is less than the merge threshold: "The
+  singers sound alike to the app, so the app joined them into one singer."
+- Else: "All voice prints of the song are close to each other. If the song has more
+  singers, they sound alike to the app."
+- With no diagnostics, the summary gives no reason.
+
+The sentences for the groups and the phrases, each only when its count is more
+than 0:
+
+- More groups than the selected count: "The app found <n> groups of voice prints,
+  and you selected <k>. The app joined the groups that sound most alike."
+- "The app divided <n> phrases where the singer changes."
+- "<n> phrases had more than one singer, so each voice of those singers got a copy."
+- "<n> phrases had no singer, so they stay on the voice of the run."
+
+**Details for a bug report.** A part that folds, closed by default, at the end of
+the "Singers" section. It holds the result of the step (for example `split` or
+`failed (memory)`), the singer ranges, the phrase rule, the phrase division, the
+singer diagnostics, the table of the groups after the clustering and the table of
+the final singers. With no diagnostics, it shows "Diagnostics: none: the singer
+search gave no numbers". Under the heading "Terms", one sentence explains each term:
+
+| Term | Sentence |
+|---|---|
+| Voice print (embedding) | "A list of numbers that the app computes from a short part of the vocals to describe the voice in it." |
+| Window | "A part of 10 seconds of the vocals that the app reads at one time." |
+| Frame with a singer | "A short step of a window in which one or more singers sing." |
+| Sung time | "The time in which one or more singers sing." |
+| Group | "A set of voice prints that are close to each other, so the app takes them as one singer." |
+| Merge threshold | "The app puts two groups together when the distance between their centres is less than this value." |
+| Centroid distance | "The distance between the centres of two groups, where a small distance means that two voices sound alike." |
+| Minimum group size | "A group with fewer voice prints than this value joins the closest larger group." |
+| Highest count of singers | "The largest count of singers that the app keeps." |
+| Short singer limits | "A singer with less sung time than one of these limits joins another singer." |
+| Singer range | "A time range in which one singer sings." |
 
 The buttons: "Copy report", "Download report" and "Close". After a copy, a polite
 status line shows "The report is on the clipboard." If the browser refuses the
@@ -740,6 +825,27 @@ copy, the status line shows "Press Ctrl+C to copy."
   - A phrase with no word left is removed.
   - A phrase that changes takes the text of its kept words as its label.
   - Marks outside the range do not change. The replace is one undo step.
+- **Singer voices of the last run** (issue #174):
+  - The singer voices of the last run are the voices that the singer step of the
+    last run added and that the song still has. The app finds them by the voice
+    ids of the run data, so a renamed voice is still such a voice. Run data from
+    before issue #173 has no ids, so the app finds them by the names in the report.
+  - The voice of the new run is never a singer voice of the last run, also when
+    the last run added it.
+  - A speech model run with "Put each singer on its own voice" replaces the marks
+    in the range of each singer voice of the last run, by the range rules above.
+    Marks that the person added by hand inside the range go too.
+  - A singer voice of the last run with no mark left after the replace goes. So
+    the singer step of the run can use the name "Singer 2" again. A singer voice
+    with marks outside the range stays, and the new singer voices get the next free
+    names.
+  - The replace of all voices and the removed voices are one undo step with the
+    marks of the run. The undo steps of the run in order are: the singer step, the
+    sections of the tags, then the marks with the replace. Each undo restores the
+    song exactly, with the ids, the order, the colours and the mute state of each
+    voice.
+  - A run with no singer step leaves the singer voices of the last run as they
+    are. A lyrics-only run has no singer step.
 - The worker handles one run at a time. The "Transcribe" action is disabled during
   a run.
 - The app transcribes in 30-second chunks with a 5-second stride.
@@ -763,8 +869,11 @@ copy, the status line shows "Press Ctrl+C to copy."
 
 ## Data touched
 
-- Writes `RUN_DATA` for the song at the end of each completed run: the audio
-  tracks, the singer ranges and the run report. A new run replaces the full record.
+- Writes `RUN_DATA` for the song at the end of each completed run: the voices of
+  the run, the audio tracks, the singer ranges and the run report. A new run
+  replaces the full record.
+- Reads `RUN_DATA` before the replace question, for the singer voices of the last
+  run.
 - Reads and writes `APP_SETTINGS.keepTracks`, the last choice of "Keep the separated
   tracks". A record with no value gives `true`.
 
@@ -1058,19 +1167,20 @@ from 0 to 1.
 
 ## Run report
 
-The report has these sections. `reportToText` writes them in this order. Each
-section starts with a heading line in brackets.
+The copied text ("Copy report", "Download report" and `report.txt` of the zip
+file) is the bug report. `reportToText` writes it from the sections of the panel,
+so it has the same labels, the same values and the same units as the panel.
 
-| Section | Facts |
+| Part | Content |
 |---|---|
-| Header | "Transcribe run report", the start time of the run (ISO 8601) |
-| `[Run]` | The build of the app, source (`browser` or `remote`), the host of the remote endpoint, the mode, the speech model, the device, the range in ms, the frame size in ms |
-| `[Vocal separation]` | The separation model of the vocals (`spleeter`, `demucs` or `none`), "Changed to the fast model" (`yes` or `no`), "Audio tracks" (the count), "Tracks kept" (`yes` or `no`). A report from before issue #129 gives `not known` for the last two. |
-| `[Counts]` | Phrases, words, estimated words, unknown words, lyrics lines left out, words left out. A report from before issue #163 gives `not known` for the last two. |
-| `[Voices]` | Each voice that holds phrases of the run, with its count of phrases. A voice that the singer step made has ", made by the run". |
-| `[Singers]` | The result of the singer step, the choice of "Singers" ("Singers selected": `Automatic`, the count, or `not recorded`), the singer diagnostics, the singer ranges, the phrase rule, the phrase division, the phrases divided, the singers with one phrase or more, the phrases with no singer range, the phrases with more than one singer, the voices made |
-| `[Step times]` | The time of each step that ran, in ms |
-| `[Warnings and failures]` | One line for each warning or failure, for example "separation failed: memory; continued with the fast model" |
+| Header | "Transcribe run report" |
+| `[Summary]` | The summary of the singer step, one sentence for each line |
+| One part for each section of the panel | A heading line in brackets, for example `[Run]`. Then the sentence of the section, except the summary. Then each table with its caption and aligned columns, each fact as "<label>: <value>", and each warning. The start time is the local time and the UTC time. |
+| "Details for a bug report:" | In the `[Singers]` part: each fact and each table of the details part. A table with no row shows "<caption>: none". |
+
+A report from before issue #129 gives `not known` for "Audio tracks" and "Tracks
+kept". A report from before issue #163 gives `not known` for the lyrics lines and
+the words left out.
 
 ### Singer diagnostics
 
@@ -1216,6 +1326,14 @@ The text writes the raw groups and the final singers as tables with aligned colu
 - A song with no run report shows "Run report" disabled with the tooltip "No
   transcribe run for this song yet." (FR-transcribe-82)
 - The link in the toast opens the run report panel. (FR-transcribe-83)
+- A report of a run that gave one voice with the singer option states the probable
+  reason and the next action in its first lines. (FR-transcribe-151)
+- Each term of the details part has one sentence that explains it.
+  (FR-transcribe-152)
+- The labels and units of the copied text are the same as in the panel.
+  (FR-transcribe-153)
+- The toast stays 20 seconds or more, and it does not cover the panel.
+  (FR-transcribe-84, 154)
 - "Copy report" puts text with the singer section and no word of the lyrics on the
   clipboard. (FR-transcribe-90, 95)
 - "Download report" gives the file "<song name> - run report.txt".
@@ -1243,6 +1361,14 @@ The text writes the raw groups and the final singers as tables with aligned colu
   show their messages in the song library. (FR-transcribe-117, 118)
 - The zip file after a run with separation holds `tracks/vocals.wav`,
   `tracks/instruments.wav` and `report.txt`. (FR-transcribe-115)
+- After a rename of "Singer 2" to "Test Alto", the Voices table of the run report
+  panel shows "Test Alto". After a delete, it shows "Singer 2 (deleted)".
+  (FR-transcribe-146, 147)
+- A second run with the singer step asks "The run replaces <n> marks from <start>
+  to <end>: the marks of "Lead Vocals", and the marks of "Singer 2" from the last
+  run." (FR-transcribe-148, 149)
+- A second run with the singer option off asks with the sentence "The voices of the
+  last singer step do not change." (FR-transcribe-150)
 
 ## Out of scope
 

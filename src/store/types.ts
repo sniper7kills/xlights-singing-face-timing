@@ -126,12 +126,26 @@ export type KeptTracks = {
   instruments: PcmTrack
 }
 
+/** One voice that a transcribe run wrote marks to, by its id, which stays the same after a rename. */
+export type RunVoice = {
+  voiceId: string
+  /** The singer numbers of the singer search whose ranges belong to the voice. Empty when the run found no singer ranges. */
+  singers: number[]
+  /** True for a voice that the singer step of the run added. */
+  made: boolean
+}
+
 /**
  * The data of the last completed transcribe run of a song. A new run replaces the full record.
  * Lyrics, labels and the API key are never in it.
  */
 export type RunData = {
   songId: string
+  /**
+   * The voices that the run wrote marks to, in the voice order at the end of the run.
+   * A record from before issue #173 has no value. The app then finds the voices of the run by their names in the report.
+   */
+  voices?: RunVoice[]
   /**
    * The audio tracks of the vocal separation of the run. A range run keeps the tracks of the range only.
    * A run that kept no tracks, and a record from before issue #129, have no value.

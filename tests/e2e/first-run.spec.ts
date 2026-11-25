@@ -118,7 +118,7 @@ test('shows "Only one file was added." in the editor after a drop of two files',
   await page.getByRole('region', { name: 'Drop zone' }).dispatchEvent('drop', { dataTransfer })
 
   await expect(page.getByRole('heading', { level: 2, name: 'first' })).toBeVisible()
-  await expect(page.locator('.toast')).toHaveText('Only one file was added.')
+  await expect(page.locator('.toast').getByRole('status')).toHaveText('Only one file was added.')
 })
 
 test('shows "Lead Vocals" in full in the voice rail', async ({ page }) => {
