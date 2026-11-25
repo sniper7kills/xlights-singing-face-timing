@@ -110,6 +110,37 @@ describe('VoiceRail rename', () => {
     expect(voiceNames()).toEqual(['Lead', 'Backing'])
   })
 
+  it('shows the name after the xLights import under the field and still saves the name', async () => {
+    render(<VoiceRail />)
+    await userEvent.click(
+      within(await openMenu('Backing')).getByRole('menuitem', { name: 'Rename' }),
+    )
+
+    const field = screen.getByRole('textbox', { name: 'Voice name' })
+    await userEvent.clear(field)
+    await userEvent.type(field, 'Noël')
+
+    expect(await screen.findByRole('status')).toHaveTextContent('xLights shows this name as “Nol”.')
+    expect(field).toHaveAccessibleDescription('xLights shows this name as “Nol”.')
+    expect(field).toHaveAttribute('aria-invalid', 'false')
+
+    await userEvent.keyboard('{Enter}')
+
+    expect(await screen.findByRole('button', { name: 'Noël' })).toHaveFocus()
+    expect(voiceNames()).toEqual(['Lead', 'Noël'])
+  })
+
+  it('shows no hint for a name that xLights does not change', async () => {
+    render(<VoiceRail />)
+    await userEvent.click(
+      within(await openMenu('Backing')).getByRole('menuitem', { name: 'Rename' }),
+    )
+
+    await userEvent.type(screen.getByRole('textbox', { name: 'Voice name' }), 'Santa')
+
+    expect(screen.queryByRole('status')).not.toBeInTheDocument()
+  })
+
   it('stores a new name with Enter as one undo step', async () => {
     render(<VoiceRail />)
     await userEvent.click(

@@ -90,7 +90,7 @@ describe('ExportDialog with the zip file', () => {
 
     expect(
       await screen.findByText(
-        /^The zip file holds 5 files: timing\/Carol\.xtiming, audio\/carol\.ogg, song\.json, lyrics\.txt, README\.txt\. Size: 3 KB\.$/,
+        /^The zip file holds 5 files: timing\/Carol\.xtiming, audio\/carol\.ogg, song\.json, lyrics\.txt, README\.txt\. Size: 4 KB\.$/,
       ),
     ).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Download zip' })).toBeEnabled()

@@ -225,6 +225,9 @@ export function ExportDialog({
                   {voice.name}
                 </label>
               ))}
+              <small className="export-hint">
+                Use one voice for each group of face models that sing together.
+              </small>
             </fieldset>
             <fieldset className="export-group">
               <legend>Timing tracks</legend>

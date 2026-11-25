@@ -126,6 +126,7 @@ describe('records', () => {
       remoteEndpoint: { baseUrl: '', apiKey: '', model: 'whisper-1' },
       separateVocals: false,
       singerVoices: false,
+      singerCount: 'automatic',
       separationModel: 'spleeter',
       keepTracks: true,
     } as const
