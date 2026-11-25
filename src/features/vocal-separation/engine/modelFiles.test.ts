@@ -1,6 +1,11 @@
 import { describe, expect, it, vi } from 'vitest'
 import { SeparationFailure } from '../separationFailure.ts'
-import { MODEL_CACHE, loadModelFiles, type DownloadEnvironment } from './modelFiles.ts'
+import {
+  MODEL_CACHE,
+  loadModelFiles,
+  type DownloadEnvironment,
+  type ModelFile,
+} from './modelFiles.ts'
 
 /** A cache storage in memory, with the two cache methods that the download uses. */
 function memoryCaches() {
@@ -39,6 +44,11 @@ function streamedResponse(parts: number[][], fail = false): Response {
 const fileA = { url: 'https://host.test/a.onnx', bytes: 3 }
 const fileB = { url: 'https://host.test/b.onnx', bytes: 2 }
 const files = [fileA, fileB]
+// The SHA-256 values of the bytes [1, 2, 3] and [4, 5].
+const hashedFiles: ModelFile[] = [
+  { ...fileA, sha256: '039058c6f2c0cb492c533b0a4d14ef77cc0f78abccced5287d84a1a2011cfb81' },
+  { ...fileB, sha256: '2fa1b377bf67309f65e5e7bc9d924345ca648dec4e601a398a9cb497dcba3765' },
+]
 
 function environment(fetch: DownloadEnvironment['fetch']) {
   const storage = memoryCaches()
@@ -128,5 +138,97 @@ describe('loadModelFiles', () => {
       'kind',
       'download',
     )
+  })
+
+  it('fails with the kind download and writes no cache entry for a file with the wrong hash', async () => {
+    const put = vi.fn()
+    const { environment: env, storage } = environment(async (url: string) =>
+      url.endsWith('a.onnx') ? streamedResponse([[9, 9, 9]]) : streamedResponse([[4, 5]]),
+    )
+    const cache = await storage.caches.open(MODEL_CACHE)
+    cache.put = put
+    const failure = loadModelFiles(hashedFiles, () => undefined, env)
+    await expect(failure).rejects.toThrow(SeparationFailure)
+    await expect(failure).rejects.toHaveProperty('kind', 'download')
+    expect(put).not.toHaveBeenCalled()
+  })
+
+  it('returns and caches the files whose hash matches', async () => {
+    const { environment: env, storage } = environment(async (url: string) =>
+      url.endsWith('a.onnx') ? streamedResponse([[1, 2, 3]]) : streamedResponse([[4, 5]]),
+    )
+    const contents = await loadModelFiles(hashedFiles, () => undefined, env)
+    expect(bytesOf(contents)).toEqual([
+      [1, 2, 3],
+      [4, 5],
+    ])
+    expect([...storage.entries.keys()]).toEqual([fileA.url, fileB.url])
+  })
+
+  it('checks the hash before the cache write', async () => {
+    const order: string[] = []
+    const original = crypto.subtle.digest.bind(crypto.subtle)
+    const digest = vi.spyOn(crypto.subtle, 'digest').mockImplementation(async (algorithm, data) => {
+      order.push('digest')
+      return original(algorithm, data)
+    })
+    const { environment: env, storage } = environment(async () => streamedResponse([[1, 2, 3]]))
+    const cache = await storage.caches.open(MODEL_CACHE)
+    const put = cache.put.bind(cache)
+    cache.put = async (request, response) => {
+      order.push('put')
+      await put(request, response)
+    }
+    await loadModelFiles([hashedFiles[0] as ModelFile], () => undefined, env)
+    digest.mockRestore()
+    expect(order).toEqual(['digest', 'put'])
+  })
+})
+
+describe('loadModelFiles with a cache that fails', () => {
+  const fetchFiles = async (url: string) =>
+    url.endsWith('a.onnx') ? streamedResponse([[1, 2, 3]]) : streamedResponse([[4, 5]])
+
+  async function expectBytes(caches: DownloadEnvironment['caches']) {
+    const contents = await loadModelFiles(hashedFiles, () => undefined, {
+      caches,
+      fetch: fetchFiles,
+    })
+    expect(bytesOf(contents)).toEqual([
+      [1, 2, 3],
+      [4, 5],
+    ])
+  }
+
+  it('downloads the files when the browser has no cache storage', async () => {
+    await expectBytes(undefined)
+  })
+
+  it('downloads the files when the cache does not open', async () => {
+    await expectBytes({
+      open: async () => Promise.reject(new DOMException('denied', 'SecurityError')),
+    })
+  })
+
+  it('downloads the files when the cache lookup rejects', async () => {
+    const storage = memoryCaches()
+    const cache = await storage.caches.open(MODEL_CACHE)
+    cache.match = async () => Promise.reject(new DOMException('denied', 'SecurityError'))
+    await expectBytes(storage.caches)
+  })
+
+  it('returns the files when the cache write rejects with a QuotaExceededError', async () => {
+    const storage = memoryCaches()
+    const cache = await storage.caches.open(MODEL_CACHE)
+    cache.put = async () => Promise.reject(new DOMException('full', 'QuotaExceededError'))
+    await expectBytes(storage.caches)
+    expect(storage.entries.size).toBe(0)
+  })
+
+  it('stores the files at a later call with a working cache', async () => {
+    await expectBytes(undefined)
+    const storage = memoryCaches()
+    await expectBytes(storage.caches)
+    expect([...storage.entries.keys()]).toEqual([fileA.url, fileB.url])
   })
 })

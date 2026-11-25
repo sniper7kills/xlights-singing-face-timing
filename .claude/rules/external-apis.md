@@ -339,6 +339,28 @@ are in `docs/adr/0008-vocal-separation-in-the-browser.md`.
   entry, `cache.put(url, response)` stores a response. The engine stores a file
   only after a complete download with the correct size.
 
+Confirmed on 2026-11-24 for the vocal separation model files and the browser
+cache (issue #117):
+
+- The Hub API lists the files of a commit:
+  `https://huggingface.co/api/models/csukuangfj/sherpa-onnx-spleeter-2stems/tree/7001ba316a615cacddb3f9ef3ec416661a277e26`.
+  Each Git LFS file has `lfs.oid` and `lfs.size`. The LFS object id is the SHA-256
+  of the file, so the app reads the expected hash without a download.
+- `vocals.onnx`: `lfs.size` 39318336, `lfs.oid`
+  `bdc16ab6bf6117ddd4842c19e80e40e2be188fc555295064d424616b0224ac97`.
+  `accompaniment.onnx`: `lfs.size` 39318343, `lfs.oid`
+  `671ace17acd3720674a2bc14de32ac6292453dec20d9eb0ba4255d4ad8e3d8c0`.
+- `crypto.subtle.digest('SHA-256', data)` accepts an `ArrayBuffer`, a typed array
+  or a `DataView`, and fulfills with an `ArrayBuffer`. It works in a Web Worker and
+  needs a secure context. Source:
+  https://developer.mozilla.org/en-US/docs/Web/API/SubtleCrypto/digest (last
+  modified 2025-12-28).
+- `Cache.put()` returns a promise. The MDN page names only a `TypeError` for a URL
+  that is not `http` or `https`. Source:
+  https://developer.mozilla.org/en-US/docs/Web/API/Cache/put (last modified
+  2025-06-24). The page does not state a quota error, so the app treats each
+  rejection of a cache call as no cache.
+
 Evidence format:
 
 ```

@@ -77,6 +77,13 @@ async function separateSegment(
       SPLEETER.modelBins,
     )
     masked.forEach((value, index) => {
+      // NaN or Infinity vocals would reach the speech model, so the run stops at the first bad sample.
+      if (!Number.isFinite(value)) {
+        throw new SeparationFailure(
+          'model',
+          'The vocal separation model gave a sample that is not a number.',
+        )
+      }
       mono[index] = (mono[index] ?? 0) + value / spectra.length
     })
   })
