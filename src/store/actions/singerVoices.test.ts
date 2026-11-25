@@ -112,6 +112,24 @@ describe('putSingersOnVoices', () => {
     expect(current()).toEqual(testContent())
   })
 
+  it('makes no empty voice for a gap in the singer numbers, as one undo step', () => {
+    const count = putSingersOnVoices(
+      VOICE,
+      new Map([
+        ['p1', [0]],
+        ['p2', [5]],
+      ]),
+    )
+
+    expect(count).toBe(2)
+    expect(current().voices).toHaveLength(testContent().voices.length + 1)
+    for (const voice of current().voices) expect(marksOn(voice.id, 'phrase')).not.toHaveLength(0)
+    expect(find('p2')?.voiceId).toBe(voiceNamed('Singer 2').id)
+    expect(steps()).toBe(1)
+    useSongStore.getState().undo()
+    expect(current()).toEqual(testContent())
+  })
+
   it('records no step for one singer, an unknown voice or no phrase of the run', () => {
     putSingersOnVoices(VOICE, new Map([['p1', [0]]]))
     putSingersOnVoices('gone', new Map([['p1', [1]]]))
