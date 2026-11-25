@@ -12,6 +12,7 @@ import {
   isCancel,
   lowMatchMessage,
   outcomeText,
+  replaceQuestionMessage,
   progressText,
   progressValue,
   remoteErrorMessage,
@@ -27,6 +28,7 @@ import {
 } from './transcribeDialogState.ts'
 
 const transcribing: DialogState = { status: 'transcribing', doneMs: 0, totalMs: 220_000 }
+const QUESTION = { markCount: 12, voiceName: 'Lead Vocals', range: { startMs: 0, endMs: 28_900 } }
 
 describe('progressText', () => {
   it('shows the download percent', () => {
@@ -201,6 +203,20 @@ describe('outcomeText', () => {
   })
 })
 
+describe('replaceQuestionMessage', () => {
+  it('states the count of marks, the voice and the range', () => {
+    expect(replaceQuestionMessage(QUESTION)).toBe(
+      'The run replaces the 12 marks of "Lead Vocals" from 0:00.000 to 0:28.900.',
+    )
+  })
+
+  it('states one mark in the singular', () => {
+    expect(replaceQuestionMessage({ ...QUESTION, markCount: 1 })).toBe(
+      'The run replaces the 1 mark of "Lead Vocals" from 0:00.000 to 0:28.900.',
+    )
+  })
+})
+
 describe('outcomeText after a run that left out words', () => {
   it('states the count of words that the app left out', () => {
     expect(
@@ -330,8 +346,8 @@ describe('transcribeDialogReducer', () => {
   })
 
   it('asks to replace the marks and goes back to the run after the answer', () => {
-    const asking = reduce(transcribing, { type: 'confirm-replace' })
-    expect(asking).toEqual({ status: 'confirm-replace', resume: transcribing })
+    const asking = reduce(transcribing, { type: 'confirm-replace', question: QUESTION })
+    expect(asking).toEqual({ status: 'confirm-replace', question: QUESTION, resume: transcribing })
     expect(shownRunState(asking)).toEqual(transcribing)
 
     expect(reduce(asking, { type: 'answer' })).toEqual(transcribing)
@@ -346,9 +362,9 @@ describe('transcribeDialogReducer', () => {
   })
 
   it('asks no second question while a question waits for an answer', () => {
-    const asking = reduce(transcribing, { type: 'confirm-replace' })
+    const asking = reduce(transcribing, { type: 'confirm-replace', question: QUESTION })
 
-    expect(reduce(asking, { type: 'confirm-replace' })).toBe(asking)
+    expect(reduce(asking, { type: 'confirm-replace', question: QUESTION })).toBe(asking)
     expect(reduce(asking, { type: 'confirm-low-match', ratio: 0.1 })).toBe(asking)
   })
 
@@ -356,8 +372,14 @@ describe('transcribeDialogReducer', () => {
     expect(reduce(transcribing, { type: 'answer' })).toBe(transcribing)
   })
 
-  it('goes back to idle when the person cancels the run', () => {
-    expect(reduce(transcribing, { type: 'cancelled' })).toEqual(IDLE)
+  it('goes back to idle with the stopped message when the person cancels the run', () => {
+    const stopped = reduce(transcribing, { type: 'cancelled' })
+    expect(stopped).toEqual({ status: 'idle', stopped: true })
+    expect(reduce(stopped, { type: 'clear-stopped' })).toEqual(IDLE)
+  })
+
+  it('keeps a run state when the timer of the stopped message ends late', () => {
+    expect(reduce(transcribing, { type: 'clear-stopped' })).toBe(transcribing)
   })
 
   it('shows the message of a failure', () => {
@@ -386,7 +408,9 @@ describe('transcribeDialogReducer', () => {
 describe('isActive and shownRunState', () => {
   it('treats the run states and the confirm states as active', () => {
     expect(isActive(transcribing)).toBe(true)
-    expect(isActive({ status: 'confirm-replace', resume: transcribing })).toBe(true)
+    expect(isActive({ status: 'confirm-replace', question: QUESTION, resume: transcribing })).toBe(
+      true,
+    )
     expect(isActive(IDLE)).toBe(false)
     expect(isActive({ status: 'error', message: '' })).toBe(false)
     expect(isActive({ status: 'done' })).toBe(false)
@@ -445,7 +469,7 @@ describe('remoteErrorMessage', () => {
   it.each([
     [
       new RemoteError('network', HOST),
-      'The app could not connect to ai.example.com. The server is not available, or its CORS settings block this page. Check that the server runs and sends the header Access-Control-Allow-Origin: https://timing.example.com',
+      'The app could not connect to ai.example.com. Check that the server runs and that the base URL is correct.\n\nIf the server runs: its CORS settings can block this page. Check that the server sends the header Access-Control-Allow-Origin: https://timing.example.com',
     ],
     [
       new RemoteError('auth', HOST, 401),

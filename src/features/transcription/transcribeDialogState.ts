@@ -1,9 +1,11 @@
 import { RemoteError } from '../../lib/remote/response.ts'
 import { formatClock } from '../../lib/time/formatClock.ts'
+import { formatTime } from '../../lib/time/formatTime.ts'
 import { MAX_VOICES } from '../../lib/voices/voiceRules.ts'
 import { CHUNK_LENGTH_S, type Device } from './protocol.ts'
 import {
   NoWordsError,
+  type ReplaceQuestion,
   type RunStage,
   type SingerOutcome,
   type TranscribeMode,
@@ -43,9 +45,10 @@ export type RunState =
 
 /** The state of the transcribe dialog. The dialog closes in the state `done`. */
 export type DialogState =
-  | { status: 'idle' }
+  /** `stopped` is true for a few seconds after the person cancelled a run, so the dialog states what the cancel did. */
+  | { status: 'idle'; stopped?: true }
   | RunState
-  | { status: 'confirm-replace'; resume: RunState }
+  | { status: 'confirm-replace'; question: ReplaceQuestion; resume: RunState }
   | { status: 'low-match'; ratio: number; resume: RunState }
   | { status: 'lyrics-fit'; fit: LyricsFit; resume: RunState }
   | {
@@ -71,13 +74,14 @@ export type DialogEvent =
   | { type: 'upload'; percent: number }
   | { type: 'progress'; doneMs: number; totalMs: number }
   | { type: 'finishing' }
-  | { type: 'confirm-replace' }
+  | { type: 'confirm-replace'; question: ReplaceQuestion }
   | { type: 'confirm-low-match'; ratio: number }
   | { type: 'confirm-lyrics-fit'; fit: LyricsFit }
   | { type: 'answer' }
   | { type: 'cancelled' }
   | { type: 'failed'; error: unknown }
   | { type: 'done' }
+  | { type: 'clear-stopped' }
 
 export const IDLE: DialogState = { status: 'idle' }
 
@@ -119,10 +123,11 @@ export function remoteWarning(host: string): string {
 /**
  * The copy of each failure of a remote run, from the edge case table in docs/specs/features/02-transcription.md.
  * The browser does not tell a CORS refusal from no connection, so the `network` copy names both causes.
+ * The plain cause comes first. The CORS cause is a second paragraph, after an empty line.
  */
 const REMOTE_COPY: Record<RemoteError['kind'], (error: RemoteError, origin: string) => string> = {
   network: ({ host }, origin) =>
-    `The app could not connect to ${host}. The server is not available, or its CORS settings block this page. Check that the server runs and sends the header Access-Control-Allow-Origin: ${origin}`,
+    `The app could not connect to ${host}. Check that the server runs and that the base URL is correct.\n\nIf the server runs: its CORS settings can block this page. Check that the server sends the header Access-Control-Allow-Origin: ${origin}`,
   auth: ({ host, status }) =>
     `${host} refused the API key (HTTP ${status}). Check the API key of the remote endpoint.`,
   'not-found': ({ host }) =>
@@ -356,6 +361,12 @@ export function wordsLeftOutMessage(count: number): string {
   return `The app left out ${count} ${count === 1 ? 'word' : 'words'} that it cannot use.`
 }
 
+/** Returns the replace question, for example "The run replaces the 12 marks of "Lead" from 0:00.000 to 0:28.900." */
+export function replaceQuestionMessage({ markCount, voiceName, range }: ReplaceQuestion): string {
+  const marks = markCount === 1 ? 'the 1 mark' : `the ${markCount} marks`
+  return `The run replaces ${marks} of "${voiceName}" from ${formatTime(range.startMs)} to ${formatTime(range.endMs)}.`
+}
+
 /** Returns the copy of the low-match warning for a match ratio from 0 to 1. */
 export function lowMatchMessage(ratio: number): string {
   return `Only ${wholePercent(ratio)}% of the lyrics matched the audio. Check that the lyrics belong to this song.`
@@ -509,10 +520,7 @@ export function isActive(state: DialogState): boolean {
  * A run event that arrives after the run stopped changes nothing.
  */
 export function transcribeDialogReducer(state: DialogState, event: DialogEvent): DialogState {
-  if (event.type === 'start') {
-    // A lyrics-only run uses no speech model, so its first step is the align step.
-    return event.mode === 'model' ? { status: 'preparing' } : { status: 'finishing' }
-  }
+  if (event.type === 'start' || event.type === 'clear-stopped') return dialogStep(state, event)
   if (!isActive(state)) return state
   if (isAudioStepEvent(event)) return audioStep(state, event)
   return event.type === 'answer' ||
@@ -521,6 +529,16 @@ export function transcribeDialogReducer(state: DialogState, event: DialogEvent):
     event.type === 'done'
     ? endStep(state, event)
     : runStep(state, event)
+}
+
+/** Returns the state after a start, or after the end of the message of a cancel. */
+function dialogStep(
+  state: DialogState,
+  event: Extract<DialogEvent, { type: 'start' | 'clear-stopped' }>,
+): DialogState {
+  if (event.type === 'clear-stopped') return state.status === 'idle' ? IDLE : state
+  // A lyrics-only run uses no speech model, so its first step is the align step.
+  return event.mode === 'model' ? { status: 'preparing' } : { status: 'finishing' }
 }
 
 type RunEvent = Extract<
@@ -577,7 +595,7 @@ type QuestionEvent = Extract<
 function questionState(resume: RunState, event: QuestionEvent): DialogState {
   switch (event.type) {
     case 'confirm-replace':
-      return { status: 'confirm-replace', resume }
+      return { status: 'confirm-replace', question: event.question, resume }
     case 'confirm-low-match':
       return { status: 'low-match', ratio: event.ratio, resume }
     case 'confirm-lyrics-fit':
@@ -636,7 +654,7 @@ function endStep(state: DialogState, event: EndEvent): DialogState {
     case 'answer':
       return shownRunState(state) ?? state
     case 'cancelled':
-      return IDLE
+      return { status: 'idle', stopped: true }
     case 'failed':
       return { status: 'error', message: errorMessage(event.error) }
     case 'done':

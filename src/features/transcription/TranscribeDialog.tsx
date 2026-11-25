@@ -1,6 +1,7 @@
 import {
   type KeyboardEvent,
   type MouseEvent,
+  type ReactNode,
   useCallback,
   useEffect,
   useId,
@@ -57,6 +58,7 @@ import {
   LYRICS_HINT,
   lyricsFitMessage,
   lowMatchMessage,
+  replaceQuestionMessage,
   MIXED_CONTENT_MESSAGE,
   progressText,
   progressValue,
@@ -84,6 +86,18 @@ const ENDPOINT_UNSTORED_MESSAGE =
 /** The message when the browser cannot store a choice of the dialog. All choices share it. */
 const CHOICES_UNSTORED_MESSAGE =
   'The app could not store the choices of this dialog in this browser. They work until you reload the page.'
+
+/** The reason under the disabled source groups for a lyrics-only run. */
+const LYRICS_ONLY_REASON = 'Lyrics only uses no speech model.'
+
+/** The message after the person cancels a run, until the timer of `STOPPED_NOTE_MS` ends. */
+const RUN_STOPPED_MESSAGE = 'The run stopped. The marks did not change.'
+
+/** The time that the message after a cancel stays, in milliseconds. */
+const STOPPED_NOTE_MS = 5000
+
+/** The hint after Escape during a run. */
+const ESCAPE_HINT = 'Select Cancel to stop the run.'
 
 const DEVICE_NOTE: Record<Device, string> = {
   webgpu: 'Uses your graphics card (WebGPU)',
@@ -127,6 +141,7 @@ export function TranscribeDialog({
   const [singerCount, setSingerCount] = useState(DEFAULT_SETTINGS.singerCount)
   const [range, setRange] = useState<TimeRange | undefined>(undefined)
   const [choicesUnstored, setChoicesUnstored] = useState(false)
+  const [escaped, setEscaped] = useState(false)
   // The choice applies to this run even when the browser cannot store it, so a failed write only shows a message.
   const storeSetting = useCallback((change: Partial<AppSettings>) => {
     void updateSettings(change).catch(() => setChoicesUnstored(true))
@@ -170,6 +185,14 @@ export function TranscribeDialog({
 
   useEffect(() => onActiveChange(active), [active, onActiveChange])
 
+  const { clearStopped } = run
+  const stopped = state.status === 'idle' && state.stopped === true
+  useEffect(() => {
+    if (!stopped) return
+    const timer = setTimeout(clearStopped, STOPPED_NOTE_MS)
+    return () => clearTimeout(timer)
+  }, [stopped, clearStopped])
+
   useEffect(() => {
     // A state change removes the button that had the focus, so the focus goes to the next action.
     const dialog = dialogRef.current
@@ -208,6 +231,7 @@ export function TranscribeDialog({
   }
 
   function start() {
+    setEscaped(false)
     void run.start({
       voiceId,
       speechModelId,
@@ -225,15 +249,18 @@ export function TranscribeDialog({
   }
 
   function onKeyDown(event: KeyboardEvent<HTMLDivElement>) {
-    if (event.key === 'Escape' && !active) {
-      event.stopPropagation()
-      onClose()
-    } else if (event.key === 'Escape' && isQuestion(state)) {
-      event.stopPropagation()
-      run.answer(false)
-    } else if (event.key === 'Tab') {
-      keepFocusInside(event)
-    }
+    if (event.key === 'Tab') keepFocusInside(event)
+    if (event.key !== 'Escape') return
+    event.stopPropagation()
+    if (!active) onClose()
+    else if (isQuestion(state)) run.answer(false)
+    else escapeRun()
+  }
+
+  // Escape must not stop a long run by accident, so it only moves the focus to "Cancel".
+  function escapeRun() {
+    setEscaped(true)
+    dialogRef.current?.querySelector<HTMLElement>('.dialog-actions button')?.focus()
   }
 
   function keepFocus(event: MouseEvent<HTMLDivElement>) {
@@ -252,109 +279,182 @@ export function TranscribeDialog({
         onKeyDown={onKeyDown}
       >
         <h3 id={titleId}>Transcribe</h3>
-        <fieldset className="dialog-fields" disabled={active}>
-          <fieldset className="choice-group" disabled={lyricsOnly}>
-            <legend>Where to transcribe</legend>
-            <SourceChoices source={remote.source} onChange={remote.selectSource} />
-          </fieldset>
-          {remote.source === 'remote' ? (
-            <fieldset className="choice-group remote-endpoint" disabled={lyricsOnly}>
-              <legend>Remote endpoint</legend>
-              <RemoteEndpointPanel
-                endpoint={remote.endpoint}
-                editing={remote.editing}
-                onEdit={remote.edit}
-                onSave={remote.save}
-              />
-              <AlertMessage shown={remote.endpointUnstored} text={ENDPOINT_UNSTORED_MESSAGE} />
-            </fieldset>
-          ) : (
-            <>
-              <fieldset className="choice-group" disabled={lyricsOnly}>
-                <legend>Speech model</legend>
-                {SPEECH_MODELS.map((model) => (
-                  <label key={model.id} className="choice">
-                    <input
-                      type="radio"
-                      name="speech-model"
-                      value={model.id}
-                      checked={speechModelId === model.id}
-                      onChange={() => selectSpeechModel(model.id)}
-                    />
-                    {model.label} <span className="choice-size">{model.downloadMb} MB</span>
-                  </label>
-                ))}
-              </fieldset>
-              <DeviceNote webgpu={run.webgpu} device={run.device} meter={meter} />
-            </>
-          )}
-          <LyricsField lyrics={lyrics} tooLong={tooLong} onChange={setLyrics} />
-          <TagSectionsChoice shown={hasTags} checked={tagSections} onChange={setTagSections} />
-          <label className="choice">
-            <input
-              type="checkbox"
-              checked={lyricsOnly}
-              onChange={(event) => setLyricsOnly(event.target.checked)}
+        {/* Only the options scroll, so "Start", the progress and each question stay in view. */}
+        <div className="transcribe-body">
+          <fieldset className="dialog-fields" disabled={active}>
+            <SpeechSource
+              remote={remote}
+              lyricsOnly={lyricsOnly}
+              speechModelId={speechModelId}
+              onSpeechModelChange={selectSpeechModel}
+              note={<DeviceNote webgpu={run.webgpu} device={run.device} meter={meter} />}
             />
-            Lyrics only
-          </label>
-          <SeparateChoice
-            shown={!lyricsOnly}
-            checked={separate}
-            remote={usesRemote}
-            host={remote.host}
-            onChange={selectSeparate}
-            model={separationModel}
-            webgpu={run.webgpu}
-            onModelChange={selectSeparationModel}
-          />
-          <KeepTracksChoice
-            shown={!lyricsOnly}
-            separate={separate}
-            checked={keepTracks}
-            range={range}
-            onChange={selectKeepTracks}
-          />
-          <SingerChoice
-            shown={!lyricsOnly}
-            enabled={separate}
-            checked={singers}
-            onChange={selectSingers}
-            count={singerCount}
-            onCountChange={selectSingerCount}
-            modelHint={showsSingerModelHint(usesRemote, speechModelId)}
-          />
-          <fieldset className="choice-group">
-            <legend>Range</legend>
-            <RangeChoices selection={selection} range={range} onChange={setRange} />
+            <LyricsField lyrics={lyrics} tooLong={tooLong} onChange={setLyrics} />
+            <TagSectionsChoice shown={hasTags} checked={tagSections} onChange={setTagSections} />
+            <label className="choice">
+              <input
+                type="checkbox"
+                checked={lyricsOnly}
+                onChange={(event) => setLyricsOnly(event.target.checked)}
+              />
+              Lyrics only
+            </label>
+            <SeparateChoice
+              shown={!lyricsOnly}
+              checked={separate}
+              remote={usesRemote}
+              host={remote.host}
+              onChange={selectSeparate}
+              model={separationModel}
+              webgpu={run.webgpu}
+              onModelChange={selectSeparationModel}
+            />
+            <KeepTracksChoice
+              shown={!lyricsOnly}
+              separate={separate}
+              checked={keepTracks}
+              range={range}
+              onChange={selectKeepTracks}
+            />
+            <SingerChoice
+              shown={!lyricsOnly}
+              enabled={separate}
+              checked={singers}
+              onChange={selectSingers}
+              count={singerCount}
+              onCountChange={selectSingerCount}
+              modelHint={showsSingerModelHint(usesRemote, speechModelId)}
+            />
+            <fieldset className="choice-group">
+              <legend>Range</legend>
+              <RangeChoices selection={selection} range={range} onChange={setRange} />
+            </fieldset>
           </fieldset>
-        </fieldset>
-        <AlertMessage shown={choicesUnstored} text={CHOICES_UNSTORED_MESSAGE} />
-        {usesRemote && <RemoteNotice remote={remote} />}
-        <ProgressArea state={state} meter={meter} />
-        <DialogMessage state={state} selection={range !== undefined} />
-        {needsLyrics && state.status === 'idle' && (
-          <p id={hintId} className="dialog-note">
-            Paste the lyrics to use Lyrics only.
-          </p>
-        )}
-        <div className="dialog-actions">
-          {state.status === 'idle' && (
-            <button
-              type="button"
-              className="button primary"
-              disabled={!canStart}
-              aria-describedby={needsLyrics ? hintId : undefined}
-              onClick={start}
-            >
-              Start
-            </button>
+        </div>
+        <div className="transcribe-footer">
+          <AlertMessage shown={choicesUnstored} text={CHOICES_UNSTORED_MESSAGE} />
+          {usesRemote && <RemoteNotice remote={remote} />}
+          <ProgressArea state={state} meter={meter} />
+          <DialogMessage state={state} selection={range !== undefined} />
+          <RunNotes state={state} escaped={escaped} />
+          {needsLyrics && state.status === 'idle' && (
+            <p id={hintId} className="dialog-note">
+              Paste the lyrics to use Lyrics only.
+            </p>
           )}
-          <DialogActions state={state} run={run} onRetry={start} onClose={onClose} />
+          <div className="dialog-actions">
+            {state.status === 'idle' && (
+              <button
+                type="button"
+                className="button primary"
+                disabled={!canStart}
+                aria-describedby={needsLyrics ? hintId : undefined}
+                onClick={start}
+              >
+                Start
+              </button>
+            )}
+            <DialogActions state={state} run={run} onRetry={start} onClose={onClose} />
+          </div>
         </div>
       </div>
     </div>
   )
+}
+
+type SpeechSourceProps = {
+  remote: RemoteChoice
+  /** True for a lyrics-only run, which uses no speech model, so the groups are disabled. */
+  lyricsOnly: boolean
+  speechModelId: string
+  onSpeechModelChange: (id: string) => void
+  /** The device note under the speech models. It hides for a lyrics-only run. */
+  note: ReactNode
+}
+
+/**
+ * Shows "Where to transcribe", and the speech models or the remote endpoint panel.
+ * For a lyrics-only run, the groups are disabled and a note states the reason.
+ */
+function SpeechSource({
+  remote,
+  lyricsOnly,
+  speechModelId,
+  onSpeechModelChange,
+  note,
+}: SpeechSourceProps) {
+  const reasonId = useId()
+  const describedBy = lyricsOnly ? reasonId : undefined
+  return (
+    <>
+      <fieldset className="choice-group" disabled={lyricsOnly} aria-describedby={describedBy}>
+        <legend>Where to transcribe</legend>
+        <SourceChoices source={remote.source} onChange={remote.selectSource} />
+      </fieldset>
+      {remote.source === 'remote' ? (
+        <fieldset
+          className="choice-group remote-endpoint"
+          disabled={lyricsOnly}
+          aria-describedby={describedBy}
+        >
+          <legend>Remote endpoint</legend>
+          <RemoteEndpointPanel
+            endpoint={remote.endpoint}
+            editing={remote.editing}
+            onEdit={remote.edit}
+            onSave={remote.save}
+          />
+          <AlertMessage shown={remote.endpointUnstored} text={ENDPOINT_UNSTORED_MESSAGE} />
+        </fieldset>
+      ) : (
+        <fieldset className="choice-group" disabled={lyricsOnly} aria-describedby={describedBy}>
+          <legend>Speech model</legend>
+          {SPEECH_MODELS.map((model) => (
+            <label key={model.id} className="choice">
+              <input
+                type="radio"
+                name="speech-model"
+                value={model.id}
+                checked={speechModelId === model.id}
+                onChange={() => onSpeechModelChange(model.id)}
+              />
+              {model.label} <span className="choice-size">{model.downloadMb} MB</span>
+            </label>
+          ))}
+        </fieldset>
+      )}
+      {lyricsOnly ? (
+        <p id={reasonId} className="dialog-note">
+          {LYRICS_ONLY_REASON}
+        </p>
+      ) : (
+        remote.source === 'browser' && note
+      )}
+    </>
+  )
+}
+
+type RunNotesProps = {
+  state: DialogState
+  /** True after the person pressed Escape during the run. */
+  escaped: boolean
+}
+
+/** Shows the hint after Escape during a run, and the message after a cancel. */
+function RunNotes({ state, escaped }: RunNotesProps) {
+  if (state.status === 'idle' && state.stopped === true)
+    return (
+      <p className="dialog-note" role="status">
+        {RUN_STOPPED_MESSAGE}
+      </p>
+    )
+  if (escaped && isRunState(state))
+    return (
+      <p className="dialog-note" role="status">
+        {ESCAPE_HINT}
+      </p>
+    )
+  return null
 }
 
 /** Shows a message in an alert while `shown` is true. */
@@ -940,7 +1040,7 @@ function useTranscribeRun(onDone: (outcome: TranscribeOutcome) => void) {
             send({ type: 'progress', doneMs, totalMs })
           },
           onFinishing: () => send({ type: 'finishing' }),
-          confirmReplace: () => ask({ type: 'confirm-replace' }),
+          confirmReplace: (question) => ask({ type: 'confirm-replace', question }),
           confirmLowMatch: (ratio) => ask({ type: 'confirm-low-match', ratio }),
           confirmLyricsFit: (fit) => ask({ type: 'confirm-lyrics-fit', fit }),
         })
@@ -976,7 +1076,9 @@ function useTranscribeRun(onDone: (outcome: TranscribeOutcome) => void) {
     dispatch({ type: 'cancelled' })
   }
 
-  return { state, webgpu, device, meter, start, answer, cancel }
+  const clearStopped = useCallback(() => dispatch({ type: 'clear-stopped' }), [])
+
+  return { state, webgpu, device, meter, start, answer, cancel, clearStopped }
 }
 
 /** The run states of the singer step, after the run wrote its marks. */
@@ -1038,7 +1140,8 @@ function runTexts(runState: RunState | null, elapsedMs: number, meter: RunMeter 
  * The text changes each second before the first progress, so the live region holds only the name of the state.
  */
 function ProgressArea({ state, meter }: ProgressAreaProps) {
-  const runState = shownRunState(state)
+  // The run waits for the answer, so a moving bar or clock beside a question would show work that does not happen.
+  const runState = isQuestion(state) ? null : shownRunState(state)
   // The clock runs for the full run. A clock that starts again after the download shows an old elapsed time for up to one second.
   const now = useNow(runState !== null)
   const texts = runTexts(runState, now - (meter?.startedAtMs ?? now), meter)
@@ -1072,7 +1175,7 @@ function DialogMessage({ state, selection }: { state: DialogState; selection: bo
   if (state.status === 'confirm-replace')
     return (
       <p className="dialog-confirm" role="alert">
-        The run replaces the marks of this voice.
+        {replaceQuestionMessage(state.question)}
       </p>
     )
   if (state.status === 'low-match')

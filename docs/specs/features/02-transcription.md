@@ -311,6 +311,23 @@ leaves the browser, and the app shows the host before each run.
 - FR-transcribe-138 — A hint under the lyrics field states the rule for
   characters.
 
+### Dialog layout and run messages (issue #164)
+
+- FR-transcribe-139 — The transcribe dialog keeps its title and its buttons in
+  view. Only the options scroll.
+- FR-transcribe-140 — The progress and each question of a run show outside the
+  scroll area.
+- FR-transcribe-141 — After a cancel, the dialog states that the marks did not
+  change.
+- FR-transcribe-142 — `Escape` during a run moves the focus to "Cancel" and shows a
+  hint.
+- FR-transcribe-143 — For "Lyrics only", the dialog states the reason for the
+  disabled groups.
+- FR-transcribe-144 — The replace question states the voice, the range and the
+  count of marks that the run replaces.
+- FR-transcribe-145 — While a question shows, the progress bar and the elapsed
+  time do not show.
+
 ## User flows
 
 ### Transcribe a song
@@ -453,6 +470,11 @@ sequenceDiagram
 or endpoint panel, device note, lyrics field,
 range selector (full song or the time selection), progress area, buttons.
 
+The dialog is a column of three parts. The title stays at the top. The options
+scroll in the middle. The bottom part holds the remote warning, the progress area,
+the messages, each question and the buttons, and it does not scroll. So "Start" is
+fully visible at 1440x900 and at 1024x768 with each option on.
+
 - idle: selectors enabled, "Start" enabled.
 - preparing: "Preparing audio, 0:02 elapsed" with a bar that has no end. The app
   decodes the audio and converts it to 16 kHz mono. "Cancel" enabled.
@@ -465,7 +487,17 @@ range selector (full song or the time selection), progress area, buttons.
   audio time changes at the end of each sung segment, a few seconds apart, and not
   only at the end of each 30-second chunk.
 - finishing: "Aligning lyrics and breaking down words".
-- confirm: "The run replaces the marks of this voice." with "Continue" and "Cancel".
+- confirm: "The run replaces the <n> marks of "<voice name>" from <start> to
+  <end>." with "Continue" and "Cancel". The count is the count of marks of the
+  voice on all layers that overlap the range. The same rule decides that the
+  dialog asks. The times have the form `0:01.500`. For one mark, the text reads
+  "the 1 mark".
+- question: while the dialog asks, the progress area shows no text and no bar,
+  because the run waits for the answer.
+- stopped: after a cancel, the dialog goes back to idle and shows "The run stopped.
+  The marks did not change." for 5 seconds.
+- `Escape` during a run moves the focus to "Cancel" and shows "Select Cancel to stop
+  the run." The run goes on. `Escape` at a question answers "Cancel".
 - error: the message, with "Retry" and "Close".
 - done: the dialog closes. A toast shows "214 words, 9 estimated".
 
@@ -487,6 +519,10 @@ available. Transcription is slower on this browser."
 
 If the person selects "Lyrics only" and the lyrics field has no word, the app
 disables "Start". The hint reads "Paste the lyrics to use Lyrics only."
+
+With "Lyrics only" selected, the note "Lyrics only uses no speech model." replaces
+the device note. It describes the disabled groups "Where to transcribe" and
+"Speech model", or the endpoint panel.
 
 If the lyrics have more than 20 000 characters, the message under the lyrics field
 reads "The lyrics are too long. Use 20 000 characters at most." The app disables
@@ -981,7 +1017,7 @@ from 0 to 1.
 | Instrumental range selected | "No words were found" for that range. Other marks stay. |
 | Lyrics contain a line with no words | The app ignores the line. |
 | Lyrics contain `[Chorus]` style tags | The app ignores a line that is only text in square brackets. |
-| Remote endpoint: no connection, or the CORS settings block the page | "The app could not connect to <host>. The server is not available, or its CORS settings block this page. Check that the server runs and sends the header Access-Control-Allow-Origin: <origin of the app>" |
+| Remote endpoint: no connection, or the CORS settings block the page | "The app could not connect to <host>. Check that the server runs and that the base URL is correct." Then a second paragraph: "If the server runs: its CORS settings can block this page. Check that the server sends the header Access-Control-Allow-Origin: <origin of the app>" |
 | Remote endpoint: HTTP 401 or 403 | "<host> refused the API key (HTTP 401). Check the API key of the remote endpoint." |
 | Remote endpoint: HTTP 404 | "<host> has no transcription service at this address (HTTP 404). Check the base URL. It usually ends with /v1." |
 | Remote endpoint: HTTP 413, or a WAV file above 25 000 000 bytes | "The audio is too large for the remote endpoint. Select a shorter part of the song in the editor, and transcribe the time selection." |
@@ -991,11 +1027,11 @@ from 0 to 1.
 | Remote endpoint: the response is not JSON | "<host> did not return JSON. Check the base URL. It usually ends with /v1." |
 | Remote endpoint: the response has no `words` list | "<host> returned no word times. Use a server and a speech model that return the words field of verbose_json." |
 | Remote endpoint: the response has an empty `words` list | "No words were found. Paste the lyrics and use Lyrics only." |
-| Remote endpoint: the person selects "Cancel" | The app stops the request. No mark changes. The dialog goes back to idle with no message. |
+| Remote endpoint: the person selects "Cancel" | The app stops the request. No mark changes. The dialog goes back to idle and shows "The run stopped. The marks did not change." |
 | Vocal separation: the model does not download | "The app could not download the vocal separation model. Check the connection. Then try again, or continue with no separation." with "Continue with no separation" and "Cancel". |
 | Vocal separation: out of memory | "This browser does not have enough memory to separate the vocals of this song. Select a shorter time range, or continue with no separation." with "Continue with no separation" and "Cancel". |
 | Vocal separation: the model fails, or another failure | "The vocal separation did not work. Continue with no separation, or cancel." with "Continue with no separation" and "Cancel". |
-| Vocal separation: the person selects "Cancel" during the step | The app stops the worker. No mark changes. The dialog goes back to idle with no message. |
+| Vocal separation: the person selects "Cancel" during the step | The app stops the worker. No mark changes. The dialog goes back to idle and shows "The run stopped. The marks did not change." |
 | Vocal separation: the person selects "Continue with no separation" | The run goes on with the audio of the song, as with the option off. |
 | Demucs: out of memory | The message for out of memory, with "Use the fast model", "Continue with no separation" and "Cancel". |
 | Demucs: the person selects "Use the fast model" | The run separates the vocals again with Spleeter. The stored choice does not change. |

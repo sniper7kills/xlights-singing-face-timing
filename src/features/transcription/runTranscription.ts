@@ -1,7 +1,7 @@
 import { tagSectionRanges } from '../../lib/sections/tagSections.ts'
 import { addSections } from '../../store/actions/addSections.ts'
 import { breakDownMarks, loadDictionaries } from '../../store/actions/breakDown.ts'
-import { hasMarksInRange, replaceMarksInRange } from '../../store/actions/replaceMarksInRange.ts'
+import { countMarksInRange, replaceMarksInRange } from '../../store/actions/replaceMarksInRange.ts'
 import type { RemoteEndpoint } from '../../lib/remote/endpoint.ts'
 import { encodeWav } from '../../lib/remote/wav.ts'
 import { fitLyricsLines, leavesOutLines, type LyricsFit } from '../../lib/text/lyricsFit.ts'
@@ -166,6 +166,9 @@ export type RunStage =
   | 'singers-download'
   | 'finding-singers'
 
+/** The facts of the replace question: the count of marks that the run replaces, the name of the voice and the range. */
+export type ReplaceQuestion = { markCount: number; voiceName: string; range: TimeRange }
+
 /** The functions that the transcribe dialog supplies to one run. */
 export type TranscribeRunHandlers = {
   /** Aborts when the person selects "Cancel". The run then changes no mark. */
@@ -181,7 +184,7 @@ export type TranscribeRunHandlers = {
   /** Tells the dialog that the run aligns the lyrics and breaks down the words. */
   onFinishing: () => void
   /** Asks the person to replace the marks that exist. Resolves true for "Continue". */
-  confirmReplace: () => Promise<boolean>
+  confirmReplace: (question: ReplaceQuestion) => Promise<boolean>
   /**
    * Asks the person to continue when the lyrics have more words than the range has room for.
    * Resolves true for "Continue". The run then leaves out the lines after `fit.keptLineCount`.
@@ -259,8 +262,9 @@ export async function runTranscription(
   if (request.mode === 'lyrics-only' && parseLyrics(request.lyrics ?? '').length === 0)
     throw new NoWordsError()
   // The feature file asks before the download, so a "Cancel" costs no download and no wait.
-  if (hasMarksInRange(content, request.voiceId, range) && !(await handlers.confirmReplace()))
-    throw declined()
+  const markCount = countMarksInRange(content.marks, request.voiceId, range)
+  const question = { markCount, voiceName: voiceNameOf(request.voiceId), range }
+  if (markCount > 0 && !(await handlers.confirmReplace(question))) throw declined()
   const { request: fitted, linesLeftOut } = await fitLyrics(request, range, song.frameMs, handlers)
   stopIfCancelled(signal)
 

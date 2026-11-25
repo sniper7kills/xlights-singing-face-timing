@@ -109,7 +109,9 @@ test('a remote run creates the same marks on three layers as a browser run of th
   const remote = await openDialog(page)
   await saveEndpoint(remote)
   await remote.getByRole('button', { name: 'Start' }).click()
-  await expect(remote.getByText('The run replaces the marks of this voice.')).toBeVisible({
+  await expect(
+    remote.getByText(/^The run replaces the \d+ marks of ".+" from 0:00\.000 to \d:\d\d\.\d{3}\.$/),
+  ).toBeVisible({
     timeout: 20_000,
   })
   await remote.getByRole('button', { name: 'Continue' }).click()

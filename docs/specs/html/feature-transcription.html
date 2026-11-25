@@ -777,6 +777,42 @@ body.rv-open .layout { padding-right:21rem; }
 </li>
 </ul>
 <p>characters.</p>
+<h4 id="transcription-dialog-layout-and-run-messages-issue-164">Dialog layout and run messages (issue #164)</h4>
+<ul>
+<li>FR-transcribe-139 — The transcribe dialog keeps its title and its buttons in
+</li>
+</ul>
+<p>view. Only the options scroll.</p>
+<ul>
+<li>FR-transcribe-140 — The progress and each question of a run show outside the
+</li>
+</ul>
+<p>scroll area.</p>
+<ul>
+<li>FR-transcribe-141 — After a cancel, the dialog states that the marks did not
+</li>
+</ul>
+<p>change.</p>
+<ul>
+<li>FR-transcribe-142 — <code>Escape</code> during a run moves the focus to "Cancel" and shows a
+</li>
+</ul>
+<p>hint.</p>
+<ul>
+<li>FR-transcribe-143 — For "Lyrics only", the dialog states the reason for the
+</li>
+</ul>
+<p>disabled groups.</p>
+<ul>
+<li>FR-transcribe-144 — The replace question states the voice, the range and the
+</li>
+</ul>
+<p>count of marks that the run replaces.</p>
+<ul>
+<li>FR-transcribe-145 — While a question shows, the progress bar and the elapsed
+</li>
+</ul>
+<p>time do not show.</p>
 <h3 id="transcription-user-flows">User flows</h3>
 <h4 id="transcription-transcribe-a-song">Transcribe a song</h4>
 <div class="diagram"><pre class="mermaid">sequenceDiagram
@@ -963,6 +999,7 @@ body.rv-open .layout { padding-right:21rem; }
 </ol>
 <h3 id="transcription-screens-states">Screens &amp; states</h3>
 <p><strong>Transcribe dialog.</strong> Regions: "Where to transcribe" choice, speech model selector or endpoint panel, device note, lyrics field, range selector (full song or the time selection), progress area, buttons.</p>
+<p>The dialog is a column of three parts. The title stays at the top. The options scroll in the middle. The bottom part holds the remote warning, the progress area, the messages, each question and the buttons, and it does not scroll. So "Start" is fully visible at 1440x900 and at 1024x768 with each option on.</p>
 <ul>
 <li>idle: selectors enabled, "Start" enabled.
 </li>
@@ -990,8 +1027,26 @@ body.rv-open .layout { padding-right:21rem; }
 <ul>
 <li>finishing: "Aligning lyrics and breaking down words".
 </li>
-<li>confirm: "The run replaces the marks of this voice." with "Continue" and "Cancel".
+<li>confirm: "The run replaces the &lt;n&gt; marks of "&lt;voice name&gt;" from &lt;start&gt; to
 </li>
+</ul>
+<p>&lt;end&gt;." with "Continue" and "Cancel". The count is the count of marks of the voice on all layers that overlap the range. The same rule decides that the dialog asks. The times have the form <code>0:01.500</code>. For one mark, the text reads "the 1 mark".</p>
+<ul>
+<li>question: while the dialog asks, the progress area shows no text and no bar,
+</li>
+</ul>
+<p>because the run waits for the answer.</p>
+<ul>
+<li>stopped: after a cancel, the dialog goes back to idle and shows "The run stopped.
+</li>
+</ul>
+<p>The marks did not change." for 5 seconds.</p>
+<ul>
+<li><code>Escape</code> during a run moves the focus to "Cancel" and shows "Select Cancel to stop
+</li>
+</ul>
+<p>the run." The run goes on. <code>Escape</code> at a question answers "Cancel".</p>
+<ul>
 <li>error: the message, with "Retry" and "Close".
 </li>
 <li>done: the dialog closes. A toast shows "214 words, 9 estimated".
@@ -1024,6 +1079,7 @@ body.rv-open .layout { padding-right:21rem; }
 </ul>
 <p>card was too slow. The run continues on the CPU." one time.</p>
 <p>If the person selects "Lyrics only" and the lyrics field has no word, the app disables "Start". The hint reads "Paste the lyrics to use Lyrics only."</p>
+<p>With "Lyrics only" selected, the note "Lyrics only uses no speech model." replaces the device note. It describes the disabled groups "Where to transcribe" and "Speech model", or the endpoint panel.</p>
 <p>If the lyrics have more than 20 000 characters, the message under the lyrics field reads "The lyrics are too long. Use 20 000 characters at most." The app disables "Start" and reads no line of the lyrics until the text is shorter. No real song has lyrics of this length.</p>
 <p>The hint under the lyrics field reads "The app uses each word that has a letter or a digit. It leaves out other words, such as &amp; or an emoji."</p>
 <ul>
@@ -1594,7 +1650,7 @@ spreadLyrics(lyrics: string, startMs: number, endMs: number): AlignedPhrase[]</c
 <tr><td>Instrumental range selected</td><td>"No words were found" for that range. Other marks stay.</td></tr>
 <tr><td>Lyrics contain a line with no words</td><td>The app ignores the line.</td></tr>
 <tr><td>Lyrics contain <code>[Chorus]</code> style tags</td><td>The app ignores a line that is only text in square brackets.</td></tr>
-<tr><td>Remote endpoint: no connection, or the CORS settings block the page</td><td>"The app could not connect to &lt;host&gt;. The server is not available, or its CORS settings block this page. Check that the server runs and sends the header Access-Control-Allow-Origin: &lt;origin of the app&gt;"</td></tr>
+<tr><td>Remote endpoint: no connection, or the CORS settings block the page</td><td>"The app could not connect to &lt;host&gt;. Check that the server runs and that the base URL is correct." Then a second paragraph: "If the server runs: its CORS settings can block this page. Check that the server sends the header Access-Control-Allow-Origin: &lt;origin of the app&gt;"</td></tr>
 <tr><td>Remote endpoint: HTTP 401 or 403</td><td>"&lt;host&gt; refused the API key (HTTP 401). Check the API key of the remote endpoint."</td></tr>
 <tr><td>Remote endpoint: HTTP 404</td><td>"&lt;host&gt; has no transcription service at this address (HTTP 404). Check the base URL. It usually ends with /v1."</td></tr>
 <tr><td>Remote endpoint: HTTP 413, or a WAV file above 25 000 000 bytes</td><td>"The audio is too large for the remote endpoint. Select a shorter part of the song in the editor, and transcribe the time selection."</td></tr>
@@ -1604,11 +1660,11 @@ spreadLyrics(lyrics: string, startMs: number, endMs: number): AlignedPhrase[]</c
 <tr><td>Remote endpoint: the response is not JSON</td><td>"&lt;host&gt; did not return JSON. Check the base URL. It usually ends with /v1."</td></tr>
 <tr><td>Remote endpoint: the response has no <code>words</code> list</td><td>"&lt;host&gt; returned no word times. Use a server and a speech model that return the words field of verbose_json."</td></tr>
 <tr><td>Remote endpoint: the response has an empty <code>words</code> list</td><td>"No words were found. Paste the lyrics and use Lyrics only."</td></tr>
-<tr><td>Remote endpoint: the person selects "Cancel"</td><td>The app stops the request. No mark changes. The dialog goes back to idle with no message.</td></tr>
+<tr><td>Remote endpoint: the person selects "Cancel"</td><td>The app stops the request. No mark changes. The dialog goes back to idle and shows "The run stopped. The marks did not change."</td></tr>
 <tr><td>Vocal separation: the model does not download</td><td>"The app could not download the vocal separation model. Check the connection. Then try again, or continue with no separation." with "Continue with no separation" and "Cancel".</td></tr>
 <tr><td>Vocal separation: out of memory</td><td>"This browser does not have enough memory to separate the vocals of this song. Select a shorter time range, or continue with no separation." with "Continue with no separation" and "Cancel".</td></tr>
 <tr><td>Vocal separation: the model fails, or another failure</td><td>"The vocal separation did not work. Continue with no separation, or cancel." with "Continue with no separation" and "Cancel".</td></tr>
-<tr><td>Vocal separation: the person selects "Cancel" during the step</td><td>The app stops the worker. No mark changes. The dialog goes back to idle with no message.</td></tr>
+<tr><td>Vocal separation: the person selects "Cancel" during the step</td><td>The app stops the worker. No mark changes. The dialog goes back to idle and shows "The run stopped. The marks did not change."</td></tr>
 <tr><td>Vocal separation: the person selects "Continue with no separation"</td><td>The run goes on with the audio of the song, as with the option off.</td></tr>
 <tr><td>Demucs: out of memory</td><td>The message for out of memory, with "Use the fast model", "Continue with no separation" and "Cancel".</td></tr>
 <tr><td>Demucs: the person selects "Use the fast model"</td><td>The run separates the vocals again with Spleeter. The stored choice does not change.</td></tr>

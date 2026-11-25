@@ -56,7 +56,9 @@ test('creates the fixture words and phrases, asks before a second run, and keeps
 
   const again = await openDialog(page)
   await again.getByRole('button', { name: 'Start' }).click()
-  await expect(again.getByText('The run replaces the marks of this voice.')).toBeVisible()
+  await expect(
+    again.getByText(/^The run replaces the \d+ marks of ".+" from 0:00\.000 to \d:\d\d\.\d{3}\.$/),
+  ).toBeVisible()
   await again.getByRole('button', { name: 'Cancel' }).click()
   await again.getByRole('button', { name: 'Close' }).click()
   await expect(layer(page, 'Words')).toHaveCount(16)

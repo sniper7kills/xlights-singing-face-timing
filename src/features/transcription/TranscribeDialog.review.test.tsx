@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { TimeRange } from '../../lib/time/timeRange.ts'
 import { hasWebGpu } from './device.ts'
+import { TranscribeError } from './transcribeClient.ts'
 import {
   runTranscription,
   type TranscribeOutcome,
@@ -160,5 +161,113 @@ describe('TranscribeDialog lyrics that do not fit', () => {
     expect(screen.getByRole('alert')).toHaveTextContent(
       'The time selection has room for about 578 words.',
     )
+  })
+})
+
+describe('TranscribeDialog layout', () => {
+  it('keeps the options in a scroll area and the progress and the buttons after it', async () => {
+    await renderDialog()
+
+    const body = document.querySelector('.transcribe-body')
+    const footer = document.querySelector('.transcribe-footer')
+    expect(body).toContainElement(screen.getByRole('group', { name: 'Range' }))
+    expect(footer).toContainElement(screen.getByRole('button', { name: 'Start' }))
+    expect(footer).toContainElement(document.querySelector('.dialog-progress'))
+  })
+})
+
+describe('TranscribeDialog after a cancel', () => {
+  it('states that the run stopped and the marks did not change, for a few seconds', async () => {
+    const { user, start } = await renderDialog()
+    await user.click(start)
+    act(() => lastRun().handlers.onStage('transcribing'))
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+
+    await act(async () => screen.getByRole('button', { name: 'Cancel' }).click())
+
+    expect(screen.getByText('The run stopped. The marks did not change.')).toHaveAttribute(
+      'role',
+      'status',
+    )
+    expect(screen.getByRole('button', { name: 'Start' })).toBeInTheDocument()
+    act(() => vi.advanceTimersByTime(5000))
+    expect(screen.queryByText('The run stopped. The marks did not change.')).toBeNull()
+  })
+
+  it('states the same after "Cancel" at the replace question', async () => {
+    const { user, start } = await renderDialog()
+    await user.click(start)
+    let answer: Promise<boolean> = Promise.resolve(true)
+    act(() => {
+      answer = lastRun().handlers.confirmReplace({
+        markCount: 3,
+        voiceName: 'Lead Vocals',
+        range: { startMs: 0, endMs: 10_000 },
+      })
+    })
+
+    await user.click(screen.getByRole('button', { name: 'Cancel' }))
+    await expect(answer).resolves.toBe(false)
+    await act(async () => lastRun().reject(new TranscribeError('cancelled', 'declined')))
+
+    expect(screen.getByText('The run stopped. The marks did not change.')).toBeInTheDocument()
+  })
+})
+
+describe('TranscribeDialog Escape during a run', () => {
+  it('moves the focus to "Cancel" and shows the hint, and the run goes on', async () => {
+    const { user, start, onClose } = await renderDialog()
+    await user.click(start)
+    act(() => lastRun().handlers.onStage('transcribing'))
+    // During a run the options are disabled, so the focus can only be on the dialog actions.
+    screen.getByRole('button', { name: 'Cancel' }).blur()
+    const dialog = screen.getByRole('dialog', { name: 'Transcribe' })
+
+    fireEvent.keyDown(dialog, { key: 'Escape' })
+
+    expect(screen.getByRole('button', { name: 'Cancel' })).toHaveFocus()
+    expect(screen.getByText('Select Cancel to stop the run.')).toBeInTheDocument()
+    expect(onClose).not.toHaveBeenCalled()
+    expect(lastRun().handlers.signal.aborted).toBe(false)
+  })
+})
+
+describe('TranscribeDialog with "Lyrics only"', () => {
+  it('states why the source groups are disabled and hides the device note', async () => {
+    const { user } = await renderDialog()
+    expect(
+      screen.getByText('WebGPU is not available. Transcription is slower on this browser.'),
+    ).toBeInTheDocument()
+
+    await user.click(screen.getByRole('checkbox', { name: 'Lyrics only' }))
+
+    const reason = 'Lyrics only uses no speech model.'
+    expect(screen.getByRole('group', { name: 'Where to transcribe' })).toHaveAccessibleDescription(
+      reason,
+    )
+    expect(screen.getByRole('group', { name: 'Speech model' })).toHaveAccessibleDescription(reason)
+    expect(screen.queryByText(/WebGPU is not available/)).toBeNull()
+  })
+})
+
+describe('TranscribeDialog replace question', () => {
+  it('states the count, the voice and the range, and stops the progress', async () => {
+    const { user, start } = await renderDialog()
+    await user.click(start)
+
+    act(
+      () =>
+        void lastRun().handlers.confirmReplace({
+          markCount: 41,
+          voiceName: 'Lead Vocals',
+          range: { startMs: 1000, endMs: 5000 },
+        }),
+    )
+
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      'The run replaces the 41 marks of "Lead Vocals" from 0:01.000 to 0:05.000.',
+    )
+    expect(document.querySelector('.dialog-progress progress')).toBeNull()
+    expect(document.querySelector('.transcribe-progress')).toHaveTextContent('')
   })
 })

@@ -1,4 +1,4 @@
-import { act, render, screen } from '@testing-library/react'
+import { act, getDefaultNormalizer, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { RemoteError } from '../../lib/remote/response.ts'
@@ -285,7 +285,7 @@ describe('TranscribeDialog "Where to transcribe"', () => {
   it.each([
     [
       new RemoteError('network', 'localhost:8000'),
-      'The app could not connect to localhost:8000. The server is not available, or its CORS settings block this page. Check that the server runs and sends the header Access-Control-Allow-Origin: http://localhost:3000',
+      'The app could not connect to localhost:8000. Check that the server runs and that the base URL is correct.\n\nIf the server runs: its CORS settings can block this page. Check that the server sends the header Access-Control-Allow-Origin: http://localhost:3000',
     ],
     [
       new RemoteError('auth', 'localhost:8000', 401),
@@ -309,7 +309,9 @@ describe('TranscribeDialog "Where to transcribe"', () => {
 
     act(() => lastRun().reject(error))
 
-    expect(await screen.findByText(message)).toBeInTheDocument()
+    // The message keeps its empty line, which starts the second paragraph.
+    const exact = { normalizer: getDefaultNormalizer({ collapseWhitespace: false }) }
+    expect(await screen.findByText(message, exact)).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Retry' })).toBeInTheDocument()
   })
 
