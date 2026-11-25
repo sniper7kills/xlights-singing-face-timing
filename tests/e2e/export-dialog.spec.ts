@@ -102,7 +102,7 @@ test('warns about a voice name with an accented letter and still downloads', asy
   await expect(page.getByRole('heading', { level: 2, name: 'Silent Night' })).toBeVisible()
   const rail = page.getByRole('complementary', { name: 'Voices' })
   await rail.getByRole('button', { name: 'Actions for Lead Vocals', exact: true }).click()
-  await rail.getByRole('menuitem', { name: 'Rename', exact: true }).click()
+  await page.getByRole('menuitem', { name: 'Rename', exact: true }).click()
   const field = rail.getByRole('textbox', { name: 'Voice name' })
   await field.fill('Noël')
   await expect(rail.getByText('xLights shows this name as “Nol”.')).toBeVisible()

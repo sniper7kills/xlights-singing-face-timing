@@ -7,6 +7,7 @@ import {
   phraseInSection,
   phrasesOfSection,
   previewSectionEdge,
+  sectionTrimNote,
   snapSections,
   uniqueSectionName,
 } from './sectionRules.ts'
@@ -227,5 +228,58 @@ describe('snapSections', () => {
     const snapped = snapSections(sections, 50, 1040)
 
     expect(snapped.map((s) => [s.id, s.startMs, s.endMs])).toEqual([['b', 0, 1000]])
+  })
+})
+
+describe('sectionTrimNote', () => {
+  const verse = [section('v', 0, 16_000, 'Verse 1'), section('c', 23_000, 28_000, 'Chorus')]
+
+  it('names the section before a new section that starts later than the selection', () => {
+    expect(
+      sectionTrimNote(
+        verse,
+        { startMs: 14_000, endMs: 23_000 },
+        { startMs: 16_000, endMs: 23_000 },
+        50,
+      ),
+    ).toBe('The section starts at 0:16.000, after "Verse 1".')
+  })
+
+  it('names the section after a new section that ends earlier than the selection', () => {
+    expect(
+      sectionTrimNote(
+        verse,
+        { startMs: 17_000, endMs: 25_000 },
+        { startMs: 17_000, endMs: 23_000 },
+        50,
+      ),
+    ).toBe('The section ends at 0:23.000, before "Chorus".')
+  })
+
+  it('gives both texts for a new section between two sections', () => {
+    expect(
+      sectionTrimNote(
+        verse,
+        { startMs: 10_000, endMs: 25_000 },
+        { startMs: 16_000, endMs: 23_000 },
+        50,
+      ),
+    ).toBe(
+      'The section starts at 0:16.000, after "Verse 1". The section ends at 0:23.000, before "Chorus".',
+    )
+  })
+
+  it('gives no text for a range that only snaps to the frame size or stops at the song end', () => {
+    expect(
+      sectionTrimNote(
+        verse,
+        { startMs: 16_010, endMs: 22_990 },
+        { startMs: 16_000, endMs: 23_000 },
+        50,
+      ),
+    ).toBeNull()
+    expect(
+      sectionTrimNote([], { startMs: 1000, endMs: 40_000 }, { startMs: 1000, endMs: 30_000 }, 50),
+    ).toBeNull()
   })
 })

@@ -8,7 +8,6 @@ import type { Mark } from '../../store/types.ts'
 import { useViewStore } from '../../store/viewStore.ts'
 import { SHORTCUT_KEYS } from './editorShortcuts.ts'
 import { resetMarkUi } from './markUiStore.ts'
-import { menuPosition } from './PhonemeLabelMenu.tsx'
 import { STATUS_MS, StatusLine } from './StatusLine.tsx'
 import { reportStatus } from './statusStore.ts'
 import { useEditorKeys } from './useEditorKeys.ts'
@@ -154,24 +153,5 @@ describe('the reason of a drag that does nothing', () => {
 
     expect(status()).toHaveTextContent('The mark has no room to move.')
     expect(useSongStore.getState().history.past).toHaveLength(0)
-  })
-})
-
-describe('menuPosition', () => {
-  const view = { width: 1200, height: 800 }
-  const size = { width: 300, height: 100 }
-
-  it('opens under the layer row when the list fits in the window', () => {
-    expect(menuPosition({ top: 400, bottom: 430, left: 50 }, size, view)).toEqual({
-      top: 434,
-      left: 50,
-    })
-  })
-
-  it('opens over the layer row near the window bottom, and stays inside the window width', () => {
-    expect(menuPosition({ top: 700, bottom: 730, left: 1100 }, size, view)).toEqual({
-      top: 596,
-      left: 896,
-    })
   })
 })

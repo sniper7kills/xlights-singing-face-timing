@@ -83,7 +83,7 @@ test('keeps a deleted voice deleted after a reload 300 ms later', async ({ page 
   await expect(page.locator('.save-state')).toHaveText('Saved')
 
   await rail.getByRole('button', { name: 'Actions for Lead Vocals', exact: true }).click()
-  await rail.getByRole('menuitem', { name: 'Delete', exact: true }).click()
+  await page.getByRole('menuitem', { name: 'Delete', exact: true }).click()
   await page
     .getByRole('dialog', { name: 'The app deletes “Lead Vocals” and its marks.' })
     .getByRole('button', { name: 'Delete', exact: true })

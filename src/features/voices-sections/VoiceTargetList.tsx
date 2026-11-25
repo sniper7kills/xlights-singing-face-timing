@@ -1,3 +1,4 @@
+import type { RefObject } from 'react'
 import { MAX_VOICES } from '../../lib/voices/voiceRules.ts'
 import { useSongStore } from '../../store/songStore.ts'
 import { ActionMenu } from './ActionMenu.tsx'
@@ -12,6 +13,8 @@ type VoiceTargetListProps = {
   excludeVoiceId: string
   /** Receives the id of the chosen voice, or `new` for "New voice". */
   onChoose: (target: string | 'new') => void
+  /** The button that opened the menu. The list opens next to it. */
+  anchor: RefObject<HTMLElement | null>
   /** Receives `Escape` or a focus that leaves the list. See `ActionMenu`. */
   onClose: (refocus: boolean) => void
 }
@@ -23,6 +26,7 @@ type VoiceTargetListProps = {
 export function VoiceTargetList({
   label,
   excludeVoiceId,
+  anchor,
   onChoose,
   onClose,
 }: VoiceTargetListProps) {
@@ -39,5 +43,5 @@ export function VoiceTargetList({
       note: full ? FULL_NOTE : undefined,
     },
   ]
-  return <ActionMenu label={label} items={items} onClose={onClose} />
+  return <ActionMenu label={label} items={items} anchor={anchor} onClose={onClose} />
 }

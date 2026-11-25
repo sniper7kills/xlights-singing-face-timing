@@ -1,10 +1,11 @@
-import { fireEvent, render, screen } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { testContent } from '../../lib/marks/fixtures.test-helpers.ts'
 import { emptyHistory } from '../../store/history.ts'
 import { useSongStore } from '../../store/songStore.ts'
 import { useViewStore } from '../../store/viewStore.ts'
+import { useStatusStore } from '../timeline-editor/statusStore.ts'
 import { AddSectionAction } from './AddSectionAction.tsx'
 
 const sections = () => useSongStore.getState().current?.sections ?? []
@@ -93,5 +94,67 @@ describe('AddSectionAction', () => {
 
     expect(screen.getByRole('textbox', { name: 'Section name' })).toBeInTheDocument()
     expect(sections()).toEqual([])
+  })
+
+  it('adds the section with the name in the field when a click elsewhere takes the focus', async () => {
+    useViewStore.getState().setSelection({ startMs: 1000, endMs: 2500 })
+    render(
+      <>
+        <AddSectionAction />
+        <button type="button">Elsewhere</button>
+      </>,
+    )
+
+    await userEvent.click(addButton())
+    await userEvent.keyboard('Verse 1')
+    await userEvent.click(screen.getByRole('button', { name: 'Elsewhere' }))
+
+    expect(screen.queryByRole('textbox')).not.toBeInTheDocument()
+    expect(sections()).toMatchObject([{ name: 'Verse 1', startMs: 1000, endMs: 2500 }])
+    expect(useSongStore.getState().history.past).toHaveLength(1)
+  })
+
+  it('adds the section with the default name when Tab leaves the field', async () => {
+    useViewStore.getState().setSelection({ startMs: 1000, endMs: 2500 })
+    render(<AddSectionAction />)
+
+    await userEvent.click(addButton())
+    await userEvent.tab()
+
+    expect(sections()).toMatchObject([{ name: 'Section 1', startMs: 1000, endMs: 2500 }])
+  })
+
+  it('adds the section for the time selection at the click when the selection changes later', async () => {
+    useViewStore.getState().setSelection({ startMs: 1000, endMs: 2500 })
+    render(<AddSectionAction />)
+
+    await userEvent.click(addButton())
+    act(() => useViewStore.getState().setSelection(null))
+    await userEvent.keyboard('{Enter}')
+
+    expect(sections()).toMatchObject([{ startMs: 1000, endMs: 2500 }])
+  })
+
+  it('states in the status line where the app made the new section start', async () => {
+    const content = useSongStore.getState().current
+    if (!content) throw new Error('The fixture has no song.')
+    useSongStore.setState({
+      current: {
+        ...content,
+        sections: [{ id: 's1', songId: content.song.id, name: 'Verse 1', startMs: 0, endMs: 1600 }],
+      },
+    })
+    useViewStore.getState().setSelection({ startMs: 1400, endMs: 3000 })
+    render(<AddSectionAction />)
+
+    await userEvent.click(addButton())
+    await userEvent.keyboard('Over{Enter}')
+
+    expect(sections()[1]).toMatchObject({ name: 'Over', startMs: 1600, endMs: 3000 })
+    await waitFor(() =>
+      expect(useStatusStore.getState().text).toBe(
+        'The section starts at 0:01.600, after "Verse 1".',
+      ),
+    )
   })
 })
