@@ -876,12 +876,19 @@ button {
   border-bottom: 1px solid var(--line);
 }
 
+.track-heading {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  padding-right: 6px;
+  background: var(--panel);
+}
+
 .track-fold {
   display: block;
-  width: 100%;
   padding: 2px 6px;
   border: 0;
-  background: var(--panel);
+  background: none;
   color: var(--ink);
   font: 700 10px var(--mono);
   letter-spacing: 0.12em;
@@ -889,66 +896,92 @@ button {
   text-transform: uppercase;
 }
 
+.track-plays {
+  overflow: hidden;
+  color: var(--mute);
+  font: 10px var(--mono);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.track-note {
+  margin: 0;
+  padding: 2px 6px;
+  color: var(--mute);
+  font-size: 12px;
+}
+
 /*
- * The list shows at most four rows (48 px and a 1 px border each) and scrolls inside, so the layers stay on the screen.
+ * The list shows at most four rows and scrolls inside, so the layers stay on the screen: the "Song" row (a 20 px line
+ * and a 1 px border) and three track rows (a 20 px line, a 32 px waveform and a 1 px border each).
  * The scroll bar covers the right edge of the rows, so each canvas keeps the width of the stage and its time scale.
  */
 .track-list {
-  max-height: calc(4 * 49px);
+  max-height: calc(21px + 3 * 53px);
   overflow-x: hidden;
   overflow-y: auto;
 }
 
 .track-row {
-  position: relative;
-  height: 48px;
   border-top: 1px solid var(--line);
 }
 
 .track-wave {
   display: block;
-  height: 100%;
+  height: 32px;
 }
 
-/* The controls sit over the left edge of the row, above the play cursor, so a press reaches them. */
+/*
+ * The name and the controls of a row sit on a line above its waveform, at the left edge as the names of the layers,
+ * so they cover no part of the waveform. The line sits above the play cursor, so a press reaches the controls.
+ */
 .row-controls {
-  position: absolute;
-  top: 4px;
-  left: 4px;
+  position: relative;
   z-index: 4;
   display: flex;
   align-items: center;
   gap: 4px;
-  padding: 2px 4px;
-  border: 1px solid var(--line);
-  border-radius: 6px;
+  height: 20px;
+  padding: 0 6px;
   background: var(--panel);
   cursor: default;
 }
 
 .row-name {
-  padding: 0 4px;
+  padding-right: 4px;
   color: var(--ink);
-  font: 700 11px var(--mono);
+  font: 700 10px var(--mono);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.row-sound {
+  font-size: 11px;
+  line-height: 1;
 }
 
 .row-toggle {
-  min-width: 24px;
-  padding: 1px 4px;
+  padding: 0 6px;
   border: 1px solid var(--line);
   border-radius: 4px;
   background: var(--panel2);
   color: var(--ink);
-  font: 11px var(--mono);
+  font: 10px var(--mono);
+  line-height: 16px;
 }
 
-/* A pressed toggle gets a fill, a bold letter and an inset frame, so the state does not rely on colour alone. */
+/* A pressed toggle gets a fill, a bold label and an inset frame, so the state does not rely on colour alone. */
 .row-toggle[aria-pressed='true'] {
   border-color: var(--amber-ink);
   background: var(--amber);
   box-shadow: inset 0 0 0 1px var(--amber-ink);
   color: var(--amber-ink);
   font-weight: 700;
+}
+
+.track-failed {
+  margin: 0;
+  padding: 4px 6px;
 }
 
 .waveform-missing {

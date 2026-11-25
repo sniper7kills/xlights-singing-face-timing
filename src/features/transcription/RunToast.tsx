@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useRunData } from '../../store/useRunData.ts'
+import { runDataOf, useRunData } from '../../store/useRunData.ts'
 import { openRunReport } from './runReportPanelStore.ts'
 
 /** The time that the toast after a transcribe run stays on the screen. */
@@ -34,7 +34,7 @@ export function RunToast({ text, songId, reportStored, onDone }: RunToastProps) 
   return (
     <div className="toast" onFocus={() => setHeld(true)} onBlur={() => setHeld(false)}>
       <p role="status">{text}</p>
-      {reportStored && runData != null && (
+      {reportStored && runDataOf(runData) !== undefined && (
         <button type="button" className="link-button" onClick={openRunReport}>
           Run report
         </button>

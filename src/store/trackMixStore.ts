@@ -1,5 +1,10 @@
 import { create } from 'zustand'
-import { isMuted, type TrackMix } from '../lib/audio/trackMix.ts'
+import {
+  type NamedRow,
+  type TrackMix,
+  withMuteToggled,
+  withSoloToggled,
+} from '../lib/audio/trackMix.ts'
 
 /** The view state of the track rows of one song: mute, solo and fold. It is not an undo step. */
 export type SavedTrackMix = TrackMix & {
@@ -10,8 +15,10 @@ export type SavedTrackMix = TrackMix & {
 type TrackMixState = SavedTrackMix & {
   /** The song of the state, or null before the editor opens a song. */
   songId: string | null
-  /** True when the open song has kept audio tracks, so the editor shows the track rows. */
-  hasTracks: boolean
+  /** The rows that the editor shows, with the "Song" row first, or none when the open song has no kept audio tracks. */
+  rows: readonly NamedRow[]
+  /** The ids of the rows whose play the browser refused. */
+  blocked: readonly string[]
 }
 
 const DEFAULT_MIX: SavedTrackMix = { muted: {}, soloed: [], folded: false }
@@ -65,17 +72,23 @@ function saveTrackMix(songId: string, mix: SavedTrackMix): void {
 export const useTrackMixStore = create<TrackMixState>()(() => ({
   ...DEFAULT_MIX,
   songId: null,
-  hasTracks: false,
+  rows: [],
+  blocked: [],
 }))
 
 /** Loads the saved state of the song into the store. The editor calls it when it opens a song. */
 export function openTrackMix(songId: string): void {
-  useTrackMixStore.setState({ ...readTrackMix(songId), songId, hasTracks: false })
+  useTrackMixStore.setState({ ...readTrackMix(songId), songId, rows: [], blocked: [] })
 }
 
-/** Records whether the open song has kept audio tracks. */
-export function setHasTracks(hasTracks: boolean): void {
-  useTrackMixStore.setState({ hasTracks })
+/** Records the rows that the editor shows, with the "Song" row first. No rows means that the song has no kept tracks. */
+export function setShownRows(rows: readonly NamedRow[]): void {
+  useTrackMixStore.setState({ rows })
+}
+
+/** Records the rows whose play the browser refused. */
+export function setBlockedRows(blocked: readonly string[]): void {
+  useTrackMixStore.setState({ blocked })
 }
 
 function change(next: Partial<SavedTrackMix>): void {
@@ -84,18 +97,14 @@ function change(next: Partial<SavedTrackMix>): void {
   if (state.songId !== null) saveTrackMix(state.songId, state)
 }
 
-/** Mutes the row, or unmutes a muted row, and saves the state for the song. */
+/** Applies a click on "Mute" of the row (`withMuteToggled`), and saves the state for the song. */
 export function toggleMute(rowId: string): void {
-  const state = useTrackMixStore.getState()
-  change({ muted: { ...state.muted, [rowId]: !isMuted(state, rowId) } })
+  change(withMuteToggled(useTrackMixStore.getState(), rowId))
 }
 
-/** Soloes the row, or ends the solo of a soloed row, and saves the state for the song. */
+/** Applies a click on "Solo" of the row (`withSoloToggled`), and saves the state for the song. */
 export function toggleSolo(rowId: string): void {
-  const { soloed } = useTrackMixStore.getState()
-  change({
-    soloed: soloed.includes(rowId) ? soloed.filter((id) => id !== rowId) : [...soloed, rowId],
-  })
+  change(withSoloToggled(useTrackMixStore.getState(), rowId))
 }
 
 /** Folds or unfolds the group "Audio tracks", and saves the state for the song. */

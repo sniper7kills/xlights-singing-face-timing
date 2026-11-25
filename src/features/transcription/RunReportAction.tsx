@@ -1,6 +1,11 @@
 import { useEffect, useRef } from 'react'
 import { useSongStore } from '../../store/songStore.ts'
-import { useRunData } from '../../store/useRunData.ts'
+import {
+  RUN_DATA_FAILED,
+  RUN_DATA_FAILED_NOTE,
+  runDataOf,
+  useRunData,
+} from '../../store/useRunData.ts'
 import { closeRunReport, openRunReport, useRunReportPanel } from './runReportPanelStore.ts'
 import { RunReportDialog } from './RunReportDialog.tsx'
 
@@ -9,7 +14,7 @@ export const NO_RUN_NOTE = 'No transcribe run for this song yet.'
 
 /**
  * Shows the "Run report" action of the editor top bar and the run report panel.
- * The action is disabled while the song has no stored run report.
+ * The action is disabled while the song has no stored run report. Its tooltip gives the reason.
  */
 export function RunReportAction() {
   const song = useSongStore((state) => state.current?.song ?? null)
@@ -21,7 +26,8 @@ export function RunReportAction() {
   useEffect(() => closeRunReport, [])
 
   if (song === null) return null
-  const report = runData?.report
+  const report = runDataOf(runData)?.report
+  const note = runData === RUN_DATA_FAILED ? RUN_DATA_FAILED_NOTE : NO_RUN_NOTE
 
   function close() {
     // The toast that held the link can be gone, so the top bar action takes the focus then.
@@ -37,7 +43,7 @@ export function RunReportAction() {
         type="button"
         className="button"
         disabled={report === undefined}
-        title={report === undefined ? NO_RUN_NOTE : undefined}
+        title={report === undefined ? note : undefined}
         onClick={openRunReport}
       >
         Run report

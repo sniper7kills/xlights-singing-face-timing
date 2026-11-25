@@ -255,7 +255,7 @@ describe('TrackRows', () => {
       'aria-pressed',
       'true',
     )
-    expect(screen.getByRole('button', { name: 'Mute Song' })).toHaveAttribute(
+    expect(screen.getByRole('button', { name: 'Mute Song', hidden: true })).toHaveAttribute(
       'aria-pressed',
       'true',
     )
@@ -442,6 +442,7 @@ describe('TrackRows', () => {
     setMedia(leader, { paused: true })
     await userEvent.click(screen.getByRole('button', { name: 'Mute Vocals' }))
     await waitFor(() => expect(screen.queryByRole('alert')).toBeNull())
+    await userEvent.click(screen.getByRole('button', { name: 'Solo Vocals' }))
     expect(played).toEqual(['vocals', 'vocals'])
   })
 
@@ -449,12 +450,102 @@ describe('TrackRows', () => {
     await renderSong(WITH_TRACKS)
     const group = await screen.findByRole('group', { name: 'Audio tracks' })
     const list = group.querySelector('.track-list')
-    expect(list?.querySelectorAll('.track-row')).toHaveLength(2)
+    expect(list?.querySelectorAll('.track-row')).toHaveLength(3)
     // Vitest does not load the style sheet, so the test reads its rule.
     const appCss = readFileSync('src/app/app.css', 'utf8')
     const rule = /\.track-list\s*\{([^}]*)\}/.exec(appCss)?.[1] ?? ''
-    expect(rule).toMatch(/max-height:\s*calc\(4 \* 49px\)/)
+    expect(rule).toMatch(/max-height:\s*calc\(21px \+ 3 \* 53px\)/)
     expect(rule).toMatch(/overflow-y:\s*auto/)
+  })
+})
+
+describe('TrackRows sound state', () => {
+  it('shows that "Song" is silent and why, with "Solo" on "Vocals", and no row with both buttons pressed', async () => {
+    await renderSong(WITH_TRACKS)
+    const group = await screen.findByRole('group', { name: 'Audio tracks' })
+    await userEvent.click(within(group).getByRole('button', { name: 'Solo Vocals' }))
+
+    const song = group.querySelector('.track-row[data-row="song"] .row-sound')
+    expect(song).toHaveTextContent('silent')
+    expect(song).toHaveAttribute('title', 'Silent, because "Solo" is on for Vocals.')
+    const vocals = group.querySelector('.track-row[data-row="vocals"] .row-sound')
+    expect(vocals).toHaveTextContent('plays')
+    expect(within(group).getByRole('button', { name: 'Mute Vocals' })).toHaveAttribute(
+      'aria-pressed',
+      'false',
+    )
+    expect(within(group).getByRole('button', { name: 'Solo Vocals' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    )
+    expect(screen.getByRole('button', { name: 'Play' })).toHaveAttribute(
+      'title',
+      'The song audio is muted. See "Audio tracks".',
+    )
+  })
+
+  it('names the rows that sound in the heading, also when the group is folded', async () => {
+    await renderSong(WITH_TRACKS)
+    await screen.findByRole('group', { name: 'Audio tracks' })
+    expect(screen.getByTestId('track-plays')).toHaveTextContent('— plays: Song')
+    expect(screen.getByRole('button', { name: 'Play' })).not.toHaveAttribute('title')
+    await userEvent.click(screen.getByRole('button', { name: 'Solo Vocals' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Audio tracks' }))
+    expect(screen.getByTestId('track-plays')).toBeVisible()
+    expect(screen.getByTestId('track-plays')).toHaveTextContent('— plays: Vocals')
+  })
+
+  it('shows the start note until the person changes a mute or a solo', async () => {
+    await renderSong(WITH_TRACKS)
+    const group = await screen.findByRole('group', { name: 'Audio tracks' })
+    expect(
+      within(group).getByText('The tracks start muted. Select "Solo" on a track to hear it alone.'),
+    ).toBeVisible()
+    await userEvent.click(within(group).getByRole('button', { name: 'Mute Instruments' }))
+    expect(within(group).queryByText(/The tracks start muted/)).toBeNull()
+  })
+
+  it('gives each button a tooltip that says what it does, and keeps the short names', async () => {
+    await renderSong(WITH_TRACKS)
+    const group = await screen.findByRole('group', { name: 'Audio tracks' })
+    expect(within(group).getByRole('button', { name: 'Mute Vocals' })).toHaveAttribute(
+      'title',
+      'Mute: do not play this track.',
+    )
+    expect(within(group).getByRole('button', { name: 'Solo Vocals' })).toHaveAttribute(
+      'title',
+      'Solo: play only this track.',
+    )
+  })
+
+  it('puts the name of each row on a line above its waveform, not on the waveform', async () => {
+    await renderSong(WITH_TRACKS)
+    const group = await screen.findByRole('group', { name: 'Audio tracks' })
+    for (const row of group.querySelectorAll('.track-row:not([data-row="song"])')) {
+      const [controls, wave] = [...row.children]
+      expect(controls).toHaveClass('row-controls')
+      expect(wave).toBe(within(row as HTMLElement).getByTestId('track-wave'))
+    }
+    const appCss = readFileSync('src/app/app.css', 'utf8')
+    const rule = /\.row-controls\s*\{([^}]*)\}/.exec(appCss)?.[1] ?? ''
+    expect(rule).not.toMatch(/position:\s*absolute/)
+  })
+
+  it('shows the cause in the place of the rows when the read of the run data fails', async () => {
+    const get = IDBObjectStore.prototype.get
+    vi.spyOn(IDBObjectStore.prototype, 'get').mockImplementation(function (
+      this: IDBObjectStore,
+      key: IDBValidKey | IDBKeyRange,
+    ) {
+      if (this.name === 'runs') throw new DOMException('read failed', 'UnknownError')
+      return get.call(this, key)
+    })
+    await renderSong(null)
+    expect(
+      await screen.findByText(
+        'The app could not read the run report and the separated tracks of this song. Reload the page.',
+      ),
+    ).toBeVisible()
   })
 })
 

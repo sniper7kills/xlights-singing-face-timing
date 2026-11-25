@@ -114,6 +114,27 @@ describe('RunReportAction', () => {
     expect(NO_RUN_NOTE).toBe('No transcribe run for this song yet.')
   })
 
+  it('is disabled with the cause in its tooltip when the read of the run data fails', async () => {
+    const get = IDBObjectStore.prototype.get
+    vi.spyOn(IDBObjectStore.prototype, 'get').mockImplementation(function (
+      this: IDBObjectStore,
+      key: IDBValidKey | IDBKeyRange,
+    ) {
+      if (this.name === 'runs') throw new DOMException('read failed', 'UnknownError')
+      return get.call(this, key)
+    })
+    await storeReport(report())
+    render(<RunReportAction />)
+
+    await waitFor(() =>
+      expect(action()).toHaveAttribute(
+        'title',
+        'The app could not read the run report and the separated tracks of this song. Reload the page.',
+      ),
+    )
+    expect(action()).toBeDisabled()
+  })
+
   it('opens the panel with a heading for each section of the report', async () => {
     const { dialog } = await openPanel()
 

@@ -189,3 +189,50 @@ test('the phoneme layer stays on the screen after a run that made singer rows', 
   expect(scroll).toBeGreaterThan(client)
   await expect(page.getByRole('list', { name: 'Phonemes' })).toBeInViewport({ ratio: 1 })
 })
+
+/** Checks that each track waveform has the left edge and the width of the time ruler, under the line of its name. */
+async function expectWavesInLine(page: Page) {
+  const ruler = await page.locator('.time-ruler').boundingBox()
+  for (const row of ['vocals', 'instruments']) {
+    const wave = await page.locator(`.track-row[data-row="${row}"] canvas`).boundingBox()
+    const name = await page.locator(`.track-row[data-row="${row}"] .row-controls`).boundingBox()
+    if (ruler === null || wave === null || name === null) throw new Error(`No box for ${row}.`)
+    expect(wave.x).toBe(ruler.x)
+    expect(wave.width).toBe(ruler.width)
+    // The line of the name ends where the waveform starts, so it covers no part of it.
+    expect(name.y + name.height).toBeLessThanOrEqual(wave.y)
+  }
+}
+
+test('each row shows whether it sounds, and its name sits above its waveform', async ({ page }) => {
+  await createSong(page)
+  await transcribeSeparated(page)
+
+  const group = page.getByRole('group', { name: 'Audio tracks' })
+  await expect(group).toBeVisible({ timeout: 20_000 })
+  await expect(group.getByText('The tracks start muted.', { exact: false })).toBeVisible()
+  await group.getByRole('button', { name: 'Solo Vocals' }).click()
+
+  const songSound = group.locator('.track-row[data-row="song"] .row-sound')
+  await expect(songSound).toHaveText(/silent/)
+  await expect(songSound).toHaveAttribute('title', 'Silent, because "Solo" is on for Vocals.')
+  await expect(group.getByRole('button', { name: 'Mute Vocals' })).toHaveAttribute(
+    'aria-pressed',
+    'false',
+  )
+  await expect(page.getByRole('button', { name: 'Play', exact: true })).toHaveAttribute(
+    'title',
+    'The song audio is muted. See "Audio tracks".',
+  )
+
+  // The canvas starts at the left edge of the stage, as the time ruler, at each zoom level.
+  await expectWavesInLine(page)
+  await page.getByRole('slider', { name: 'Zoom' }).fill('400')
+  await expectWavesInLine(page)
+
+  await group.getByRole('button', { name: 'Audio tracks' }).click()
+  await expect(group.getByTestId('track-plays')).toHaveText('— plays: Vocals')
+  await page.reload()
+  await expect(page.getByRole('heading', { level: 2, name: 'silent-night' })).toBeVisible()
+  await expect(page.getByTestId('track-plays')).toHaveText('— plays: Vocals')
+})
