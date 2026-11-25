@@ -202,6 +202,18 @@ describe('reportPanel', () => {
     })
   })
 
+  it('states the count of audio tracks and whether the app kept them', () => {
+    const kept = panel({ trackCount: 2, tracksKept: true }).get('Vocal separation')
+    expect(fact(kept, 'Audio tracks')).toBe('2')
+    expect(fact(kept, 'Tracks kept')).toBe('yes')
+    expect(
+      fact(panel({ trackCount: 2, tracksKept: false }).get('Vocal separation'), 'Tracks kept'),
+    ).toBe('no')
+    const old = panel().get('Vocal separation')
+    expect(fact(old, 'Audio tracks')).toBe('not known')
+    expect(fact(old, 'Tracks kept')).toBe('not known')
+  })
+
   it('gives the groups after the clustering with their sung time and result', () => {
     const groups = panel().get('Singers')?.tables[0]
     expect(groups?.columns).toEqual(['Group', 'Sung time', 'Embeddings', 'Result'])

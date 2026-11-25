@@ -1,5 +1,6 @@
 // The entity types of the data model in docs/specs/spec.md. Times are whole milliseconds.
 import type { SeparationModelId } from '../features/vocal-separation/protocol.ts'
+import type { PcmTrack } from '../lib/audio/pcm.ts'
 import type { RemoteEndpoint } from '../lib/remote/endpoint.ts'
 import type { ReportSingerRange, RunReport } from '../lib/runReport/runReport.ts'
 
@@ -112,6 +113,14 @@ export type AppSettings = {
   singerVoices: boolean
   /** The last choice of "Separation model" of the transcribe dialog. */
   separationModel: SeparationModelId
+  /** The last choice of the check box "Keep the separated tracks" of the transcribe dialog. */
+  keepTracks: boolean
+}
+
+/** The two audio tracks of the vocal separation of a run, as 16-bit PCM at `KEPT_TRACK_SAMPLE_RATE`. */
+export type KeptTracks = {
+  vocals: PcmTrack
+  instruments: PcmTrack
 }
 
 /**
@@ -120,6 +129,11 @@ export type AppSettings = {
  */
 export type RunData = {
   songId: string
+  /**
+   * The audio tracks of the vocal separation of the run. A range run keeps the tracks of the range only.
+   * A run that kept no tracks, and a record from before issue #129, have no value.
+   */
+  tracks?: KeptTracks
   /** The singer ranges of the singer step, with song times. Empty when the step did not return ranges. */
   singerSegments: ReportSingerRange[]
   report: RunReport

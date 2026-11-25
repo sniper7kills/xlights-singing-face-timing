@@ -131,7 +131,7 @@ beforeEach(async () => {
   steps.length = 0
   vi.mocked(resampleForSpeech).mockResolvedValue(ORIGINAL)
   vi.mocked(decodeStereo).mockResolvedValue(STEREO)
-  vi.mocked(separateVocals).mockResolvedValue(new Float32Array(3))
+  vi.mocked(separateVocals).mockResolvedValue({ vocals: new Float32Array(3) })
   vi.mocked(vocalsForSpeech).mockResolvedValue(VOCALS)
   vi.mocked(findSingers).mockImplementation(async (_vocals, singerHandlers) => {
     steps.push('find singers')
@@ -245,7 +245,7 @@ describe('runTranscription with singer voices', () => {
     const spleeterVocals = new Float32Array(10 * SPEECH_SAMPLE_RATE)
     vi.mocked(separateVocals)
       .mockRejectedValueOnce(new SeparateError('memory', 'std::bad_alloc'))
-      .mockResolvedValueOnce(spleeterStems)
+      .mockResolvedValueOnce({ vocals: spleeterStems })
     vi.mocked(vocalsForSpeech).mockImplementation(async (stems) =>
       stems === spleeterStems ? spleeterVocals : VOCALS,
     )

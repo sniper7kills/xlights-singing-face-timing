@@ -106,7 +106,8 @@ test('a run with the option on shows "Separating vocals" and then makes marks', 
   await dialog.getByRole('button', { name: 'Start' }).click()
 
   await expect(dialog.getByText(/^Separating vocals, /)).toBeVisible()
-  await expect(dialog).toBeHidden()
+  // The run also converts and stores the two kept audio tracks, so it can take more than the default timeout.
+  await expect(dialog).toBeHidden({ timeout: 20_000 })
   await expect(page.getByText('16 words, 0 estimated')).toBeVisible()
   await expect(words(page)).toHaveCount(16)
   expect(separateRequests.length).toBeGreaterThan(0)
@@ -154,7 +155,7 @@ test('a remote run with the option on sends one upload after the separation step
 
   await dialog.getByRole('button', { name: 'Start' }).click()
 
-  await expect(dialog).toBeHidden()
+  await expect(dialog).toBeHidden({ timeout: 20_000 })
   await expect(page.getByText('16 words, 0 estimated')).toBeVisible()
   expect(events.filter((event) => event === 'upload')).toHaveLength(1)
   expect(events.indexOf('upload')).toBeGreaterThan(events.indexOf('separate worker'))
@@ -201,7 +202,7 @@ test('a run with the fast model requests no file of the Demucs engine', async ({
 
   await dialog.getByRole('button', { name: 'Start' }).click()
 
-  await expect(dialog).toBeHidden()
+  await expect(dialog).toBeHidden({ timeout: 20_000 })
   await expect(page.getByText('16 words, 0 estimated')).toBeVisible()
   expect(demucsRequests).toEqual([])
 })

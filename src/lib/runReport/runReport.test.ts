@@ -107,6 +107,15 @@ describe('buildRunReport', () => {
     expect('build' in buildRunReport(facts())).toBe(false)
   })
 
+  it('copies the track count and the kept flag when the facts have them, and adds no field otherwise', () => {
+    expect(buildRunReport(facts({ trackCount: 2, tracksKept: true }))).toMatchObject({
+      trackCount: 2,
+      tracksKept: true,
+    })
+    expect('trackCount' in buildRunReport(facts())).toBe(false)
+    expect('tracksKept' in buildRunReport(facts())).toBe(false)
+  })
+
   it('copies no label of a mark into the report', () => {
     const json = JSON.stringify(buildRunReport(facts()))
     for (const word of LYRIC_WORDS) expect(json).not.toContain(word)
@@ -240,6 +249,14 @@ describe('reportToText', () => {
     )
     expect(lyrics).toContain('Mode: lyrics only\nSpeech model: none\n')
     expect(lyrics).toContain('[Step times]\nnone\n')
+  })
+
+  it('writes the track count and the kept flag in the vocal separation section', () => {
+    const kept = reportToText(buildRunReport(facts({ trackCount: 2, tracksKept: false })))
+    expect(kept).toMatch(/\[Vocal separation\]\n(.+\n){2}Audio tracks: 2\nTracks kept: no\n/)
+    expect(lines).toContain('Audio tracks: not known')
+    expect(lines).toContain('Tracks kept: not known')
+    expect(reportToText(buildRunReport(facts({ tracksKept: true })))).toContain('Tracks kept: yes')
   })
 
   it('writes the build, or "not known" for a report with no build', () => {

@@ -565,13 +565,21 @@ body.rv-open .layout { padding-right:21rem; }
 <tr><td><code>song.json</code></td><td>Always</td><td>The song data. See <a href="#interfaces">Interfaces</a>.</td></tr>
 <tr><td><code>lyrics.txt</code></td><td>A voice has a phrase</td><td>For each voice in order: the voice name as a heading line, then one line for each phrase label in time order. A blank line separates two voices.</td></tr>
 <tr><td><code>custom-dictionary.txt</code></td><td>The custom dictionary has an entry</td><td>The custom dictionary in the format of its export.</td></tr>
+<tr><td><code>tracks/vocals.wav</code></td><td>The last run kept the audio tracks</td><td>The vocals of the last vocal separation: a WAV file of 16-bit PCM in one channel, at the stored sample rate.</td></tr>
+<tr><td><code>tracks/instruments.wav</code></td><td>The last run kept the audio tracks</td><td>The instruments of the last vocal separation, in the same form.</td></tr>
+<tr><td><code>report.txt</code></td><td>The song has a run report</td><td>The text of the run report, as "Copy report" gives it.</td></tr>
 <tr><td><code>README.txt</code></td><td>Always</td><td>One line for each entry of this zip file, then the import steps text.</td></tr>
 </table></div>
 <ul>
-<li>Issue #129 adds the separated tracks <code>tracks/vocals.wav</code> and
+<li>The <code>README.txt</code> line of each audio track states its sample rate and the song
 </li>
 </ul>
-<p><code>tracks/instruments.wav</code>, and the run report <code>report.txt</code>, before <code>README.txt</code>.</p>
+<p>time of its first sample. A range run gives the start of the range.</p>
+<ul>
+<li>The note under "Everything as one zip file" counts the bytes of the two WAV files
+</li>
+</ul>
+<p>with no conversion of the audio.</p>
 <ul>
 <li>The zip file stores each entry with no compression. Audio files are compressed
 </li>
@@ -884,6 +892,11 @@ importStepsText(frameMs: number): string</code></pre>
 </li>
 </ul>
 <p>(FR-export-32)</p>
+<ul>
+<li>After a transcribe run with the audio tracks kept, the zip file also holds
+</li>
+</ul>
+<p><code>tracks/vocals.wav</code>, <code>tracks/instruments.wav</code> and <code>report.txt</code>. A song with no run holds none of them. (FR-export-32)</p>
 <ul>
 <li><strong>Manual check.</strong> xLights imports the two-voice export of the demo song with no
 </li>

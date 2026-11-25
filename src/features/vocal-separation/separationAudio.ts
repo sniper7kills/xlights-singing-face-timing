@@ -42,29 +42,41 @@ const createOfflineContext: CreateResampleContext = (length, sampleRate) =>
   new OfflineAudioContext(1, length, sampleRate)
 
 /**
- * Returns the vocals at the speech model sample rate, so the transcribe step gets the same kind of samples as with no separation.
- * An `OfflineAudioContext` at 16 000 Hz plays a buffer at 44 100 Hz, and the browser resamples it. The context plays no sound.
- * @param vocals One channel at 44 100 Hz.
+ * Returns one channel at 44 100 Hz at another sample rate.
+ * An `OfflineAudioContext` at the new rate plays a buffer at 44 100 Hz, and the browser resamples it. The context plays no sound.
+ * @param samples One channel at 44 100 Hz.
+ * @param sampleRate The new sample rate, from 3000 to 768 000 Hz.
  * @param createContext Makes the offline context. Tests replace it.
  * Rejects when the browser cannot render the audio.
  */
-export async function vocalsForSpeech(
-  vocals: Float32Array,
+export async function resampleSeparated(
+  samples: Float32Array,
+  sampleRate: number,
   createContext: CreateResampleContext = createOfflineContext,
 ): Promise<Float32Array> {
   // An offline context needs one frame or more.
-  const length = Math.max(
-    1,
-    Math.round((vocals.length * SPEECH_SAMPLE_RATE) / SEPARATION_SAMPLE_RATE),
-  )
-  const context = createContext(length, SPEECH_SAMPLE_RATE)
-  const buffer = context.createBuffer(1, Math.max(1, vocals.length), SEPARATION_SAMPLE_RATE)
-  // `copyToChannel` accepts no array on a `SharedArrayBuffer`, and the type of the vocals allows one.
-  buffer.getChannelData(0).set(vocals)
+  const length = Math.max(1, Math.round((samples.length * sampleRate) / SEPARATION_SAMPLE_RATE))
+  const context = createContext(length, sampleRate)
+  const buffer = context.createBuffer(1, Math.max(1, samples.length), SEPARATION_SAMPLE_RATE)
+  // `copyToChannel` accepts no array on a `SharedArrayBuffer`, and the type of the samples allows one.
+  buffer.getChannelData(0).set(samples)
   const source = context.createBufferSource()
   source.buffer = buffer
   source.connect(context.destination)
   source.start()
   const rendered = await context.startRendering()
   return rendered.getChannelData(0)
+}
+
+/**
+ * Returns the vocals at the speech model sample rate, so the transcribe step gets the same kind of samples as with no separation.
+ * @param vocals One channel at 44 100 Hz.
+ * @param createContext Makes the offline context. Tests replace it.
+ * Rejects when the browser cannot render the audio.
+ */
+export function vocalsForSpeech(
+  vocals: Float32Array,
+  createContext: CreateResampleContext = createOfflineContext,
+): Promise<Float32Array> {
+  return resampleSeparated(vocals, SPEECH_SAMPLE_RATE, createContext)
 }

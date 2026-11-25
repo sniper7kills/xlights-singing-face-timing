@@ -11,9 +11,9 @@ import { createSpleeterSeparator } from './spleeterSeparator.ts'
 export function createSeparator(model: SeparationModelId): Separator {
   if (model === 'spleeter') return createSpleeterSeparator()
   return {
-    async separate(audio, on) {
+    async separate(audio, on, instruments) {
       const { createDemucsSeparator } = await import('./demucsSeparator.ts')
-      return createDemucsSeparator().separate(audio, on)
+      return createDemucsSeparator().separate(audio, on, instruments)
     },
   }
 }

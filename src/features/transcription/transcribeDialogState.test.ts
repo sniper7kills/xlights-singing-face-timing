@@ -21,6 +21,7 @@ import {
   stateLabel,
   deviceLine,
   isRunState,
+  keepTracksNote,
   transcribeDialogReducer as reduce,
   wholePercent,
 } from './transcribeDialogState.ts'
@@ -188,11 +189,38 @@ describe('lowMatchMessage', () => {
 
 describe('outcomeText', () => {
   it('shows the word count and the estimated count', () => {
-    expect(outcomeText({ wordCount: 214, estimatedCount: 9 })).toBe('214 words, 9 estimated')
+    expect(outcomeText({ wordCount: 214, estimatedCount: 9, runData: 'stored' })).toBe(
+      '214 words, 9 estimated',
+    )
   })
 
   it('shows one word in the singular', () => {
-    expect(outcomeText({ wordCount: 1, estimatedCount: 1 })).toBe('1 word, 1 estimated')
+    expect(outcomeText({ wordCount: 1, estimatedCount: 1, runData: 'stored' })).toBe(
+      '1 word, 1 estimated',
+    )
+  })
+})
+
+describe('outcomeText after a write of the run data that was not complete', () => {
+  it('adds the storage full sentence when the app kept no tracks', () => {
+    expect(outcomeText({ wordCount: 214, estimatedCount: 9, runData: 'storage-full' })).toBe(
+      '214 words, 9 estimated. The browser storage is full, so the app did not keep the separated tracks.',
+    )
+  })
+
+  it('adds the sentence of a run report that the app did not store', () => {
+    expect(outcomeText({ wordCount: 214, estimatedCount: 9, runData: 'failed' })).toBe(
+      '214 words, 9 estimated. The app could not store the run report.',
+    )
+  })
+})
+
+describe('keepTracksNote', () => {
+  it('states the megabytes of the two tracks for the length of the run', () => {
+    expect(keepTracksNote(180_000)).toBe(
+      'The app stores the vocals and the instruments of this song in this browser, about 15 MB. You can listen to each track in the editor.',
+    )
+    expect(keepTracksNote(30_000)).toContain('about 2.5 MB.')
   })
 })
 

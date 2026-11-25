@@ -64,7 +64,7 @@ describe('the singer states of the transcribe dialog', () => {
 })
 
 describe('outcomeText with the singer step', () => {
-  const counts = { wordCount: 214, estimatedCount: 9 }
+  const counts = { wordCount: 214, estimatedCount: 9, runData: 'stored' as const }
 
   it('names the voice count when the step made voices', () => {
     const singers: SingerOutcome = { status: 'split', voiceCount: 2, voiceName: 'Lead' }
@@ -133,6 +133,8 @@ describe('outcomeText with the singer step', () => {
   })
 
   it('keeps the text of a run without the option', () => {
-    expect(outcomeText({ wordCount: 1, estimatedCount: 0 })).toBe('1 word, 0 estimated')
+    expect(outcomeText({ wordCount: 1, estimatedCount: 0, runData: 'stored' })).toBe(
+      '1 word, 0 estimated',
+    )
   })
 })
