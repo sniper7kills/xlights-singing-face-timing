@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { makeSongContent } from '../../store/fixtures.test-helpers.ts'
 import { useSongStore } from '../../store/songStore.ts'
+import type { Mark } from '../../store/types.ts'
 import { useViewStore } from '../../store/viewStore.ts'
 import { EditorToolbar } from './EditorToolbar.tsx'
 import { SHORTCUT_KEYS } from './editorShortcuts.ts'
@@ -149,15 +150,40 @@ describe('ZoomControl', () => {
     })
 
     it('keeps the selected mark in place when the slider moves', () => {
-      // At 100 px for each second, the middle of the word (500 ms) is at 500 px with the scroll at 0.
+      // The word from 10 000 to 11 000 ms has its middle at 550 px with the scroll at 5000 ms.
+      const content = makeSongContent()
+      const word: Mark = {
+        id: 'w',
+        voiceId: 'song-1-voice',
+        layer: 'word',
+        label: 'night',
+        startMs: 10_000,
+        endMs: 11_000,
+        parentId: null,
+        edited: false,
+      }
+      useSongStore.setState({
+        current: { ...content, song: { ...content.song, durationMs: DURATION_MS }, marks: [word] },
+      })
+      useViewStore.setState({ pxPerSecond: 100, scrollMs: 5000, playTimeMs: 15_000 })
+      useViewStore.getState().selectMarks(['w'])
+      renderToolbar()
+
+      fireEvent.change(slider(), { target: { value: '150' } })
+
+      const { pxPerSecond, scrollMs } = useViewStore.getState()
+      expect((10_500 - scrollMs) * ((pxPerSecond ?? 0) / 1000)).toBeCloseTo(550)
+    })
+
+    it('scrolls the least to show all of the selected mark after a zoom', () => {
+      // The word from 0 to 1000 ms has its middle at 50 px. The anchor alone puts its start left of the stage.
       useViewStore.setState({ pxPerSecond: 100, scrollMs: 0, playTimeMs: 15_000 })
       useViewStore.getState().selectMarks(['song-1-word'])
       renderToolbar()
 
       fireEvent.change(slider(), { target: { value: '150' } })
 
-      const { pxPerSecond, scrollMs } = useViewStore.getState()
-      expect((500 - scrollMs) * ((pxPerSecond ?? 0) / 1000)).toBeCloseTo(50)
+      expect(useViewStore.getState()).toMatchObject({ pxPerSecond: 150, scrollMs: 0 })
     })
 
     it('shows the selected word in the middle of the stage after "Zoom to selection"', async () => {

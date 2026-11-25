@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest'
-import { anchoredScrollMs, centredScrollMs, fitZoom, ratioZoom, zoomAnchorMs } from './zoom.ts'
+import {
+  anchoredScrollMs,
+  centredScrollMs,
+  fitZoom,
+  ratioZoom,
+  revealScrollMs,
+  zoomAnchorMs,
+} from './zoom.ts'
 
 const VISIBLE = { startMs: 10_000, endMs: 20_000 }
 
@@ -55,5 +62,17 @@ describe('ratioZoom', () => {
   it('changes the zoom by more than 40% after 5 key presses', () => {
     expect(ratioZoom(31, 5) / 31).toBeGreaterThan(1.4)
     expect(ratioZoom(100, -1)).toBeCloseTo(100 / 1.1)
+  })
+})
+
+describe('revealScrollMs', () => {
+  it('scrolls the least to show all of a range that fits', () => {
+    expect(revealScrollMs(10_000, 5000, { startMs: 14_000, endMs: 16_000 })).toBe(11_000)
+    expect(revealScrollMs(10_000, 5000, { startMs: 9000, endMs: 9500 })).toBe(9000)
+    expect(revealScrollMs(10_000, 5000, { startMs: 11_000, endMs: 12_000 })).toBe(10_000)
+  })
+
+  it('keeps the scroll offset for a range longer than the view', () => {
+    expect(revealScrollMs(10_000, 5000, { startMs: 8000, endMs: 20_000 })).toBe(10_000)
   })
 })

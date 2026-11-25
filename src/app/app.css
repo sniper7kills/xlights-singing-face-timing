@@ -1338,6 +1338,7 @@ button {
  * Only a screen reader reads its label, and the tooltip shows it.
  */
 .mark[data-narrow='true'] {
+  min-width: 0;
   padding: 0;
   border-width: 0;
 }

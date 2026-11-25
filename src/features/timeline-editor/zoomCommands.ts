@@ -1,7 +1,7 @@
 import { blockText } from '../../lib/marks/editBlocks.ts'
 import { selectionRange } from '../../lib/marks/selection.ts'
 import type { TimeRange } from '../../lib/time/timeRange.ts'
-import { ratioZoom, zoomAnchorMs } from '../../lib/time/zoom.ts'
+import { ratioZoom, revealScrollMs, zoomAnchorMs } from '../../lib/time/zoom.ts'
 import { useSongStore } from '../../store/songStore.ts'
 import { useViewStore } from '../../store/viewStore.ts'
 import {
@@ -21,15 +21,26 @@ function applyView({ pxPerSecond, scrollMs }: ZoomView) {
   view.setScroll(scrollMs)
 }
 
-/** Returns the time that a zoom keeps in place now. See `zoomAnchorMs`. */
-function anchorNow(durationMs: number): number {
+function selectedNow(): TimeRange | undefined {
+  const marks = useSongStore.getState().current?.marks ?? []
+  return selectionRange(marks, useViewStore.getState().selectedMarkIds)
+}
+
+/**
+ * Applies a zoom that keeps one time in place. See `zoomAnchorMs`.
+ * When the anchor is the selected marks, the view then scrolls the least to show all of them.
+ * @param durationMs The duration of the open song.
+ * @param zoom Returns the view at the new zoom, with the anchor time kept in place.
+ */
+function zoomKeepingPlace(durationMs: number, zoom: (anchorMs: number) => ZoomView): void {
   const input = currentStageInput(durationMs)
-  const view = useViewStore.getState()
-  return zoomAnchorMs({
-    visible: visibleRange(makeTimeScale(input), input.widthPx),
-    selected: selectionRange(useSongStore.getState().current?.marks ?? [], view.selectedMarkIds),
-    playMs: view.playTimeMs,
-  })
+  const visible = visibleRange(makeTimeScale(input), input.widthPx)
+  const selected = selectedNow()
+  const next = zoom(zoomAnchorMs({ visible, selected, playMs: useViewStore.getState().playTimeMs }))
+  const inView = selected && selected.endMs > visible.startMs && selected.startMs < visible.endMs
+  const viewMs = (input.widthPx * 1000) / next.pxPerSecond
+  const scrollMs = inView ? revealScrollMs(next.scrollMs, viewMs, selected) : next.scrollMs
+  applyView({ ...next, scrollMs: makeTimeScale({ ...input, ...next, scrollMs }).scrollMs })
 }
 
 /**
@@ -38,7 +49,9 @@ function anchorNow(durationMs: number): number {
  * @param direction 1 zooms in, -1 zooms out.
  */
 export function zoomByKey(durationMs: number, direction: 1 | -1): void {
-  applyView(zoomStep(currentStageInput(durationMs), direction, anchorNow(durationMs)))
+  zoomKeepingPlace(durationMs, (anchorMs) =>
+    zoomStep(currentStageInput(durationMs), direction, anchorMs),
+  )
 }
 
 /**
@@ -47,7 +60,9 @@ export function zoomByKey(durationMs: number, direction: 1 | -1): void {
  * @param pxPerSecond The zoom in pixels for each second.
  */
 export function zoomTo(durationMs: number, pxPerSecond: number): void {
-  applyView(zoomAround(currentStageInput(durationMs), pxPerSecond, anchorNow(durationMs)))
+  zoomKeepingPlace(durationMs, (anchorMs) =>
+    zoomAround(currentStageInput(durationMs), pxPerSecond, anchorMs),
+  )
 }
 
 /**
@@ -62,9 +77,7 @@ export function zoomBySteps(durationMs: number, steps: number): void {
 
 /** Returns the range that "Zoom to selection" shows: the selected marks, else the time selection, else undefined. */
 export function zoomTarget(): TimeRange | undefined {
-  const view = useViewStore.getState()
-  const marks = useSongStore.getState().current?.marks ?? []
-  return selectionRange(marks, view.selectedMarkIds) ?? view.selection ?? undefined
+  return selectedNow() ?? useViewStore.getState().selection ?? undefined
 }
 
 /**

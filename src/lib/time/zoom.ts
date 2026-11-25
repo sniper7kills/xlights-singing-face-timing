@@ -38,6 +38,19 @@ export function zoomAnchorMs({ visible, selected, playMs }: ZoomAnchorInput): nu
 }
 
 /**
+ * Returns the scroll offset that shows all of the range, with the least scroll.
+ * A range that is longer than the view keeps the scroll offset, so the zoom anchor stays in place.
+ * @param scrollMs The scroll offset now, in milliseconds.
+ * @param viewMs The time that the stage shows, in milliseconds.
+ * @param range The range to show, for example the selected marks.
+ */
+export function revealScrollMs(scrollMs: number, viewMs: number, range: TimeRange): number {
+  if (range.endMs - range.startMs > viewMs) return scrollMs
+  if (range.startMs < scrollMs) return range.startMs
+  return Math.max(scrollMs, range.endMs - viewMs)
+}
+
+/**
  * Returns the scroll offset that keeps `anchorMs` at the same position in the stage after a zoom.
  * The caller keeps the result inside the song.
  * @param scrollMs The scroll offset before the zoom, in milliseconds.
