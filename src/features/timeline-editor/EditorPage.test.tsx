@@ -159,6 +159,27 @@ describe('EditorPage', () => {
     expect(await screen.findByText('214 words, 9 estimated')).toHaveAttribute('role', 'status')
   })
 
+  it('names the voice count in the toast after a run that put the singers on voices', async () => {
+    vi.mocked(runTranscription).mockResolvedValue({
+      wordCount: 214,
+      estimatedCount: 9,
+      breakDownFailure: null,
+      singers: { status: 'split', voiceCount: 3, voiceName: 'Lead' },
+    })
+    const user = userEvent.setup()
+    await renderEditor()
+    await user.click(topBarTranscribe())
+    const start = within(screen.getByRole('dialog')).getByRole('button', { name: 'Start' })
+    await vi.waitFor(() => expect(start).toBeEnabled())
+
+    await user.click(start)
+
+    expect(await screen.findByText('214 words on 3 voices, 9 estimated')).toHaveAttribute(
+      'role',
+      'status',
+    )
+  })
+
   it('shows the dictionary failure after a run, and removes it when "Retry" breaks down the words', async () => {
     const message = 'The dictionary did not load. Check the connection and retry.'
     vi.mocked(runTranscription).mockResolvedValue({

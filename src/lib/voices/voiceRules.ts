@@ -51,12 +51,13 @@ function nameKey(name: string): string {
  * Returns the default name of a new voice: "Voice N", with the lowest free N.
  * N starts at 2, because a new song already has its first voice.
  * @param voices The voices of the song.
+ * @param base The word before the number. A singer voice of a transcribe run uses "Singer".
  */
-export function nextVoiceName(voices: readonly Voice[]): string {
+export function nextVoiceName(voices: readonly Voice[], base = 'Voice'): string {
   const used = new Set(voices.map((voice) => nameKey(voice.name)))
   let n = 2
-  while (used.has(`voice ${n}`)) n += 1
-  return `Voice ${n}`
+  while (used.has(nameKey(`${base} ${n}`))) n += 1
+  return `${base} ${n}`
 }
 
 /**
