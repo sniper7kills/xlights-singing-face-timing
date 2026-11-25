@@ -24,7 +24,15 @@ export function SongLibraryPage({ databaseStatus }: SongLibraryPageProps) {
     )
   }
   if (databaseStatus === 'opening') return null
-  return <SongLibrary />
+  return (
+    <>
+      <SongLibrary />
+      {/* A person who reports a problem can name the version of the app. */}
+      <footer className="library-foot">
+        <small>Build {__APP_BUILD__}</small>
+      </footer>
+    </>
+  )
 }
 
 /**

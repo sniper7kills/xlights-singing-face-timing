@@ -83,6 +83,7 @@ The user's request, verbatim:
 | API key | noun | The secret text that a remote endpoint can ask for. The app sends it only to the base URL of the remote endpoint. | token, password, secret |
 | device | noun | The part of the computer that runs the speech model: the graphics card (`webgpu`) or the CPU (`wasm`). | backend, processor, hardware |
 | run report | noun | The record of what the last transcribe run of a song did: the source, the models, the counts, the time of each step, the singer diagnostics, and each warning and failure. It holds no lyrics. | debug info, log, run log |
+| build | noun | The short git commit of the version of the app, for example `abc1234`. The run report and the song library show it. | version number, release |
 | vocal separation | noun | The step that removes the instruments from the audio before a transcribe run. | stem split, demix, isolation |
 | transcribe | verb | To run the speech model on the audio file and get words with times. | recognise, sync, analyse |
 | align | verb | To match the transcribed words with lyrics that the person supplies. | reconcile, merge |

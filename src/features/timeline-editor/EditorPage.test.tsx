@@ -2,6 +2,7 @@ import { act, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { LIBRARY_HASH } from '../../app/routes.ts'
+import type { RunReport } from '../../lib/runReport/runReport.ts'
 import { breakDownWords, loadDictionaries } from '../../store/actions/breakDown.ts'
 import { startAutosave, useAutosaveStore } from '../../store/autosave.ts'
 import * as db from '../../store/db.ts'
@@ -24,6 +25,37 @@ vi.mock('../transcription/runTranscription.ts', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../transcription/runTranscription.ts')>()),
   runTranscription: vi.fn(),
 }))
+
+const RUN_REPORT: RunReport = {
+  startedAt: '2026-11-24T10:00:00.000Z',
+  source: 'browser',
+  endpointHost: null,
+  mode: 'model',
+  speechModel: 'whisper-base',
+  device: 'wasm',
+  separationModel: 'none',
+  separationFallback: false,
+  singers: {
+    status: 'option-off',
+    failureKind: null,
+    diagnostics: null,
+    rangeCount: null,
+    shareThreshold: 0.3,
+    singersWithPhrases: null,
+    phrasesWithNoSinger: null,
+    phrasesWithMoreSingers: null,
+    voicesMade: null,
+  },
+  voices: [],
+  phraseCount: 1,
+  wordCount: 214,
+  estimatedCount: 9,
+  unknownCount: 0,
+  range: { startMs: 0, endMs: 3000 },
+  frameMs: 50,
+  durationsMs: {},
+  notes: [],
+}
 
 const audio = {
   data: new Blob([new Uint8Array([1])], { type: 'audio/ogg' }),
@@ -180,6 +212,55 @@ describe('EditorPage', () => {
     )
   })
 
+  it('opens the run report from the link in the toast after a run', async () => {
+    const user = userEvent.setup()
+    const { song } = await renderEditor()
+    expect(screen.getByRole('button', { name: 'Run report' })).toBeDisabled()
+    vi.mocked(runTranscription).mockImplementation(async () => {
+      await db.saveRunData({ songId: song.id, singerSegments: [], report: RUN_REPORT })
+      return { wordCount: 214, estimatedCount: 9, breakDownFailure: null }
+    })
+    await user.click(topBarTranscribe())
+    const start = within(screen.getByRole('dialog')).getByRole('button', { name: 'Start' })
+    await vi.waitFor(() => expect(start).toBeEnabled())
+    await user.click(start)
+
+    const toast = (await screen.findByText('214 words, 9 estimated')).parentElement
+    if (toast === null) throw new Error('The toast has no container.')
+    await user.click(await within(toast).findByRole('button', { name: 'Run report' }))
+
+    const panel = screen.getByRole('dialog', { name: 'Run report' })
+    expect(within(panel).getByRole('heading', { name: 'Singers' })).toBeInTheDocument()
+  })
+
+  it('keeps the toast while its link has the focus', async () => {
+    const { song } = await renderEditor()
+    await act(() => db.saveRunData({ songId: song.id, singerSegments: [], report: RUN_REPORT }))
+    vi.mocked(runTranscription).mockResolvedValue({
+      wordCount: 214,
+      estimatedCount: 9,
+      breakDownFailure: null,
+    })
+    const user = userEvent.setup()
+    await user.click(topBarTranscribe())
+    const start = within(screen.getByRole('dialog')).getByRole('button', { name: 'Start' })
+    await vi.waitFor(() => expect(start).toBeEnabled())
+    await user.click(start)
+    const toast = (await screen.findByText('214 words, 9 estimated')).parentElement
+    if (toast === null) throw new Error('The toast has no container.')
+    const link = await within(toast).findByRole('button', { name: 'Run report' })
+    vi.useFakeTimers()
+
+    act(() => link.focus())
+    act(() => vi.advanceTimersByTime(10_000))
+    expect(screen.getByText('214 words, 9 estimated')).toBeInTheDocument()
+
+    act(() => link.blur())
+    act(() => vi.advanceTimersByTime(6000))
+    expect(screen.queryByText('214 words, 9 estimated')).toBeNull()
+    vi.useRealTimers()
+  })
+
   it('shows the dictionary failure after a run, and removes it when "Retry" breaks down the words', async () => {
     const message = 'The dictionary did not load. Check the connection and retry.'
     vi.mocked(runTranscription).mockResolvedValue({
@@ -248,14 +329,14 @@ describe('EditorPage', () => {
     expect(bar.getByRole('button', { name: 'Export' })).toBeInTheDocument()
   })
 
-  it('shows the "Transcribe", "Custom dictionary" and "Export" actions in this order in the top bar', async () => {
+  it('shows the "Transcribe", "Run report", "Custom dictionary" and "Export" actions in this order in the top bar', async () => {
     await renderEditor()
     const bar = screen.getByRole('heading', { level: 2 }).parentElement ?? document.body
 
     const names = within(bar)
       .getAllByRole('button')
       .map((button) => button.textContent)
-    expect(names).toEqual(['Transcribe', 'Custom dictionary', 'Export'])
+    expect(names).toEqual(['Transcribe', 'Run report', 'Custom dictionary', 'Export'])
   })
 
   it('shows no "Transcribe" button in the empty state of the layers for a song with no voice', async () => {

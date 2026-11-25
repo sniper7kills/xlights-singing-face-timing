@@ -102,6 +102,11 @@ describe('buildRunReport', () => {
     expect(report.voices).toHaveLength(2)
   })
 
+  it('copies the build when the facts have one, and adds no build field otherwise', () => {
+    expect(buildRunReport(facts({ build: 'abc1234' })).build).toBe('abc1234')
+    expect('build' in buildRunReport(facts())).toBe(false)
+  })
+
   it('copies no label of a mark into the report', () => {
     const json = JSON.stringify(buildRunReport(facts()))
     for (const word of LYRIC_WORDS) expect(json).not.toContain(word)
@@ -237,6 +242,26 @@ describe('reportToText', () => {
     expect(lyrics).toContain('[Step times]\nnone\n')
   })
 
+  it('writes the build, or "not known" for a report with no build', () => {
+    expect(lines).toContain('Build: not known')
+    const built = reportToText(buildRunReport(facts({ build: 'abc1234' })))
+    expect(built).toContain('[Run]\nBuild: abc1234\n')
+  })
+
+  it('marks each voice that the run made', () => {
+    const made = reportToText(
+      buildRunReport(
+        facts({
+          voices: [
+            { name: 'Lead Vocals', phraseCount: 2, made: false },
+            { name: 'Singer 2', phraseCount: 1, made: true },
+          ],
+        }),
+      ),
+    )
+    expect(made).toContain('"Lead Vocals": 2 phrases\n"Singer 2": 1 phrases, made by the run\n')
+  })
+
   it('writes no lyrics word', () => {
     for (const word of LYRIC_WORDS) expect(text).not.toContain(word)
   })
@@ -292,10 +317,11 @@ describe('voicePhrases', () => {
         ],
         marks,
         { startMs: 0, endMs: 2000 },
+        ['b'],
       ),
     ).toEqual([
-      { name: 'Lead', phraseCount: 1 },
-      { name: 'Harmony', phraseCount: 1 },
+      { name: 'Lead', phraseCount: 1, made: false },
+      { name: 'Harmony', phraseCount: 1, made: true },
     ])
   })
 })
