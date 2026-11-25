@@ -222,11 +222,12 @@ export function EditorPage({ songId }: EditorPageProps) {
           />
           <GhostRow content={content} />
         </Waveform>
+        {/* The inspector comes first, so the grid puts it beside the stage, and the lines go under the stage. */}
+        <Inspector />
         <div className="editor-lines">
           <HelpLine />
           <StatusLine />
         </div>
-        <Inspector />
         <EditorToolbar>
           <TransportControls />
           <ZoomControl durationMs={song.durationMs} />

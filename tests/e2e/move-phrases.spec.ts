@@ -22,7 +22,8 @@ function phrases(page: Page) {
 }
 
 function phrase(page: Page, label: string) {
-  return phrases(page).and(page.getByTitle(label, { exact: true }))
+  // The tooltip of a mark is the label, then the start and the end on a second line.
+  return phrases(page).and(page.getByTitle(new RegExp(`^${label}\\n`)))
 }
 
 function word(page: Page, label: string) {
