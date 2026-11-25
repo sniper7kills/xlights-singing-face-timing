@@ -5,10 +5,14 @@ credential.
 
 ## Production
 
-- Production URL: TODO(Epic 0) — the default `*.cloudfront.net` domain of the
-  distribution.
-- AWS account and region: TODO(Epic 0) — the user names them.
-- CloudFormation stack name: TODO(Epic 0).
+- Production URL: https://d2n8thyuui0ybd.cloudfront.net (the default domain of the
+  distribution).
+- AWS account and region: the account with the alias `sniper7kills`, region
+  `us-east-1`.
+- CloudFormation stack name: `xlights-singing-face-timing`.
+- The stack parameter `GitHubSubjectPrefix` holds the subject claim prefix of the
+  repository. The repository uses immutable subject claims. Read the prefix with
+  `gh api repos/sniper7kills/xlights-singing-face-timing/actions/oidc/customization/sub`.
 
 ## GitHub Actions repository variables
 
