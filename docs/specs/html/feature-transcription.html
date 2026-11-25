@@ -369,7 +369,7 @@ body.rv-open .layout { padding-right:21rem; }
 <li>FR-transcribe-47 — The transcribe dialog has the check box "Put each singer on its
 </li>
 </ul>
-<p>own voice". It is off by default.</p>
+<p>own voice (experimental)". It is off by default.</p>
 <ul>
 <li>FR-transcribe-48 — The app remembers the last choice of "Put each singer on its own
 </li>
@@ -544,7 +544,7 @@ body.rv-open .layout { padding-right:21rem; }
 <ol>
 <li>The person selects "Separate the vocals first".
 </li>
-<li>The person selects "Put each singer on its own voice".
+<li>The person selects "Put each singer on its own voice (experimental)".
 </li>
 <li>The person selects "Start".
 </li>
@@ -666,7 +666,7 @@ body.rv-open .layout { padding-right:21rem; }
 </li>
 </ul>
 <p>separation" and "Cancel".</p>
-<p><strong>Put each singer on its own voice.</strong> The check box comes after "Separate the vocals first". "Lyrics only" hides it. While "Separate the vocals first" is off, the check box is disabled, and the hint under it reads "Select "Separate the vocals first" to use this option." The note under the check box reads "The app estimates which singer sings each phrase, and makes one voice for each singer. Check the result. Use "Move to voice" to correct a phrase."</p>
+<p><strong>Put each singer on its own voice.</strong> The label of the check box is "Put each singer on its own voice (experimental)". The check box comes after "Separate the vocals first". "Lyrics only" hides it. While "Separate the vocals first" is off, the check box is disabled, and the hint under it reads "Select "Separate the vocals first" to use this option." The note under the check box reads "The app estimates which singer sings each phrase, and makes one voice for each singer. Check the result. Use "Move to voice" to correct a phrase. The app can find too many singers."</p>
 <p>The states of the singer step come after finishing, because the step starts after the run writes its marks:</p>
 <ul>
 <li>singers loading: "Loading singer model, 0:03 elapsed" with a bar that has no end.
@@ -1070,7 +1070,8 @@ type ErrorKind = 'download' | 'device' | 'memory' | 'unknown'
 { type: 'progress'; runId: number; doneMs: number; totalMs: number }
 { type: 'result'; runId: number; segments: SingerSegment[] }
 { type: 'error'; runId: number; kind: 'download' | 'memory' | 'model' | 'unknown'; detail: string }</code></pre>
-<p>The times of a segment start at the start of the vocals. A range run adds the start of the range. The singer model and its documentation are in the ADR of issue #119.</p>
+<p>The times of a segment start at the start of the vocals. A range run adds the start of the range.</p>
+<p>The engine uses two ONNX models from the Hugging Face Hub, through <code>@huggingface/transformers</code>: <code>onnx-community/pyannote-segmentation-3.0</code> (MIT) and <code>onnx-community/wespeaker-voxceleb-resnet34-LM</code> (CC BY 4.0), 32 522 457 bytes together. The accuracy on singing is not measured. See <code>docs/adr/0009-singer-voices-from-diarization.md</code> and <code>docs/licences/singer-models.md</code>.</p>
 <p><strong>Pure functions, <code>src/features/transcription/</code>:</strong></p>
 <pre class="code"><code>alignLyrics(transcribed: TimedWord[], lyrics: string): AlignResult
 groupIntoPhrases(words: TimedWord[]): AlignedPhrase[]
