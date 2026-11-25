@@ -20,6 +20,7 @@ import { SeparateError } from '../vocal-separation/separateClient.ts'
 import { SINGER_MODEL_BYTES } from '../singer-voices/engine/singerModelBytes.ts'
 import { separationModelMb } from '../vocal-separation/engine/separationModels.ts'
 import type { SeparationModelId } from '../vocal-separation/protocol.ts'
+import type { AppSettings } from '../../store/types.ts'
 
 /**
  * A state in which a transcribe run is active and the dialog shows its progress.
@@ -536,6 +537,16 @@ export function progressValue(state: RunState): number | undefined {
   if ('percent' in state) return state.percent === null ? undefined : state.percent / 100
   if ('doneMs' in state) return state.totalMs > 0 ? Math.min(1, state.doneMs / state.totalMs) : 0
   return undefined
+}
+
+/**
+ * Returns the settings that the transcribe dialog shows after it reads the stored settings.
+ * A choice that the person made while the read ran replaces the stored value. Each other setting keeps its stored value.
+ * @param stored The settings that the read returned.
+ * @param choices The settings that the person changed since the dialog opened.
+ */
+export function withPersonChoices(stored: AppSettings, choices: Partial<AppSettings>): AppSettings {
+  return { ...stored, ...choices }
 }
 
 /** Returns true when the state belongs to an active run, the confirm states included. */

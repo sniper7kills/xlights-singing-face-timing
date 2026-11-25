@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { RemoteError } from '../../lib/remote/response.ts'
+import { DEFAULT_SETTINGS } from '../../store/settings.ts'
 import { NoWordsError } from './runTranscription.ts'
 import { TranscribeError } from './transcribeClient.ts'
 import {
@@ -26,6 +27,7 @@ import {
   keepTracksNote,
   transcribeDialogReducer as reduce,
   wholePercent,
+  withPersonChoices,
 } from './transcribeDialogState.ts'
 
 const transcribing: DialogState = { status: 'transcribing', doneMs: 0, totalMs: 220_000 }
@@ -555,5 +557,31 @@ describe('lyricsFitMessage', () => {
     expect(lyricsFitMessage({ ...fit, wordCount: 710, lineCount: 3 }, true)).toBe(
       'The lyrics have 710 words. The time selection has room for about 600 words. The app leaves out the words of line 1 that do not fit, and the lines after line 1.',
     )
+  })
+})
+
+describe('withPersonChoices', () => {
+  const stored = {
+    ...DEFAULT_SETTINGS,
+    speechModelId: 'whisper-tiny',
+    separateVocals: true,
+    singerVoices: true,
+  }
+
+  it('keeps each choice that the person made while the read ran', () => {
+    const shown = withPersonChoices(stored, { speechModelId: 'whisper-small', singerVoices: false })
+
+    expect(shown.speechModelId).toBe('whisper-small')
+    expect(shown.singerVoices).toBe(false)
+  })
+
+  it('takes the stored value of each setting that the person did not change', () => {
+    const shown = withPersonChoices(stored, { singerVoices: false })
+
+    expect(shown).toEqual({ ...stored, singerVoices: false })
+  })
+
+  it('returns the stored settings when the person changed nothing', () => {
+    expect(withPersonChoices(stored, {})).toEqual(stored)
   })
 })

@@ -173,9 +173,6 @@ async function tableRows(table: Locator): Promise<string[][]> {
  */
 async function runWithSingers(page: Page, count: string, replaces = false): Promise<string> {
   const dialog = await openDialog(page)
-  // The dialog reads the stored options after it opens, and that read replaces a choice made before it ends.
-  // The run before this one stored both options on, so the checked box shows that the read ended.
-  if (replaces) await expect(dialog.getByRole('checkbox', { name: SINGERS })).toBeChecked()
   await dialog.getByRole('checkbox', { name: SEPARATE }).check()
   await dialog.getByRole('checkbox', { name: SINGERS }).check()
   await dialog.getByRole('group', { name: 'Singers' }).getByRole('radio', { name: count }).check()

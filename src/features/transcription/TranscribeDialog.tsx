@@ -52,6 +52,7 @@ import {
   IDLE,
   isActive,
   isCancel,
+  withPersonChoices,
   isQuestion,
   isRunState,
   keepTracksNote,
@@ -142,11 +143,20 @@ export function TranscribeDialog({
   const [range, setRange] = useState<TimeRange | undefined>(undefined)
   const [choicesUnstored, setChoicesUnstored] = useState(false)
   const [escaped, setEscaped] = useState(false)
-  // The choice applies to this run even when the browser cannot store it, so a failed write only shows a message.
-  const storeSetting = useCallback((change: Partial<AppSettings>) => {
-    void updateSettings(change).catch(() => setChoicesUnstored(true))
+  // The read of the stored settings can end after the person changes a choice, so the dialog keeps each choice.
+  const choicesRef = useRef<Partial<AppSettings>>({})
+  const noteChoice = useCallback((change: Partial<AppSettings>) => {
+    choicesRef.current = { ...choicesRef.current, ...change }
   }, [])
-  const remote = useRemoteChoice(storeSetting)
+  // The choice applies to this run even when the browser cannot store it, so a failed write only shows a message.
+  const storeSetting = useCallback(
+    (change: Partial<AppSettings>) => {
+      noteChoice(change)
+      void updateSettings(change).catch(() => setChoicesUnstored(true))
+    },
+    [noteChoice],
+  )
+  const remote = useRemoteChoice(storeSetting, noteChoice)
   const { restore } = remote
   const dialogRef = useRef<HTMLDivElement>(null)
   const run = useTranscribeRun(onDone)
@@ -165,8 +175,9 @@ export function TranscribeDialog({
     // A failed read keeps the default settings: the browser source and no remote endpoint.
     void loadSettings()
       .catch(() => DEFAULT_SETTINGS)
-      .then((settings) => {
+      .then((stored) => {
         if (!mounted) return
+        const settings = withPersonChoices(stored, choicesRef.current)
         if (SPEECH_MODELS.some((model) => model.id === settings.speechModelId))
           setSpeechModelId(settings.speechModelId)
         setSeparate(settings.separateVocals)
@@ -818,7 +829,10 @@ type RemoteChoice = ReturnType<typeof useRemoteChoice>
  * Returns the "Where to transcribe" choice, the stored remote endpoint and the functions that change them.
  * The endpoint fields open when the person selects "Remote endpoint" with no stored endpoint.
  */
-function useRemoteChoice(storeSetting: (change: Partial<AppSettings>) => void) {
+function useRemoteChoice(
+  storeSetting: (change: Partial<AppSettings>) => void,
+  noteChoice: (change: Partial<AppSettings>) => void,
+) {
   const [source, setSource] = useState<TranscribeSource>(DEFAULT_SETTINGS.transcribeSource)
   const [endpoint, setEndpoint] = useState<RemoteEndpoint>(DEFAULT_SETTINGS.remoteEndpoint)
   const [editing, setEditing] = useState(false)
@@ -842,6 +856,7 @@ function useRemoteChoice(storeSetting: (change: Partial<AppSettings>) => void) {
     setEndpoint(next)
     setEditing(false)
     setEndpointUnstored(false)
+    noteChoice({ remoteEndpoint: next })
     // The endpoint works for the life of the page even when the browser cannot store it.
     void updateSettings({ remoteEndpoint: next }).catch(() => setEndpointUnstored(true))
   }

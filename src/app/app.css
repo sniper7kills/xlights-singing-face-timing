@@ -2313,9 +2313,18 @@ button.finding:hover {
   border-color: var(--amber);
 }
 
+/* The row breaks a long word anywhere, so the tag needs its own rule to stay on one line. */
 .badge {
+  flex: none;
   font: 11px var(--mono);
   text-transform: uppercase;
+  white-space: nowrap;
+  overflow-wrap: normal;
+}
+
+.finding > span:last-child {
+  flex: 1 1 auto;
+  min-width: 0;
 }
 
 .badge.error {

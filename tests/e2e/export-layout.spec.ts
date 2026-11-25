@@ -39,6 +39,40 @@ const DIALOG_WIDTHS = `(() => {
   return [dialog.scrollWidth, dialog.clientWidth, body.scrollWidth, body.clientWidth]
 })()`
 
+// Returns the count of text lines of the level tag and of the message of the first check, and their edges.
+// A flex row stretches the tag to the height of the message, so the script counts the line boxes of the text.
+const CHECK_ROW_LINES = `(() => {
+  const tag = document.querySelector('[role="dialog"] .finding .badge')
+  const message = tag.nextElementSibling
+  const lines = (element) => {
+    const range = document.createRange()
+    range.selectNodeContents(element)
+    return new Set([...range.getClientRects()].map((rect) => Math.round(rect.top))).size
+  }
+  return {
+    tagText: tag.textContent,
+    tagLines: lines(tag),
+    messageLines: lines(message),
+    tagRight: tag.getBoundingClientRect().right,
+    messageLeft: message.getBoundingClientRect().left,
+  }
+})()`
+
+async function expectTagOnOneLine(page: Page) {
+  const row = (await page.evaluate(CHECK_ROW_LINES)) as {
+    tagText: string
+    tagLines: number
+    messageLines: number
+    tagRight: number
+    messageLeft: number
+  }
+  expect(row.tagText).toBe('warning')
+  expect(row.tagLines).toBe(1)
+  expect(row.messageLeft).toBeGreaterThan(row.tagRight)
+  // The warning about "Chœur" is longer than one line of the dialog at 1024 px and at 1440 px.
+  expect(row.messageLines).toBeGreaterThan(1)
+}
+
 async function openDemoSongWithVoice(page: Page, name: string, moveLastPhrase: boolean) {
   await page.goto('/')
   await page.getByRole('button', { name: 'Try the demo song' }).click()
@@ -64,13 +98,17 @@ for (const viewport of [
   { width: 1440, height: 900 },
   { width: 1024, height: 768 },
 ]) {
-  test(`fits the export dialog in its frame at ${viewport.width}x${viewport.height} and shows the done line`, async ({
+  test(`fits the export dialog in its frame at ${viewport.width}x${viewport.height}, keeps the check tag on one line and shows the done line`, async ({
     page,
   }) => {
     await page.setViewportSize(viewport)
     const dialog = await openDemoSongWithVoice(page, 'Chœur', true)
     await expect(dialog.getByText('Checks · 0 errors · 1 warning')).toBeVisible()
 
+    await expectNoSideScroll(page)
+    await dialog.getByText('Checks · 0 errors · 1 warning').click()
+    await expect(dialog.locator('.finding .badge')).toBeVisible()
+    await expectTagOnOneLine(page)
     await expectNoSideScroll(page)
     await dialog.getByRole('radio', { name: 'One file for each timing track' }).check()
     await expect(dialog.getByText('2 timing tracks · 2 files')).toBeVisible()
