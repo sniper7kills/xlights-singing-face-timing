@@ -193,7 +193,10 @@ describe('ExportDialog with the zip file', () => {
   it('disables "Download zip" while an error finding exists', async () => {
     const user = userEvent.setup()
     vi.spyOn(db, 'getAudioFile').mockResolvedValue(audioFile())
-    renderDialog(makeContent([lead, santa], makeSungPhrase('v1', 1000)))
+    const badLabel = makeSungPhrase('v1', 1000).map((mark) =>
+      mark.layer === 'phoneme' ? { ...mark, label: 'X' } : mark,
+    )
+    renderDialog(makeContent([lead], badLabel))
 
     await user.click(zipChoice())
 
