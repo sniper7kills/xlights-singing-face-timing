@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { activityToRanges, renumberByFirstRange } from './segments.ts'
+import { activityToRanges, firstRangeNumbers, renumberByFirstRange } from './segments.ts'
 
 const frames = (pattern: string) => [...pattern].map((mark) => mark === '#')
 const settings = { frameMs: 100, minGapMs: 0, minRangeMs: 0 }
@@ -50,5 +50,24 @@ describe('renumberByFirstRange', () => {
       { startMs: 500, endMs: 900, singer: 1 },
       { startMs: 1000, endMs: 1200, singer: 0 },
     ])
+  })
+})
+
+describe('firstRangeNumbers', () => {
+  it('numbers the singers 0, 1, 2 in the order of their first range', () => {
+    const numbers = firstRangeNumbers([
+      { startMs: 500, endMs: 900, singer: 4 },
+      { startMs: 0, endMs: 400, singer: 7 },
+      { startMs: 1000, endMs: 1200, singer: 2 },
+    ])
+    expect([...numbers]).toEqual([
+      [7, 0],
+      [4, 1],
+      [2, 2],
+    ])
+  })
+
+  it('gives an empty map for no range', () => {
+    expect(firstRangeNumbers([]).size).toBe(0)
   })
 })

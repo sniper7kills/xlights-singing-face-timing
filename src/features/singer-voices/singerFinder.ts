@@ -1,3 +1,4 @@
+import type { SingerDiagnostics } from '../../lib/singers/diagnostics.ts'
 import type { SingerSegment } from './protocol.ts'
 
 /** The functions that receive the progress of one singer search. */
@@ -6,6 +7,8 @@ export type SingerFinderEvents = {
   download(loadedBytes: number, totalBytes: number): void
   /** Receives the audio time that is complete, and the audio time of the run. */
   progress(doneMs: number, totalMs: number): void
+  /** Receives the numbers of the search before `find` resolves. An engine that has none does not call it. */
+  diagnostics?(diagnostics: SingerDiagnostics): void
 }
 
 /** An engine that finds the time ranges of each singer in the vocals. It uses no DOM, so it runs in a worker. */

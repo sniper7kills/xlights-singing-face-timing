@@ -2,15 +2,7 @@
  * The local speakers of each output class of the pyannote segmentation model, in the order of its `id2label`.
  * The model gives one class for each frame: no speaker, one of three speakers, or one of three pairs.
  */
-const POWERSET_CLASSES: readonly (readonly number[])[] = [
-  [],
-  [0],
-  [1],
-  [2],
-  [0, 1],
-  [0, 2],
-  [1, 2],
-]
+const POWERSET_CLASSES: readonly (readonly number[])[] = [[], [0], [1], [2], [0, 1], [0, 2], [1, 2]]
 
 /** The count of speakers that the segmentation model tells apart in one window. */
 export const LOCAL_SPEAKERS = 3

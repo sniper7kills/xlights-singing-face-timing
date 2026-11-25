@@ -129,3 +129,32 @@ export function assignSingers(
   )
   return new Map(ordered.map((phrase, index) => [phrase.id, lists[index] ?? [FIRST_SINGER]]))
 }
+
+/** The counts that tell how `assignSingers` gave the phrases to the singers. */
+export type AssignmentStats = {
+  /** The singers that got one phrase or more, with no limit of singers. */
+  singersWithPhrases: number
+  /** The phrases that no singer range touches. `assignSingers` gives them to singer 0. */
+  phrasesWithNoSinger: number
+  /** The phrases that two or more singers got. */
+  phrasesWithMoreSingers: number
+}
+
+/**
+ * Returns the counts of the assignment of `assignSingers` with no limit of singers.
+ * @param phrases The phrases of the run, with song times.
+ * @param segments The singer ranges, with song times.
+ */
+export function assignmentStats(
+  phrases: readonly PhraseRange[],
+  segments: readonly SingerRange[],
+): AssignmentStats {
+  const lists = [...assignSingers(phrases, segments, Infinity).values()]
+  return {
+    singersWithPhrases: new Set(lists.flat()).size,
+    phrasesWithNoSinger: phrases.filter((phrase) =>
+      segments.every((segment) => sharedMs(segment, phrase) === 0),
+    ).length,
+    phrasesWithMoreSingers: lists.filter((singers) => singers.length > 1).length,
+  }
+}

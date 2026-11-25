@@ -3,7 +3,8 @@ import { SingerFailure } from '../singerFailure.ts'
 // The WASM runtime reports a failed allocation as a C++ `std::bad_alloc`, and the browser names it in other words.
 const MEMORY_PATTERN = /bad_alloc|out of memory|allocation failed/i
 // `fetch` rejects with a `TypeError` for a network error. The texts of an HTTP error are in `src/utils/hub/constants.js` of the library.
-const DOWNLOAD_PATTERN = /failed to fetch|networkerror|could not locate file|access to file|load file/i
+const DOWNLOAD_PATTERN =
+  /failed to fetch|networkerror|could not locate file|access to file|load file/i
 
 /**
  * Returns the failure for an error of the model load.

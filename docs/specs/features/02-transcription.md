@@ -145,6 +145,44 @@ leaves the browser, and the app shows the host before each run.
 - FR-transcribe-62 — After a failed singer step, the marks of the run stay on the
   voice of the run, and the toast states the failure.
 
+### Run report (issue #129)
+
+- FR-transcribe-63 — At the end of each completed run, the app stores one run report
+  for the song. The report of the new run replaces the report of the earlier run.
+- FR-transcribe-64 — A completed run includes a run with a failed, cancelled or capped
+  singer step, and a run that found one singer.
+- FR-transcribe-65 — A cancelled or a failed run stores no report. The earlier report
+  stays.
+- FR-transcribe-66 — The app stores the singer ranges of the singer step with the
+  report, with song times.
+- FR-transcribe-67 — The report holds no label of a mark, no API key and no full URL
+  of the remote endpoint.
+- FR-transcribe-68 — The report states the source, the host of the remote endpoint,
+  the speech model and the device.
+- FR-transcribe-69 — The report states the vocal separation model of the vocals, and
+  whether the run changed to the fast model.
+- FR-transcribe-70 — The report states the count of phrases, words, estimated words
+  and unknown words of the run.
+- FR-transcribe-71 — The report states the time of each step in milliseconds.
+- FR-transcribe-72 — The report states the range and the frame size of the run.
+- FR-transcribe-73 — The report lists each warning and each failure of a step that
+  the run continued after, with its cause.
+- FR-transcribe-74 — The report states the result of the singer step: `option-off`,
+  `split`, `one-singer`, `capped`, `failed` with its cause, `cancelled` or
+  `no-vocals`.
+- FR-transcribe-75 — The singer section holds the diagnostics of the singer search.
+  See "Singer diagnostics" in the behaviour rules.
+- FR-transcribe-76 — The singer section states the count of singers with one phrase
+  or more, the phrase share of 30%, and the count of voices made.
+- FR-transcribe-77 — The singer section states the count of phrases that no singer
+  range touches, and the count of phrases with more than one singer.
+- FR-transcribe-78 — The report lists each voice that holds phrases of the run, with
+  its count of phrases.
+- FR-transcribe-79 — The app gives the report as plain text: one heading line for
+  each section, one fact on each line, a unit with each number.
+- FR-transcribe-80 — If the browser storage is full, the run completes and the song
+  keeps the earlier report.
+
 ## User flows
 
 ### Transcribe a song
@@ -478,6 +516,9 @@ Each base URL that the app refuses shows a message:
 
 ## Data touched
 
+- Writes `RUN_DATA` for the song at the end of each completed run: the singer ranges
+  and the run report. A new run replaces the full record.
+
 - Reads `AUDIO_FILE`. Reads and writes `APP_SETTINGS.speechModelId`.
 - Reads and writes `APP_SETTINGS.transcribeSource` and
   `APP_SETTINGS.remoteEndpoint` (`baseUrl`, `apiKey`, `model`). The API key stays in
@@ -748,6 +789,43 @@ from 0 to 1.
 | Singer step: more singers than free voices, and the song has room for some singers | The app adds a voice for each free voice. The toast adds "The song has room for <k> more voices. The other singers stay on <voice name>." |
 | Remote endpoint: the browser asks for the permission to reach the local network | The run waits for the answer of the person. If the person refuses, the dialog shows the message for no connection. |
 
+## Run report
+
+The report has these sections. `reportToText` writes them in this order. Each
+section starts with a heading line in brackets.
+
+| Section | Facts |
+|---|---|
+| Header | "Transcribe run report", the start time of the run (ISO 8601) |
+| `[Run]` | Source (`browser` or `remote`), the host of the remote endpoint, the mode, the speech model, the device, the range in ms, the frame size in ms |
+| `[Vocal separation]` | The separation model of the vocals (`spleeter`, `demucs` or `none`), "Changed to the fast model" (`yes` or `no`) |
+| `[Counts]` | Phrases, words, estimated words, unknown words |
+| `[Voices]` | Each voice that holds phrases of the run, with its count of phrases |
+| `[Singers]` | The result of the singer step, the singer diagnostics, the singer ranges, the phrase share, the singers with one phrase or more, the phrases with no singer range, the phrases with more than one singer, the voices made |
+| `[Step times]` | The time of each step that ran, in ms |
+| `[Warnings and failures]` | One line for each warning or failure, for example "separation failed: memory; continued with the fast model" |
+
+### Singer diagnostics
+
+The singer search counts these numbers with no extra model call:
+
+- The audio time, the count of windows, the frames with a singer and the sung time.
+- The count of embeddings, and the embeddings with a value that is not finite.
+- The settings in force: the merge threshold, the minimum group size, the highest
+  count of singers, and the two limits of the rule for short singers.
+- The raw groups: the groups after the threshold merge, before each later join.
+- For each raw group: its sung time, its count of embeddings, and its result. A raw
+  group stays as a singer, or joins another raw group for one of these reasons:
+  - "fewer than <n> embeddings"
+  - "over the highest count"
+  - "under <p>% of the sung time"
+  - "under <s> seconds"
+- The smallest, the median and the largest distance between the centroids of the
+  raw groups, so that a reader can compare them with the threshold.
+- The final singers: for each, its sung time and its count of ranges.
+
+The text writes the raw groups and the final singers as tables with aligned columns.
+
 ## Acceptance criteria
 
 - The editor shows "Transcribe" when a voice is selected. (FR-transcribe-1)
@@ -842,6 +920,14 @@ from 0 to 1.
   run. (FR-transcribe-61)
 - After a failed singer step, the marks stay on the voice of the run, and the toast
   names the voice. (FR-transcribe-62)
+- After a run with both options on and a reload, the song has a run report with the
+  singer section and the singer diagnostics. (FR-transcribe-63, 66, 74, 75)
+- After a failed singer step, the song has a run report with the status `failed`
+  and its cause. (FR-transcribe-64, 74)
+- After a cancelled run, the song keeps the earlier run report. (FR-transcribe-65)
+- The stored report and its text hold no word of the lyrics. (FR-transcribe-67, 79)
+- Deleting a song removes its run report. (FR-transcribe-63)
+- A full browser storage gives a completed run. (FR-transcribe-80)
 
 ## Out of scope
 
