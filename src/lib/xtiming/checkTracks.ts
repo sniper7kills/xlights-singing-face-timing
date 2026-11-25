@@ -11,14 +11,16 @@ const PHONEME_LABEL_SET: ReadonlySet<string> = new Set(PHONEME_LABELS)
  * Returns the findings of the checks before export, errors first, then warnings.
  *
  * Each check has one name in `Finding.check`:
- * - Errors: `voice-no-marks`, `duplicate-name`, `empty-name`, `import-name-empty`, `bad-phoneme-label`,
+ * - Errors: `no-marks`, `duplicate-name`, `empty-name`, `import-name-empty`, `bad-phoneme-label`,
  *   `end-not-after-start`.
- * - Warnings: `import-name-changed`, `import-name-same`, `word-no-phoneme`, `unknown-word`, `estimated-word`,
- *   `short-mark`, `ends-after-song`.
+ * - Warnings: `voice-no-marks`, `import-name-changed`, `import-name-same`, `word-no-phoneme`, `unknown-word`,
+ *   `estimated-word`, `short-mark`, `ends-after-song`.
  *
  * The rules:
  * - A selected voice has no marks when no timing track of the voice holds a mark.
  *   Grouping `voice-section` omits such a voice, so the check reads `options.voiceIds`.
+ * - If no selected voice has marks, the export has nothing to write. One `no-marks` error replaces the warnings.
+ *   A file still holds a legal timing track with three empty layers for a selected voice with no marks.
  * - A name with only spaces is empty. Two empty names give two `empty-name` errors and no `duplicate-name` error.
  * - The import checks use `nameAfterImport`. A name with only spaces after the import gives `import-name-empty`.
  * - Two different names that give the same name after the import give `import-name-same`, because xLights adds
@@ -81,19 +83,27 @@ function voiceFindings(
   voiceIds: readonly string[],
   voiceName: (voiceId: string) => string,
 ): Finding[] {
-  return voiceIds
-    .filter(
-      (voiceId) =>
-        !tracks.some(
-          (track) => track.voiceId === voiceId && track.layers.some((layer) => layer.length > 0),
-        ),
-    )
-    .map((voiceId) => ({
-      type: 'error',
-      check: 'voice-no-marks',
-      message: `“${voiceName(voiceId)}” has no marks.`,
-      voiceId,
-    }))
+  const emptyIds = voiceIds.filter(
+    (voiceId) =>
+      !tracks.some(
+        (track) => track.voiceId === voiceId && track.layers.some((layer) => layer.length > 0),
+      ),
+  )
+  if (emptyIds.length > 0 && emptyIds.length === voiceIds.length) {
+    return [
+      {
+        type: 'error',
+        check: 'no-marks',
+        message: 'No marks to export. Select a voice with marks.',
+      },
+    ]
+  }
+  return emptyIds.map((voiceId) => ({
+    type: 'warning',
+    check: 'voice-no-marks',
+    message: `“${voiceName(voiceId)}” has no marks. Clear its check box, or add marks.`,
+    voiceId,
+  }))
 }
 
 function nameFindings(

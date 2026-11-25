@@ -95,6 +95,12 @@ next.
   import steps.
 - FR-export-36 — The "Voices" group shows the hint "Use one voice for each group of
   face models that sing together."
+- FR-export-37 — The export dialog has a fixed head, a body that scrolls, and a
+  fixed button row.
+- FR-export-38 — The content of the export dialog fits the width of the dialog.
+- FR-export-39 — The done line shows in the fixed button row.
+- FR-export-40 — The dialog opens with no voice selected that has no marks.
+- FR-export-41 — A disabled "Download" button shows the reason beside it.
 
 ## User flows
 
@@ -146,6 +152,11 @@ sequenceDiagram
 Regions: voice list, grouping, packaging, options, timing track list, checks,
 file preview, import steps, buttons.
 
+Layout: the head with the title and the button row stay in view. Only the body
+between them scrolls. The body has no scroll to the side at a width of 1024 px
+or more. A long name or a long finding wraps. The file preview scrolls inside its
+own box.
+
 - ready: no error finding. "Download" is enabled.
 - blocked: one or more error findings. "Download" is disabled, and the checks
   region is open.
@@ -153,7 +164,8 @@ file preview, import steps, buttons.
 - empty: no voice has marks. The dialog shows "No marks to export. Transcribe the
   song first." and "Download" is disabled.
 - done: a confirmation line, "2 timing tracks written to carol.xtiming", and the
-  import steps expanded.
+  import steps expanded. The confirmation line is in the fixed button row, in a
+  live region.
 - zip file selected: the note under the check box lists the files of the zip file
   and its size. The button reads "Download zip". The footer count line counts
   1 file.
@@ -178,6 +190,8 @@ Labels:
   "1 timing track" and "1 file".
 - Done line for several files: "<count> timing tracks written to <count> files".
 - No voice selected, beside the disabled "Download" button: "Select one voice or more."
+- An error finding, beside the disabled "Download" button: "Correct the errors in
+  "Checks" first."
 - Buttons: "Close", "Download". With the zip file selected: "Close",
   "Download zip".
 - Zip file choice in the "Files" group: "Everything as one zip file".
@@ -241,7 +255,8 @@ Labels:
 
 | Check | Type | Message |
 |---|---|---|
-| A selected voice has no marks. | error | `“<voice name>” has no marks.` |
+| No selected voice has marks. | error | `No marks to export. Select a voice with marks.` |
+| A selected voice has no marks, and another selected voice has marks. | warning | `“<voice name>” has no marks. Clear its check box, or add marks.` |
 | Two timing tracks have the same name. | error | `Two timing tracks have the name “<timing track name>”.` |
 | A timing track name is empty. | error | `A timing track of “<voice name>” has no name.` |
 | A timing track name has only spaces after the xLights import. | error | `xLights cannot use the timing track name “<timing track name>”. Use letters from A to Z, digits or spaces.` |
@@ -266,13 +281,25 @@ Labels:
   name. The person then cannot tell the two timing tracks apart.
 - An empty timing track name, or a name that is the same before the import, has
   its own error. The import checks do not report it again.
+- A selected voice with no marks gives a timing track with three empty
+  `<EffectLayer>` elements in grouping by voice. This is a legal timing track.
+  Grouping by voice and section omits the voice.
+- If no selected voice has marks, the one error replaces the warnings.
+
+**Voice selection.** The dialog selects only voices with marks when it opens.
+
+- First export of the song: each voice with marks is selected.
+- Later export: the voices of the previous export stay selected, and each voice
+  that the person added after it is selected. A voice with no marks is not
+  selected, also when the previous export selected it.
+- The person can select a voice with no marks. The checks then give the warning.
 
 **Import steps text.** The dialog shows these steps. The names of the controls are
 the names in xLights 2026.21.
 
 1. Open the sequence in xLights. Use the same audio file, so the times match.
 2. Check the frame size: in "Sequence Settings", the tab "Info / Media" shows
-   "Sequence Timing". It must match the frame size in this dialog.
+   "Sequence Timing". It must match the frame size in this dialog: <frame size> ms.
    Note: If the song has a frame size of 25 ms and the sequence has 50 ms, xLights
    moves each time down to a multiple of 50 ms.
 3. Right-click a timing row heading and select "Import Timing Track".
@@ -308,7 +335,11 @@ model is, for example, a singing tree or a singing pumpkin.
    chorus voice.
 
 `README.txt` holds the same two lists as plain text. A blank line and the heading
-with a colon separate the two lists.
+with a colon separate the two lists. A file has no dialog, so step 2 in
+`README.txt` ends with its own sentences: "The frame size of this song is
+<frame size> ms. The frame size of the sequence must be the same." The line
+before the steps reads: "To import a timing file into xLights, do these steps.
+The app shows the same steps after an export." `README.txt` has no word "dialog".
 
 Verified against the xLights source at tag `2026.21` (see
 [Interfaces](#interfaces)), a real import into xLights 2026.21 (issue #79), and
@@ -556,7 +587,7 @@ importStepsText(frameMs: number): string
 ## Acceptance criteria
 
 - "Export" opens the dialog. (FR-export-1)
-- A song with 3 voices shows 3 check boxes, all checked. (FR-export-2)
+- A song with 3 voices with marks shows 3 check boxes, all checked. (FR-export-2)
 - Grouping by voice with 2 voices lists 2 timing tracks. (FR-export-3, 7)
 - Grouping by voice and section with 2 voices and 3 sections lists 6 timing
   tracks, without empty ones. (FR-export-4, 7)
@@ -612,6 +643,17 @@ importStepsText(frameMs: number): string
 - After a transcribe run with the audio tracks kept, the zip file also holds
   `tracks/vocals.wav`, `tracks/instruments.wav` and `report.txt`. A song with no
   run holds none of them. (FR-export-32)
+- At 1440x900 and at 1024x768, the scroll width of the export dialog is equal to
+  its client width, with two voices and with warnings. (FR-export-37, 38)
+- After a download of two files, the confirmation line is in the viewport.
+  (FR-export-39)
+- A new voice with no marks is not selected, and "Download" stays enabled.
+  (FR-export-40)
+- A selected voice with no marks gives a warning, and "Download" stays enabled.
+  (FR-export-16)
+- An error finding shows "Correct the errors in "Checks" first." beside the
+  disabled "Download". (FR-export-41)
+- `README.txt` has no word "dialog". (FR-export-35)
 - **Manual check.** xLights imports the two-voice export of the demo song with no
   error message. A Faces effect on each of two face models animates from its timing
   track. The check records the xLights version. A real import into xLights 2026.21

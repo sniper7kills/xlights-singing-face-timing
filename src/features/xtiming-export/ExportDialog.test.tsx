@@ -99,12 +99,36 @@ describe('ExportDialog', () => {
     expect(screen.getByText('Checks · 0 errors · 0 warnings')).toBeInTheDocument()
   })
 
-  it('is blocked with "Download" disabled and the checks open when an error exists', () => {
-    renderDialog(makeContent([lead, santa], makeSungPhrase('v1', 1000)))
+  it('is blocked with "Download" disabled, the reason beside it and the checks open when an error exists', () => {
+    const marks = makeSungPhrase('v1', 1000).map((mark) =>
+      mark.layer === 'phoneme' ? { ...mark, label: 'X' } : mark,
+    )
+    renderDialog(makeContent([lead], marks))
 
     expect(download()).toBeDisabled()
+    expect(download()).toHaveAccessibleDescription('Correct the errors in "Checks" first.')
     const checks = screen.getByText('Checks · 1 error · 0 warnings').closest('details')
     expect(checks).toHaveAttribute('open')
+  })
+
+  it('gives a warning with the next action and keeps "Download" enabled for a selected voice with no marks', () => {
+    renderDialog(makeContent([lead, santa], makeSungPhrase('v1', 1000)))
+
+    expect(download()).toBeEnabled()
+    expect(screen.getByText('Checks · 0 errors · 1 warning')).toBeInTheDocument()
+    expect(
+      screen.getByText('“Santa” has no marks. Clear its check box, or add marks.'),
+    ).toBeInTheDocument()
+    expect(screen.queryByText('Correct the errors in "Checks" first.')).not.toBeInTheDocument()
+  })
+
+  it('disables "Download" with an error when no selected voice has marks', () => {
+    const content = makeContent([lead, santa], makeSungPhrase('v1', 1000))
+    renderDialog(content, { ...makeOptions(content), voiceIds: ['v2'] })
+
+    expect(download()).toBeDisabled()
+    expect(screen.getByText('No marks to export. Select a voice with marks.')).toBeInTheDocument()
+    expect(screen.getByText('Correct the errors in "Checks" first.')).toBeInTheDocument()
   })
 
   it('shows the warning count and keeps "Download" enabled for warnings only', () => {
