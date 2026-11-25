@@ -723,6 +723,46 @@ button {
   background: var(--panel);
 }
 
+.phrase-menu {
+  position: relative;
+}
+
+/* The toolbar is at the bottom of the editor, so the menu opens above the button. */
+.action-menu {
+  position: absolute;
+  bottom: 100%;
+  left: 0;
+  z-index: 5;
+  display: grid;
+  min-width: 170px;
+  max-height: 320px;
+  overflow-y: auto;
+  padding: 4px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+  box-shadow: 0 6px 20px rgb(0 0 0 / 35%);
+}
+
+.action-menu-item {
+  padding: 6px 10px;
+  border: 0;
+  border-radius: 4px;
+  background: none;
+  color: var(--ink);
+  text-align: left;
+}
+
+.action-menu-item:hover:not([aria-disabled='true']),
+.action-menu-item:focus-visible {
+  background: var(--panel2);
+}
+
+.action-menu-item[aria-disabled='true'] {
+  color: var(--mute);
+  cursor: not-allowed;
+}
+
 .zoom-control {
   display: flex;
   align-items: center;
