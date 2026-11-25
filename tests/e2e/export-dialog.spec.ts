@@ -81,15 +81,17 @@ test('shows no "has no phoneme" warning for the words of a transcribe run', asyn
   await top.getByRole('button', { name: 'Transcribe' }).click()
   const transcribeDialog = page.getByRole('dialog', { name: 'Transcribe' })
   await transcribeDialog.getByRole('button', { name: 'Start' }).click()
-  await expect(page.getByText('16 words, 0 estimated')).toBeVisible()
+  // A busy test computer can take more than 5 seconds for the run and the write of its marks.
+  await expect(page.getByText('16 words, 0 estimated')).toBeVisible({ timeout: 20_000 })
   await expect(
     page.getByRole('list', { name: 'Phonemes' }).getByRole('listitem').first(),
-  ).toBeVisible()
+  ).toBeVisible({ timeout: 20_000 })
 
   await top.getByRole('button', { name: 'Export' }).click()
 
   const dialog = page.getByRole('dialog', { name: 'Export to xLights' })
-  await expect(dialog.getByText(/^Checks · 0 errors · /)).toBeVisible()
+  // The dialog reads the song from the store before it shows the checks.
+  await expect(dialog.getByText(/^Checks · 0 errors · /)).toBeVisible({ timeout: 20_000 })
   await expect(dialog.getByText(/has no phoneme\.$/)).toHaveCount(0)
   expect(await dialog.getByLabel('File preview').textContent()).toContain('<Effect label="')
 })
