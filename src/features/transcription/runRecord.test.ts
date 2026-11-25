@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { saveRunData, StorageFullError } from '../../store/db.ts'
+import { loadRunData, onRunDataSaved, saveRunData, StorageFullError } from '../../store/db.ts'
 import type { RunData } from '../../store/types.ts'
 import type { SeparatedAudio } from '../vocal-separation/protocol.ts'
 import { resampleSeparated } from '../vocal-separation/separationAudio.ts'
@@ -27,6 +27,25 @@ function runData(withTracks: boolean): RunData {
     // The write reads only the notes and the track flag of the report.
     report: { notes: [], tracksKept: withTracks } as unknown as RunData['report'],
   }
+}
+
+const { saveRunData: realSave } =
+  await vi.importActual<typeof import('../../store/db.ts')>('../../store/db.ts')
+
+/**
+ * Makes the next write wait until the test calls the returned function, and then run `write`.
+ * The test controls the time of the end of the write.
+ */
+function holdWrite(write: (data: RunData) => Promise<void>): () => void {
+  let release = () => undefined as void
+  const gate = new Promise<void>((resolve) => {
+    release = resolve
+  })
+  vi.mocked(saveRunData).mockImplementationOnce(async (data) => {
+    await gate
+    return write(data)
+  })
+  return release
 }
 
 afterEach(() => {
@@ -74,18 +93,58 @@ describe('keepRunData', () => {
     expect(saveRunData).toHaveBeenCalledTimes(1)
   })
 
-  it('returns failed when the write does not end in 5 seconds', async () => {
-    vi.useFakeTimers()
-    vi.mocked(saveRunData).mockReturnValue(new Promise(() => undefined))
+  it('returns failed at once for a fast write failure', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+    vi.mocked(saveRunData).mockRejectedValue(new Error('The transaction stopped.'))
+
+    const result = keepRunData(runData(true))
+    await vi.advanceTimersByTimeAsync(0)
+
+    expect(await Promise.race([result, Promise.resolve('waiting')])).toBe('failed')
+  })
+
+  it('returns late after 5 seconds, and the late write stores the run data and tells the editor', async () => {
+    const release = holdWrite(async (data) => realSave(data))
+    const saved: string[] = []
+    const stop = onRunDataSaved((songId) => saved.push(songId))
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
     const result = keepRunData(runData(true))
 
     await vi.advanceTimersByTimeAsync(RUN_DATA_WRITE_LIMIT_MS - 1)
     const early = await Promise.race([result, Promise.resolve('waiting')])
     await vi.advanceTimersByTimeAsync(1)
+    vi.useRealTimers()
 
     expect(RUN_DATA_WRITE_LIMIT_MS).toBe(5000)
     expect(early).toBe('waiting')
-    expect(await result).toBe('failed')
+    expect(await result).toBe('late')
+    expect(saved).toEqual([])
+    release()
+    await vi.waitFor(() => expect(saved).toEqual(['song-1']))
+    stop()
+    const stored = await loadRunData('song-1')
+    expect(stored?.tracks?.vocals.samples.length).toBe(4)
+  })
+
+  it('returns late, and a late full storage stores the report with no tracks and its note', async () => {
+    const release = holdWrite(async () => {
+      throw new StorageFullError()
+    })
+    vi.mocked(saveRunData).mockImplementation(async (data) => realSave(data))
+    const saved: string[] = []
+    const stop = onRunDataSaved((songId) => saved.push(songId))
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+    const result = keepRunData(runData(true))
+    await vi.advanceTimersByTimeAsync(RUN_DATA_WRITE_LIMIT_MS)
+    vi.useRealTimers()
+
+    expect(await result).toBe('late')
+    release()
+    await vi.waitFor(() => expect(saved).toEqual(['song-1']))
+    stop()
+    const stored = await loadRunData('song-1')
+    expect(stored?.tracks).toBeUndefined()
+    expect(stored?.report.notes).toEqual([STORAGE_FULL_NOTE])
   })
 })
 

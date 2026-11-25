@@ -89,6 +89,17 @@ export type SingerSection = {
   phrasesWithMoreSingers: number | null
   /** The voices that hold the phrases of the run after the step. */
   voicesMade: number | null
+  /**
+   * The choice of "Singers" in the transcribe dialog: `automatic`, or the count that the person gave.
+   * A report from before the field, or of a run with the singer option off, has no value.
+   */
+  selected?: number | 'automatic'
+}
+
+/** Returns the text of the choice of "Singers" of a report: "Automatic", the count, or "not recorded". */
+export function selectedSingersText(selected: SingerSection['selected']): string {
+  if (selected === undefined) return 'not recorded'
+  return selected === 'automatic' ? 'Automatic' : String(selected)
 }
 
 /** What one transcribe run did. The app keeps the report of the last run of each song. */
@@ -280,6 +291,7 @@ function singerLines(singers: SingerSection): string[] {
   return [
     '[Singers]',
     `Step: ${status}`,
+    `Singers selected: ${selectedSingersText(singers.selected)}`,
     ...diagnosticLines(singers.diagnostics),
     `Singer ranges: ${countText(singers.rangeCount)}`,
     `Phrase share for a singer: ${Math.round(singers.shareThreshold * 100)}% of the phrase length`,

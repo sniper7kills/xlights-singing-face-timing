@@ -213,6 +213,12 @@ describe('outcomeText after a write of the run data that was not complete', () =
       '214 words, 9 estimated. The app could not store the run report.',
     )
   })
+
+  it('adds the sentence of a run report that the app still stores after the time limit', () => {
+    expect(outcomeText({ wordCount: 214, estimatedCount: 9, runData: 'late' })).toBe(
+      '214 words, 9 estimated. The app still stores the run report. It shows in "Run report" when it is ready.',
+    )
+  })
 })
 
 describe('keepTracksNote', () => {

@@ -147,6 +147,7 @@ describe('runTranscription stores the run report', () => {
       notes: [],
     })
     expect(report.singers.status).toBe('option-off')
+    expect(report.singers).not.toHaveProperty('selected')
     expect(report.build).toBe(__APP_BUILD__)
     expect(report.durationsMs.prepare).toBeTypeOf('number')
     expect(report.durationsMs.modelLoad).toBeTypeOf('number')
@@ -179,6 +180,7 @@ describe('runTranscription stores the run report', () => {
       phrasesWithNoSinger: 0,
       phrasesWithMoreSingers: 1,
       voicesMade: 2,
+      selected: 'automatic',
     })
     expect(report.singers.diagnostics?.rawGroupCount).toBe(3)
     expect(report.voices.map((voice) => [voice.name, voice.made])).toEqual([
@@ -186,6 +188,16 @@ describe('runTranscription stores the run report', () => {
       ['Singer 2', true],
     ])
     expect(report.durationsMs.singers).toBeUndefined()
+  })
+
+  it('stores the count that the person selected in "Singers"', async () => {
+    await runTranscription(
+      { ...request, singerVoices: true, singerCount: 3 },
+      fakeClient(),
+      handlers(),
+    )
+
+    expect((await savedRun()).report.singers.selected).toBe(3)
   })
 
   it('reports one singer when the singer step finds one singer', async () => {

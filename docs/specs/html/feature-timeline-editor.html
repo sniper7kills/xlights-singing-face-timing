@@ -438,6 +438,16 @@ body.rv-open .layout { padding-right:21rem; }
 <ul>
 <li>The fold button "Audio tracks" hides and shows the rows. It has <code>aria-expanded</code>.
 </li>
+<li>The group shows at most 4 rows. With more rows, the group scrolls inside itself,
+</li>
+</ul>
+<p>so the phrase, word and phoneme layers stay on the screen. The row names, "Mute" and "Solo" scroll with their rows. The waveforms stay on the time scale of the stage.</p>
+<ul>
+<li>If the browser refuses the sound of a row, the group shows "The browser did not
+</li>
+</ul>
+<p>start the sound of &lt;row name&gt;. Select "Mute" and then "Solo" on the row again."</p>
+<ul>
 <li>A song with no kept audio tracks shows no group and no "Song" controls.
 </li>
 </ul>
@@ -618,7 +628,9 @@ formatTime(ms: number): string                   // m:ss.mmm</code></pre>
 <tr><td>Audio missing</td><td>Play controls are disabled. Edits work.</td></tr>
 <tr><td>3 000 marks in view</td><td>Scroll and zoom stay at 60 frames per second. The editor draws only the marks in view.</td></tr>
 <tr><td>A new run stores new tracks</td><td>The track rows show the new tracks.</td></tr>
-<tr><td>The browser refuses to play a track</td><td>The track stays silent, and the song audio plays. The next check tries again.</td></tr>
+<tr><td>The browser refuses to play a track (<code>NotAllowedError</code>)</td><td>The track stays silent, and the song audio plays. The group shows "The browser did not start the sound of &lt;row name&gt;. Select "Mute" and then "Solo" on the row again." The app tries the track again after the next click on "Mute" or "Solo" of that row.</td></tr>
+<tr><td>The play of a track stops for another cause, for example a quick pause</td><td>No message. The next check starts the track again.</td></tr>
+<tr><td>A phrase edit changes the times of a singer row during play</td><td>The track keeps its play. The muted "Song" stays muted. The row uses the new times.</td></tr>
 <tr><td>A voice of a singer row has a new name or is deleted</td><td>The row of that voice does not show.</td></tr>
 </table></div>
 <h3 id="timeline-editor-acceptance-criteria">Acceptance criteria</h3>

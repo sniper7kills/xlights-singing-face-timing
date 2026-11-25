@@ -877,6 +877,16 @@ button {
   text-transform: uppercase;
 }
 
+/*
+ * The list shows at most four rows (48 px and a 1 px border each) and scrolls inside, so the layers stay on the screen.
+ * The scroll bar covers the right edge of the rows, so each canvas keeps the width of the stage and its time scale.
+ */
+.track-list {
+  max-height: calc(4 * 49px);
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
 .track-row {
   position: relative;
   height: 48px;
@@ -885,7 +895,6 @@ button {
 
 .track-wave {
   display: block;
-  width: 100%;
   height: 100%;
 }
 

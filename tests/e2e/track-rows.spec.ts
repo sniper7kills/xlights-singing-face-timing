@@ -1,26 +1,26 @@
 import { expect, type Page, test } from '@playwright/test'
 
 // The fixture workers download no model. The separate fixture gives the mono mix as the vocals.
+// The singers fixture gives each singer an equal part of the song. It runs only with the singer option on.
 // The E2E tests compile with no DOM types, so each script in the page is a string.
 const INIT_SCRIPT = `
   globalThis.__TRANSCRIBE_FIXTURE__ = true
   globalThis.__SEPARATE_FIXTURE__ = true
+  globalThis.__SINGERS_FIXTURE__ = true
 `
 
-/** The drift limit of `src/lib/audio/trackMix.ts`. The E2E tests do not import app code. */
-const DRIFT_LIMIT_MS = 50
+/** The bound for 90% of the samples: two times the drift limit of `src/lib/audio/trackMix.ts` (50 ms). */
+const P90_LIMIT_MS = 100
 /**
  * The bound for one sample. A busy test computer can stop the main thread for longer than one check of the mixer.
  * Then one sample can show more drift before the mixer moves the vocals again.
  */
 const STALL_LIMIT_MS = 250
 
-function median(values: readonly number[]): number {
+/** Returns the value under which `share` (0 to 1) of the values lie, by the nearest rank. */
+function percentile(values: readonly number[], share: number): number {
   const sorted = values.toSorted((a, b) => a - b)
-  const middle = Math.floor(sorted.length / 2)
-  return sorted.length % 2 === 1
-    ? (sorted[middle] ?? 0)
-    : ((sorted[middle - 1] ?? 0) + (sorted[middle] ?? 0)) / 2
+  return sorted[Math.max(0, Math.ceil(share * sorted.length) - 1)] ?? 0
 }
 
 /**
@@ -66,11 +66,21 @@ async function createSong(page: Page) {
   await expect(page.getByRole('heading', { level: 2, name: 'silent-night' })).toBeVisible()
 }
 
-async function transcribeSeparated(page: Page) {
+/** Runs a transcribe run with the vocal separation. A singer count also turns on the singer step with that count. */
+async function transcribeSeparated(page: Page, singerCount?: string) {
   await page.locator('.editor-top').getByRole('button', { name: 'Transcribe' }).click()
   const dialog = page.getByRole('dialog', { name: 'Transcribe' })
   await dialog.getByRole('checkbox', { name: 'Separate the vocals first' }).check()
   await expect(dialog.getByRole('checkbox', { name: 'Keep the separated tracks' })).toBeChecked()
+  if (singerCount !== undefined) {
+    await dialog
+      .getByRole('checkbox', { name: 'Put each singer on its own voice (experimental)' })
+      .check()
+    await dialog
+      .getByRole('group', { name: 'Singers' })
+      .getByRole('radio', { name: singerCount })
+      .check()
+  }
   await dialog.getByRole('button', { name: 'Start' }).click()
   // The run has two worker steps, so it takes longer than the default timeout.
   await expect(dialog).toBeHidden({ timeout: 20_000 })
@@ -78,7 +88,7 @@ async function transcribeSeparated(page: Page) {
 
 /**
  * Checks that both elements play, that only the vocals sound, and that the vocals stay in time.
- * The product promise is the drift limit over the window, so the median drift must be inside it.
+ * The samples start after a settle time of 500 ms. 90% of the samples must be inside `P90_LIMIT_MS`.
  * One stalled sample must still be inside `STALL_LIMIT_MS`, so a mixer that stops its correction still fails.
  */
 function expectInTime(samples: Sample[], rate: number) {
@@ -92,7 +102,14 @@ function expectInTime(samples: Sample[], rate: number) {
     })
     expect(entry.driftMs).toBeLessThanOrEqual(STALL_LIMIT_MS)
   }
-  expect(median(samples.map((entry) => entry.driftMs))).toBeLessThanOrEqual(DRIFT_LIMIT_MS)
+  const drifts = samples.map((entry) => entry.driftMs)
+  const p90 = percentile(drifts, 0.9)
+  // The annotation keeps the measured values in the report of the run.
+  test.info().annotations.push({
+    type: 'drift',
+    description: `rate ${rate}: p50 ${percentile(drifts, 0.5).toFixed(1)} ms, p90 ${p90.toFixed(1)} ms, max ${Math.max(...drifts).toFixed(1)} ms`,
+  })
+  expect(p90).toBeLessThanOrEqual(P90_LIMIT_MS)
   const first = samples[0]
   const last = samples.at(-1)
   if (first === undefined || last === undefined) throw new Error('No samples.')
@@ -151,4 +168,24 @@ test('the vocals play alone and in time with the song audio after "Solo" on "Voc
     'aria-pressed',
     'true',
   )
+})
+
+test('the phoneme layer stays on the screen after a run that made singer rows', async ({
+  page,
+}) => {
+  await createSong(page)
+  await transcribeSeparated(page, '4')
+
+  const group = page.getByRole('group', { name: 'Audio tracks' })
+  await expect(group).toBeVisible({ timeout: 20_000 })
+  await expect(group.locator('.track-row[data-row^="singer:"]').first()).toBeAttached({
+    timeout: 20_000,
+  })
+  expect(await group.locator('.track-row').count()).toBeGreaterThan(4)
+  // The rows hold more height than the list shows, so the list scrolls inside.
+  const [scroll, client] = (await page.evaluate(
+    "[document.querySelector('.track-list').scrollHeight, document.querySelector('.track-list').clientHeight]",
+  )) as [number, number]
+  expect(scroll).toBeGreaterThan(client)
+  await expect(page.getByRole('list', { name: 'Phonemes' })).toBeInViewport({ ratio: 1 })
 })

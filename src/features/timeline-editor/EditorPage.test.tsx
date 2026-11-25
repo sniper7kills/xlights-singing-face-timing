@@ -236,33 +236,37 @@ describe('EditorPage', () => {
     expect(within(panel).getByRole('heading', { name: 'Singers' })).toBeInTheDocument()
   })
 
-  it('offers no "Run report" link and states it after a run that did not store its report', async () => {
-    const { song } = await renderEditor()
-    // The stored report is of an earlier run, so a link would open an old report.
-    await act(() => db.saveRunData({ songId: song.id, singerSegments: [], report: RUN_REPORT }))
-    vi.mocked(runTranscription).mockResolvedValue({
-      wordCount: 214,
-      estimatedCount: 9,
-      runData: 'failed',
-      breakDownFailure: null,
-    })
-    const user = userEvent.setup()
-    await user.click(topBarTranscribe())
-    const start = within(screen.getByRole('dialog')).getByRole('button', { name: 'Start' })
-    await vi.waitFor(() => expect(start).toBeEnabled())
-    await user.click(start)
+  it.each([
+    ['failed', 'The app could not store the run report.'],
+    ['late', 'The app still stores the run report. It shows in "Run report" when it is ready.'],
+  ] as const)(
+    'offers no "Run report" link and states it after a %s write of the report',
+    async (runData, sentence) => {
+      const { song } = await renderEditor()
+      // The stored report is of an earlier run, so a link would open an old report.
+      await act(() => db.saveRunData({ songId: song.id, singerSegments: [], report: RUN_REPORT }))
+      vi.mocked(runTranscription).mockResolvedValue({
+        wordCount: 214,
+        estimatedCount: 9,
+        runData,
+        breakDownFailure: null,
+      })
+      const user = userEvent.setup()
+      await user.click(topBarTranscribe())
+      const start = within(screen.getByRole('dialog')).getByRole('button', { name: 'Start' })
+      await vi.waitFor(() => expect(start).toBeEnabled())
+      await user.click(start)
 
-    const text = await screen.findByText(
-      '214 words, 9 estimated. The app could not store the run report.',
-    )
-    const toast = text.parentElement
-    if (toast === null) throw new Error('The toast has no container.')
-    // The top bar action reads the same stored report, so the read has ended when it is enabled.
-    const [topBar] = screen.getAllByRole('button', { name: 'Run report' })
-    await vi.waitFor(() => expect(topBar).toBeEnabled())
-    await new Promise((resolve) => setTimeout(resolve, 50))
-    expect(within(toast).queryByRole('button', { name: 'Run report' })).toBeNull()
-  })
+      const text = await screen.findByText(`214 words, 9 estimated. ${sentence}`)
+      const toast = text.parentElement
+      if (toast === null) throw new Error('The toast has no container.')
+      // The top bar action reads the same stored report, so the read has ended when it is enabled.
+      const [topBar] = screen.getAllByRole('button', { name: 'Run report' })
+      await vi.waitFor(() => expect(topBar).toBeEnabled())
+      await new Promise((resolve) => setTimeout(resolve, 50))
+      expect(within(toast).queryByRole('button', { name: 'Run report' })).toBeNull()
+    },
+  )
 
   it('keeps the toast while its link has the focus', async () => {
     const { song } = await renderEditor()

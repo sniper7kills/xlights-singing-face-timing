@@ -1,4 +1,4 @@
-import { memo, useEffect, useMemo, useRef, useState } from 'react'
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { trackToWav } from '../../lib/audio/pcm.ts'
 import { peakLevels, type TrackPeaks } from '../../lib/audio/peaks.ts'
 import { audibleRows, SONG_ROW } from '../../lib/audio/trackMix.ts'
@@ -14,7 +14,7 @@ import type { KeptTracks, Mark, Voice } from '../../store/types.ts'
 import { useRunData } from '../../store/useRunData.ts'
 import { usePlayerStore } from './playerStore.ts'
 import { RowControls } from './RowControls.tsx'
-import { createTrackMixer, type FollowerTrack } from './trackMixer.ts'
+import { createTrackMixer, type FollowerTrack, type TrackMixer } from './trackMixer.ts'
 import { TrackWave } from './TrackWave.tsx'
 
 const SINGER_TOOLTIP = 'This row is the vocals track, limited to the times of this singer.'
@@ -79,7 +79,34 @@ function useTrackUrls(tracks: KeptTracks | undefined): Record<TrackName, string>
   return urls !== null && urls.tracks === tracks ? urls.value : null
 }
 
-/** Connects the audio element of each row to the song audio, and sets the rows that sound. */
+/** Returns the follower of each row that has a mounted audio element. */
+function followersOf(
+  rows: readonly TrackRow[],
+  tracks: KeptTracks,
+  elements: ReadonlyMap<string, HTMLAudioElement>,
+): FollowerTrack[] {
+  return rows.flatMap((row) => {
+    const media = elements.get(row.id)
+    const track = tracks[row.track]
+    return media === undefined
+      ? []
+      : [
+          {
+            rowId: row.id,
+            media,
+            startMs: track.startMs,
+            durationMs: (track.samples.length / track.sampleRate) * 1000,
+            gate: row.gate,
+          },
+        ]
+  })
+}
+
+/**
+ * Connects the audio element of each row to the song audio, and sets the rows that sound.
+ * One mixer lives as long as the song audio, so a change of the rows never unmutes the song audio or restarts a track.
+ * Returns the ids of the rows whose play the browser refused, and the handler of a click on "Mute" or "Solo" of a row.
+ */
 function useMixer(
   rows: readonly TrackRow[],
   tracks: KeptTracks | undefined,
@@ -88,42 +115,41 @@ function useMixer(
 ) {
   const leader = usePlayerStore((state) => state.player?.media)
   const mix = useTrackMixStore()
-  const [mixer, setMixer] = useState<ReturnType<typeof createTrackMixer> | null>(null)
+  const mixer = useRef<TrackMixer | null>(null)
+  const [blocked, setBlocked] = useState<readonly string[]>([])
+  const rowIds = useMemo(() => [SONG_ROW, ...rows.map((row) => row.id)], [rows])
 
   useEffect(() => {
-    if (leader === undefined || tracks === undefined || urls === null) return
-    const followers: FollowerTrack[] = rows.flatMap((row) => {
-      const media = elements.get(row.id)
-      const track = tracks[row.track]
-      return media === undefined
-        ? []
-        : [
-            {
-              rowId: row.id,
-              media,
-              startMs: track.startMs,
-              durationMs: (track.samples.length / track.sampleRate) * 1000,
-              gate: row.gate,
-            },
-          ]
-    })
-    const created = createTrackMixer(leader, followers)
-    setMixer(created)
+    if (leader === undefined) return
+    const created = createTrackMixer(leader, { songRowId: SONG_ROW, onBlockedChange: setBlocked })
+    mixer.current = created
     return () => {
       created.destroy()
-      setMixer(null)
+      mixer.current = null
+      setBlocked([])
     }
-  }, [leader, rows, tracks, urls, elements])
+  }, [leader])
 
-  const rowIds = useMemo(() => [SONG_ROW, ...rows.map((row) => row.id)], [rows])
+  // This effect runs after the effect above in the same commit, so a new mixer gets its rows before any sound.
   useEffect(() => {
-    mixer?.setAudible(audibleRows(mix, rowIds), SONG_ROW)
-  }, [mixer, mix, rowIds])
+    const followers =
+      tracks === undefined || urls === null ? [] : followersOf(rows, tracks, elements)
+    // With no row, the editor shows no "Song" controls, so the song audio sounds.
+    const audible = rows.length === 0 ? new Set([SONG_ROW]) : audibleRows(mix, rowIds)
+    mixer.current?.update(followers, audible)
+  }, [leader, rows, tracks, urls, elements, mix, rowIds])
+
+  const activate = useCallback(
+    (rowId: string) =>
+      mixer.current?.activate(rowId, audibleRows(useTrackMixStore.getState(), rowIds)),
+    [rowIds],
+  )
+  return { blocked, activate }
 }
 
 /**
  * Returns the rows of the last render while the rows have the same content.
- * Each edit of a mark gives new marks, and new rows would start the mixer again during play.
+ * Each edit of a mark gives new marks. Rows with the same content keep their identity, so the canvases and the mixer do no extra work.
  */
 function useSameRows(rows: TrackRow[]): TrackRow[] {
   const [kept, setKept] = useState({ key: JSON.stringify(rows), rows })
@@ -155,9 +181,9 @@ export const TrackRows = memo(function TrackRows({ songId, durationMs }: TrackRo
   const rows = useSameRows(trackRows(data, voices, marks))
   const peaks = useTrackPeaks(tracks)
   const urls = useTrackUrls(tracks)
-  // The map keeps its identity, so the mixer starts again only for new rows or new tracks.
+  // The map keeps its identity, so the mixer gets an update only for new rows or new tracks.
   const elements = useRef(new Map<string, HTMLAudioElement>()).current
-  useMixer(rows, tracks, urls, elements)
+  const { blocked, activate } = useMixer(rows, tracks, urls, elements)
 
   useEffect(() => openTrackMix(songId), [songId])
   useEffect(() => {
@@ -176,13 +202,14 @@ export const TrackRows = memo(function TrackRows({ songId, durationMs }: TrackRo
       >
         <span aria-hidden="true">{folded ? '▸' : '▾'}</span> Audio tracks
       </button>
-      <div hidden={folded}>
+      <div className="track-list" hidden={folded}>
         {rows.map((row) => (
           <div key={row.id} className="track-row" data-row={row.id}>
             <RowControls
               rowId={row.id}
               name={row.name}
               tooltip={row.gate === null ? undefined : SINGER_TOOLTIP}
+              onToggle={activate}
             />
             <TrackWave
               peaks={peaks[row.track]}
@@ -193,6 +220,14 @@ export const TrackRows = memo(function TrackRows({ songId, durationMs }: TrackRo
           </div>
         ))}
       </div>
+      {rows
+        .filter((row) => blocked.includes(row.id))
+        .map((row) => (
+          <p key={row.id} className="message" role="alert">
+            The browser did not start the sound of {row.name}. Select "Mute" and then "Solo" on the
+            row again.
+          </p>
+        ))}
       {urls !== null &&
         rows.map((row) => (
           <audio

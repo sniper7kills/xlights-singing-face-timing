@@ -86,7 +86,11 @@ export function EditorPage({ songId }: EditorPageProps) {
 
   const finishTranscribe = useCallback(
     (outcome: TranscribeOutcome) => {
-      setToast({ text: outcomeText(outcome), reportStored: outcome.runData !== 'failed' })
+      setToast({
+        text: outcomeText(outcome),
+        // A late write can still fail, so the toast offers the link only for a write that ended.
+        reportStored: outcome.runData === 'stored' || outcome.runData === 'storage-full',
+      })
       setBreakDownFailure(outcome.breakDownFailure)
       closeTranscribeDialog()
     },
