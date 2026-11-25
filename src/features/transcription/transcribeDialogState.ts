@@ -12,6 +12,7 @@ import {
 import { TranscribeError } from './transcribeClient.ts'
 import { SeparateError } from '../vocal-separation/separateClient.ts'
 import { SEPARATION_MODEL_BYTES } from '../vocal-separation/engine/spleeterModel.ts'
+import { SINGER_MODEL_BYTES } from '../singer-voices/engine/singerModelBytes.ts'
 
 /**
  * A state in which a transcribe run is active and the dialog shows its progress.
@@ -179,9 +180,11 @@ export function separationNote(host: string | null): string {
   return `The app removes the instruments before it finds the words. This step downloads a model of ${SEPARATION_MODEL_MB} MB one time and adds time to the run. ${where}`
 }
 
+/** The download size of the two singer models in megabytes (1 MB = 1 000 000 bytes), as the speech model sizes. */
+const SINGER_MODEL_MB = Math.round(SINGER_MODEL_BYTES / 1_000_000)
+
 /** The note under the check box "Put each singer on its own voice". */
-export const SINGER_NOTE =
-  'The app estimates which singer sings each phrase, and makes one voice for each singer. Check the result. Use "Move to voice" to correct a phrase. The app can find too many singers.'
+export const SINGER_NOTE = `The app estimates which singer sings each phrase, and makes one voice for each singer. Check the result. Use "Move to voice" to correct a phrase. The app can find too many singers. This step downloads models of ${SINGER_MODEL_MB} MB one time.`
 
 /** The hint of the check box "Put each singer on its own voice" while "Separate the vocals first" is off. */
 export const SINGER_HINT = 'Select "Separate the vocals first" to use this option.'

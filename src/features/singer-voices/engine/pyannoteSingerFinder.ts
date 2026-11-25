@@ -21,9 +21,9 @@ import {
   DIARIZE_SETTINGS,
   EMBEDDING_MODEL,
   SEGMENTATION_MODEL,
-  SINGER_MODEL_BYTES,
   type SingerModel,
 } from './singerModels.ts'
+import { SINGER_MODEL_BYTES } from './singerModelBytes.ts'
 
 const onnxWasm = env.backends.onnx.wasm
 if (onnxWasm) {

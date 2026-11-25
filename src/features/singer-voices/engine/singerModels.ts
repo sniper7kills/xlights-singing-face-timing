@@ -1,3 +1,5 @@
+import { EMBEDDING_MODEL_BYTES, SEGMENTATION_MODEL_BYTES } from './singerModelBytes.ts'
+
 /** One model of the singer search on the Hugging Face Hub. */
 export interface SingerModel {
   repo: string
@@ -14,18 +16,15 @@ export interface SingerModel {
 export const SEGMENTATION_MODEL: SingerModel = {
   repo: 'onnx-community/pyannote-segmentation-3.0',
   revision: '733a93b6473d019a773298e08cefa686894b1854',
-  bytes: 5_986_908,
+  bytes: SEGMENTATION_MODEL_BYTES,
 }
 
 /** The WeSpeaker ResNet34 speaker embedding model as ONNX, CC BY 4.0 licence. It gives one embedding of 256 values. */
 export const EMBEDDING_MODEL: SingerModel = {
   repo: 'onnx-community/wespeaker-voxceleb-resnet34-LM',
   revision: '6a61a1833ff2583aabeba044f5c8221f00b67ceb',
-  bytes: 26_535_549,
+  bytes: EMBEDDING_MODEL_BYTES,
 }
-
-/** The download size of the two singer models, in bytes. The small JSON files of each model are not included. */
-export const SINGER_MODEL_BYTES = SEGMENTATION_MODEL.bytes + EMBEDDING_MODEL.bytes
 
 /**
  * A singer with less than this share of the sung time joins the closest other singer.

@@ -328,7 +328,8 @@ first". "Lyrics only" hides it. While "Separate the vocals first" is off, the ch
 box is disabled, and the hint under it reads "Select "Separate the vocals first" to
 use this option." The note under the check box reads "The app estimates which singer
 sings each phrase, and makes one voice for each singer. Check the result. Use "Move
-to voice" to correct a phrase. The app can find too many singers."
+to voice" to correct a phrase. The app can find too many singers. This step
+downloads models of 33 MB one time."
 
 The states of the singer step come after finishing, because the step starts after
 the run writes its marks:
