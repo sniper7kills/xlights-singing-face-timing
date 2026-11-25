@@ -3,6 +3,7 @@
 // The zoom maths and the scroll maths of the editor live here, with unit tests.
 
 import type { TimeRange } from '../../lib/time/timeRange.ts'
+import { anchoredScrollMs, centredScrollMs, fitZoom } from '../../lib/time/zoom.ts'
 
 /** The mapping between a time in the song and a horizontal position in the editor. */
 export type TimeScale = {
@@ -82,9 +83,20 @@ export type ZoomView = { pxPerSecond: number; scrollMs: number }
  * @param anchorPx The position that keeps its time, in pixels from the left edge of the editor.
  */
 export function zoomAt(input: TimeScaleInput, pxPerSecond: number, anchorPx: number): ZoomView {
-  const anchorMs = pxToMs(makeTimeScale(input), anchorPx)
+  return zoomAround(input, pxPerSecond, pxToMs(makeTimeScale(input), anchorPx))
+}
+
+/**
+ * Returns the view at the zoom `pxPerSecond`, with the time `anchorMs` kept at its position in the editor.
+ * The zoom stays from `MIN_ZOOM` to `MAX_ZOOM`, and the scroll offset stays inside the song.
+ * @param input The view before the zoom.
+ * @param pxPerSecond The new zoom, in pixels for each second.
+ * @param anchorMs The time that keeps its position. See `zoomAnchorMs`.
+ */
+export function zoomAround(input: TimeScaleInput, pxPerSecond: number, anchorMs: number): ZoomView {
+  const scale = makeTimeScale(input)
   const next = clampZoom(pxPerSecond)
-  const scrollMs = anchorMs - anchorPx / (next / 1000)
+  const scrollMs = anchoredScrollMs(scale.scrollMs, scale.pxPerMs, next / 1000, anchorMs)
   return {
     pxPerSecond: next,
     scrollMs: makeTimeScale({ ...input, pxPerSecond: next, scrollMs }).scrollMs,
@@ -92,12 +104,23 @@ export function zoomAt(input: TimeScaleInput, pxPerSecond: number, anchorPx: num
 }
 
 /**
- * Returns the view after one `+` or `-` key, with the time at the centre of the editor kept there.
- * @param direction 1 zooms in, -1 zooms out.
+ * Returns the view that shows the range in the middle of the editor, with a margin on each side.
+ * The zoom stops at `MAX_ZOOM`, so a very short range shows with a wider margin.
  */
-export function zoomStep(input: TimeScaleInput, direction: 1 | -1): ZoomView {
+export function zoomToRange(input: TimeScaleInput, range: TimeRange): ZoomView {
+  const pxPerSecond = clampZoom(fitZoom(range, input.widthPx))
+  const scrollMs = centredScrollMs(range, input.widthPx, pxPerSecond)
+  return { pxPerSecond, scrollMs: makeTimeScale({ ...input, pxPerSecond, scrollMs }).scrollMs }
+}
+
+/**
+ * Returns the view after one `+` or `-` key, with the time `anchorMs` kept at its position.
+ * @param direction 1 zooms in, -1 zooms out.
+ * @param anchorMs The time that keeps its position. See `zoomAnchorMs`.
+ */
+export function zoomStep(input: TimeScaleInput, direction: 1 | -1, anchorMs: number): ZoomView {
   const current = makeTimeScale(input).pxPerMs * 1000
-  return zoomAt(input, current * KEY_ZOOM_FACTOR ** direction, input.widthPx / 2)
+  return zoomAround(input, current * KEY_ZOOM_FACTOR ** direction, anchorMs)
 }
 
 /**
@@ -167,6 +190,20 @@ export function rangeToPx(scale: TimeScale, range: TimeRange): { leftPx: number;
     leftPx: msToPx(scale, range.startMs),
     widthPx: (range.endMs - range.startMs) * scale.pxPerMs,
   }
+}
+
+/** A mark narrower than this width shows no label. The padding and the border of a mark take 14 px. */
+export const LABEL_MIN_PX = 16
+
+/** A selected mark narrower than this width gets its edge handles outside the mark, so each handle is 10 px wide. */
+export const INNER_HANDLES_MIN_PX = 28
+
+/** How a mark of a width draws: with or without its label, and with its edge handles inside or outside. */
+export type MarkShape = { narrow: boolean; outerHandles: boolean }
+
+/** Returns how a mark of `widthPx` pixels draws. See `LABEL_MIN_PX` and `INNER_HANDLES_MIN_PX`. */
+export function markShape(widthPx: number): MarkShape {
+  return { narrow: widthPx < LABEL_MIN_PX, outerHandles: widthPx < INNER_HANDLES_MIN_PX }
 }
 
 /** Returns the time range that an editor of `widthPx` pixels shows. */

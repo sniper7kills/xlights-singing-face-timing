@@ -116,7 +116,10 @@ test('scrolls the stage to the start of a section after a click at a zoom', asyn
   await addSection(page, 12_000, 20_000)
   await expect(sectionButton(page, 'Section 1')).toBeVisible()
 
-  // The zoom keeps the centre of the stage, about 14 s, in view. The section start is then left of the view.
+  // The zoom keeps the play cursor in place. A click on the ruler puts it at the centre of the stage, about 14 s.
+  // The section start is then left of the view.
+  const ruler = await box(page.locator('.time-ruler'))
+  await page.mouse.click(ruler.x + ruler.width / 2, ruler.y + ruler.height / 2)
   await page.getByRole('slider', { name: 'Zoom' }).fill('200')
   const stage = await box(page.getByTestId('waveform-stage'))
   const block = band(page).locator('.section-block')

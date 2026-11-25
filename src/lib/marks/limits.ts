@@ -9,6 +9,18 @@ export type Limits = { minMs: number; maxMs: number }
 /** The legal amounts of one move, from `minDeltaMs` (0 or less) to `maxDeltaMs` (0 or more). */
 export type MoveLimits = { minDeltaMs: number; maxDeltaMs: number }
 
+/** A mark shorter than this count of frames is short: it is hard to see and to grab, so the editor marks it. */
+export const SHORT_FRAMES = 3
+
+/**
+ * Returns true when the range is shorter than `SHORT_FRAMES` frames.
+ * @param range The times of the mark.
+ * @param frameMs The frame size of the song.
+ */
+export function isShortMark(range: TimeRange, frameMs: number): boolean {
+  return range.endMs - range.startMs < SHORT_FRAMES * frameMs
+}
+
 /** Returns the value, moved into the range from `min` to `max`. */
 export function clamp(value: number, min: number, max: number): number {
   return Math.min(Math.max(value, min), max)

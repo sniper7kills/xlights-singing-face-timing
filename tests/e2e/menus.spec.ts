@@ -77,6 +77,8 @@ test('shows the whole menu of the last voice of 12 near the bottom of the rail',
 }) => {
   await page.setViewportSize({ width: 1024, height: 768 })
   await openDemoSong(page)
+  // Below 1280 px the voice rail starts folded, so the person opens it first.
+  await page.getByRole('button', { name: 'Voices', exact: true }).click()
   const add = rail(page).getByRole('button', { name: 'Add voice' })
   for (let n = 2; n <= 12; n += 1) {
     await add.click()

@@ -16,8 +16,11 @@ import {
   timeAtPx,
   visibleRange,
   wheelZoom,
+  zoomAround,
   zoomAt,
+  zoomToRange,
   zoomStep,
+  markShape,
 } from './timeScale.ts'
 
 const FULL_SONG = { widthPx: 1000, durationMs: 20_000, pxPerSecond: null, scrollMs: 0 }
@@ -127,8 +130,8 @@ describe('zoomStep', () => {
   it('zooms in and out by a factor of 1.5 at the centre of the editor', () => {
     const centreMs = pxToMs(makeTimeScale(view), 500)
 
-    const zoomedIn = zoomStep(view, 1)
-    const zoomedOut = zoomStep(view, -1)
+    const zoomedIn = zoomStep(view, 1, centreMs)
+    const zoomedOut = zoomStep(view, -1, centreMs)
 
     expect(zoomedIn.pxPerSecond).toBe(150)
     expect(zoomedOut.pxPerSecond).toBeCloseTo(66.667, 2)
@@ -136,7 +139,32 @@ describe('zoomStep', () => {
   })
 
   it('stops at 1000 pixels for each second', () => {
-    expect(zoomStep({ ...view, pxPerSecond: 900 }, 1).pxPerSecond).toBe(1000)
+    expect(zoomStep({ ...view, pxPerSecond: 900 }, 1, 0).pxPerSecond).toBe(1000)
+  })
+})
+
+describe('zoomAround', () => {
+  it('keeps the anchor time at its position', () => {
+    const view = { ...FULL_SONG, durationMs: 120_000, pxPerSecond: 31, scrollMs: 0 }
+    const anchorPx = msToPx(makeTimeScale(view), 22_000)
+
+    const next = zoomAround(view, 150, 22_000)
+
+    expect(msToPx(makeTimeScale({ ...view, ...next }), 22_000)).toBeCloseTo(anchorPx)
+  })
+})
+
+describe('zoomToRange', () => {
+  it('shows a phoneme of 50 ms at 40 px or more in the middle of the editor', () => {
+    const view = { ...FULL_SONG, durationMs: 120_000, pxPerSecond: 31, scrollMs: 0 }
+    const range = { startMs: 60_000, endMs: 60_050 }
+
+    const next = zoomToRange(view, range)
+    const scale = makeTimeScale({ ...view, ...next })
+
+    expect(next.pxPerSecond).toBe(1000)
+    expect(rangeToPx(scale, range).widthPx).toBeGreaterThanOrEqual(40)
+    expect(msToPx(scale, 60_025)).toBeCloseTo(500)
   })
 })
 
@@ -294,5 +322,13 @@ describe('rulerTicks', () => {
 
     expect(ticks.slice(0, 3)).toEqual([0, 60_000, 120_000])
     expect(ticks).toHaveLength(17)
+  })
+})
+
+describe('markShape', () => {
+  it('hides the label below 16 px and puts the handles outside below 28 px', () => {
+    expect(markShape(1.5)).toEqual({ narrow: true, outerHandles: true })
+    expect(markShape(20)).toEqual({ narrow: false, outerHandles: true })
+    expect(markShape(28)).toEqual({ narrow: false, outerHandles: false })
   })
 })

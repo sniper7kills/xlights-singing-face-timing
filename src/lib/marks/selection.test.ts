@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest'
 import { FRAME_MS, mark, OTHER_VOICE, testMarks } from './fixtures.test-helpers.ts'
-import { addRangeAt, existingIds, markOnNextLayer, marksBetween } from './selection.ts'
+import {
+  addRangeAt,
+  existingIds,
+  markOnNextLayer,
+  marksBetween,
+  selectionRange,
+} from './selection.ts'
 import { findMark } from './family.ts'
 
 describe('marksBetween', () => {
@@ -64,5 +70,18 @@ describe('markOnNextLayer', () => {
     expect(markOnNextLayer(testMarks(), at('p1'), 'up')).toBeUndefined()
     expect(markOnNextLayer(testMarks(), at('w1a'), 'down')).toBeUndefined()
     expect(markOnNextLayer(testMarks(), at('p3'), 'down')).toBeUndefined()
+  })
+})
+
+describe('selectionRange', () => {
+  it('goes from the earliest start to the latest end of the selected marks', () => {
+    expect(selectionRange(testMarks(), ['w3', 'w1', 'gone'])).toEqual({
+      startMs: 1000,
+      endMs: 2800,
+    })
+  })
+
+  it('gives undefined when no id names a mark', () => {
+    expect(selectionRange(testMarks(), ['gone'])).toBeUndefined()
   })
 })

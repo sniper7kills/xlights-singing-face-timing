@@ -10,6 +10,7 @@ import {
   undoOrRedo,
 } from './shortcutCommands.ts'
 import type { EditorKeyMap } from './useEditorKeys.ts'
+import { zoomSelectionKey } from './zoomCommands.ts'
 
 /** One row of the shortcut list: the keys that the person presses and what they do. */
 export type Shortcut = {
@@ -87,6 +88,11 @@ export const SHORTCUTS: readonly Shortcut[] = [
   { label: 'Ctrl+Z', action: 'Undo', keys: { 'Ctrl+z': undoOrRedo } },
   { label: 'Ctrl+Shift+Z', action: 'Redo', keys: { 'Ctrl+Z': undoOrRedo } },
   { label: '+ or -', action: 'Zoom in or out', keys: { '+': null, '=': null, '-': null } },
+  {
+    label: 'Z',
+    action: 'Zoom to the selected marks or the time selection',
+    keys: { z: zoomSelectionKey, Z: zoomSelectionKey },
+  },
   { label: 'Escape', action: 'Clear the mark selection', keys: { Escape: null } },
   { label: '?', action: 'Show this list', keys: { '?': null } },
   {

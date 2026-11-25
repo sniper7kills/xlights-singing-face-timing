@@ -5,6 +5,7 @@ import { addVoice, deleteVoice, reorderVoices } from '../../store/actions/voices
 import { useSongStore } from '../../store/songStore.ts'
 import type { Voice } from '../../store/types.ts'
 import { selectedVoice, useViewStore } from '../../store/viewStore.ts'
+import { PanelFold } from '../timeline-editor/PanelFold.tsx'
 import { DeleteVoiceDialog } from './DeleteVoiceDialog.tsx'
 import { VoiceRow } from './VoiceRow.tsx'
 
@@ -48,6 +49,7 @@ export function VoiceRail() {
 
   return (
     <aside className="voice-rail" aria-labelledby={titleId}>
+      <PanelFold panel="voices" />
       <h3 id={titleId}>Voices</h3>
       <ul className="voice-list">
         {voices.map((voice) => (

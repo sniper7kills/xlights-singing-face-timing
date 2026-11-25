@@ -1,5 +1,6 @@
 import type { Mark } from '../../store/types.ts'
 import type { TimeRange } from '../time/timeRange.ts'
+import { selectionRange } from './selection.ts'
 
 /** The loop plays this much audio before the start of the selection, so the person hears the lead-in of the first sound. */
 export const LOOP_LEAD_MS = 150
@@ -18,15 +19,7 @@ export function loopRange(
   selectedIds: readonly string[],
   timeSelection: TimeRange | null,
 ): TimeRange | null {
-  const ids = new Set(selectedIds)
-  const selected = marks.filter((mark) => ids.has(mark.id))
-  const range =
-    selected.length > 0
-      ? {
-          startMs: Math.min(...selected.map((mark) => mark.startMs)),
-          endMs: Math.max(...selected.map((mark) => mark.endMs)),
-        }
-      : timeSelection
+  const range = selectionRange(marks, selectedIds) ?? timeSelection
   if (range === null || range.endMs <= range.startMs) return null
   return { startMs: Math.max(0, range.startMs - LOOP_LEAD_MS), endMs: range.endMs }
 }
