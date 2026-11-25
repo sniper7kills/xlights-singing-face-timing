@@ -94,6 +94,11 @@ test('a run with the option on shows "Separating vocals" and then makes marks', 
   page,
 }) => {
   const separateRequests = watchSeparateRequests(page)
+  const outside: string[] = []
+  page.on('request', (request) => {
+    if (!request.url().startsWith(APP_ORIGIN) && !request.url().startsWith('blob:'))
+      outside.push(request.url())
+  })
   await createSong(page)
   const dialog = await openDialog(page)
   await dialog.getByRole('checkbox', { name: CHECK_BOX }).check()
@@ -105,6 +110,8 @@ test('a run with the option on shows "Separating vocals" and then makes marks', 
   await expect(page.getByText('16 words, 0 estimated')).toBeVisible()
   await expect(words(page)).toHaveCount(16)
   expect(separateRequests.length).toBeGreaterThan(0)
+  // The separation sends no audio: the run makes no request outside the app.
+  expect(outside).toEqual([])
   const log = await progressLog(page)
   const separating = log.findIndex((text) => /^Separating vocals, \d:\d\d of 0:28, /.test(text))
   const transcribing = log.findIndex((text) => text.startsWith('Transcribing'))

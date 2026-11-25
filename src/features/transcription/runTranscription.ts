@@ -148,6 +148,7 @@ function stopIfCancelled(signal: AbortSignal): void {
  * @param request The run that the person started. Without a range, the range is the full song.
  * @param client The client that runs the speech model. A lyrics-only run does not call it.
  * @param handlers The progress functions, the cancel signal and the two confirm callbacks of the dialog.
+ * With `separateVocals`, a failed vocal separation asks the person to continue with the audio of the song.
  * Rejects with TranscribeError of kind 'cancelled' when the signal aborts or the person declines a confirm.
  * Also rejects as cancelled, with no mark and no section written, when the voice of the run no longer exists.
  * Rejects with NoWordsError when no word is found.
