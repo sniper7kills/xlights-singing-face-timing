@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { saveExportOptions } from '../../store/db.ts'
-import { loadSongExportOptions } from './exportOptionsStore.ts'
+import { loadSongExportOptions, storedExportOptions } from './exportOptionsStore.ts'
 import {
   makeContent,
   makeSection,
@@ -11,6 +11,13 @@ import {
 const lead = makeVoice('v1', 'Lead Vocals', 0)
 const santa = makeVoice('v2', 'Santa', 1)
 const elf = makeVoice('v3', 'Elf Choir', 2)
+const defaults = {
+  voiceIds: [],
+  grouping: 'voice',
+  packaging: 'one-file',
+  writeRest: false,
+  trackNames: {},
+} as const
 
 /** One phrase for each of the voices, so each voice has marks. */
 function sung(...voiceIds: string[]) {
@@ -79,6 +86,26 @@ describe('loadSongExportOptions', () => {
     )
 
     expect(options.voiceIds).toEqual(['v1', 'v3'])
+  })
+
+  it('selects a voice that the last export left out with no marks after the voice gets marks', async () => {
+    const before = makeContent([lead, santa], sung('v1'))
+    const first = await loadSongExportOptions(before)
+    await saveExportOptions('song-1', storedExportOptions(before, first))
+
+    const options = await loadSongExportOptions(makeContent([lead, santa], sung('v1', 'v2')))
+
+    expect(options.voiceIds).toEqual(['v1', 'v2'])
+  })
+
+  it('keeps a voice with marks cleared after the person cleared it', async () => {
+    const content = makeContent([lead, santa], sung('v1', 'v2'))
+    await saveExportOptions(
+      'song-1',
+      storedExportOptions(content, { ...defaults, voiceIds: ['v1'] }),
+    )
+
+    expect((await loadSongExportOptions(content)).voiceIds).toEqual(['v1'])
   })
 
   it('does not select a voice with no marks for a first export', async () => {

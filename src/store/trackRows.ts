@@ -84,23 +84,33 @@ export function trackRows(
   ]
 }
 
+/** One voice that the last run wrote marks to, and that still exists. */
+export type LastRunVoice = {
+  voice: Voice
+  /** True for a voice that the singer step of the last run added. Only such a voice goes when a new run empties it. */
+  made: boolean
+}
+
 /**
- * Returns the singer voices of the last run that still exist: the voices that its singer step added.
+ * Returns the voices that the last run wrote marks to and that still exist: the voice of the last run and its singer voices.
  * A voice that the person renamed is still such a voice.
  * @param data The stored run data of the song, or undefined when the song has none.
- * @param voices The voices of the song.
- * @param runVoiceId The voice of the new run. It is never in the result, also when the last run added it.
+ * @param voices The voices of the song, in their order. The result keeps this order.
+ * @param runVoiceId The voice of the new run. It is never in the result.
  * A record from before issue #173 has no voice ids, so the function finds the voices by the names in the report.
  */
-export function lastRunSingerVoices(
+export function lastRunVoices(
   data: RunData | undefined,
   voices: readonly Voice[],
   runVoiceId: string,
-): Voice[] {
+): LastRunVoice[] {
   if (data === undefined) return []
-  const made = (voice: Voice) =>
+  const entryOf = (voice: Voice) =>
     data.voices === undefined
-      ? data.report.voices.some((entry) => entry.made === true && entry.name === voice.name)
-      : data.voices.some((entry) => entry.made && entry.voiceId === voice.id)
-  return voices.filter((voice) => voice.id !== runVoiceId && made(voice))
+      ? data.report.voices.find((entry) => entry.name === voice.name)
+      : data.voices.find((entry) => entry.voiceId === voice.id)
+  return voices.flatMap((voice) => {
+    const entry = voice.id === runVoiceId ? undefined : entryOf(voice)
+    return entry === undefined ? [] : [{ voice, made: entry.made === true }]
+  })
 }

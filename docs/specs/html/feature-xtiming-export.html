@@ -353,7 +353,15 @@ body.rv-open .layout { padding-right:21rem; }
 </li>
 <li>FR-export-41 — A disabled "Download" button shows the reason beside it.
 </li>
+<li>FR-export-42 — A voice that an export left out because it had no marks is
+</li>
 </ul>
+<p>selected when the dialog opens after the voice gets marks.</p>
+<ul>
+<li>FR-export-43 — The checks warn about each voice with marks that the export
+</li>
+</ul>
+<p>leaves out.</p>
 <h3 id="xtiming-export-user-flows">User flows</h3>
 <h4 id="xtiming-export-export-a-song-with-two-voices">Export a song with two voices</h4>
 <div class="diagram"><pre class="mermaid">flowchart TD
@@ -566,6 +574,7 @@ body.rv-open .layout { padding-right:21rem; }
 <tr><th>Check</th><th>Type</th><th>Message</th></tr>
 <tr><td>No selected voice has marks.</td><td>error</td><td><code>No marks to export. Select a voice with marks.</code></td></tr>
 <tr><td>A selected voice has no marks, and another selected voice has marks.</td><td>warning</td><td><code>“&lt;voice name&gt;” has no marks. Clear its check box, or add marks.</code></td></tr>
+<tr><td>A voice has marks and is not selected.</td><td>warning</td><td><code>“&lt;voice name&gt;” has marks, and it is not in this export. Select its check box to add it.</code></td></tr>
 <tr><td>Two timing tracks have the same name.</td><td>error</td><td><code>Two timing tracks have the name “&lt;timing track name&gt;”.</code></td></tr>
 <tr><td>A timing track name is empty.</td><td>error</td><td><code>A timing track of “&lt;voice name&gt;” has no name.</code></td></tr>
 <tr><td>A timing track name has only spaces after the xLights import.</td><td>error</td><td><code>xLights cannot use the timing track name “&lt;timing track name&gt;”. Use letters from A to Z, digits or spaces.</code></td></tr>
@@ -621,6 +630,11 @@ body.rv-open .layout { padding-right:21rem; }
 </li>
 </ul>
 <p>that the person added after it is selected. A voice with no marks is not selected, also when the previous export selected it.</p>
+<ul>
+<li>The app stores the voices that it left out because they had no marks. When such
+</li>
+</ul>
+<p>a voice has marks at a later export, the dialog selects it again. A voice with marks that the person cleared stays cleared. Options from before this rule have no such list, and the earlier rule applies to them.</p>
 <ul>
 <li>The person can select a voice with no marks. The checks then give the warning.
 </li>
@@ -1089,6 +1103,16 @@ importStepsText(frameMs: number): string</code></pre>
 </li>
 </ul>
 <p>(FR-export-16)</p>
+<ul>
+<li>A voice with no marks at the first export is selected at the next export after
+</li>
+</ul>
+<p>it gets marks. (FR-export-42)</p>
+<ul>
+<li>A voice with marks that is not selected gives a warning, and "Download" stays
+</li>
+</ul>
+<p>enabled. (FR-export-43)</p>
 <ul>
 <li>An error finding shows "Correct the errors in "Checks" first." beside the
 </li>

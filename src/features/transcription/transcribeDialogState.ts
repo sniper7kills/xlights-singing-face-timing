@@ -349,7 +349,14 @@ function countsText(
  */
 export function lyricsFitMessage(fit: LyricsFit, selection: boolean): string {
   const where = selection ? 'The time selection has' : 'This song has'
-  return `The lyrics have ${fit.wordCount} words. ${where} room for about ${fit.room} words. The app leaves out the lines after line ${fit.keptLineCount}.`
+  return `The lyrics have ${fit.wordCount} words. ${where} room for about ${fit.room} words. ${leftOutText(fit)}`
+}
+
+/** Returns the sentence that states which lyrics the run leaves out. */
+function leftOutText(fit: LyricsFit): string {
+  if (!fit.firstLineCut) return `The app leaves out the lines after line ${fit.keptLineCount}.`
+  const after = fit.lineCount > 1 ? ', and the lines after line 1' : ''
+  return `The app leaves out the words of line 1 that do not fit${after}.`
 }
 
 /** The hint under the lyrics field. It states the rule for characters of `parseLyrics`. */

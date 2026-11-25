@@ -31,7 +31,101 @@ describe('keyName', () => {
   })
 })
 
+describe('keyName with AltGr and the Mac Option key', () => {
+  it('names a character that AltGr typed with no prefix', () => {
+    expect(keyName(key({ key: '[', modifierAltGraph: true }))).toBe('[')
+    expect(keyName(key({ key: ']', modifierAltGraph: true, ctrlKey: true, altKey: true }))).toBe(
+      ']',
+    )
+  })
+
+  it('names a symbol with Ctrl and Alt as the bare symbol, because Windows sets both for AltGr', () => {
+    expect(keyName(key({ key: '[', ctrlKey: true, altKey: true }))).toBe('[')
+    expect(keyName(key({ key: ']', ctrlKey: true, altKey: true }))).toBe(']')
+  })
+
+  it('keeps the prefixes of a letter with Ctrl and Alt', () => {
+    expect(keyName(key({ key: 'z', ctrlKey: true, altKey: true }))).toBe('Ctrl+Alt+z')
+  })
+
+  it('keeps the shortcuts of the editor', () => {
+    expect(keyName(key({ key: 'z', ctrlKey: true }))).toBe('Ctrl+z')
+    expect(keyName(key({ key: 'Z', ctrlKey: true, shiftKey: true }))).toBe('Ctrl+Z')
+    expect(keyName(key({ key: 'ArrowLeft', altKey: true }))).toBe('Alt+ArrowLeft')
+    expect(keyName(key({ key: 'ArrowRight', altKey: true, shiftKey: true }))).toBe(
+      'Alt+Shift+ArrowRight',
+    )
+  })
+})
+
 describe('useEditorKeys', () => {
+  it('runs the function of `[` and `]` for AltGr on Windows', () => {
+    const previous = vi.fn()
+    const next = vi.fn()
+    render(<Keys keys={{ '[': previous, ']': next }} />)
+
+    window.dispatchEvent(key({ key: '[', ctrlKey: true, altKey: true }))
+    window.dispatchEvent(key({ key: ']', modifierAltGraph: true }))
+
+    expect(previous).toHaveBeenCalledOnce()
+    expect(next).toHaveBeenCalledOnce()
+  })
+
+  it('runs the function of `[` for the Mac Option key, and cancels the browser action', () => {
+    const previous = vi.fn()
+    render(<Keys keys={{ '[': previous }} />)
+
+    const event = key({ key: '[', altKey: true, cancelable: true })
+    window.dispatchEvent(event)
+
+    expect(previous).toHaveBeenCalledOnce()
+    expect(event.defaultPrevented).toBe(true)
+  })
+
+  it('runs a registered Alt shortcut of a symbol before the bare symbol', () => {
+    const bare = vi.fn()
+    const withAlt = vi.fn()
+    render(<Keys keys={{ '[': bare, 'Alt+[': withAlt }} />)
+
+    window.dispatchEvent(key({ key: '[', altKey: true }))
+
+    expect(withAlt).toHaveBeenCalledOnce()
+    expect(bare).not.toHaveBeenCalled()
+  })
+
+  it('gives a letter with the Option key no bare name', () => {
+    const letter = vi.fn()
+    render(<Keys keys={{ e: letter }} />)
+
+    window.dispatchEvent(key({ key: 'e', altKey: true }))
+
+    expect(letter).not.toHaveBeenCalled()
+  })
+
+  it('still runs Ctrl+Z, Ctrl+Shift+Z, Alt+Left and Shift+Alt+Right', () => {
+    const undo = vi.fn()
+    const redo = vi.fn()
+    const start = vi.fn()
+    const end = vi.fn()
+    render(
+      <Keys
+        keys={{
+          'Ctrl+z': undo,
+          'Ctrl+Z': redo,
+          'Alt+ArrowLeft': start,
+          'Alt+Shift+ArrowRight': end,
+        }}
+      />,
+    )
+
+    window.dispatchEvent(key({ key: 'z', ctrlKey: true }))
+    window.dispatchEvent(key({ key: 'Z', ctrlKey: true, shiftKey: true }))
+    window.dispatchEvent(key({ key: 'ArrowLeft', altKey: true }))
+    window.dispatchEvent(key({ key: 'ArrowRight', altKey: true, shiftKey: true }))
+
+    expect([undo, redo, start, end].map((action) => action.mock.calls.length)).toEqual([1, 1, 1, 1])
+  })
+
   it('runs the function of a registered key and cancels the browser action', () => {
     const plus = vi.fn()
     render(<Keys keys={{ '+': plus }} />)

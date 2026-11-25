@@ -101,6 +101,10 @@ next.
 - FR-export-39 — The done line shows in the fixed button row.
 - FR-export-40 — The dialog opens with no voice selected that has no marks.
 - FR-export-41 — A disabled "Download" button shows the reason beside it.
+- FR-export-42 — A voice that an export left out because it had no marks is
+  selected when the dialog opens after the voice gets marks.
+- FR-export-43 — The checks warn about each voice with marks that the export
+  leaves out.
 
 ## User flows
 
@@ -257,6 +261,7 @@ Labels:
 |---|---|---|
 | No selected voice has marks. | error | `No marks to export. Select a voice with marks.` |
 | A selected voice has no marks, and another selected voice has marks. | warning | `“<voice name>” has no marks. Clear its check box, or add marks.` |
+| A voice has marks and is not selected. | warning | `“<voice name>” has marks, and it is not in this export. Select its check box to add it.` |
 | Two timing tracks have the same name. | error | `Two timing tracks have the name “<timing track name>”.` |
 | A timing track name is empty. | error | `A timing track of “<voice name>” has no name.` |
 | A timing track name has only spaces after the xLights import. | error | `xLights cannot use the timing track name “<timing track name>”. Use letters from A to Z, digits or spaces.` |
@@ -292,6 +297,10 @@ Labels:
 - Later export: the voices of the previous export stay selected, and each voice
   that the person added after it is selected. A voice with no marks is not
   selected, also when the previous export selected it.
+- The app stores the voices that it left out because they had no marks. When such
+  a voice has marks at a later export, the dialog selects it again. A voice with
+  marks that the person cleared stays cleared. Options from before this rule have
+  no such list, and the earlier rule applies to them.
 - The person can select a voice with no marks. The checks then give the warning.
 
 **Import steps text.** The dialog shows these steps. The names of the controls are
@@ -651,6 +660,10 @@ importStepsText(frameMs: number): string
   (FR-export-40)
 - A selected voice with no marks gives a warning, and "Download" stays enabled.
   (FR-export-16)
+- A voice with no marks at the first export is selected at the next export after
+  it gets marks. (FR-export-42)
+- A voice with marks that is not selected gives a warning, and "Download" stays
+  enabled. (FR-export-43)
 - An error finding shows "Correct the errors in "Checks" first." beside the
   disabled "Download". (FR-export-41)
 - `README.txt` has no word "dialog". (FR-export-35)

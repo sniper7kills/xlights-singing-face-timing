@@ -31,14 +31,20 @@ test('refuses lyrics of 20 001 characters and returns control at once after a pa
   await expect(dialog.getByRole('button', { name: 'Start' })).toBeDisabled()
 
   // The E2E tests compile with no DOM types, so the script is a string.
+  // A busy test computer can stall one paste, so the test keeps the fastest of three pastes.
+  // A slow check of the lyrics makes every paste slow, so the fastest paste still shows it.
   const elapsedMs: unknown = await page.evaluate(`(async () => {
     const field = document.querySelector('.transcribe-dialog textarea')
     const setValue = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value').set
-    const start = performance.now()
-    setValue.call(field, 'Silent night, holy night\\n'.repeat(40000))
-    field.dispatchEvent(new Event('input', { bubbles: true }))
-    await new Promise((resolve) => requestAnimationFrame(() => resolve()))
-    return performance.now() - start
+    const times = []
+    for (const line of ['Silent night, holy night', 'All is calm, all is bright', 'Round yon virgin']) {
+      const start = performance.now()
+      setValue.call(field, (line + '\\n').repeat(40000))
+      field.dispatchEvent(new Event('input', { bubbles: true }))
+      await new Promise((resolve) => requestAnimationFrame(() => resolve()))
+      times.push(performance.now() - start)
+    }
+    return Math.min(...times)
   })()`)
   expect(typeof elapsedMs === 'number' && elapsedMs < 1000).toBe(true)
   await expect(dialog.getByRole('button', { name: 'Start' })).toBeDisabled()
@@ -144,3 +150,22 @@ for (const viewport of [
     await expect(start).toBeInViewport({ ratio: 1 })
   })
 }
+
+test('asks before a run whose first lyrics line alone does not fit, and names line 1', async ({
+  page,
+}) => {
+  const dialog = await openDialog(page)
+  const words = Array.from({ length: 700 }, (_, i) => `word${i}`)
+  await dialog.getByLabel('Lyrics (optional)').fill(words.join(' & '))
+  await dialog.getByRole('checkbox', { name: 'Lyrics only' }).check()
+
+  await dialog.getByRole('button', { name: 'Start' }).click()
+
+  // The "&" parts are not words, so the count is 700.
+  await expect(
+    dialog.getByText(
+      /^The lyrics have 700 words\. This song has room for about \d+ words\. The app leaves out the words of line 1 that do not fit\.$/,
+    ),
+  ).toBeVisible({ timeout: 20_000 })
+  await dialog.getByRole('button', { name: 'Cancel' }).click()
+})

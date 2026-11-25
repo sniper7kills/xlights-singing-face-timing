@@ -3,7 +3,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   AUTOSAVE_DELAY_MS,
   AUTOSAVE_MAX_WAIT_MS,
+  dropPendingChange,
   flushAutosave,
+  flushBeforeLeave,
+  LEAVE_WAIT_MS,
+  SAVE_LIMIT_MS,
+  SaveTimeoutError,
   startAutosave,
   useAutosaveStore,
   useSaveState,
@@ -273,6 +278,86 @@ describe('autosave', () => {
 
     // fake-indexeddb runs in Node, so the time is a rough check only, not a browser time.
     expect(elapsed).toBeLessThan(2000)
+  })
+
+  it('counts a save that does not end in 10 seconds as failed, and the next change saves again', async () => {
+    const save = vi.spyOn(db, 'saveSong').mockImplementationOnce(() => new Promise(() => undefined))
+    useSongStore.getState().apply(relabel('holy night'))
+    await vi.advanceTimersByTimeAsync(AUTOSAVE_DELAY_MS + SAVE_LIMIT_MS - 1)
+    expect(useAutosaveStore.getState().error).toBeNull()
+
+    await vi.advanceTimersByTimeAsync(1)
+    expect(useAutosaveStore.getState().error).toBeInstanceOf(SaveTimeoutError)
+    expect(useAutosaveStore.getState().error?.message).toBe(
+      'The app could not save the song. Try again.',
+    )
+
+    useSongStore.getState().apply(relabel('holy night 2'))
+    await vi.advanceTimersByTimeAsync(AUTOSAVE_DELAY_MS)
+    expect(await savedLabel('song-1')).toBe('holy night 2')
+    expect(save).toHaveBeenCalledTimes(2)
+  })
+
+  it('passes the unloading option to the first save of the flush only', async () => {
+    const ends: (() => void)[] = []
+    const save = vi.spyOn(db, 'saveSong').mockImplementation(
+      (content) =>
+        new Promise((resolve) => {
+          ends.push(() => resolve(content.song))
+        }),
+    )
+    useSongStore.getState().apply(relabel('one'))
+    void flushAutosave({ unloading: true })
+    useSongStore.getState().apply(relabel('two'))
+    const done = flushAutosave()
+    ends.shift()?.()
+    await vi.waitFor(() => expect(save).toHaveBeenCalledTimes(2))
+    ends.shift()?.()
+    await done
+
+    expect(save.mock.calls[0]?.[2]).toEqual({ unloading: true })
+    expect(save.mock.calls[1]?.[2]).toEqual({})
+  })
+
+  it('resolves the leave wait with true when the save ends in time', async () => {
+    useSongStore.getState().apply(relabel('holy night'))
+
+    expect(await flushBeforeLeave()).toBe(true)
+    expect(await savedLabel('song-1')).toBe('holy night')
+  })
+
+  it('resolves the leave wait with false and records the error when the save does not end in 3 seconds', async () => {
+    vi.spyOn(db, 'saveSong').mockImplementation(() => new Promise(() => undefined))
+    useSongStore.getState().apply(relabel('holy night'))
+    const leave = flushBeforeLeave()
+
+    await vi.advanceTimersByTimeAsync(LEAVE_WAIT_MS)
+
+    expect(await leave).toBe(false)
+    expect(useAutosaveStore.getState().error).toBeInstanceOf(SaveTimeoutError)
+    // The write ends at its own limit, so the next test finds no running write.
+    await vi.advanceTimersByTimeAsync(SAVE_LIMIT_MS)
+  })
+
+  it('drops the change of a song that failed to save when a different song opens, and keeps the error', async () => {
+    vi.spyOn(db, 'saveSong').mockRejectedValueOnce(new db.StorageFullError())
+    useSongStore.getState().apply(relabel('holy night'))
+
+    await useSongStore.getState().openSong('song-2')
+    expect(useAutosaveStore.getState().error).toBeInstanceOf(db.StorageFullError)
+    useSongStore.getState().apply(relabel('o come'))
+    await vi.advanceTimersByTimeAsync(AUTOSAVE_DELAY_MS)
+
+    expect(await savedLabel('song-2')).toBe('o come')
+    expect(await savedLabel('song-1')).toBe('silent night')
+  })
+
+  it('keeps the change in the autosave when a different change is pending at the drop', () => {
+    useSongStore.getState().apply(relabel('holy night'))
+
+    dropPendingChange(makeSongContent('song-1'))
+
+    expect(useAutosaveStore.getState().saveState).toBe('saving')
   })
 
   it('stops the saves after the stop function runs', () => {

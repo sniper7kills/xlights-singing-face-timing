@@ -4,19 +4,21 @@
  * - `room`: the words that fit in the range, one frame size for each word. See `wordRoom`.
  * - `keptLineCount`: the lines that the run keeps.
  * - `lineCount`: the lyrics lines.
+ * - `firstLineCut`: true when line 1 alone has more words than the room, so the run keeps only its earliest words.
  */
 export type LyricsFit = {
   wordCount: number
   room: number
   keptLineCount: number
   lineCount: number
+  firstLineCut: boolean
 }
 
 /**
  * Returns how the lyrics lines fit in the room of the range.
  * The run keeps the first lines whose words all fit, and leaves out each line after them.
  * The run always keeps the first line, and the frame rule then keeps the earliest words of that line that fit.
- * @param lineWordCounts The count of words of each lyrics line, in order.
+ * @param lineWordCounts The count of words of each lyrics line, in order. Count the words with `isLyricsWord`, the rule of the run.
  * @param room The count of words that fit in the range.
  */
 export function fitLyricsLines(lineWordCounts: readonly number[], room: number): LyricsFit {
@@ -31,10 +33,11 @@ export function fitLyricsLines(lineWordCounts: readonly number[], room: number):
     room,
     keptLineCount: Math.min(lineWordCounts.length, Math.max(1, keptLineCount)),
     lineCount: lineWordCounts.length,
+    firstLineCut: (lineWordCounts[0] ?? 0) > room,
   }
 }
 
-/** Returns true when the run leaves out one lyrics line or more. */
-export function leavesOutLines(fit: LyricsFit): boolean {
-  return fit.keptLineCount < fit.lineCount
+/** Returns true when the run leaves out one lyrics line or more, or words of line 1. The run then asks first. */
+export function leavesOutLyrics(fit: LyricsFit): boolean {
+  return fit.keptLineCount < fit.lineCount || fit.firstLineCut
 }

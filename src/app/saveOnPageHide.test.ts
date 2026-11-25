@@ -63,6 +63,15 @@ describe('startSaveOnPageHide', () => {
 
     // A page that unloads runs no later task, so the transaction must start before the handler task ends.
     expect(save).toHaveBeenCalledTimes(1)
+    expect(save).toHaveBeenCalledWith(expect.anything(), undefined, { unloading: true })
+  })
+
+  it('marks the save of a page that becomes hidden as a save of a page that unloads', () => {
+    const save = vi.spyOn(db, 'saveSong')
+
+    setVisibility('hidden')
+
+    expect(save).toHaveBeenCalledWith(expect.anything(), undefined, { unloading: true })
   })
 
   it('asks to confirm a leave while a change is not saved, and stops after the save', async () => {

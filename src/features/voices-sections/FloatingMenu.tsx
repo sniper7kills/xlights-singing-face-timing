@@ -1,5 +1,6 @@
 import {
   type KeyboardEvent,
+  type MouseEvent,
   type ReactNode,
   type RefObject,
   useEffect,
@@ -24,6 +25,7 @@ type FloatingMenuProps = {
  * - A scroll or a resize of the window places the menu again, so the menu follows its anchor.
  * - A press outside the menu and the anchor closes the menu. The anchor toggles the menu itself.
  * - `Tab` and `Shift+Tab` start from the anchor, so the Tab order is the same as for a menu next to its anchor.
+ * - A press on the padding of the menu keeps the focus on its item, so the keys of the menu still work.
  */
 export function FloatingMenu({ anchor, onClose, children }: FloatingMenuProps) {
   const layer = useRef<HTMLDivElement>(null)
@@ -68,8 +70,14 @@ export function FloatingMenu({ anchor, onClose, children }: FloatingMenuProps) {
     if (event.shiftKey) event.preventDefault()
   }
 
+  function onMouseDown(event: MouseEvent<HTMLDivElement>) {
+    // The padding takes no focus, so the browser would move the focus to the body and the menu would hear no key.
+    if (event.target instanceof Element && event.target.closest('button') === null)
+      event.preventDefault()
+  }
+
   return createPortal(
-    <div ref={layer} className="floating-menu" onKeyDown={onKeyDown}>
+    <div ref={layer} className="floating-menu" onKeyDown={onKeyDown} onMouseDown={onMouseDown}>
       {children}
     </div>,
     document.body,

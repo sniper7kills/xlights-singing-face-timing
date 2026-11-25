@@ -2,12 +2,14 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   closeDatabase,
   deleteSong,
+  forgetStoredIds,
   getAudioFile,
   getRecord,
   listRecords,
   listSongs,
   loadExportOptions,
   loadSong,
+  onSongSaved,
   openDatabase,
   putRecord,
   renameSong,
@@ -211,14 +213,16 @@ describe('saveSong', () => {
     expect(await listRecords('marks')).toEqual([])
   })
 
-  it('commits at once and deletes the omitted records for a song that the page read before', async () => {
+  it('commits at once and deletes the omitted records for a save of a page that unloads after a read of the song', async () => {
     const content = makeSongContent()
     await saveSong(makeSongContent('song-2'))
     await saveSong(content)
     await loadSong('song-1')
     const commit = vi.spyOn(IDBTransaction.prototype, 'commit')
 
-    await saveSong({ ...content, sections: [], marks: content.marks.slice(1) })
+    await saveSong({ ...content, sections: [], marks: content.marks.slice(1) }, undefined, {
+      unloading: true,
+    })
 
     // A commit in the call means that no request waits for a callback of the page.
     expect(commit).toHaveBeenCalledTimes(1)
@@ -226,12 +230,62 @@ describe('saveSong', () => {
     expect(await listRecords('sections')).toEqual(makeSongContent('song-2').sections)
   })
 
+  it('reads the stored keys for an ordinary save of a song that the page read before', async () => {
+    const content = makeSongContent()
+    await saveSong(content)
+    await loadSong('song-1')
+    const commit = vi.spyOn(IDBTransaction.prototype, 'commit')
+
+    await saveSong({ ...content, marks: content.marks.slice(1) })
+
+    // A different tab can add records, so only the read of the stored keys deletes all records that the save omits.
+    expect(commit).not.toHaveBeenCalled()
+    expect((await loadSong('song-1'))?.marks.map((mark) => mark.id)).toEqual(['song-1-word'])
+  })
+
+  it('completes a save of a page that unloads in a browser with no transaction commit', async () => {
+    const content = makeSongContent()
+    await saveSong(content)
+    await loadSong('song-1')
+    const commit = Object.getOwnPropertyDescriptor(IDBTransaction.prototype, 'commit')
+    Reflect.deleteProperty(IDBTransaction.prototype, 'commit')
+    try {
+      await saveSong({ ...content, marks: content.marks.slice(1) }, undefined, { unloading: true })
+    } finally {
+      if (commit) Object.defineProperty(IDBTransaction.prototype, 'commit', commit)
+    }
+
+    expect((await loadSong('song-1'))?.marks.map((mark) => mark.id)).toEqual(['song-1-word'])
+  })
+
+  it('reads the stored keys for a save of a page that unloads after a different tab saved the song', async () => {
+    const content = makeSongContent()
+    await saveSong(content)
+    await loadSong('song-1')
+    forgetStoredIds('song-1')
+    const commit = vi.spyOn(IDBTransaction.prototype, 'commit')
+
+    await saveSong(content, undefined, { unloading: true })
+
+    expect(commit).not.toHaveBeenCalled()
+  })
+
+  it('tells each listener of onSongSaved the song id after a save, until the stop function runs', async () => {
+    const heard: string[] = []
+    const stop = onSongSaved((songId) => heard.push(songId))
+    await saveSong(makeSongContent())
+    stop()
+    await saveSong(makeSongContent('song-2'))
+
+    expect(heard).toEqual(['song-1'])
+  })
+
   it('reads the stored records again for a song id after a delete of the song', async () => {
     await saveSong(makeSongContent())
     await deleteSong('song-1')
     const commit = vi.spyOn(IDBTransaction.prototype, 'commit')
 
-    await saveSong(makeSongContent())
+    await saveSong(makeSongContent(), undefined, { unloading: true })
 
     expect(commit).not.toHaveBeenCalled()
     expect(await listRecords('marks')).toHaveLength(2)

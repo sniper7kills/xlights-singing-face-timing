@@ -46,8 +46,37 @@ function clearedMarks(marks: Mark[], voiceIds: readonly string[], range: TimeRan
   )
 }
 
+/** A voice that a transcribe run clears in its range, besides the voice of the run. */
+export type ReplacedVoice = {
+  voiceId: string
+  /** True for a singer voice of the last run. It goes when this step removes its last mark. */
+  removable: boolean
+}
+
+const hasMarks = (marks: readonly Mark[], voiceId: string) =>
+  marks.some((mark) => mark.voiceId === voiceId)
+
 /**
- * Returns the content with the range of each voice cleared, the emptied voices removed, and the new marks added.
+ * Returns the ids of the removable voices that had marks before the step and have none after it.
+ * A voice that had no mark before the step stays, because the person can keep an empty voice on purpose.
+ */
+function emptiedVoiceIds(
+  replaced: readonly ReplacedVoice[],
+  before: readonly Mark[],
+  after: readonly Mark[],
+): Set<string> {
+  return new Set(
+    replaced
+      .filter(
+        ({ voiceId, removable }) =>
+          removable && hasMarks(before, voiceId) && !hasMarks(after, voiceId),
+      )
+      .map(({ voiceId }) => voiceId),
+  )
+}
+
+/**
+ * Returns the content with the range of each voice cleared, the emptied singer voices removed, and the new marks added.
  * Returns the input when no mark and no voice changes, so the store records no step.
  */
 function replaceStep(
@@ -55,14 +84,15 @@ function replaceStep(
   voiceId: string,
   range: TimeRange,
   newMarks: Mark[],
-  singerVoiceIds: readonly string[],
+  replacedVoices: readonly ReplacedVoice[],
 ): SongContent {
-  const singers = singerVoiceIds.filter(
-    (id) => id !== voiceId && content.voices.some((voice) => voice.id === id),
+  const replaced = replacedVoices.filter(
+    (item) => item.voiceId !== voiceId && content.voices.some((voice) => voice.id === item.voiceId),
   )
-  const marks = [...clearedMarks(content.marks, [...singers, voiceId], range), ...newMarks]
-  // A singer voice with no mark left goes, so the singer step of the run can use its name again.
-  const emptied = new Set(singers.filter((id) => !marks.some((mark) => mark.voiceId === id)))
+  const cleared = [...replaced.map((item) => item.voiceId), voiceId]
+  const marks = [...clearedMarks(content.marks, cleared, range), ...newMarks]
+  // A singer voice that this step empties goes, so the singer step of the run can use its name again.
+  const emptied = emptiedVoiceIds(replaced, content.marks, marks)
   const unchanged =
     emptied.size === 0 &&
     marks.length === content.marks.length &&
@@ -79,25 +109,25 @@ function replaceStep(
  * Replaces the marks of the voice in the range with new marks, as one undo step.
  * A word that overlaps the range goes with its phonemes. A phrase that overlaps the range keeps its words outside the range.
  * See `previewRangeClear` for the full rules.
- * With `singerVoiceIds`, the same step clears the range on each of those voices by the same rules,
- * and removes each of those voices that has no mark left. The other voices get `order` 0, 1, 2 again.
+ * With `replacedVoices`, the same step clears the range on each of those voices by the same rules.
+ * It removes each removable voice from which the step removed its last mark. The other voices get `order` 0, 1, 2 again.
  * The marks of other voices do not change.
  * @param voiceId The voice that receives the marks.
  * @param range The target range. For a full-song run, the range is the full song.
  * @param newMarks The marks that the run creates, inside the range, with their phrase, word and phoneme parents set.
- * @param singerVoiceIds The singer voices of the last run that the run replaces. An unknown id and the id of `voiceId` change nothing.
+ * @param replacedVoices The voices of the last run that the run replaces. An unknown id and the id of `voiceId` change nothing.
  * Returns false when the open song has no voice with the id. The marks then do not change and the store records no step.
  */
 export function replaceMarksInRange(
   voiceId: string,
   range: TimeRange,
   newMarks: Mark[],
-  singerVoiceIds: readonly string[] = [],
+  replacedVoices: readonly ReplacedVoice[] = [],
 ): boolean {
   let voiceExists = false
   useSongStore.getState().apply((content) => {
     voiceExists = content.voices.some((voice) => voice.id === voiceId)
-    return voiceExists ? replaceStep(content, voiceId, range, newMarks, singerVoiceIds) : content
+    return voiceExists ? replaceStep(content, voiceId, range, newMarks, replacedVoices) : content
   })
   return voiceExists
 }

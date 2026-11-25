@@ -1,6 +1,6 @@
 import { MAX_SECTION_NAME } from '../../lib/sections/sectionRules.ts'
 import type { SectionTag } from '../../lib/sections/tagSections.ts'
-import { normaliseForMatch } from '../../lib/text/normalise.ts'
+import { isLyricsWord } from '../../lib/text/normalise.ts'
 import type { AlignedPhrase, AlignedWord, TimedWord } from './types.ts'
 
 const PHRASE_GAP_MS = 700
@@ -104,7 +104,7 @@ export function countPartsLeftOut(lyrics: string): number {
   return lyrics.split(/\r?\n/).reduce((count, raw) => {
     const line = raw.trim()
     if (line === '' || TAG_LINE.test(line)) return count
-    return count + line.split(/\s+/).filter((part) => normaliseForMatch(part) === '').length
+    return count + line.split(/\s+/).filter((part) => !isLyricsWord(part)).length
   }, 0)
 }
 
@@ -115,7 +115,7 @@ function readLine(raw: string): LyricsLine | null {
   const line = raw.trim()
   if (TAG_LINE.test(line))
     return { tag: line.slice(1, -1).trim().slice(0, MAX_SECTION_NAME).trimEnd() }
-  const words = line.split(/\s+/).filter((part) => normaliseForMatch(part) !== '')
+  const words = line.split(/\s+/).filter(isLyricsWord)
   return words.length > 0 ? { words } : null
 }
 

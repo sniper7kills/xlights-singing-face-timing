@@ -12,6 +12,7 @@ import {
   isCancel,
   lowMatchMessage,
   outcomeText,
+  lyricsFitMessage,
   replaceQuestionMessage,
   progressText,
   progressValue,
@@ -537,6 +538,22 @@ describe('remoteErrorMessage', () => {
   it('gives the origin of the page to the network message of a failed run', () => {
     expect(errorMessage(new RemoteError('network', HOST))).toContain(
       `Access-Control-Allow-Origin: ${globalThis.location.origin}`,
+    )
+  })
+})
+
+describe('lyricsFitMessage', () => {
+  const fit = { wordCount: 700, room: 600, keptLineCount: 1, lineCount: 1, firstLineCut: true }
+
+  it('names line 1 when line 1 alone does not fit', () => {
+    expect(lyricsFitMessage(fit, false)).toBe(
+      'The lyrics have 700 words. This song has room for about 600 words. The app leaves out the words of line 1 that do not fit.',
+    )
+  })
+
+  it('names line 1 and the lines after it when line 1 does not fit and more lines follow', () => {
+    expect(lyricsFitMessage({ ...fit, wordCount: 710, lineCount: 3 }, true)).toBe(
+      'The lyrics have 710 words. The time selection has room for about 600 words. The app leaves out the words of line 1 that do not fit, and the lines after line 1.',
     )
   })
 })

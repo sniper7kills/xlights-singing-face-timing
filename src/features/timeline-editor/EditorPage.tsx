@@ -8,7 +8,12 @@ import {
 } from 'react'
 import { setPageNotice, usePageNotice } from '../../app/pageNotice.ts'
 import { LIBRARY_HASH } from '../../app/routes.ts'
-import { flushAutosave, useAutosaveStore, useSaveState } from '../../store/autosave.ts'
+import {
+  flushBeforeLeave,
+  SaveTimeoutError,
+  useAutosaveStore,
+  useSaveState,
+} from '../../store/autosave.ts'
 import { StorageFullError } from '../../store/db.ts'
 import { readSavedView, saveView } from '../../store/savedView.ts'
 import { keepSelectionInSong } from '../../store/selectionSync.ts'
@@ -35,6 +40,7 @@ import { HelpLine } from './HelpLine.tsx'
 import { Inspector } from './Inspector.tsx'
 import { Layers } from './Layers.tsx'
 import { MarkActions } from './MarkActions.tsx'
+import { OtherTabNotice } from './OtherTabNotice.tsx'
 import { useFoldAttributes } from './PanelFold.tsx'
 import { resetMarkUi } from './markUiStore.ts'
 import { ShortcutList } from './ShortcutList.tsx'
@@ -96,13 +102,19 @@ function skipToTransport(event: MouseEvent<HTMLAnchorElement>) {
  * Opens the song library after the save of a pending change ends (FR-audio-26).
  * The library then lists the saved song. A failed save does not stop the leave: the change
  * stays in memory, and the next open of the song shows it.
+ * A save that does not end in LEAVE_WAIT_MS keeps the person on the song, and the editor shows the message.
  */
 function leaveForLibrary(event: MouseEvent<HTMLAnchorElement>) {
   if (useAutosaveStore.getState().saveState === 'saved') return
   event.preventDefault()
-  void flushAutosave().then(() => {
-    window.location.hash = LIBRARY_HASH
+  void flushBeforeLeave().then((saved) => {
+    if (saved) window.location.hash = LIBRARY_HASH
   })
+}
+
+/** Returns true for a save failure that has a message for the person in the feature file. */
+function hasSaveMessage(error: Error | null): error is Error {
+  return error instanceof StorageFullError || error instanceof SaveTimeoutError
 }
 
 type EditorPageProps = {
@@ -251,7 +263,8 @@ export function EditorPage({ songId }: EditorPageProps) {
           </span>
         </div>
         <VoiceRail />
-        {saveError instanceof StorageFullError && (
+        <OtherTabNotice songId={songId} />
+        {hasSaveMessage(saveError) && (
           <p className="message" role="alert">
             {saveError.message}
           </p>

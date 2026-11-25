@@ -3,6 +3,7 @@ import { act, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { RunReport } from '../../lib/runReport/runReport.ts'
+import * as db from '../../store/db.ts'
 import { saveRunData } from '../../store/db.ts'
 import { makeSongContent } from '../../store/fixtures.test-helpers.ts'
 import { useSongStore } from '../../store/songStore.ts'
@@ -122,13 +123,21 @@ function followerOf(rowId: string): HTMLAudioElement {
   return element
 }
 
+/** Waits until the first read of the run data ends and the rows render its result, so an absence is not only a slow read. */
+async function runDataRead(read: { mock: { results: { value: unknown }[] } }) {
+  await waitFor(() => expect(read.mock.results).toHaveLength(1))
+  await act(async () => {
+    await read.mock.results[0]?.value
+  })
+}
+
 const WITH_TRACKS = { tracks: TRACKS, singerSegments: [], report: report() }
 
 describe('TrackRows', () => {
   it('shows no "Audio tracks" group and no "Song" controls for a song with no kept tracks', async () => {
+    const read = vi.spyOn(db, 'loadRunData')
     await renderSong({ singerSegments: [], report: report() })
-    // The run data loads after the audio, so the test waits one more read.
-    await act(() => new Promise((resolve) => setTimeout(resolve, 20)))
+    await runDataRead(read)
     expect(screen.queryByRole('group', { name: 'Audio tracks' })).toBeNull()
     expect(screen.queryByRole('button', { name: 'Mute Song' })).toBeNull()
     expect(document.querySelectorAll('audio[data-audio-row]')).toHaveLength(0)
@@ -136,8 +145,9 @@ describe('TrackRows', () => {
   })
 
   it('shows no "Audio tracks" group for a song with no run', async () => {
+    const read = vi.spyOn(db, 'loadRunData')
     await renderSong(null)
-    await act(() => new Promise((resolve) => setTimeout(resolve, 20)))
+    await runDataRead(read)
     expect(screen.queryByRole('group', { name: 'Audio tracks' })).toBeNull()
   })
 
