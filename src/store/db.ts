@@ -276,6 +276,7 @@ export function getAudioFile(songId: string): Promise<AudioFile | undefined> {
  * Returns undefined if no song has the id.
  */
 export function loadSong(songId: string): Promise<SongContent | undefined> {
+  const forgetsAtStart = forgetCount
   return transact(['songs', 'voices', 'sections', 'marks'], 'readonly', (transaction) => {
     const song = transaction.objectStore('songs').get(songId)
     const voices = transaction.objectStore('voices').index('songId').getAll(songId)
@@ -292,7 +293,7 @@ export function loadSong(songId: string): Promise<SongContent | undefined> {
       if (!found) return undefined
       const ordered: Voice[] = [...voices.result].sort((a, b) => a.order - b.order)
       const content = { song: found, voices: ordered, sections: sections.result, marks }
-      storedChildren.set(songId, childIds(content))
+      if (forgetCount === forgetsAtStart) storedChildren.set(songId, childIds(content))
       return content
     }
   })
@@ -308,9 +309,34 @@ function childIds(content: SongContent): ChildIds {
 /**
  * The ids of the voices, sections and marks that the database holds for each song, from
  * the last read or write of the song in this page. Only loadSong, saveSong and deleteSong
- * write these records.
+ * write these records. A save of the song in a different tab makes the record wrong, so
+ * `forgetStoredIds` removes it then.
  */
 const storedChildren = new Map<string, ChildIds>()
+
+// A read or save that is open when a different tab saves can end after the message, so it must not remember its ids.
+let forgetCount = 0
+
+/**
+ * Removes the ids that this page remembers for the song. Call it when a different tab saved
+ * the song. The next save of the song then reads the stored keys again.
+ */
+export function forgetStoredIds(songId: string): void {
+  storedChildren.delete(songId)
+  forgetCount += 1
+}
+
+/** The functions that hear of each completed save of a song. */
+const songSavedListeners = new Set<(songId: string) => void>()
+
+/**
+ * Calls `listener` with the song id after each save of `saveSong` completes.
+ * Returns the function that stops the calls.
+ */
+export function onSongSaved(listener: (songId: string) => void): () => void {
+  songSavedListeners.add(listener)
+  return () => songSavedListeners.delete(listener)
+}
 
 /**
  * Deletes the stored voices, sections and marks that are absent from `keep`, and commits.
@@ -326,7 +352,8 @@ function deleteKnownStaleChildren(
     const store = transaction.objectStore(name)
     for (const id of stored[name]) if (!keep[name].has(id)) store.delete(id)
   }
-  transaction.commit()
+  // Safari before version 15 has no commit. The transaction then commits when its requests end.
+  if ('commit' in transaction) transaction.commit()
 }
 
 /**
@@ -350,20 +377,37 @@ function deleteStaleChildren(transaction: IDBTransaction, songId: string, keep: 
   })
 }
 
+/** The options of one save of a song. */
+export type SaveSongOptions = {
+  /**
+   * True for a save that starts while the page becomes hidden or unloads (FR-audio-25).
+   * The caller decides this, because a later callback of the page can never run then.
+   */
+  unloading?: boolean
+}
+
 /**
  * Saves the song with its voices, sections and marks in one transaction, and returns the
  * saved song. The save sets `updatedAt` to the current time. Saved voices, sections and
- * marks that are absent from `content` are deleted. If this page read or wrote the song
- * before, all requests start in the call and the transaction commits at once, so a save that
- * starts in `pagehide` can complete after the page unloads.
+ * marks that are absent from `content` are deleted, also when a different tab added them,
+ * so the tab that saves last keeps its version (FR-audio-27).
+ * The save reads the stored keys of the song in the transaction. A save with `unloading`
+ * skips the read when this page knows the stored ids, so all requests start in the call and
+ * the transaction commits at once. That save can complete after the page unloads.
  * @param content The song and all voices, sections and marks that belong to it.
  * @param audioFile The audio file to store with a new song. Omit it for a later save.
+ * @param options See SaveSongOptions.
  * Rejects with StorageFullError when the browser storage is full. Nothing is saved then.
  */
-export function saveSong(content: SongContent, audioFile?: AudioFile): Promise<Song> {
+export function saveSong(
+  content: SongContent,
+  audioFile?: AudioFile,
+  options: SaveSongOptions = {},
+): Promise<Song> {
   const song: Song = { ...content.song, updatedAt: new Date().toISOString() }
   const keep = childIds(content)
-  const stored = storedChildren.get(song.id)
+  const stored = options.unloading === true ? storedChildren.get(song.id) : undefined
+  const forgetsAtStart = forgetCount
   return transact(SONG_STORES, 'readwrite', (transaction) => {
     transaction.objectStore('songs').put(song)
     if (audioFile) transaction.objectStore('audioFiles').put(audioFile)
@@ -378,7 +422,8 @@ export function saveSong(content: SongContent, audioFile?: AudioFile): Promise<S
         new Set([...keep.voices, ...keep.sections, ...keep.marks]),
       )
     return () => {
-      storedChildren.set(song.id, keep)
+      if (forgetCount === forgetsAtStart) storedChildren.set(song.id, keep)
+      for (const listener of songSavedListeners) listener(song.id)
       return song
     }
   })

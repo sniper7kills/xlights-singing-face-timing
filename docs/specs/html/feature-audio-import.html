@@ -259,7 +259,17 @@ body.rv-open .layout { padding-right:21rem; }
 <li>FR-audio-26 — The link back to the song library opens the library after the
 </li>
 </ul>
-<p>save of the open song ends.</p>
+<p>save of the open song ends. If the save does not end in 3 seconds, the editor stays open and shows "The app could not save the song. Try again."</p>
+<ul>
+<li>FR-audio-27 — If a different tab saves the open song, the editor shows a notice
+</li>
+</ul>
+<p>until the person closes it.</p>
+<ul>
+<li>FR-audio-28 — A save that does not end in 10 seconds counts as failed. The next
+</li>
+</ul>
+<p>change starts a new save.</p>
 <h3 id="audio-import-user-flows">User flows</h3>
 <h4 id="audio-import-create-a-song">Create a song</h4>
 <div class="diagram"><pre class="mermaid">flowchart TD
@@ -401,7 +411,25 @@ body.rv-open .layout { padding-right:21rem; }
 </li>
 <li>200 MB means 200 × 1024 × 1024 bytes.
 </li>
+<li>A save writes the full song. It deletes each stored voice, section and mark that
+</li>
 </ul>
+<p>the open song does not have, also a record that a different tab added. So the tab that saves last keeps its version, and the stored marks keep the mark rules.</p>
+<ul>
+<li>A save reads the stored keys of the song before it deletes. A save that starts
+</li>
+</ul>
+<p>when the page becomes hidden or unloads skips the read only when the tab knows the stored keys of the song. Then the save can complete after the page unloads.</p>
+<ul>
+<li>After a save of a song in a different tab, the tab no longer knows the stored
+</li>
+</ul>
+<p>keys of that song. A browser with no <code>BroadcastChannel</code> shows no notice.</p>
+<ul>
+<li>If a save of a song fails and the person then opens a different song, the
+</li>
+</ul>
+<p>change that is not saved goes away, and the editor keeps the message of the failure.</p>
 <h3 id="audio-import-data-touched">Data touched</h3>
 <ul>
 <li>Writes <code>SONG</code>, <code>AUDIO_FILE</code> and <code>VOICE</code>.
@@ -415,6 +443,8 @@ body.rv-open .layout { padding-right:21rem; }
 </li>
 </ul>
 <h3 id="audio-import-interfaces">Interfaces</h3>
+<p><strong>BroadcastChannel.</strong> <code>new BroadcastChannel(name)</code> connects the browsing contexts of one origin. <code>postMessage(message)</code> sends the message to each other channel object with the same name, not to the sender. The <code>message</code> event gives the message in <code>data</code>. <code>close()</code> stops the messages. Baseline since March 2022. The app uses the name <code>singing-face-timing</code> and sends <code>{ songId }</code>. Verified against: https://developer.mozilla.org/en-US/docs/Web/API/BroadcastChannel (last modified 2024-06-03, retrieved 2026-11-25).</p>
+<p><strong>IDBTransaction.commit().</strong> It commits an active transaction and does not wait for the events of its requests. Older browsers, for example Safari before 15, do not have it, so the app calls it only when it exists. Verified against: https://developer.mozilla.org/en-US/docs/Web/API/IDBTransaction/commit (last modified 2024-07-19, retrieved 2026-11-25).</p>
 <p><strong>Web Audio.</strong> <code>BaseAudioContext.decodeAudioData(arrayBuffer)</code> returns a Promise that fulfils with an <code>AudioBuffer</code>. The decoded audio has the sample rate of the <code>AudioContext</code>. The page does not list the supported formats, so the app treats a rejected Promise as "this browser cannot decode this file". Verified against: https://developer.mozilla.org/en-US/docs/Web/API/BaseAudioContext/decodeAudioData (retrieved 2026-11-24).</p>
 <p><strong>wavesurfer.js 8.1.1.</strong> The app decodes the stored audio file one time with <code>decodeAudioData</code> and mixes the channels into one channel of peaks. <code>WaveSurfer.create({ container, height, waveColor, progressColor, cursorColor })</code> creates the waveform without audio. <code>loadBlob(blob, peaks, duration)</code> then loads the stored bytes. With the peaks and the duration, wavesurfer.js does not decode the blob, and play uses all channels of the file. The app uses <code>play()</code>, <code>pause()</code>, <code>isPlaying()</code>, <code>setOptions()</code> and <code>destroy()</code>. The app listens to the events <code>timeupdate</code> (time in seconds), <code>play</code>, <code>pause</code> and <code>finish</code>. The docs state that large clips can fail to decode because of memory limits. The limits in FR-audio-5 and FR-audio-6 reduce that risk. The names for zoom and scroll are not verified in this spec. The engineer reads the wavesurfer.js API reference before use. Verified against: https://wavesurfer.xyz/docs/ (retrieved 2026-11-24) and <code>node_modules/wavesurfer.js/dist/wavesurfer.d.ts</code> (8.1.1).</p>
 <p><strong>Module contract, <code>src/features/audio-import/</code>:</strong></p>
@@ -466,6 +496,8 @@ createDemoSong(): Promise&lt;Song&gt;</code></pre>
 <tr><td>Reload during decode</td><td>The song does not exist. The library shows no partial song.</td></tr>
 <tr><td>Reload or close while a change is not saved</td><td>The browser asks the person to confirm. The browser shows its own text.</td></tr>
 <tr><td>The page unloads before a save ends</td><td>The browser can stop the save. The song keeps the last save that ended.</td></tr>
+<tr><td>A different tab saves the open song</td><td>"This song is open in a different tab. The tab that saves last keeps its version. Close one of the tabs." The notice has a "Close" button.</td></tr>
+<tr><td>A save does not end in its time limit</td><td>"The app could not save the song. Try again."</td></tr>
 </table></div>
 <h3 id="audio-import-acceptance-criteria">Acceptance criteria</h3>
 <ul>
@@ -549,7 +581,25 @@ createDemoSong(): Promise&lt;Song&gt;</code></pre>
 </li>
 <li>The song library lists the saved song name after the back link. (FR-audio-26)
 </li>
+<li>With a save that does not end, the back link shows the save message after 3
+</li>
 </ul>
+<p>seconds, and the editor stays open. (FR-audio-26)</p>
+<ul>
+<li>Two tabs hold the same song. Tab B replaces a word and saves. Tab A moves a
+</li>
+</ul>
+<p>different word and saves. The stored marks are the marks of tab A. (FR-audio-27)</p>
+<ul>
+<li>Tab A shows the notice after tab B saves the song that is open in tab A.
+</li>
+</ul>
+<p>(FR-audio-27)</p>
+<ul>
+<li>After a save that does not end in 10 seconds, the next change saves the song.
+</li>
+</ul>
+<p>(FR-audio-28)</p>
 <h3 id="audio-import-out-of-scope">Out of scope</h3>
 <ul>
 <li>Recording from a microphone.

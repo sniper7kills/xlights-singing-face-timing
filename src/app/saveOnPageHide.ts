@@ -14,9 +14,10 @@ function confirmLeave(event: BeforeUnloadEvent) {
 export function startSaveOnPageHide(): () => void {
   // The browser can discard a hidden page with no later event, so the autosave delay is too long.
   const onVisibilityChange = () => {
-    if (document.visibilityState === 'hidden') void flushAutosave()
+    if (document.visibilityState === 'hidden') void flushAutosave({ unloading: true })
   }
-  const onPageHide = () => void flushAutosave()
+  // A save that waits for a callback cannot complete after the page unloads, so these saves skip the read of the stored keys.
+  const onPageHide = () => void flushAutosave({ unloading: true })
   // A beforeunload listener can keep the page out of the back/forward cache, so it exists only while a change is not saved.
   const watchSaveState = (saveState: SaveState) => {
     if (saveState === 'saving') window.addEventListener('beforeunload', confirmLeave)
