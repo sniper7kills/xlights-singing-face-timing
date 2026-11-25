@@ -6,7 +6,7 @@ import { commitMarkEdit } from './commitMarkEdit.ts'
 
 /**
  * Sets the frame size of the open song and snaps every mark and every section of the song to it, as one undo step.
- * The sections snap by `snapSections`, so they stay 1 second long or more and do not overlap.
+ * The sections snap by `snapSections`, so they stay inside the song, 1 second long or more, with no overlap.
  * The rules are those of `previewFrameSize`. Each unedited word that changes length gets a new break down
  * at the new frame size, when the dictionary is in memory.
  * A call that changes nothing records no step.
@@ -20,7 +20,7 @@ export function setFrameMs(songId: string, frameMs: FrameMs): void {
     const resized = {
       ...content,
       song: { ...content.song, frameMs },
-      sections: snapSections(content.sections, frameMs),
+      sections: snapSections(content.sections, frameMs, content.song.durationMs),
     }
     return commitMarkEdit(
       resized,

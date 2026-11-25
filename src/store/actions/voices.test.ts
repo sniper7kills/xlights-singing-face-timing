@@ -94,6 +94,13 @@ describe('setVoiceColor', () => {
     expect(steps()).toBe(1)
   })
 
+  it('records no step for an unknown id', () => {
+    setVoiceColor('gone', '#4cc9f0')
+
+    expect(current()).toEqual(testContent())
+    expect(steps()).toBe(0)
+  })
+
   it('records no step for a colour outside the presets or the same colour', () => {
     setVoiceColor(VOICE, '#123456')
     setVoiceColor(VOICE, '#4cc9f0')

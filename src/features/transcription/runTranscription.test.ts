@@ -401,6 +401,17 @@ describe('runTranscription with the speech model', () => {
     })
   })
 
+  it('rejects as cancelled and writes no mark and no section for a voice that no longer exists', async () => {
+    const before = useSongStore.getState().current
+    const request = { ...lyricsOnly, voiceId: 'gone', addSections: true }
+
+    const result = runTranscription(request, fakeClient(), handlers())
+
+    await expect(result).rejects.toMatchObject({ kind: 'cancelled' })
+    expect(useSongStore.getState().current).toBe(before)
+    expect(useSongStore.getState().history.past).toHaveLength(0)
+  })
+
   it('rejects when no song is open', async () => {
     useSongStore.getState().closeSong()
 

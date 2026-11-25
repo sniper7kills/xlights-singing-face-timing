@@ -129,6 +129,7 @@ function stopIfCancelled(signal: AbortSignal): void {
  * @param client The client that runs the speech model. A lyrics-only run does not call it.
  * @param handlers The progress functions, the cancel signal and the two confirm callbacks of the dialog.
  * Rejects with TranscribeError of kind 'cancelled' when the signal aborts or the person declines a confirm.
+ * Also rejects as cancelled, with no mark and no section written, when the voice of the run no longer exists.
  * Rejects with NoWordsError when no word is found.
  * Rejects with TranscribeError for a failure of the speech model, and with RemoteError for a failure of the remote endpoint.
  * Rejects with Error when no song is open or the audio file is missing.
@@ -159,7 +160,8 @@ export async function runTranscription(
   const { written, breakDownFailure } = await breakDownRun(marks, words, song.frameMs)
   stopIfCancelled(signal)
   // The phonemes go in the same write, so one undo removes the run and its break down.
-  replaceMarksInRange(request.voiceId, range, written)
+  if (!replaceMarksInRange(request.voiceId, range, written))
+    throw new TranscribeError('cancelled', 'The voice of the transcribe run no longer exists.')
   addTagSections(request, song.id, phraseIds, written)
   return {
     wordCount: words.length,

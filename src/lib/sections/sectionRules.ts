@@ -165,20 +165,40 @@ export function previewSectionEdge(
 }
 
 /**
- * Returns the sections with each time snapped to the frame size. A section with no change keeps its object.
- * A snap keeps the time order, so sections that did not overlap still do not overlap.
- * A section of 1 second or more keeps 1 second or more, because 1 second is a multiple of each frame size.
- * @param sections The sections of the song.
+ * Returns the sections in time order with each time snapped to the frame size, inside the song.
+ * The rules:
+ * - Each time snaps to the frame size. A snap keeps the time order and keeps a length of 1 second or more,
+ *   because 1 second is a multiple of each frame size.
+ * - An end stops at the last multiple of the frame size in the song, and at the start of the next section.
+ * - A section that this stop makes shorter than `MIN_SECTION_MS` gets an earlier start, so it stays 1 second long.
+ *   The end of the section before it then stops at that start.
+ * - A section that cannot stay 1 second long after 0 goes from the result.
+ *   A song that holds a valid section at 25 ms holds it at 50 ms too, so a frame size change removes no section.
+ * - A section with no change keeps its object.
+ * @param sections The sections of the song. They do not overlap.
  * @param frameMs The new frame size.
+ * @param durationMs The duration of the song.
  */
-export function snapSections(sections: readonly Section[], frameMs: number): Section[] {
-  return sections.map((section) => {
-    const startMs = snap(section.startMs, frameMs)
-    const endMs = snap(section.endMs, frameMs)
-    return startMs === section.startMs && endMs === section.endMs
-      ? section
-      : { ...section, startMs, endMs }
-  })
+export function snapSections(
+  sections: readonly Section[],
+  frameMs: number,
+  durationMs: number,
+): Section[] {
+  const kept: Section[] = []
+  // The pass goes from the last section to the first, so each end knows the start of the section after it.
+  let limitMs = lastFrameMs(durationMs, frameMs)
+  for (const section of sections.toSorted((a, b) => b.startMs - a.startMs)) {
+    const endMs = Math.min(snap(section.endMs, frameMs), limitMs)
+    const startMs = Math.min(snap(section.startMs, frameMs), endMs - MIN_SECTION_MS)
+    if (startMs < 0) continue
+    kept.push(
+      startMs === section.startMs && endMs === section.endMs
+        ? section
+        : { ...section, startMs, endMs },
+    )
+    limitMs = startMs
+  }
+  return kept.reverse()
 }
 
 /**
