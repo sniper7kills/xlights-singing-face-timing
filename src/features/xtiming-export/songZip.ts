@@ -1,0 +1,70 @@
+import { songArchiveEntries, songArchiveName } from '../../lib/songArchive/songArchive.ts'
+import type { ExportOptions, ExportTrack } from '../../lib/xtiming/types.ts'
+import { writeZip, zipLength } from '../../lib/zip/writeZip.ts'
+import { formatMegabytes } from '../audio-import/libraryFormat.ts'
+import type { SongContent } from '../../store/types.ts'
+import { AUDIO_READ_MESSAGE, type ZipSource, type ZipSourceState } from './useZipSource.ts'
+
+/** The zip file that the dialog gives to the browser. */
+export type ZipDownload = { name: string; blob: Blob }
+
+/** The export that the zip file holds: the song, its timing tracks and the packaging. */
+export type ZipExport = {
+  content: SongContent
+  tracks: ExportTrack[]
+  packaging: ExportOptions['packaging']
+}
+
+const BYTES_PER_KB = 1024
+
+// A text-only song is a few KB, and "0.0 MB" would hide its size.
+function formatSize(bytes: number): string {
+  const kilobytes = bytes / BYTES_PER_KB
+  return kilobytes < BYTES_PER_KB
+    ? `${Math.max(1, Math.round(kilobytes))} KB`
+    : `${formatMegabytes(bytes)} MB`
+}
+
+function entries(zipExport: ZipExport, source: ZipSource, audioData: Uint8Array<ArrayBuffer>) {
+  return songArchiveEntries({
+    ...zipExport,
+    audio: { fileName: source.audio.fileName, data: audioData },
+    customEntries: source.customEntries,
+    extraFiles: [],
+    modified: new Date(),
+  })
+}
+
+/**
+ * Returns the note under "Everything as one zip file": the entries of the zip file and its size.
+ * The note uses the stored length of the audio file, so the dialog reads no audio bytes for it.
+ * @param zipExport The export that the zip file holds.
+ * @param state The state of the read of the audio file and the custom entries.
+ */
+export function zipNote(zipExport: ZipExport, state: ZipSourceState): string {
+  if (state === 'loading') return 'The app reads the audio file of the song.'
+  if (state === 'failed') return AUDIO_READ_MESSAGE
+  const list = entries(zipExport, state, new Uint8Array(0)).map((entry) => ({
+    name: entry.name,
+    size: entry.data.length,
+  }))
+  const size = zipLength(list) + state.audio.byteLength
+  const names = list.map((entry) => entry.name).join(', ')
+  return `The zip file holds ${list.length} files: ${names}. Size: ${formatSize(size)}.`
+}
+
+/**
+ * Returns the zip file of the song with the audio bytes from storage.
+ * The peak memory is two copies of the audio: the bytes that the function reads, and the `Blob`.
+ * @param zipExport The export that the zip file holds.
+ * @param source The audio file record and the custom entries.
+ * Rejects when the browser cannot read the audio bytes. Throws `ZipLimitError` for a zip file that needs ZIP64.
+ */
+export async function buildSongZip(zipExport: ZipExport, source: ZipSource): Promise<ZipDownload> {
+  const audioData = new Uint8Array(await source.audio.data.arrayBuffer())
+  const parts = writeZip(entries(zipExport, source, audioData))
+  return {
+    name: songArchiveName(zipExport.content.song.name),
+    blob: new Blob(parts, { type: 'application/zip' }),
+  }
+}

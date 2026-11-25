@@ -25,6 +25,7 @@ Do not reconcile by guess.
 | Web Audio `OfflineAudioContext` | browser | https://developer.mozilla.org/en-US/docs/Web/API/OfflineAudioContext/OfflineAudioContext , https://webaudio.github.io/web-audio-api/ |
 | Autoplay policy | browser | https://developer.mozilla.org/en-US/docs/Web/Media/Guides/Autoplay |
 | xLights `.xtiming` format | commit `99a289bf` | https://github.com/xLightsSequencer/xLights — `src-core/render/Element.cpp`, `src-ui-wx/sequencer/RowHeading.cpp`, `src-core/render/SequenceFile.cpp`, `src-core/effects/FacesEffect.cpp` |
+| ZIP file format (PKWARE APPNOTE) | 6.3.10 | https://pkware.cachefly.net/webdocs/casestudies/APPNOTE.TXT — sections 4.3.7, 4.3.12, 4.3.16, 4.4.1.4, 4.4.2 to 4.4.7, 4.4.15 |
 | xLights manual | current | https://manual.xlights.org/xlights/chapters/chapter-four-sequencer/singing-faces.md |
 | AWS CloudFormation (S3, CloudFront, IAM) | current | https://docs.aws.amazon.com/AWSCloudFormation/latest/TemplateReference/ |
 | AWS CLI | 2.x | `aws s3 sync help`, `aws cloudfront create-invalidation help`, `aws cloudfront wait invalidation-completed help` |

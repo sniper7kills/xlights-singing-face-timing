@@ -1,7 +1,10 @@
 import { defaultTrackNames } from '../../lib/xtiming/names.ts'
 import type { ExportOptions } from '../../lib/xtiming/types.ts'
-import { loadExportOptions } from '../../store/db.ts'
+import { loadExportOptions, type StoredExportOptions } from '../../store/db.ts'
 import type { SongContent } from '../../store/types.ts'
+
+/** The choices of the person in the export dialog: the export options and the zip file choice. */
+export type DialogExportOptions = Omit<StoredExportOptions, 'knownVoiceIds'>
 
 /**
  * Returns the export options of a first export of the song.
@@ -31,7 +34,7 @@ export function defaultExportOptions(content: SongContent): ExportOptions {
  * @param content The open song with its voices and sections.
  * Rejects if the database cannot read the options.
  */
-export async function loadSongExportOptions(content: SongContent): Promise<ExportOptions> {
+export async function loadSongExportOptions(content: SongContent): Promise<DialogExportOptions> {
   const stored = await loadExportOptions(content.song.id)
   if (!stored) return defaultExportOptions(content)
   const { knownVoiceIds, ...options } = stored

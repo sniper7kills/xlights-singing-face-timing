@@ -207,6 +207,7 @@ body.rv-open .layout { padding-right:21rem; }
 <tr><td>snap</td><td>verb</td><td>To move a time to the nearest multiple of the frame size.</td><td>quantise, round</td></tr>
 <tr><td>frame size</td><td>noun</td><td>The length of one xLights frame in milliseconds.</td><td>frame rate, FPS, tick</td></tr>
 <tr><td>export</td><td>verb</td><td>To write an <code>.xtiming</code> file and give it to the person as a download.</td><td>save, generate, publish</td></tr>
+<tr><td>zip file</td><td>noun</td><td>One <code>.zip</code> file from the export dialog that holds the timing files, the audio file and the song data of one song.</td><td>archive, bundle, package</td></tr>
 <tr><td>face model</td><td>noun</td><td>The xLights model that shows a singing face.</td><td>prop, face</td></tr>
 <tr><td>editor</td><td>noun</td><td>The screen that shows the waveform and the layers of the selected voice.</td><td>timeline, workspace</td></tr>
 </table></div>
@@ -774,6 +775,11 @@ body.rv-open .layout { padding-right:21rem; }
 </li>
 </ul>
 <p>ahead with #122". The transcribe dialog has the choice "Separation model", with Spleeter as the default and Demucs as an experimental second model (issue #122).</p>
+<ul>
+<li>2026-11-24 — The maintainer asked: "for the export/download we should have the
+</li>
+</ul>
+<p>ability to get a zip of everything" (issue #132). The export dialog has the check box "Everything as one zip file". The app writes the zip file in the browser with no compression and no library.</p>
 <h2 id="issue-map">Issue map</h2>
 <p>Written by <code>/spec-to-issues</code> on 2026-11-24. Repository: <code>sniper7kills/xlights-singing-face-timing</code>.</p>
 <p>The spec has one editor epic. The tracker has two, because 30 requirements do not fit one batch.</p>

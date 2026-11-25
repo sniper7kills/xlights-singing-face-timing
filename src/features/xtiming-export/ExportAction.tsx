@@ -1,16 +1,19 @@
 import { useRef, useState } from 'react'
-import type { ExportOptions } from '../../lib/xtiming/types.ts'
 import { useSongStore } from '../../store/songStore.ts'
 import type { SongContent } from '../../store/types.ts'
-import { downloadFiles } from './download.ts'
+import { downloadBlob, downloadFiles } from './download.ts'
 import { ExportDialog } from './ExportDialog.tsx'
-import { defaultExportOptions, loadSongExportOptions } from './exportOptionsStore.ts'
+import {
+  defaultExportOptions,
+  loadSongExportOptions,
+  type DialogExportOptions,
+} from './exportOptionsStore.ts'
 
 /** Shows the "Export" action of the editor top bar and the export dialog that it opens. */
 export function ExportAction() {
   const content = useSongStore((state) => state.current)
   const buttonRef = useRef<HTMLButtonElement>(null)
-  const [options, setOptions] = useState<ExportOptions | null>(null)
+  const [options, setOptions] = useState<DialogExportOptions | null>(null)
   if (!content) return null
 
   async function open(song: SongContent) {
@@ -38,6 +41,7 @@ export function ExportAction() {
           initialOptions={options}
           onClose={close}
           onDownload={downloadFiles}
+          onDownloadZip={(zip) => downloadBlob(zip.name, zip.blob)}
         />
       )}
     </>
