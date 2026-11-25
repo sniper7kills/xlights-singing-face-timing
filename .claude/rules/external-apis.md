@@ -30,7 +30,9 @@ Do not reconcile by guess.
 | AWS CLI | 2.x | `aws s3 sync help`, `aws cloudfront create-invalidation help`, `aws cloudfront wait invalidation-completed help` |
 | IAM actions for CloudFront | current | https://docs.aws.amazon.com/service-authorization/latest/reference/list_amazoncloudfront.html |
 | GitHub OIDC with AWS | current | https://docs.aws.amazon.com/IAM/latest/UserGuide/id_roles_create_for-idp_oidc.html |
-| ONNX Runtime Web (`onnxruntime-web`) | 1.31.0-dev.20260914, from `@huggingface/transformers` | https://onnxruntime.ai/docs/tutorials/web/env-flags-and-session-options.html |
+| ONNX Runtime Web (`onnxruntime-web`) | 1.31.0-dev.20260914-8d85527a0, a direct dependency with the same version as `@huggingface/transformers` | https://onnxruntime.ai/docs/tutorials/web/env-flags-and-session-options.html , `node_modules/onnxruntime-web/types.d.ts` |
+| Spleeter 2-stem model, ONNX export of sherpa-onnx | `csukuangfj/sherpa-onnx-spleeter-2stems` commit `7001ba316a615cacddb3f9ef3ec416661a277e26` | https://github.com/k2-fsa/sherpa-onnx — `scripts/spleeter/export_onnx.py`, `sherpa-onnx/csrc/offline-source-separation-spleeter-impl.h` ; https://github.com/deezer/spleeter |
+| Cache API | browser | https://developer.mozilla.org/en-US/docs/Web/API/Cache |
 | Cross-origin isolation headers | browser | https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Cross-Origin-Embedder-Policy , https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Cross-Origin-Opener-Policy |
 | OpenAI transcription API | current | https://developers.openai.com/api/reference/resources/audio/subresources/transcriptions/methods/create , https://developers.openai.com/api/docs/guides/speech-to-text |
 | speaches (faster-whisper-server) | `master` branch | https://speaches.ai/configuration/ , https://speaches.ai/usage/speech-to-text/ , source `src/speaches/routers/stt.py`, `src/speaches/executors/whisper.py`, `src/speaches/main.py` |
@@ -293,6 +295,49 @@ and the service authorization reference above (issue #54):
   resource type `distribution`. `cloudfront:CreateInvalidation` has the access
   level Write and the same resource type.
 - AWS has not validated the new permission on the stack.
+
+Confirmed on 2026-11-24 for vocal separation (issue #117). The measured numbers
+are in `docs/adr/0008-vocal-separation-in-the-browser.md`.
+
+- Spleeter 2-stem ONNX files of sherpa-onnx: `vocals.onnx` (39 318 336 bytes) and
+  `accompaniment.onnx` (39 318 343 bytes). Each has the input `x` and the output
+  `y`, float32, shape `[2, num_splits, 512, 1024]`: the channel, the split, 512
+  frames and the first 1024 bins. Source: `onnxruntime-node` 1.30.0 session
+  metadata of the files, and `export_onnx.py`.
+- The input is the magnitude of an STFT with `n_fft` 4096, hop 1024, a Hann window
+  and no centre padding, at 44 100 Hz. The vocals mask is
+  `(v² + 1e-10 / 2) / (v² + a² + 1e-10)` of the two outputs. The bins at 1024 and
+  above get the mask 0. Source: `offline-source-separation-spleeter-model-meta-data.h`
+  and `offline-source-separation-spleeter-impl.h` (commit
+  `716ba8317bb36cbcce9ac6c130396e8ec71b3c9c`).
+- The metadata of the files states `sample_rate` 41000. sherpa-onnx ignores it and
+  uses 44 100 Hz. The value is an error in the export script.
+- The fp16 export (`csukuangfj/sherpa-onnx-spleeter-2stems-fp16`) ran on the `wasm`
+  device but gave silence (energy ratio 0.000006). Use the fp32 files.
+- Licence: the Spleeter repository is MIT, copyright Deezer SA. The weights are its
+  `2stems.tar.gz` release asset (v1.4.0). The repository states no separate licence
+  for the weights. The Hugging Face repository states no licence. sherpa-onnx is
+  Apache-2.0.
+- Demucs: https://github.com/adefossez/demucs README, section "License": "The
+  license of the weights is not clear: MusDB contains some data that were only
+  usable for research purpose." The `demucs` npm package (bakkot/demucs-js)
+  states that its `htdemucs.onnx` "is made available for personal and research
+  use only". So the issue statement that the `htdemucs` weights have the MIT
+  licence is not confirmed.
+- `huggingface.co/<repo>/resolve/<commit>/<file>` answers `302` with
+  `access-control-allow-origin: <origin>`, then `us.aws.cdn.hf.co` answers with
+  `access-control-allow-origin: *`. Checked with an `Origin` header for each model
+  file of the measurement. A URL with a commit id stays the same file.
+- `onnxruntime-web/wasm` loads `ort-wasm-simd-threaded.wasm`, a different file than
+  the `asyncify` file of the transcribe worker. The separate worker sets
+  `env.wasm.wasmPaths.wasm`, so the runtime fetches the file from the app origin.
+- `InferenceSession.create(buffer: ArrayBufferLike, options?)` and
+  `session.run(feeds)` return a map of output name to `Tensor`. A failed
+  allocation in the WASM runtime rejects with a text that contains
+  `std::bad_alloc`.
+- Cache API: `caches.open(name)`, `cache.match(url)` gives `undefined` for no
+  entry, `cache.put(url, response)` stores a response. The engine stores a file
+  only after a complete download with the correct size.
 
 Evidence format:
 
