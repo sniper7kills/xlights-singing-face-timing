@@ -180,7 +180,7 @@ describe('TranscribeDialog and the singer voices', () => {
     expect(run.handlers.signal.aborted).toBe(true)
     const outcome: TranscribeOutcome = {
       wordCount: 3,
-      estimatedCount: 0,
+      estimatedCount: 0, runData: 'stored',
       breakDownFailure: null,
       singers: { status: 'cancelled', voiceName: 'Lead' },
     }
@@ -195,7 +195,7 @@ describe('TranscribeDialog and the singer voices', () => {
     const run = lastRun()
 
     await user.click(screen.getByRole('button', { name: 'Cancel' }))
-    await act(async () => run.resolve({ wordCount: 3, estimatedCount: 0, breakDownFailure: null }))
+    await act(async () => run.resolve({ wordCount: 3, estimatedCount: 0, runData: 'stored', breakDownFailure: null }))
 
     expect(onDone).not.toHaveBeenCalled()
     expect(await screen.findByRole('button', { name: 'Start' })).toBeEnabled()

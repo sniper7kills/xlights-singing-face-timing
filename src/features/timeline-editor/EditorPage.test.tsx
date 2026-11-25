@@ -158,7 +158,7 @@ describe('EditorPage', () => {
   it('closes the dialog after a run and gives the focus back to the action', async () => {
     vi.mocked(runTranscription).mockResolvedValue({
       wordCount: 16,
-      estimatedCount: 0,
+      estimatedCount: 0, runData: 'stored',
       breakDownFailure: null,
     })
     const user = userEvent.setup()
@@ -177,7 +177,7 @@ describe('EditorPage', () => {
   it('shows the toast with the word count and the estimated count after a run', async () => {
     vi.mocked(runTranscription).mockResolvedValue({
       wordCount: 214,
-      estimatedCount: 9,
+      estimatedCount: 9, runData: 'stored',
       breakDownFailure: null,
     })
     const user = userEvent.setup()
@@ -194,7 +194,7 @@ describe('EditorPage', () => {
   it('names the voice count in the toast after a run that put the singers on voices', async () => {
     vi.mocked(runTranscription).mockResolvedValue({
       wordCount: 214,
-      estimatedCount: 9,
+      estimatedCount: 9, runData: 'stored',
       breakDownFailure: null,
       singers: { status: 'split', voiceCount: 3, voiceName: 'Lead' },
     })
@@ -218,7 +218,7 @@ describe('EditorPage', () => {
     expect(screen.getByRole('button', { name: 'Run report' })).toBeDisabled()
     vi.mocked(runTranscription).mockImplementation(async () => {
       await db.saveRunData({ songId: song.id, singerSegments: [], report: RUN_REPORT })
-      return { wordCount: 214, estimatedCount: 9, breakDownFailure: null }
+      return { wordCount: 214, estimatedCount: 9, runData: 'stored', breakDownFailure: null }
     })
     await user.click(topBarTranscribe())
     const start = within(screen.getByRole('dialog')).getByRole('button', { name: 'Start' })
@@ -238,7 +238,7 @@ describe('EditorPage', () => {
     await act(() => db.saveRunData({ songId: song.id, singerSegments: [], report: RUN_REPORT }))
     vi.mocked(runTranscription).mockResolvedValue({
       wordCount: 214,
-      estimatedCount: 9,
+      estimatedCount: 9, runData: 'stored',
       breakDownFailure: null,
     })
     const user = userEvent.setup()
@@ -265,7 +265,7 @@ describe('EditorPage', () => {
     const message = 'The dictionary did not load. Check the connection and retry.'
     vi.mocked(runTranscription).mockResolvedValue({
       wordCount: 2,
-      estimatedCount: 0,
+      estimatedCount: 0, runData: 'stored',
       breakDownFailure: { message, wordIds: ['word-1', 'word-2'] },
     })
     vi.mocked(breakDownWords)
@@ -292,7 +292,7 @@ describe('EditorPage', () => {
   it('shows the copy of the feature file, not the raw error text, when "Retry" fails for another reason', async () => {
     vi.mocked(runTranscription).mockResolvedValue({
       wordCount: 2,
-      estimatedCount: 0,
+      estimatedCount: 0, runData: 'stored',
       breakDownFailure: {
         message: 'The dictionary did not load. Check the connection and retry.',
         wordIds: ['word-1', 'word-2'],

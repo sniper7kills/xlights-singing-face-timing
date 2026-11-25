@@ -31,7 +31,7 @@ describe('serveSeparator', () => {
       separate: async (_audio, on) => {
         on.download(1, 2)
         on.progress(3, 4)
-        return vocals
+        return { vocals }
       },
     })
 
@@ -44,8 +44,34 @@ describe('serveSeparator', () => {
     ])
   })
 
+  it('passes the instruments flag to the engine and posts the instruments with their buffer transferred', async () => {
+    const vocals = new Float32Array([0.5])
+    const instruments = new Float32Array([0.25])
+    const separate = vi.fn<Separator['separate']>(async () => ({ vocals, instruments }))
+    const { handle, posted } = serve({ separate })
+
+    await handle({ type: 'separate', runId: 8, audio, instruments: true })
+
+    expect(separate).toHaveBeenCalledWith(audio, expect.anything(), true)
+    expect(posted).toEqual([
+      {
+        message: { type: 'result', runId: 8, vocals, instruments },
+        transfer: [vocals.buffer, instruments.buffer],
+      },
+    ])
+  })
+
+  it('passes false to the engine for a request with no instruments flag', async () => {
+    const separate = vi.fn<Separator['separate']>(async () => ({ vocals: new Float32Array(1) }))
+    const { handle } = serve({ separate })
+
+    await handle({ type: 'separate', runId: 9, audio })
+
+    expect(separate).toHaveBeenCalledWith(audio, expect.anything(), false)
+  })
+
   it('makes the engine at the first request and keeps it for the next request', async () => {
-    const { handle, createEngine } = serve({ separate: async () => new Float32Array(1) })
+    const { handle, createEngine } = serve({ separate: async () => ({ vocals: new Float32Array(1) }) })
 
     await handle({ type: 'separate', runId: 1, audio })
     await handle({ type: 'separate', runId: 2, audio })
@@ -54,7 +80,7 @@ describe('serveSeparator', () => {
   })
 
   it('makes the engine of the model of the request', async () => {
-    const { handle, createEngine } = serve({ separate: async () => new Float32Array(1) })
+    const { handle, createEngine } = serve({ separate: async () => ({ vocals: new Float32Array(1) }) })
 
     await handle({ type: 'separate', runId: 1, audio, model: 'demucs' })
 
@@ -62,7 +88,7 @@ describe('serveSeparator', () => {
   })
 
   it('makes the Spleeter engine for a request with no model', async () => {
-    const { handle, createEngine } = serve({ separate: async () => new Float32Array(1) })
+    const { handle, createEngine } = serve({ separate: async () => ({ vocals: new Float32Array(1) }) })
 
     await handle({ type: 'separate', runId: 1, audio })
 
@@ -70,7 +96,7 @@ describe('serveSeparator', () => {
   })
 
   it('ignores a message that is not a request', async () => {
-    const { handle, posted, createEngine } = serve({ separate: async () => new Float32Array(1) })
+    const { handle, posted, createEngine } = serve({ separate: async () => ({ vocals: new Float32Array(1) }) })
 
     await handle({ cmd: 'thread' })
     await handle(null)
@@ -138,10 +164,10 @@ describe('createFixtureSeparator', () => {
       sampleRate: 44100,
     }
 
-    const result = createFixtureSeparator().separate(long, { download, progress })
+    const result = createFixtureSeparator().separate(long, { download, progress }, false)
     await vi.runAllTimersAsync()
 
-    expect(await result).toEqual(new Float32Array(44_100).fill(0.5))
+    expect((await result).vocals).toEqual(new Float32Array(44_100).fill(0.5))
     expect(download).toHaveBeenLastCalledWith(2_000_000, 2_000_000)
     expect(progress).toHaveBeenNthCalledWith(1, 0, 1000)
     expect(progress).toHaveBeenLastCalledWith(1000, 1000)

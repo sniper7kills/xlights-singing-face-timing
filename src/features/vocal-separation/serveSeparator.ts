@@ -8,6 +8,7 @@ export type PostSeparateMessage = (message: SeparateMessage, transfer?: Transfer
 /**
  * Returns the message handler of a separate worker.
  * The handler makes the engine at the first request, runs each request, and posts the progress, the vocals or the error.
+ * A request with `instruments` also gets the instruments in the result.
  * @param createEngine Makes the engine of the model of the first request. The handler calls it one time.
  * @param post Sends a message to the page.
  */
@@ -19,15 +20,22 @@ export function serveSeparator(
   return async (data) => {
     // The thread workers of a WASM runtime can load the worker file too, and their messages are not requests.
     if (!isRequest(data)) return
-    const { runId, audio, model = 'spleeter' } = data
+    const { runId, audio, model = 'spleeter', instruments = false } = data
     try {
       engine ??= createEngine(model)
-      const vocals = await engine.separate(audio, {
-        download: (loadedBytes, totalBytes) =>
-          post({ type: 'download', runId, loadedBytes, totalBytes }),
-        progress: (doneMs, totalMs) => post({ type: 'progress', runId, doneMs, totalMs }),
-      })
-      post({ type: 'result', runId, vocals }, [vocals.buffer])
+      const separated = await engine.separate(
+        audio,
+        {
+          download: (loadedBytes, totalBytes) =>
+            post({ type: 'download', runId, loadedBytes, totalBytes }),
+          progress: (doneMs, totalMs) => post({ type: 'progress', runId, doneMs, totalMs }),
+        },
+        instruments,
+      )
+      const buffers = [separated.vocals.buffer, separated.instruments?.buffer]
+      post({ type: 'result', runId, ...separated }, [
+        ...new Set(buffers.filter((buffer) => buffer !== undefined)),
+      ])
     } catch (error) {
       post({ type: 'error', runId, kind: separationFailureKind(error), detail: String(error) })
     }

@@ -69,7 +69,7 @@ export function EditorPage({ songId }: EditorPageProps) {
   const selection = useViewStore((state) => state.selection)
   const [dialogOpen, setDialogOpen] = useState(false)
   const [running, setRunning] = useState(false)
-  const [toast, setToast] = useState<string | null>(null)
+  const [toast, setToast] = useState<{ text: string; reportStored: boolean } | null>(null)
   const [breakDownFailure, setBreakDownFailure] = useState<BreakDownFailure | null>(null)
   const opener = useRef<HTMLElement | null>(null)
   const narrow = useSyncExternalStore(subscribeToResize, isNarrowWindow)
@@ -86,7 +86,7 @@ export function EditorPage({ songId }: EditorPageProps) {
 
   const finishTranscribe = useCallback(
     (outcome: TranscribeOutcome) => {
-      setToast(outcomeText(outcome))
+      setToast({ text: outcomeText(outcome), reportStored: outcome.runData !== 'failed' })
       setBreakDownFailure(outcome.breakDownFailure)
       closeTranscribeDialog()
     },
@@ -201,7 +201,14 @@ export function EditorPage({ songId }: EditorPageProps) {
         )}
         <ShortcutList />
         <BreakDownNotice failure={breakDownFailure} onChange={setBreakDownFailure} />
-        {toast !== null && <RunToast text={toast} songId={songId} onDone={hideToast} />}
+        {toast !== null && (
+          <RunToast
+            text={toast.text}
+            reportStored={toast.reportStored}
+            songId={songId}
+            onDone={hideToast}
+          />
+        )}
       </section>
     </>
   )

@@ -15,6 +15,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   separateVocals: false,
   singerVoices: false,
   separationModel: 'spleeter',
+  keepTracks: true,
 }
 
 /**

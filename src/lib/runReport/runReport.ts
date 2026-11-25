@@ -43,7 +43,7 @@ export type StepDurations = Partial<Record<RunStep, number>>
  * - `text`: one line, for example "separation failed: memory; continued with the fast model".
  */
 export type RunNote = {
-  step: 'separation' | 'singers' | 'break-down'
+  step: 'separation' | 'singers' | 'break-down' | 'storage'
   kind: string
   text: string
 }
@@ -110,6 +110,13 @@ export type RunReport = {
   separationModel: ReportSeparationModel
   /** True when a Demucs run failed and the person selected "Use the fast model". */
   separationFallback: boolean
+  /**
+   * The count of audio tracks that the vocal separation gave: 2 (the vocals and the instruments), or 0 with no separation.
+   * A report of an earlier version of the app has no value.
+   */
+  trackCount?: number
+  /** True when the app stored the audio tracks of the run. A report of an earlier version of the app has no value. */
+  tracksKept?: boolean
   singers: SingerSection
   /** Each voice that holds phrases of the run, with its count of phrases. */
   voices: VoicePhrases[]
@@ -161,6 +168,8 @@ export function buildRunReport(facts: RunFacts): RunReport {
     device: facts.device,
     separationModel: facts.separationModel,
     separationFallback: facts.separationFallback,
+    ...(facts.trackCount === undefined ? {} : { trackCount: facts.trackCount }),
+    ...(facts.tracksKept === undefined ? {} : { tracksKept: facts.tracksKept }),
     singers: facts.singers,
     voices: facts.voices,
     phraseCount: facts.marks.filter((mark) => mark.layer === 'phrase').length,
@@ -178,8 +187,13 @@ function yesNo(value: boolean): string {
   return value ? 'yes' : 'no'
 }
 
-function countText(value: number | null): string {
-  return value === null ? 'not known' : String(value)
+function countText(value: number | null | undefined): string {
+  return value == null ? 'not known' : String(value)
+}
+
+/** Returns the text of a yes or no fact, or 'not known' for a report of an earlier version of the app. */
+export function knownYesNo(value: boolean | undefined): string {
+  return value === undefined ? 'not known' : yesNo(value)
 }
 
 /** Returns the rows as lines with each column padded to its widest cell, so a monospace font shows a table. */
@@ -292,6 +306,8 @@ function runLines(report: RunReport): string[] {
     '[Vocal separation]',
     `Separation model: ${report.separationModel}`,
     `Changed to the fast model: ${yesNo(report.separationFallback)}`,
+    `Audio tracks: ${countText(report.trackCount)}`,
+    `Tracks kept: ${knownYesNo(report.tracksKept)}`,
   ]
 }
 

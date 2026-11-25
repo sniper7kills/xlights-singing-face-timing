@@ -2,6 +2,7 @@
 import { joinReasonText, type RawGroup, type SingerDiagnostics } from '../singers/diagnostics.ts'
 import { safeFileName } from '../xtiming/names.ts'
 import {
+  knownYesNo,
   type ReportSeparationModel,
   type RunReport,
   type SingerSection,
@@ -131,6 +132,8 @@ function separationSection(report: RunReport): PanelSection {
     facts: [
       { label: 'Separation model', value: SEPARATION_TEXT[report.separationModel] },
       { label: 'Changed to the fast model', value: report.separationFallback ? 'yes' : 'no' },
+      { label: 'Audio tracks', value: String(report.trackCount ?? 'not known') },
+      { label: 'Tracks kept', value: knownYesNo(report.tracksKept) },
     ],
   })
 }
