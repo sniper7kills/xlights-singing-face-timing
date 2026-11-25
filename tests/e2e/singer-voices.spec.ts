@@ -21,6 +21,7 @@ const INIT_SCRIPT = `
 const SEPARATE = 'Separate the vocals first'
 const SINGERS = 'Put each singer on its own voice'
 const SHARED_PHRASE = 'All is calm all is bright'
+const APP_ORIGIN = 'http://localhost:4173'
 
 /** Returns the URL of each request for a file of the singers worker. */
 function watchSingerRequests(page: Page): string[] {
@@ -86,6 +87,11 @@ test('a run with both options on puts the second singer on "Singer 2", and one u
   page,
 }) => {
   const singerRequests = watchSingerRequests(page)
+  const outside: string[] = []
+  page.on('request', (request) => {
+    if (!request.url().startsWith(APP_ORIGIN) && !request.url().startsWith('blob:'))
+      outside.push(request.url())
+  })
   await createSong(page)
   const dialog = await openDialog(page)
   await dialog.getByRole('checkbox', { name: SEPARATE }).check()
@@ -97,6 +103,8 @@ test('a run with both options on puts the second singer on "Singer 2", and one u
   await expect(dialog).toBeHidden({ timeout: 20_000 })
   await expect(page.getByText('16 words on 2 voices, 0 estimated')).toBeVisible()
   expect(singerRequests.length).toBeGreaterThan(0)
+  // The singer step sends no audio: the run makes no request outside the app.
+  expect(outside).toEqual([])
   const log = await progressLog(page)
   expect(log).toContain('Downloading singer model, 50%')
   const finding = log.findIndex((text) => /^Finding the singers, \d:\d\d of 0:28$/.test(text))
