@@ -154,7 +154,8 @@ describe('reportPanel', () => {
     expect(fact(lyrics, 'Source')).toBe('Lyrics only, with no speech model')
     expect(fact(lyrics, 'Speech model')).toBeUndefined()
     expect(fact(panel({ device: 'webgpu' }).get('Run'), 'Device')).toBe('WebGPU')
-    const { build: _build, ...older } = report()
+    const older = report()
+    delete older.build
     expect(fact(reportPanel(older, () => '')[0], 'Build')).toBe('not known')
   })
 
