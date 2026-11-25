@@ -271,7 +271,7 @@ disables "Start". The hint reads "Paste the lyrics to use Lyrics only."
 **Separate the vocals first.** The check box comes after "Lyrics only". "Lyrics
 only" hides it, because a lyrics-only run reads no audio. The note under the check
 box reads "The app removes the instruments before it finds the words. This step
-downloads a model one time and adds time to the run. The audio stays in this
+downloads a model of 79 MB one time and adds time to the run. The audio stays in this
 browser." For a remote run, the third sentence reads "The app separates the vocals
 in this browser, and then sends the vocals to <host>."
 

@@ -35,9 +35,9 @@ type HeldRun = {
 
 const CHECK_BOX = 'Separate the vocals first'
 const BROWSER_NOTE =
-  'The app removes the instruments before it finds the words. This step downloads a model one time and adds time to the run. The audio stays in this browser.'
+  'The app removes the instruments before it finds the words. This step downloads a model of 79 MB one time and adds time to the run. The audio stays in this browser.'
 const REMOTE_NOTE =
-  'The app removes the instruments before it finds the words. This step downloads a model one time and adds time to the run. The app separates the vocals in this browser, and then sends the vocals to localhost:8000.'
+  'The app removes the instruments before it finds the words. This step downloads a model of 79 MB one time and adds time to the run. The app separates the vocals in this browser, and then sends the vocals to localhost:8000.'
 
 let client: TranscribeClient
 let runs: HeldRun[]
