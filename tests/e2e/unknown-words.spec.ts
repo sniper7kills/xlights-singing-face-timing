@@ -40,8 +40,9 @@ test('shows an unknown word with a dotted border, selects it from the counter, a
   await toolbar(page).getByRole('button', { name: 'Add to custom dictionary' }).click()
   const dictionary = page.getByRole('dialog', { name: 'Custom dictionary' })
   await expect(dictionary.getByRole('textbox', { name: 'Word', exact: true })).toHaveValue('ZXQV')
-  await expect(dictionary.getByRole('textbox', { name: 'CMU symbols' })).toBeFocused()
-  await page.keyboard.type('Z IH1 K S K W IH0 V')
+  await expect(dictionary.getByRole('textbox', { name: 'Sounds like' })).toBeFocused()
+  await dictionary.getByRole('radio', { name: 'Symbols' }).check()
+  await dictionary.getByRole('textbox', { name: 'CMU symbols' }).fill('Z IH1 K S K W IH0 V')
   await dictionary.getByRole('button', { name: 'Add entry' }).click()
   await expect(
     dictionary.getByRole('table', { name: 'Custom words' }).getByRole('row', { name: 'ZXQV' }),

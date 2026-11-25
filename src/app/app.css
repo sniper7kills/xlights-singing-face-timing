@@ -1838,6 +1838,19 @@ button {
   cursor: pointer;
 }
 
+.dialog-field > .link-button {
+  justify-self: start;
+}
+
+.import-summary {
+  margin: 0;
+}
+
+.import-causes {
+  margin: 4px 0 0;
+  padding-left: 20px;
+}
+
 @media (max-width: 760px) {
   .library {
     grid-template-columns: 1fr;

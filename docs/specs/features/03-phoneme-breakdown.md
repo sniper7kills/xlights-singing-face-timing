@@ -52,6 +52,14 @@ dictionary gets wrong for a song.
 - FR-phoneme-19 — The person breaks down selected words again.
 - FR-phoneme-20 — The app keeps hand-edited phonemes when their word moves or
   changes length.
+- FR-phoneme-21 — The entry form of a new entry starts on the entry type "Sounds
+  like spelling".
+- FR-phoneme-22 — The entry form shows the mouth shapes of the typed entry before
+  the save.
+- FR-phoneme-23 — The link "Show the list of symbols" opens the reference table of
+  CMU symbols in view.
+- FR-phoneme-24 — The import report states the cause of each of the first 10
+  skipped lines.
 
 ## User flows
 
@@ -85,8 +93,8 @@ flowchart TD
   A[Person selects the unknown-word counter] --> B[Editor selects the next unknown word]
   B --> C[Person opens Add to custom dictionary]
   C --> D{Entry type}
+  D -- Sounds like, the default --> F[Person types known words, e.g. sore block]
   D -- CMU symbols --> E[Person types symbols]
-  D -- Sounds like --> F[Person types known words, e.g. ROO DOLF]
   E --> G{All symbols valid?}
   F --> H{All parts in a dictionary?}
   G -- no --> X[Field error names the bad symbol]
@@ -99,9 +107,10 @@ flowchart TD
 1. The person selects the unknown-word counter.
 2. The editor selects the next unknown word and scrolls to it.
 3. The person opens "Add to custom dictionary".
-4. The person types CMU symbols, or a "sounds like" spelling.
-5. The app validates the entry.
-6. The app saves the entry and breaks down the matching words.
+4. The person types a "sounds like" spelling, or CMU symbols.
+5. The form shows the mouth shapes of the entry.
+6. The app validates the entry.
+7. The app saves the entry and breaks down the matching words.
 
 ## Screens & states
 
@@ -123,20 +132,37 @@ these strings:
   symbols" and "Phoneme labels". Each row has the buttons "Edit" and "Delete".
 - Dialog buttons: "Import", "Export" and "Close".
 - Import report, no bad line: "1 entry imported." or "3 entries imported."
-- Import report, one bad line: "3 entries imported. 1 line skipped (line 3)."
-- Import report, 2 to 10 bad lines: "1 entry imported. 2 lines skipped (lines 3,
-  7)."
-- Import report, more than 10 bad lines: "3 entries imported. 14 lines skipped
-  (lines 2, 5, 9, 11, 12, 15, 16, 20, 21, 22 and 4 more)."
+- Import report, bad lines: "3 entries imported. 2 lines skipped." Under it, one
+  line for each of the first 10 bad lines: "Line <number>: <cause>", for example
+  "Line 3: no symbols." and "Line 4: “ZZ” is not a symbol."
+- Import report, more than 10 bad lines: after the 10 causes, "4 more lines
+  skipped."
+- Causes of a bad import line, in the order of the check:
+  - The line has a word and no symbols: "no symbols."
+  - Other spaces: "use two spaces after the word and one space between the
+    symbols."
+  - The word has no letter: "the word has no letter."
+  - The word has more than 40 characters: "the word has more than 40 characters."
+  - A bad symbol: "“<item>” is not a symbol."
+- The import report shows under the "Import" button.
 - Entry form titles: "Add a word" and "Edit RUDOLPH". Submit buttons: "Add entry"
   and "Save entry". An edit also has "Cancel".
 - Entry form fields: "Word", "CMU symbols" and "Sounds like".
-- Entry type: the group "Entry type" with the choices "Symbols" and "Sounds like
-  spelling".
+- Entry type: the group "Entry type" with the choices "Sounds like spelling" and
+  "Symbols". A new entry starts on "Sounds like spelling". An edit starts on
+  "Symbols".
 - Hint of "CMU symbols": "Put one space between the symbols, for example R UW1 D
-  AA0 L F. The app changes lower case to upper case."
-- Hint of "Sounds like": "Type known words with a space between them, for example
-  ROO DOLF."
+  AA0 L F. The app changes lower case to upper case. The symbols come from the CMU
+  Pronouncing Dictionary."
+- Under the hint of "CMU symbols": the link "Show the list of symbols". It opens
+  the reference table, scrolls it into view and moves the focus to its title.
+- Hint of "Sounds like": "Type the word as it sounds, with words that you know.
+  Example: "sore block"."
+- Mouth shape preview, under the field, when the typed entry gives CMU symbols:
+  "Mouth shapes: <phoneme labels>", for example "Mouth shapes: etc O etc MBP L AI
+  etc" for "sore block". The preview uses the mapping table and the merge rule.
+- Focus: if the form opens with a word from the song, the focus starts in the field
+  of the entry type: "Sounds like" for a new entry, "CMU symbols" for an edit.
 - Empty word: "Type a word."
 - Word with a space, or with more than 40 characters: "A word has 1 to 40
   characters and no spaces."
@@ -289,12 +315,13 @@ loadDictionary(): Promise<Dictionary>    // later calls get the same promise
 | Word is one frame long with 4 phonemes | One phoneme: the highest weight, earliest on a tie. |
 | Custom entry with symbol `XX` | Field error: "XX is not a CMU symbol." |
 | "Sounds like" part not in any dictionary | Field error: "The app does not know ROODOLF. Use shorter known words." |
-| Import file has a bad line | The app imports the good lines and reports "2 lines skipped" with the line numbers. |
+| Import file has a bad line | The app imports the good lines and reports "2 lines skipped" with the line number and the cause of each. |
 | Import has a word that exists | The imported entry replaces the old entry. |
 | Label with only punctuation, for example `-` | The word gets one `etc` phoneme and is unknown. |
 | The app cannot read or write the custom dictionary | "The app could not read or write the custom dictionary. Reload the page." |
 | The break down fails for a reason other than the dictionary file | "The app could not break down the words. Select Retry." The words stay without phonemes. |
-| An import line has a word with no letter, or with digits only | The app skips the line and reports its number. |
+| An import line has a word with no letter, or with digits only | The app skips the line and reports "Line <number>: the word has no letter." |
+| The dictionary does not load while the person types a "sounds like" spelling | The form shows no mouth shape preview. The submit shows the load message. |
 | Two import lines give the same word | The later line wins. The file counts as one entry. |
 
 ## Acceptance criteria
@@ -321,6 +348,12 @@ loadDictionary(): Promise<Dictionary>    // later calls get the same promise
   each `Rudolph`. (FR-phoneme-12, 16)
 - A "sounds like" entry `ROO DOLF`, where both parts are known, saves.
   (FR-phoneme-13)
+- The form opens on "Sounds like spelling" with its text. (FR-phoneme-21)
+- The form shows the mouth shapes of the entry before the save. (FR-phoneme-22)
+- The link "Show the list of symbols" shows the reference table inside the
+  viewport. (FR-phoneme-23)
+- The import report states a cause for each of the first 10 skipped lines.
+  (FR-phoneme-24)
 - An edited entry changes the phonemes of matching unedited words. (FR-phoneme-14,
   16)
 - A deleted entry returns matching unedited words to the dictionary result.
