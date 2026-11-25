@@ -265,6 +265,17 @@ Confirmed on 2026-11-24 for the browser, from MDN and the Chrome blog (issue #10
 - Chrome 142 asks the person for the permission before a public page calls a local
   network address or a loopback address.
 
+Confirmed on 2026-11-24 from the first stack in a real account (issue #7):
+
+- AWS created the stack from `infra/hosting.yml`, with the two custom headers of
+  the response headers policy.
+- A repository can use immutable subject claims. The subject of its OIDC token is
+  then `repo:<owner>@<owner id>/<name>@<repository id>:ref:refs/heads/main`, not
+  `repo:<owner>/<name>:ref:refs/heads/main`. Read the prefix with
+  `gh api repos/<owner>/<name>/actions/oidc/customization/sub`. A role that trusts
+  the other form refuses the token: "Not authorized to perform
+  sts:AssumeRoleWithWebIdentity".
+
 Evidence format:
 
 ```

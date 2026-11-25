@@ -9,6 +9,14 @@ Parameters:
     Description: The GitHub repository that deploys to this stack, as owner/name.
     AllowedPattern: '^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$'
     ConstraintDescription: Use the form owner/name.
+  GitHubSubjectPrefix:
+    Type: String
+    Description: >-
+      The start of the subject claim of the GitHub OIDC token, without the ref. A repository with
+      immutable subject claims uses the form repo:owner@id/name@id. Read it with
+      gh api repos/OWNER/NAME/actions/oidc/customization/sub. Leave it empty for the form repo:owner/name.
+    AllowedPattern: '^$|^repo:[A-Za-z0-9_.@/-]+$'
+    Default: ''
   CreateGitHubOidcProvider:
     Type: String
     Description: >-
@@ -21,6 +29,7 @@ Parameters:
 
 Conditions:
   CreateOidcProvider: !Equals [!Ref CreateGitHubOidcProvider, 'true']
+  DefaultSubjectPrefix: !Equals [!Ref GitHubSubjectPrefix, '']
 
 Resources:
   SiteBucket:
@@ -156,7 +165,10 @@ Resources:
             Condition:
               StringEquals:
                 token.actions.githubusercontent.com:aud: sts.amazonaws.com
-                token.actions.githubusercontent.com:sub: !Sub 'repo:${GitHubRepository}:ref:refs/heads/main'
+                token.actions.githubusercontent.com:sub: !If
+                  - DefaultSubjectPrefix
+                  - !Sub 'repo:${GitHubRepository}:ref:refs/heads/main'
+                  - !Sub '${GitHubSubjectPrefix}:ref:refs/heads/main'
       Policies:
         - PolicyName: deploy-site
           PolicyDocument:
