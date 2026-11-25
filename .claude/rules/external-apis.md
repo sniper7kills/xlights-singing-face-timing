@@ -24,7 +24,7 @@ Do not reconcile by guess.
 | Web Audio `decodeAudioData` | browser | https://developer.mozilla.org/en-US/docs/Web/API/BaseAudioContext/decodeAudioData |
 | Web Audio `OfflineAudioContext` | browser | https://developer.mozilla.org/en-US/docs/Web/API/OfflineAudioContext/OfflineAudioContext , https://webaudio.github.io/web-audio-api/ |
 | Autoplay policy | browser | https://developer.mozilla.org/en-US/docs/Web/Media/Guides/Autoplay |
-| xLights `.xtiming` format | commit `99a289bf` | https://github.com/xLightsSequencer/xLights — `src-core/render/Element.cpp`, `src-ui-wx/sequencer/RowHeading.cpp`, `src-core/render/SequenceFile.cpp`, `src-core/effects/FacesEffect.cpp` |
+| xLights `.xtiming` format and Faces effect | tag `2026.21`, commit `a123de002e04b9fe9a8e56a7da92ebbf831615ba` | https://github.com/xLightsSequencer/xLights — `src-core/render/Element.cpp`, `src-ui-wx/sequencer/RowHeading.cpp`, `src-core/render/SequenceFile.cpp`, `src-core/utils/UtilFunctions.cpp`, `src-core/effects/FacesEffect.cpp`, `src-ui-wx/effectpanels/FacesPanel.cpp`, `documentation/xlDo Commands.txt` |
 | ZIP file format (PKWARE APPNOTE) | 6.3.10 | https://pkware.cachefly.net/webdocs/casestudies/APPNOTE.TXT — sections 4.3.7, 4.3.12, 4.3.16, 4.4.1.4, 4.4.2 to 4.4.7, 4.4.15 |
 | xLights manual | current | https://manual.xlights.org/xlights/chapters/chapter-four-sequencer/singing-faces.md |
 | AWS CloudFormation (S3, CloudFront, IAM) | current | https://docs.aws.amazon.com/AWSCloudFormation/latest/TemplateReference/ |
@@ -43,9 +43,28 @@ Do not reconcile by guess.
 | Mixed content, CORS errors, `XMLHttpRequest.upload`, `fetch`, CSP `connect-src` | browser | https://developer.mozilla.org/en-US/docs/Web/Security/Mixed_content , https://developer.mozilla.org/en-US/docs/Web/HTTP/Guides/CORS/Errors , https://developer.mozilla.org/en-US/docs/Web/API/XMLHttpRequest/upload , https://developer.mozilla.org/en-US/docs/Web/API/Window/fetch , https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Content-Security-Policy/connect-src |
 | Chrome Local Network Access | Chrome 142 | https://developer.chrome.com/blog/local-network-access |
 
-Not confirmed yet. Confirm each one before the code that depends on it:
+Confirmed on 2026-11-24 for xLights 2026.21 (issue #138). The rule table with
+each source line is in the "Interfaces" section of
+`docs/specs/features/06-xtiming-export.md`. The tag commit changes only the version
+files after `99a289bf`, so the earlier facts still hold.
 
-- The output of the xLights `XmlSafe` function for `&`, `<`, `>`, `"` and `'`.
+- From the source: `XmlSafe` writes `&amp;`, `&lt;`, `&gt;`, `&apos;`, `&quot;`
+  and `&#9;`, `&#10;`, `&#13;`, the same as `escapeXml`. The import removes `= <
+  > & " '` and each character that is not ASCII from a timing track name, and adds
+  `_1`, `_2` to a name that exists. The "Timing Track" list of the Faces effect
+  shows only timing tracks with 3 layers. On a model group, the Faces effect draws
+  only a "Matrix" face definition.
+- From the source: no xlDo automation command imports a timing track. The
+  command-line options include `-s` (show folder), `-a` (xFade port A, 49913),
+  `-q`, and `--headless` (render to `.fseq` and exit).
+- From a real import of the AppImage on Linux: one file with all timing tracks and
+  one file for each timing track import with no message. "Export Timing Track"
+  writes the same bytes as the app, except `SourceVersion="2026.21"`. Labels with
+  `& < > " '` and `café` survive. A Faces effect on each of three "Node Ranges"
+  face models follows its timing track in every frame of the render. The steps are
+  in `.claude/skills/xlights-import-check/SKILL.md`.
+- Not confirmed: a "Single Nodes" or "Matrix" face definition in a real render, a
+  vendor `.xmodel`, and xLights on Windows or macOS.
 
 Confirmed on 2026-11-24 for `cmudict.dict` at commit
 `74790861f652b15e4ac49015a90074ad62a27690`, from the file and its `LICENSE`:

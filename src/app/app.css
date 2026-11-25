@@ -1928,6 +1928,12 @@ button.finding:hover {
   display: block;
 }
 
+.export-steps-heading {
+  margin: 12px 0 0;
+  font-size: 13px;
+  font-weight: 600;
+}
+
 @media (max-width: 760px) {
   .export-body {
     grid-template-columns: 1fr;

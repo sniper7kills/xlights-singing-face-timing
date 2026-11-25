@@ -84,6 +84,14 @@ describe('ExportDialog', () => {
     for (const voice of voices) expect(voice).toBeChecked()
   })
 
+  it('shows the hint for face models that sing together under the voices', () => {
+    renderDialog(makeContent([lead, santa], makeSungPhrase('v1', 0)))
+
+    expect(screen.getByRole('group', { name: 'Voices' })).toHaveTextContent(
+      'Use one voice for each group of face models that sing together.',
+    )
+  })
+
   it('is ready with "Download" enabled when no finding exists', () => {
     renderDialog(twoVoices)
 
@@ -379,7 +387,8 @@ describe('ExportDialog', () => {
       ),
     )
     expect(steps).toHaveAttribute('open')
-    expect(within(steps as HTMLElement).getAllByRole('listitem')).toHaveLength(7)
+    const importList = within(steps as HTMLElement).getByRole('list', { name: 'Import steps' })
+    expect(within(importList).getAllByRole('listitem')).toHaveLength(7)
     expect(onClose).not.toHaveBeenCalled()
   })
 
