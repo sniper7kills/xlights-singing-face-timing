@@ -48,7 +48,11 @@ The engine in `src/features/vocal-separation/engine/` runs Spleeter 2-stem:
   `7001ba316a615cacddb3f9ef3ec416661a277e26`, 78 636 679 bytes together.
 - Host: the Hugging Face Hub, which sends CORS headers. The browser keeps the files
   in the Cache API cache `vocal-separation-models-v1`. A file goes into the cache
-  only after a complete download with the correct size.
+  only after a complete download with the correct size and the correct SHA-256.
+  The hashes are the Git LFS object ids of the Hub. With no usable cache, the run
+  keeps the files in memory, and a failed cache write does not stop the run.
+- Output check: a vocals sample that is NaN or Infinity stops the run with the
+  failure kind 'model'.
 - Signal path: an STFT in the app (4096 points, hop 1024, periodic Hann window, no
   centre padding), the magnitude of the first 1024 bins into both models, the
   soft mask v² / (v² + a²), the inverse STFT, and the mean of the two channels.
