@@ -76,6 +76,14 @@ face that sings during play, so the person sees the result before xLights does.
 - FR-editor-35 — Each track that sounds plays in time with the play cursor.
 - FR-editor-36 — The person folds the group of track rows.
 - FR-editor-37 — The editor keeps the mute, the solo and the fold for each song.
+- FR-editor-38 — The toolbar has a button for each edit action: split, merge,
+  delete and edit the label.
+- FR-editor-39 — A toolbar button that cannot act states the reason in its
+  tooltip.
+- FR-editor-40 — A button in the top bar opens the shortcut list.
+- FR-editor-41 — A help line under the layers tells how to edit marks, and it
+  changes with the selection.
+- FR-editor-42 — The tooltip of a mark shows its label, its start and its end.
 
 ## User flows
 
@@ -132,15 +140,19 @@ flowchart TD
 
 Regions:
 
-- **Top bar.** Back to the song library, song name, save state ("Saved" or
-  "Saving"), "Transcribe", "Run report", "Custom dictionary", "Export".
+- **Top bar.** Back to the song library, song name, "Transcribe", "Run report",
+  "Custom dictionary", "Export", "Shortcuts", save state ("Saved" or "Saving").
+  "Shortcuts" has the tooltip "Show the keyboard shortcuts (?)" and opens the
+  shortcut list.
 - **Voice rail** (left). The voices of the song. Defined in
   [05-voices-sections.md](05-voices-sections.md).
 - **Stage** (centre). From top to bottom: the section band, the time ruler, the
   waveform, the group "Audio tracks" with the track rows, the phrase layer, the
   word layer, the phoneme layer. A song with no kept audio tracks has no group.
 - **Transport** (below the stage). Play, loop, speed, play time, zoom slider,
-  frame size selector, undo, redo, unknown-word counter.
+  frame size selector, the group "Mark", undo, redo, unknown-word counter.
+- **Help line** (under the stage). One line of help for the selection. See
+  [Behaviour rules](#behaviour-rules).
 - **Inspector** (right). The face preview at the top. Under it, the fields of the
   selected mark.
 
@@ -157,8 +169,9 @@ States:
 
 Mark styles on the layers: phrases are wide bars with the full text. Words are
 bars with the word. Phonemes are short blocks with the phoneme label and one colour
-for each phoneme label. A label that does not fit is cut with an ellipsis, and the
-full label shows in a tooltip. An "unknown" word has a dotted border. An
+for each phoneme label. A label that does not fit is cut with an ellipsis. The
+tooltip of a mark shows the full label on the first line and "<start> to <end>"
+on the second line, for example "0:01.200 to 0:01.650". An "unknown" word has a dotted border. An
 "estimated" word has a dashed inner frame, and a screen reader gets the text
 "(estimated time)".
 
@@ -237,6 +250,42 @@ Track rows (FR-editor-31 to 37):
   "The app moves every mark of this song to a multiple of 25 ms." (or 50 ms)
   with "Continue" and "Cancel", and it is one undo step. A song with no marks
   shows no dialog. "Undo" and "Redo" are buttons in the group "Undo and redo".
+- **Mark buttons.** The toolbar group "Mark" has "Split", "Merge with next",
+  "Delete" and "Edit label". Each button runs the same action as its shortcut, on
+  the selected mark. A click on a button keeps the focus on the mark. The tooltip
+  of a button names the action and the shortcut:
+  - "Split the selected mark at the play cursor (S)"
+  - "Merge the selected mark with the next mark (M)"
+  - "Delete the selected marks (Delete)"
+  - "Edit the label (Enter or F2)"
+- **A button that cannot act.** It stays in the tab order with
+  `aria-disabled="true"` and a dim style. Its tooltip and its description state
+  the reason, and then the shortcut in brackets. A click does nothing. The same
+  rule applies to "Loop", "Phrase" and "Add section". The reasons:
+
+  | Button | Case | Reason |
+  |---|---|---|
+  | "Split", "Merge with next", "Edit label" | No mark or more than one mark is selected | "Select one mark first." |
+  | "Delete" | No mark is selected | "Select a mark first." |
+  | "Split" | The play cursor is outside the mark | "Move the play cursor into the mark. Then press S." |
+  | "Split" | A part would be shorter than one frame size | "Move the play cursor away from the edge of the mark. Each part needs one frame size or more." |
+  | "Merge with next" | The mark is the last mark of its layer | "This is the last mark of the layer." |
+  | "Merge with next" | The next word is in another phrase | "The next word is in another phrase." |
+  | "Merge with next" | The next phoneme is in another word | "The next phoneme is in another word." |
+  | "Delete" | The only selected mark is the last phoneme of its word | "A word needs one phoneme or more. Delete the word." |
+  | "Loop" | The audio is not ready | "The audio is not ready." |
+  | "Loop" | No mark and no time range is selected | "Select a mark or a time range first." |
+  | "Phrase" | The selection is not only phrases | "Select a phrase first." |
+  | "Add section" | No time range is selected | "Drag on the waveform to select a time range first." |
+
+- **Help line.** The text depends on the selection:
+  - No selected mark: "Click a mark to select it. Double-click a mark to change
+    its label. Double-click an empty place to add a mark."
+  - A selected phrase or word, or more than one selected mark: "Drag an edge to
+    change the time. Drag the mark to move it."
+  - One selected phoneme: "Click the phoneme again to choose a mouth shape."
+  - With no selected mark or one selected mark, the line adds "Hold Shift and
+    click to select more than one mark."
 - **Inspector.** The region has the name "Inspector". "Face preview" shows the
   mouth shape of the phoneme under the play time, and the closed mouth between
   words. The fields "Label", "Start", "End" and "Length" show when exactly one
@@ -323,8 +372,8 @@ scroll methods before use. Those names are not verified in this spec.
 |---|---|
 | Drag an edge past the parent edge | The edge stops at the parent edge. |
 | Drag a word body over the adjacent word | The word stops at the adjacent word. It does not jump over. |
-| Split with the play cursor outside the mark | The split action is disabled. |
-| Merge on the last mark of a layer | The merge action is disabled. |
+| Split with the play cursor outside the mark | "Split" does not act. The tooltip states "Move the play cursor into the mark. Then press S." |
+| Merge on the last mark of a layer | "Merge with next" does not act. The tooltip states "This is the last mark of the layer." |
 | Add a mark in a gap shorter than one frame size | The add action is disabled. |
 | Add a word outside any phrase | The app creates a phrase of the same range with the same label. |
 | Typed time that is not a number | Field error: "Use m:ss.mmm". The mark does not change. |
@@ -373,6 +422,13 @@ scroll methods before use. Those names are not verified in this spec.
 - A typed start time of `0:12.350` with a 50 ms frame size sets the start to
   12 350 ms. (FR-editor-28)
 - `?` opens the shortcut list, and `Escape` closes it. (FR-editor-29)
+- A person splits, merges and deletes a mark with the mouse only. (FR-editor-38)
+- A disabled "Split", "Merge with next" or "Delete" states its reason in a tooltip
+  for the play cursor outside the mark, the last mark of a layer and the last
+  phoneme of a word. (FR-editor-39)
+- "Shortcuts" in the top bar opens the shortcut list. (FR-editor-40)
+- The help line shows its text for no selection, a selected word and a selected
+  phoneme. (FR-editor-41)
 - After a run with separation, the rows "Vocals" and "Instruments" show, each with
   a waveform at the correct times. (FR-editor-31)
 - After a run that put two singers on voices, one row for each of the two voices

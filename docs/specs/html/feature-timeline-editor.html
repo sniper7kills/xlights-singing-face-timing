@@ -287,6 +287,25 @@ body.rv-open .layout { padding-right:21rem; }
 </li>
 <li>FR-editor-37 — The editor keeps the mute, the solo and the fold for each song.
 </li>
+<li>FR-editor-38 — The toolbar has a button for each edit action: split, merge,
+</li>
+</ul>
+<p>delete and edit the label.</p>
+<ul>
+<li>FR-editor-39 — A toolbar button that cannot act states the reason in its
+</li>
+</ul>
+<p>tooltip.</p>
+<ul>
+<li>FR-editor-40 — A button in the top bar opens the shortcut list.
+</li>
+<li>FR-editor-41 — A help line under the layers tells how to edit marks, and it
+</li>
+</ul>
+<p>changes with the selection.</p>
+<ul>
+<li>FR-editor-42 — The tooltip of a mark shows its label, its start and its end.
+</li>
 </ul>
 <h3 id="timeline-editor-user-flows">User flows</h3>
 <h4 id="timeline-editor-correct-the-time-of-a-word">Correct the time of a word</h4>
@@ -346,10 +365,10 @@ body.rv-open .layout { padding-right:21rem; }
 <p><strong>Editor</strong> — mockup: <a href="../mockups/02-editor.html">mockups/02-editor.html</a>.</p>
 <p>Regions:</p>
 <ul>
-<li><strong>Top bar.</strong> Back to the song library, song name, save state ("Saved" or
+<li><strong>Top bar.</strong> Back to the song library, song name, "Transcribe", "Run report",
 </li>
 </ul>
-<p>"Saving"), "Transcribe", "Run report", "Custom dictionary", "Export".</p>
+<p>"Custom dictionary", "Export", "Shortcuts", save state ("Saved" or "Saving"). "Shortcuts" has the tooltip "Show the keyboard shortcuts (?)" and opens the shortcut list.</p>
 <ul>
 <li><strong>Voice rail</strong> (left). The voices of the song. Defined in
 </li>
@@ -364,7 +383,12 @@ body.rv-open .layout { padding-right:21rem; }
 <li><strong>Transport</strong> (below the stage). Play, loop, speed, play time, zoom slider,
 </li>
 </ul>
-<p>frame size selector, undo, redo, unknown-word counter.</p>
+<p>frame size selector, the group "Mark", undo, redo, unknown-word counter.</p>
+<ul>
+<li><strong>Help line</strong> (under the stage). One line of help for the selection. See
+</li>
+</ul>
+<p><a href="#behaviour-rules">Behaviour rules</a>.</p>
 <ul>
 <li><strong>Inspector</strong> (right). The face preview at the top. Under it, the fields of the
 </li>
@@ -390,7 +414,7 @@ body.rv-open .layout { padding-right:21rem; }
 </li>
 </ul>
 <p>is 1024 px wide or more."</p>
-<p>Mark styles on the layers: phrases are wide bars with the full text. Words are bars with the word. Phonemes are short blocks with the phoneme label and one colour for each phoneme label. A label that does not fit is cut with an ellipsis, and the full label shows in a tooltip. An "unknown" word has a dotted border. An "estimated" word has a dashed inner frame, and a screen reader gets the text "(estimated time)".</p>
+<p>Mark styles on the layers: phrases are wide bars with the full text. Words are bars with the word. Phonemes are short blocks with the phoneme label and one colour for each phoneme label. A label that does not fit is cut with an ellipsis. The tooltip of a mark shows the full label on the first line and "&lt;start&gt; to &lt;end&gt;" on the second line, for example "0:01.200 to 0:01.650". An "unknown" word has a dotted border. An "estimated" word has a dashed inner frame, and a screen reader gets the text "(estimated time)".</p>
 <p>Controls on the layers:</p>
 <ul>
 <li>Label field: named "Phrase label" or "Word label". <code>Enter</code> saves, <code>Escape</code>
@@ -499,6 +523,50 @@ body.rv-open .layout { padding-right:21rem; }
 </li>
 </ul>
 <p>more than one selected mark, the loop goes from the earliest start to the latest end. "Play speed" has "50%", "75%" and "100%", and the pitch does not change. "Frame size" has "25 ms" and "50 ms". A change of the frame size shows "The app moves every mark of this song to a multiple of 25 ms." (or 50 ms) with "Continue" and "Cancel", and it is one undo step. A song with no marks shows no dialog. "Undo" and "Redo" are buttons in the group "Undo and redo".</p>
+<ul>
+<li><strong>Mark buttons.</strong> The toolbar group "Mark" has "Split", "Merge with next",
+</li>
+</ul>
+<p>"Delete" and "Edit label". Each button runs the same action as its shortcut, on the selected mark. A click on a button keeps the focus on the mark. The tooltip of a button names the action and the shortcut:</p>
+<ul>
+<li>"Split the selected mark at the play cursor (S)"
+<ul>
+<li>"Merge the selected mark with the next mark (M)"
+</li>
+<li>"Delete the selected marks (Delete)"
+</li>
+<li>"Edit the label (Enter or F2)"
+</li>
+</ul>
+</li>
+<li><strong>A button that cannot act.</strong> It stays in the tab order with
+</li>
+</ul>
+<p><code>aria-disabled="true"</code> and a dim style. Its tooltip and its description state the reason, and then the shortcut in brackets. A click does nothing. The same rule applies to "Loop", "Phrase" and "Add section". The reasons:</p>
+<p>| Button | Case | Reason | |---|---|---| | "Split", "Merge with next", "Edit label" | No mark or more than one mark is selected | "Select one mark first." | | "Delete" | No mark is selected | "Select a mark first." | | "Split" | The play cursor is outside the mark | "Move the play cursor into the mark. Then press S." | | "Split" | A part would be shorter than one frame size | "Move the play cursor away from the edge of the mark. Each part needs one frame size or more." | | "Merge with next" | The mark is the last mark of its layer | "This is the last mark of the layer." | | "Merge with next" | The next word is in another phrase | "The next word is in another phrase." | | "Merge with next" | The next phoneme is in another word | "The next phoneme is in another word." | | "Delete" | The only selected mark is the last phoneme of its word | "A word needs one phoneme or more. Delete the word." | | "Loop" | The audio is not ready | "The audio is not ready." | | "Loop" | No mark and no time range is selected | "Select a mark or a time range first." | | "Phrase" | The selection is not only phrases | "Select a phrase first." | | "Add section" | No time range is selected | "Drag on the waveform to select a time range first." |</p>
+<ul>
+<li><strong>Help line.</strong> The text depends on the selection:
+<ul>
+<li>No selected mark: "Click a mark to select it. Double-click a mark to change
+</li>
+</ul>
+</li>
+</ul>
+<p>its label. Double-click an empty place to add a mark."</p>
+<ul>
+<li>A selected phrase or word, or more than one selected mark: "Drag an edge to
+</li>
+</ul>
+<p>change the time. Drag the mark to move it."</p>
+<ul>
+<li>One selected phoneme: "Click the phoneme again to choose a mouth shape."
+<ul>
+<li>With no selected mark or one selected mark, the line adds "Hold Shift and
+</li>
+</ul>
+</li>
+</ul>
+<p>click to select more than one mark."</p>
 <ul>
 <li><strong>Inspector.</strong> The region has the name "Inspector". "Face preview" shows the
 </li>
@@ -619,8 +687,8 @@ formatTime(ms: number): string                   // m:ss.mmm</code></pre>
 <tr><th>Case</th><th>Result</th></tr>
 <tr><td>Drag an edge past the parent edge</td><td>The edge stops at the parent edge.</td></tr>
 <tr><td>Drag a word body over the adjacent word</td><td>The word stops at the adjacent word. It does not jump over.</td></tr>
-<tr><td>Split with the play cursor outside the mark</td><td>The split action is disabled.</td></tr>
-<tr><td>Merge on the last mark of a layer</td><td>The merge action is disabled.</td></tr>
+<tr><td>Split with the play cursor outside the mark</td><td>"Split" does not act. The tooltip states "Move the play cursor into the mark. Then press S."</td></tr>
+<tr><td>Merge on the last mark of a layer</td><td>"Merge with next" does not act. The tooltip states "This is the last mark of the layer."</td></tr>
 <tr><td>Add a mark in a gap shorter than one frame size</td><td>The add action is disabled.</td></tr>
 <tr><td>Add a word outside any phrase</td><td>The app creates a phrase of the same range with the same label.</td></tr>
 <tr><td>Typed time that is not a number</td><td>Field error: "Use m:ss.mmm". The mark does not change.</td></tr>
@@ -712,6 +780,20 @@ formatTime(ms: number): string                   // m:ss.mmm</code></pre>
 <ul>
 <li><code>?</code> opens the shortcut list, and <code>Escape</code> closes it. (FR-editor-29)
 </li>
+<li>A person splits, merges and deletes a mark with the mouse only. (FR-editor-38)
+</li>
+<li>A disabled "Split", "Merge with next" or "Delete" states its reason in a tooltip
+</li>
+</ul>
+<p>for the play cursor outside the mark, the last mark of a layer and the last phoneme of a word. (FR-editor-39)</p>
+<ul>
+<li>"Shortcuts" in the top bar opens the shortcut list. (FR-editor-40)
+</li>
+<li>The help line shows its text for no selection, a selected word and a selected
+</li>
+</ul>
+<p>phoneme. (FR-editor-41)</p>
+<ul>
 <li>After a run with separation, the rows "Vocals" and "Instruments" show, each with
 </li>
 </ul>

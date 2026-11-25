@@ -1,10 +1,12 @@
 import { useState } from 'react'
+import { blockText } from '../../lib/marks/editBlocks.ts'
 import { loopRange } from '../../lib/marks/loopRange.ts'
 import { setFrameMs } from '../../store/actions/setFrameMs.ts'
 import { useSongStore } from '../../store/songStore.ts'
 import type { FrameMs } from '../../store/types.ts'
 import { useViewStore } from '../../store/viewStore.ts'
 import { FrameSizeDialog } from './FrameSizeDialog.tsx'
+import { ReasonButton } from './ReasonButton.tsx'
 import { loopSelection, PLAY_RATES, setPlayRate, usePlayerStore } from './playerStore.ts'
 import { useEditorKeys } from './useEditorKeys.ts'
 
@@ -37,6 +39,12 @@ function SegmentButton({
   )
 }
 
+/** Returns the cause that keeps "Loop" from starting a loop, or null when it starts one. */
+function loopReason(audioReady: boolean, hasRange: boolean): string | null {
+  if (!audioReady) return blockText('audio-not-ready')
+  return hasRange ? null : blockText('select-mark-or-range')
+}
+
 /**
  * Shows the play tools of the transport: the "Loop" button, the play speed and the frame size, and registers the `L` key.
  * The loop and the play speed are disabled until the audio is ready, so they stay disabled when the audio is missing.
@@ -52,7 +60,7 @@ export function TransportControls() {
   useEditorKeys(Object.fromEntries(LOOP_KEYS.map((key) => [key, loopSelection])))
   if (content === null) return null
   const { song, marks } = content
-  const canLoop = player !== null && loopRange(marks, selectedMarkIds, selection) !== null
+  const canLoop = loopRange(marks, selectedMarkIds, selection) !== null
 
   function chooseFrameMs(frameMs: FrameMs) {
     if (frameMs === song.frameMs) return
@@ -62,18 +70,17 @@ export function TransportControls() {
 
   return (
     <div className="transport-controls">
-      <button
-        type="button"
-        className="button"
+      <ReasonButton
         aria-pressed={looping}
         aria-keyshortcuts="L"
         // A loop that plays stays stoppable after the person clears the selection.
-        disabled={!looping && !canLoop}
-        title="Play the selection in a loop (L)"
-        onClick={() => (looping ? player?.pause() : loopSelection())}
+        reason={looping ? null : loopReason(player !== null, canLoop)}
+        hint="Play the selection in a loop"
+        shortcut="L"
+        onAct={() => (looping ? player?.pause() : loopSelection())}
       >
         Loop
-      </button>
+      </ReasonButton>
       <div className="segments" role="group" aria-label="Play speed">
         {PLAY_RATES.map((rate) => (
           <SegmentButton

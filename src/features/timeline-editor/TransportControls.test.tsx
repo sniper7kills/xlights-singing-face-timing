@@ -40,17 +40,23 @@ describe('TransportControls', () => {
     useViewStore.getState().selectMarks(['w2'])
     render(<TransportControls />)
 
-    expect(loopButton()).toBeDisabled()
+    expect(loopButton()).toHaveAttribute('aria-disabled', 'true')
+    expect(loopButton()).toHaveAccessibleDescription('The audio is not ready.')
     for (const name of ['50%', '75%', '100%'])
       expect(screen.getByRole('button', { name })).toBeDisabled()
     expect(screen.getByRole('button', { name: '25 ms' })).toBeEnabled()
   })
 
-  it('disables the loop when nothing is selected', () => {
-    attachPlayer(fakePlayer())
+  it('disables the loop when nothing is selected, and states the reason in the tooltip', async () => {
+    const player = fakePlayer()
+    attachPlayer(player)
     render(<TransportControls />)
 
-    expect(loopButton()).toBeDisabled()
+    expect(loopButton()).toHaveAttribute('aria-disabled', 'true')
+    expect(loopButton()).toHaveAttribute('title', 'Select a mark or a time range first. (L)')
+    expect(loopButton()).toHaveAccessibleDescription('Select a mark or a time range first.')
+    await userEvent.click(loopButton())
+    expect(player.loop).not.toHaveBeenCalled()
   })
 
   it('loops the selected mark from 150 ms before its start with the Loop button', async () => {

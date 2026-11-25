@@ -56,12 +56,19 @@ function ShortcutDialog({ onClose }: { onClose: () => void }) {
   )
 }
 
+type ShortcutListProps = {
+  /** True shows the list. */
+  open: boolean
+  /** Receives true for the `?` key, and false when the list closes. */
+  onOpenChange: (open: boolean) => void
+}
+
 /**
  * Registers the editor shortcuts of `SHORTCUTS` and the `?` key, and shows the shortcut list while it is open.
+ * The parent holds the open state, so the "Shortcuts" button of the top bar also opens the list.
  * The dispatcher ignores keys inside a dialog, so the editor keys stop while the list is open.
  */
-export function ShortcutList() {
-  const [open, setOpen] = useState(false)
-  useEditorKeys({ ...SHORTCUT_KEYS, '?': () => setOpen(true) })
-  return open ? <ShortcutDialog onClose={() => setOpen(false)} /> : null
+export function ShortcutList({ open, onOpenChange }: ShortcutListProps) {
+  useEditorKeys({ ...SHORTCUT_KEYS, '?': () => onOpenChange(true) })
+  return open ? <ShortcutDialog onClose={() => onOpenChange(false)} /> : null
 }

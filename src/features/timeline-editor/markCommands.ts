@@ -5,6 +5,7 @@ import type { PhonemeLabel } from '../../lib/dictionary/cmuSymbols.ts'
 import { findMark, nextOnLayer, previousOnLayer } from '../../lib/marks/family.ts'
 import { marksBetween } from '../../lib/marks/selection.ts'
 import { addMark } from '../../store/actions/addMark.ts'
+import { canDeleteMarks, deleteMarks } from '../../store/actions/deleteMarks.ts'
 import { setMarkLabel, wordsWouldChange } from '../../store/actions/setMarkLabel.ts'
 import { setPhonemeLabel } from '../../store/actions/setPhonemeLabel.ts'
 import { useSongStore } from '../../store/songStore.ts'
@@ -127,6 +128,22 @@ export function endPending(confirmed: boolean): void {
   ui.setPending(null)
   ui.requestFocus(pending.id)
   if (confirmed) setMarkLabel(pending.id, pending.label)
+}
+
+/**
+ * Deletes the selected marks with their children, as one undo step.
+ * The selection then keeps only the marks that still exist (see `keepSelectionInSong`).
+ * When the selection is then empty, the focus goes to the layer track of the first deleted mark, so the focus stays in the layers.
+ * Returns false when the delete changes nothing, for example for the last phoneme of a word.
+ */
+export function deleteSelectedMarks(): boolean {
+  const ids = useViewStore.getState().selectedMarkIds
+  const first = findMark(songMarks(), ids[0] ?? '')
+  if (!first || !canDeleteMarks(ids)) return false
+  deleteMarks(ids)
+  if (useViewStore.getState().selectedMarkIds.length === 0)
+    useMarkUiStore.getState().requestFocus(layerFocusId(first.voiceId, first.layer))
+  return true
 }
 
 /**

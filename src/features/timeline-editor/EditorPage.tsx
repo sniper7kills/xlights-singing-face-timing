@@ -23,8 +23,10 @@ import { VoiceRail } from '../voices-sections/VoiceRail.tsx'
 import { outcomeText } from '../transcription/transcribeDialogState.ts'
 import { ExportAction } from '../xtiming-export/ExportAction.tsx'
 import { EditorToolbar } from './EditorToolbar.tsx'
+import { HelpLine } from './HelpLine.tsx'
 import { Inspector } from './Inspector.tsx'
 import { Layers } from './Layers.tsx'
+import { MarkActions } from './MarkActions.tsx'
 import { resetMarkUi } from './markUiStore.ts'
 import { ShortcutList } from './ShortcutList.tsx'
 import { TransportControls } from './TransportControls.tsx'
@@ -68,6 +70,7 @@ export function EditorPage({ songId }: EditorPageProps) {
   const selectedVoiceId = useViewStore((state) => state.selectedVoiceId)
   const selection = useViewStore((state) => state.selection)
   const [dialogOpen, setDialogOpen] = useState(false)
+  const [shortcutsOpen, setShortcutsOpen] = useState(false)
   const [running, setRunning] = useState(false)
   const [toast, setToast] = useState<{ text: string; reportStored: boolean } | null>(null)
   const [breakDownFailure, setBreakDownFailure] = useState<BreakDownFailure | null>(null)
@@ -165,6 +168,15 @@ export function EditorPage({ songId }: EditorPageProps) {
           <RunReportAction />
           <CustomDictionaryAction />
           <ExportAction />
+          <button
+            type="button"
+            className="button"
+            aria-keyshortcuts="?"
+            title="Show the keyboard shortcuts (?)"
+            onClick={() => setShortcutsOpen(true)}
+          >
+            Shortcuts
+          </button>
           <span className="save-state" role="status">
             {saveState === 'saved' ? 'Saved' : 'Saving'}
           </span>
@@ -183,10 +195,14 @@ export function EditorPage({ songId }: EditorPageProps) {
           />
           <GhostRow content={content} />
         </Waveform>
+        <div className="editor-lines">
+          <HelpLine />
+        </div>
         <Inspector />
         <EditorToolbar>
           <TransportControls />
           <ZoomControl durationMs={song.durationMs} />
+          <MarkActions />
           <UndoRedoButtons />
           <UnknownWordCounter />
           <AddWordAction />
@@ -203,7 +219,7 @@ export function EditorPage({ songId }: EditorPageProps) {
             onDone={finishTranscribe}
           />
         )}
-        <ShortcutList />
+        <ShortcutList open={shortcutsOpen} onOpenChange={setShortcutsOpen} />
         <BreakDownNotice failure={breakDownFailure} onChange={setBreakDownFailure} />
         {toast !== null && (
           <RunToast

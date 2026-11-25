@@ -194,6 +194,10 @@ voices and "New voice".
 - A click on a voice shows its marks on the three layers and clears the mark
   selection.
 - The "Phrase" button of the toolbar has "Move to voice" and "Copy to voice".
+  Its tooltip is "Move or copy the selected phrases to a voice". If the
+  selection is not only phrases, the button does not act, and its tooltip is
+  "Select a phrase first." The rule for a button that cannot act is in
+  [04-timeline-editor.md](04-timeline-editor.md#behaviour-rules).
   Each shows the other voices and "New voice". If phrases of the target voice
   overlap the range, the app asks: "<voice name> has <n> phrases in this range.
   Replace them?" with "Continue" and "Cancel". A replace removes each such phrase
@@ -208,7 +212,10 @@ voices and "New voice".
 - The band "Sections" is above the time ruler. "Add section" makes a section
   from the time selection, with the name "Section N" or a typed name of 40
   characters at most. With no free range of 1 second, the note is "No room for a
-  section here. Select a free range of 1 second or more."
+  section here. Select a free range of 1 second or more." The tooltip of "Add
+  section" is "Add a section for the time selection". With no time selection,
+  the button does not act, and its tooltip is "Drag on the waveform to select a
+  time range first."
 - A section has the menu "Actions for <section name>" with "Rename", "Move
   section to voice" and "Delete". A delete has no confirm dialog. A click on a
   section selects its time range and scrolls the stage to its start. A dragged

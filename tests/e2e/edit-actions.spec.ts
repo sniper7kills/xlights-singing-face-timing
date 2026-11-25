@@ -1,0 +1,90 @@
+import { expect, type Locator, type Page, test } from '@playwright/test'
+
+// The demo song: public/demo/silent-night.marks.json. The frame size is 50 ms.
+
+async function openDemoSong(page: Page) {
+  await page.goto('/')
+  await page.getByRole('button', { name: 'Try the demo song' }).click()
+  await expect(page.getByRole('heading', { level: 2, name: 'Silent Night' })).toBeVisible()
+  await expect(page.getByRole('region', { name: 'Waveform' })).toHaveAttribute(
+    'data-state',
+    'ready',
+  )
+}
+
+function layer(page: Page, name: string): Locator {
+  return page.getByRole('list', { name }).getByRole('listitem')
+}
+
+function markButton(page: Page, name: string): Locator {
+  return page.getByRole('group', { name: 'Mark' }).getByRole('button', { name })
+}
+
+/** Moves the play cursor to the middle of the mark with a click on the waveform. */
+async function cursorInto(page: Page, mark: Locator) {
+  const box = await mark.boundingBox()
+  const stage = await page.getByTestId('waveform-stage').boundingBox()
+  if (box === null || stage === null) throw new Error('The mark or the waveform has no box.')
+  await page.mouse.click(box.x + box.width / 2, stage.y + stage.height / 2)
+}
+
+test('splits, merges and deletes a word with the mouse only', async ({ page }) => {
+  await openDemoSong(page)
+  await page.getByRole('slider', { name: 'Zoom' }).fill('100')
+  await page.getByTestId('waveform-stage').hover()
+  await page.mouse.wheel(0, -1_000_000)
+  const words = layer(page, 'Words')
+  const count = await words.count()
+  const silent = words.filter({ hasText: /^Silent$/ })
+  await expect.poll(async () => (await silent.boundingBox())?.x ?? -1).toBeGreaterThan(0)
+
+  await silent.click()
+  await cursorInto(page, silent)
+  await markButton(page, 'Split').click()
+  await expect(words).toHaveCount(count + 1)
+
+  await markButton(page, 'Merge with next').click()
+  await expect(words).toHaveCount(count)
+
+  await markButton(page, 'Delete').click()
+  await expect(words).toHaveCount(count - 1)
+})
+
+test('states the reason of a mark button that cannot act', async ({ page }) => {
+  await openDemoSong(page)
+  const words = layer(page, 'Words')
+
+  await words.filter({ hasText: /^holy$/ }).click()
+  await expect(markButton(page, 'Split')).toHaveAttribute(
+    'title',
+    'Move the play cursor into the mark. Then press S. (S)',
+  )
+  await expect(markButton(page, 'Split')).toHaveAttribute('aria-disabled', 'true')
+
+  await words.last().click()
+  await expect(markButton(page, 'Merge with next')).toHaveAccessibleDescription(
+    'This is the last mark of the layer.',
+  )
+})
+
+test('opens the shortcut list with the "Shortcuts" button', async ({ page }) => {
+  await openDemoSong(page)
+
+  await page.getByRole('button', { name: 'Shortcuts' }).click()
+
+  await expect(page.getByRole('dialog', { name: 'Keyboard shortcuts' })).toBeVisible()
+})
+
+test('changes the help line with the selection', async ({ page }) => {
+  await openDemoSong(page)
+  const help = page.locator('.help-line')
+  await expect(help).toContainText('Double-click an empty place to add a mark.')
+  await expect(help).toContainText('Hold Shift and click to select more than one mark.')
+
+  await layer(page, 'Words').first().click()
+  await expect(help).toContainText('Drag an edge to change the time. Drag the mark to move it.')
+
+  const phoneme = layer(page, 'Phonemes').first()
+  await phoneme.click()
+  await expect(help).toContainText('Click the phoneme again to choose a mouth shape.')
+})

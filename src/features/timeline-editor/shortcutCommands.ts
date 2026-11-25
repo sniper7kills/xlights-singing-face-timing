@@ -1,10 +1,8 @@
 // The key functions of the editor shortcuts. Each reads the stores when it runs.
 // Each returns false when it does not act, so the dispatcher gives the key to the next registration or to the browser.
 
-import { findMark } from '../../lib/marks/family.ts'
 import { markOnNextLayer } from '../../lib/marks/selection.ts'
 import { extendRange, stepTime } from '../../lib/time/timeSteps.ts'
-import { canDeleteMarks, deleteMarks } from '../../store/actions/deleteMarks.ts'
 import { canMergeWithNext, mergeWithNext } from '../../store/actions/mergeWithNext.ts'
 import { moveMark } from '../../store/actions/moveMark.ts'
 import { resizeMark } from '../../store/actions/resizeMark.ts'
@@ -12,8 +10,8 @@ import { canSplitMark, splitMark } from '../../store/actions/splitMark.ts'
 import { useSongStore } from '../../store/songStore.ts'
 import type { Mark } from '../../store/types.ts'
 import { useViewStore } from '../../store/viewStore.ts'
-import { selectAndReveal } from './markCommands.ts'
-import { layerFocusId, useMarkUiStore } from './markUiStore.ts'
+import { deleteSelectedMarks, selectAndReveal } from './markCommands.ts'
+import { useMarkUiStore } from './markUiStore.ts'
 import { pauseOnRefusal, usePlayerStore } from './playerStore.ts'
 import { followCursor } from './timeScale.ts'
 import { currentStageInput } from './useStageScale.ts'
@@ -95,20 +93,12 @@ export function mergeSelected(event: KeyboardEvent): boolean {
 }
 
 /**
- * `Delete`: deletes the selected marks with their children, as one undo step.
- * The selection then keeps only the marks that still exist (see `keepSelectionInSong`).
- * When the selection is then empty, the focus goes to the layer track of the first deleted mark, so the focus stays in the layers.
+ * `Delete`: deletes the selected marks with their children, as one undo step. See `deleteSelectedMarks`.
  * It does not act on a focused form control, such as the zoom slider or a checkbox.
  */
 export function deleteSelected(event: KeyboardEvent): boolean {
-  const ids = useViewStore.getState().selectedMarkIds
-  const first = findMark(useSongStore.getState().current?.marks ?? [], ids[0] ?? '')
   if (fromControl(event, FORM_CONTROL_SELECTOR) || editorBusy()) return false
-  if (!first || !canDeleteMarks(ids)) return false
-  deleteMarks(ids)
-  if (useViewStore.getState().selectedMarkIds.length === 0)
-    useMarkUiStore.getState().requestFocus(layerFocusId(first.voiceId, first.layer))
-  return true
+  return deleteSelectedMarks()
 }
 
 /**

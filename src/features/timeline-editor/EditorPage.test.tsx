@@ -366,14 +366,14 @@ describe('EditorPage', () => {
     expect(bar.getByRole('button', { name: 'Export' })).toBeInTheDocument()
   })
 
-  it('shows the "Transcribe", "Run report", "Custom dictionary" and "Export" actions in this order in the top bar', async () => {
+  it('shows the "Transcribe", "Run report", "Custom dictionary", "Export" and "Shortcuts" actions in this order in the top bar', async () => {
     await renderEditor()
     const bar = screen.getByRole('heading', { level: 2 }).parentElement ?? document.body
 
     const names = within(bar)
       .getAllByRole('button')
       .map((button) => button.textContent)
-    expect(names).toEqual(['Transcribe', 'Run report', 'Custom dictionary', 'Export'])
+    expect(names).toEqual(['Transcribe', 'Run report', 'Custom dictionary', 'Export', 'Shortcuts'])
   })
 
   it('shows no "Transcribe" button in the empty state of the layers for a song with no voice', async () => {

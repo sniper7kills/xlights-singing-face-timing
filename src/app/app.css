@@ -126,7 +126,7 @@ button {
   background: var(--panel2);
 }
 
-.button:hover:not(:disabled) {
+.button:hover:not(:disabled, [aria-disabled='true']) {
   border-color: var(--amber);
 }
 
@@ -137,7 +137,8 @@ button {
   font-weight: 700;
 }
 
-.button:disabled {
+.button:disabled,
+.button[aria-disabled='true'] {
   cursor: not-allowed;
   opacity: 0.5;
 }
@@ -782,9 +783,22 @@ button {
   gap: 12px;
 }
 
-.undo-redo {
+.undo-redo,
+.mark-actions {
   display: flex;
   gap: 6px;
+}
+
+/* The help line and the status line sit under the stage, so the text is near the marks that it is about. */
+.editor-lines {
+  display: grid;
+  gap: 4px;
+  color: var(--mute);
+  font-size: 13px;
+}
+
+.editor-lines p {
+  margin: 0;
 }
 
 .button[aria-pressed='true'] {

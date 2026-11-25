@@ -1,5 +1,5 @@
 import { act, fireEvent, render, renderHook, screen, waitFor, within } from '@testing-library/react'
-import type { PointerEvent } from 'react'
+import { type PointerEvent, useState } from 'react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { makeSongContent } from '../../store/fixtures.test-helpers.ts'
@@ -44,6 +44,12 @@ function openSong() {
   })
 }
 
+/** Holds the open state of the shortcut list, the same as the editor page. */
+function Shortcuts() {
+  const [open, setOpen] = useState(false)
+  return <ShortcutList open={open} onOpenChange={setOpen} />
+}
+
 /** Draws the parts of the editor that the shortcuts use, again after each change, the same as the editor page. */
 function Editor() {
   const content = useSongStore((state) => state.current)
@@ -52,7 +58,7 @@ function Editor() {
       <>
         <Layers content={content} />
         <UndoRedoButtons />
-        <ShortcutList />
+        <Shortcuts />
       </>
     )
   )
