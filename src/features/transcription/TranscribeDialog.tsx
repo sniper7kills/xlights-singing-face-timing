@@ -369,7 +369,7 @@ function SingerChoice({ shown, enabled, checked, onChange }: SingerChoiceProps) 
           aria-describedby={enabled ? noteId : `${hintId} ${noteId}`}
           onChange={(event) => onChange(event.target.checked)}
         />
-        Put each singer on its own voice
+        Put each singer on its own voice (experimental)
       </label>
       {!enabled && (
         <p id={hintId} className="dialog-note">

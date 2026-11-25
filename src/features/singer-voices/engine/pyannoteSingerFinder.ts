@@ -14,9 +14,9 @@ import {
 // The library fetches the ONNX runtime from cdn.jsdelivr.net by default, and the CSP blocks that host.
 import ortWasmUrl from 'onnxruntime-web/ort-wasm-simd-threaded.asyncify.wasm?url'
 import { wasmThreads } from '../../transcription/threads.ts'
+import type { SingerFinder, SingerFinderEvents } from '../singerFinder.ts'
 import { diarize, type DiarizeModels } from './diarize.ts'
-import type { SingerRange } from './segments.ts'
-import { loadFailure, runFailure } from './singerFailure.ts'
+import { loadFailure, runFailure } from './modelFailure.ts'
 import {
   DIARIZE_SETTINGS,
   EMBEDDING_MODEL,
@@ -29,17 +29,6 @@ const onnxWasm = env.backends.onnx.wasm
 if (onnxWasm) {
   onnxWasm.wasmPaths = { wasm: ortWasmUrl }
   onnxWasm.numThreads = wasmThreads(self.crossOriginIsolated, navigator.hardwareConcurrency)
-}
-
-/** The calls that the engine makes during a search. The fields match the `on` argument of the engine seam. */
-export interface SingerFinderEvents {
-  download(loadedBytes: number, totalBytes: number): void
-  progress(doneMs: number, totalMs: number): void
-}
-
-/** The engine that finds the singers of the vocals. */
-export interface PyannoteSingerFinder {
-  find(vocals: Float32Array, on: SingerFinderEvents): Promise<SingerRange[]>
 }
 
 function loadOptions(model: SingerModel) {
@@ -119,7 +108,7 @@ function diarizeModels(models: LoadedModels): DiarizeModels {
  * It reads the vocals in windows of 10 s, so the memory does not grow with the song length.
  * The search rejects with a `SingerFailure`: 'download' or 'model' for a load failure, 'memory' or 'model' for a run failure.
  */
-export function createPyannoteSingerFinder(): PyannoteSingerFinder {
+export function createPyannoteSingerFinder(): SingerFinder {
   let models: Promise<LoadedModels> | null = null
   return {
     async find(vocals, on) {

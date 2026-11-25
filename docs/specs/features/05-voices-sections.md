@@ -93,7 +93,7 @@ flowchart TD
 ### Put each singer on its own voice
 
 1. The person selects "Separate the vocals first" and "Put each singer on its own
-   voice" in the transcribe dialog. See
+   voice (experimental)" in the transcribe dialog. See
    [02-transcription.md](02-transcription.md#put-each-singer-on-its-own-voice).
 2. The run writes the marks to the selected voice.
 3. The app finds the singers in the separated vocals.

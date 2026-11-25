@@ -115,7 +115,7 @@ leaves the browser, and the app shows the host before each run.
 - FR-transcribe-46 — After a failed vocal separation, the person continues the run
   with no separation, or cancels it.
 - FR-transcribe-47 — The transcribe dialog has the check box "Put each singer on its
-  own voice". It is off by default.
+  own voice (experimental)". It is off by default.
 - FR-transcribe-48 — The app remembers the last choice of "Put each singer on its own
   voice".
 - FR-transcribe-49 — The dialog disables "Put each singer on its own voice" while
@@ -240,7 +240,7 @@ sequenceDiagram
 ### Put each singer on its own voice
 
 1. The person selects "Separate the vocals first".
-2. The person selects "Put each singer on its own voice".
+2. The person selects "Put each singer on its own voice (experimental)".
 3. The person selects "Start".
 4. The run separates the vocals, finds the words and writes the marks, as for a run
    with vocal separation.
@@ -322,12 +322,13 @@ the speech model or the remote endpoint:
 - separation failed: the message of the failure, with "Continue with no
   separation" and "Cancel".
 
-**Put each singer on its own voice.** The check box comes after "Separate the vocals
+**Put each singer on its own voice.** The label of the check box is "Put each singer
+on its own voice (experimental)". The check box comes after "Separate the vocals
 first". "Lyrics only" hides it. While "Separate the vocals first" is off, the check
 box is disabled, and the hint under it reads "Select "Separate the vocals first" to
 use this option." The note under the check box reads "The app estimates which singer
 sings each phrase, and makes one voice for each singer. Check the result. Use "Move
-to voice" to correct a phrase."
+to voice" to correct a phrase. The app can find too many singers."
 
 The states of the singer step come after finishing, because the step starts after
 the run writes its marks:
@@ -644,7 +645,14 @@ interface SingerSegment { startMs: number; endMs: number; singer: number } // si
 ```
 
 The times of a segment start at the start of the vocals. A range run adds the start
-of the range. The singer model and its documentation are in the ADR of issue #119.
+of the range.
+
+The engine uses two ONNX models from the Hugging Face Hub, through
+`@huggingface/transformers`: `onnx-community/pyannote-segmentation-3.0` (MIT) and
+`onnx-community/wespeaker-voxceleb-resnet34-LM` (CC BY 4.0), 32 522 457 bytes
+together. The accuracy on singing is not measured. See
+`docs/adr/0009-singer-voices-from-diarization.md` and
+`docs/licences/singer-models.md`.
 
 **Pure functions, `src/features/transcription/`:**
 

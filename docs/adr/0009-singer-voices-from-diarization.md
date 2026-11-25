@@ -49,9 +49,19 @@ embedding, both at fp32, through `@huggingface/transformers`. The engine is in
   0.7045654963945799, a small group size of 12, and 12 groups at most. These values
   are those of the pyannote.audio 3.1 pipeline for speech.
 - A frame belongs to a singer when at least half of the windows over it give it to
-  that singer. Ranges shorter than 300 ms are dropped.
+  that singer.
+- A singer with less sung time than 5% of all sung time, or less than 3 s, joins
+  the singer with the closest centroid (`MIN_SINGER_SHARE` and `MIN_SINGER_MS`).
+  This guard limits the singers that a split of one voice can add. The two values
+  are NOT tuned on songs, and the guard does not replace a measurement.
+- Ranges shorter than 300 ms are dropped.
 
-The option "Put each singer on its own voice" stays off by default.
+The option "Put each singer on its own voice (experimental)" stays off by default.
+Its note tells the person that the app can find too many singers.
+
+The engine was changed after its one run and was not run again. The changes are
+the load of the segmentation processor, so that the cache check finds all files,
+and the guard for short singers.
 
 ## Consequences
 
@@ -66,6 +76,7 @@ The option "Put each singer on its own voice" stays off by default.
 - The clustering values come from speech. A tuned threshold for singing needs
   labelled test songs and a measurement on another machine.
 - The WeSpeaker model has the CC BY 4.0 licence, which requires attribution. The
-  notice is in `docs/licences/singer-models.md`.
+  notice is in `docs/licences/singer-models.md`, and the "How it works" strip
+  credits both models.
 - The test on the maintainer's song stays open as a check for the maintainer on
   another machine.

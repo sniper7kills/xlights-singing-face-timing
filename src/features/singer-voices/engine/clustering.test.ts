@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { clusterEmbeddings } from './clustering.ts'
+import { clusterEmbeddings, foldShortGroups } from './clustering.ts'
 
 const vector = (...values: number[]) => Float32Array.from(values)
 const settings = { threshold: 0.5, minGroupSize: 1, maxGroups: 12 }
@@ -50,5 +50,35 @@ describe('clusterEmbeddings', () => {
 
   it('treats a zero embedding as far from every direction', () => {
     expect(clusterEmbeddings([vector(0, 0), vector(1, 0)], settings)).toEqual([0, 1])
+  })
+})
+
+describe('foldShortGroups', () => {
+  const east = vector(1, 0)
+  const north = vector(0, 1)
+  const northEast = vector(0.9, 0.3)
+
+  it('joins a group with less time than the limit into the remaining group with the closest centroid', () => {
+    const groups = foldShortGroups([0, 1, 2], [east, north, northEast], [10_000, 10_000, 500], 3000)
+    expect(groups).toEqual([0, 1, 0])
+  })
+
+  it('keeps every group that reaches the limit', () => {
+    expect(foldShortGroups([0, 1], [east, north], [3000, 3000], 3000)).toEqual([0, 1])
+  })
+
+  it('keeps the group with the most time when all groups are short', () => {
+    expect(foldShortGroups([0, 1, 2], [east, north, northEast], [100, 900, 200], 3000)).toEqual([
+      0, 0, 0,
+    ])
+  })
+
+  it('numbers the remaining groups again in the order of their first embedding', () => {
+    const groups = foldShortGroups([0, 1, 2], [northEast, east, north], [500, 10_000, 10_000], 3000)
+    expect(groups).toEqual([0, 0, 1])
+  })
+
+  it('gives an empty list for no embeddings', () => {
+    expect(foldShortGroups([], [], [], 3000)).toEqual([])
   })
 })

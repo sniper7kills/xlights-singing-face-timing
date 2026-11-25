@@ -90,13 +90,55 @@ export function clusterEmbeddings(
     const pair = closestPair(groups, () => true)
     join(groups, pair.a, pair.b)
   }
-  const owner = new Array<number>(embeddings.length).fill(0)
+  return groupNumbers(groups, embeddings.length)
+}
+
+/** Returns the group of each embedding, with the groups numbered in the order of their first embedding. */
+function groupNumbers(groups: readonly Group[], count: number): number[] {
+  const owner = new Array<number>(count).fill(0)
   groups
-    .map((group) => Math.min(...group.members))
-    .map((first, index) => ({ first, index }))
+    .map((group, index) => ({ first: Math.min(...group.members), index }))
     .sort((x, y) => x.first - y.first)
     .forEach(({ index }, number) => {
       for (const member of groups[index]?.members ?? []) owner[member] = number
     })
   return owner
+}
+
+/**
+ * Returns the group of each embedding after each short group joins the remaining group with the closest centroid.
+ * A group is short when its time is less than `minTime`. If all groups are short, the group with the most time remains.
+ * The groups are numbered again in the order of their first embedding.
+ * @param owners The group of each embedding, as `clusterEmbeddings` gives it.
+ * @param embeddings The speaker embeddings, in the order of their time.
+ * @param groupTimes The time of each group, at the index of its number.
+ * @param minTime The time under which a group is short.
+ */
+export function foldShortGroups(
+  owners: readonly number[],
+  embeddings: readonly Float32Array[],
+  groupTimes: readonly number[],
+  minTime: number,
+): number[] {
+  const groups: Group[] = groupTimes.map(() => ({ sum: new Float64Array(0), members: [] }))
+  owners.forEach((owner, index) => {
+    const group = groups[owner]
+    const embedding = embeddings[index]
+    if (group === undefined || embedding === undefined) return
+    const unit = unitLength(embedding)
+    group.sum = group.members.length === 0 ? unit : group.sum.map((v, i) => v + (unit[i] ?? 0))
+    group.members.push(index)
+  })
+  const longest = groupTimes.indexOf(Math.max(...groupTimes))
+  const remains = groupTimes.map((time, index) => time >= minTime || index === longest)
+  const kept = groups.filter((group, index) => remains[index] && group.members.length > 0)
+  if (kept.length === 0) return [...owners]
+  groups.forEach((group, index) => {
+    if (remains[index] || group.members.length === 0) return
+    const target = kept.reduce((best, other) =>
+      centroidDistance(group, other) < centroidDistance(group, best) ? other : best,
+    )
+    target.members.push(...group.members)
+  })
+  return groupNumbers(kept, owners.length)
 }

@@ -1,15 +1,4 @@
-/** The cause of a failed singer search. The values match the `kind` of the `error` message of the singers protocol. */
-export type SingerFailureKind = 'download' | 'memory' | 'model' | 'unknown'
-
-/** An engine failure with a known cause, so the dialog shows the correct message. */
-export class SingerFailure extends Error {
-  readonly kind: SingerFailureKind
-  constructor(kind: SingerFailureKind, detail: string) {
-    super(detail)
-    this.name = 'SingerFailure'
-    this.kind = kind
-  }
-}
+import { SingerFailure } from '../singerFailure.ts'
 
 // The WASM runtime reports a failed allocation as a C++ `std::bad_alloc`, and the browser names it in other words.
 const MEMORY_PATTERN = /bad_alloc|out of memory|allocation failed/i
@@ -24,7 +13,9 @@ const DOWNLOAD_PATTERN = /failed to fetch|networkerror|could not locate file|acc
 export function loadFailure(error: unknown): SingerFailure {
   const text = String(error)
   const detail = `The singer models did not load: ${text}`
-  if (error instanceof RangeError || MEMORY_PATTERN.test(text)) return new SingerFailure('memory', detail)
+  if (error instanceof RangeError || MEMORY_PATTERN.test(text)) {
+    return new SingerFailure('memory', detail)
+  }
   if (error instanceof TypeError || DOWNLOAD_PATTERN.test(text)) {
     return new SingerFailure('download', detail)
   }

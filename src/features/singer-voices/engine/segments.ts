@@ -1,9 +1,4 @@
-/** One time range in which one singer sings. The fields match `SingerSegment` of the singers protocol. */
-export interface SingerRange {
-  startMs: number
-  endMs: number
-  singer: number
-}
+import type { SingerSegment } from '../protocol.ts'
 
 /** The settings that turn the frame activity of a singer into time ranges. */
 export interface RangeSettings {
@@ -50,7 +45,7 @@ export function activityToRanges(
   active: ArrayLike<boolean>,
   singer: number,
   settings: RangeSettings,
-): SingerRange[] {
+): SingerSegment[] {
   const { frameMs, minGapMs, minRangeMs } = settings
   return joinShortGaps(activeRuns(active), minGapMs / frameMs)
     .map(([start, end]) => ({
@@ -66,7 +61,7 @@ export function activityToRanges(
  * A singer with no range gets no number.
  * @param ranges The ranges of all singers.
  */
-export function renumberByFirstRange(ranges: readonly SingerRange[]): SingerRange[] {
+export function renumberByFirstRange(ranges: readonly SingerSegment[]): SingerSegment[] {
   const sorted = [...ranges].sort((a, b) => a.startMs - b.startMs || a.singer - b.singer)
   const numbers = new Map<number, number>()
   return sorted.map((range) => {

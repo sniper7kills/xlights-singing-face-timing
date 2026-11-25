@@ -1,6 +1,7 @@
-import { clusterEmbeddings } from './clustering.ts'
+import { clusterEmbeddings, foldShortGroups } from './clustering.ts'
 import { decodePowerset } from './powerset.ts'
-import { activityToRanges, renumberByFirstRange, type SingerRange } from './segments.ts'
+import type { SingerSegment } from '../protocol.ts'
+import { activityToRanges, renumberByFirstRange } from './segments.ts'
 import { planWindows, windowSamplesAt } from './windows.ts'
 
 /** The two models that the diarization calls. Tests replace them. */
@@ -23,6 +24,10 @@ export interface DiarizeSettings {
   /** A group with fewer local speakers than this joins the closest larger group. */
   minGroupSize: number
   maxSingers: number
+  /** A singer with less sung time than this share of all sung time joins the closest other singer. */
+  minSingerShare: number
+  /** A singer with less sung time than this joins the closest other singer, whatever the share. */
+  minSingerMs: number
   minGapMs: number
   minRangeMs: number
 }
@@ -143,6 +148,7 @@ function singerShares(
  * The segmentation model reads overlapping windows and finds up to 3 local speakers in each.
  * The embedding model and the clustering give the same singer number to the same voice in all windows.
  * A frame belongs to a singer when at least half of the windows over it give it to that singer.
+ * Then a singer with too little sung time joins the closest other singer. This limits the singers that a split of one voice can add.
  * @param vocals The audio, mono, at `settings.sampleRate`.
  * @param models The segmentation model and the embedding model.
  * @param settings The window plan, the clustering and the range limits.
@@ -154,7 +160,7 @@ export async function diarize(
   models: DiarizeModels,
   settings: DiarizeSettings,
   onProgress: (doneSamples: number, totalSamples: number) => void,
-): Promise<SingerRange[]> {
+): Promise<SingerSegment[]> {
   const starts = planWindows(vocals.length, settings.windowSamples, settings.stepSamples)
   const speakers: LocalSpeaker[] = []
   for (const start of starts) {
@@ -178,18 +184,37 @@ export async function diarize(
     frames: Math.ceil(vocals.length / frameSamples),
     windowFrames: first.activity.length,
   }
-  const rangeSettings = {
-    frameMs: (frameSamples / settings.sampleRate) * 1000,
-    minGapMs: settings.minGapMs,
-    minRangeMs: settings.minRangeMs,
-  }
+  const frameMs = (frameSamples / settings.sampleRate) * 1000
+  const active = singerActivity(singerShares(speakers, singers, starts, grid))
+  const folded = foldShortGroups(
+    singers,
+    speakers.map((speaker) => speaker.embedding),
+    active.map((frames) => frames.filter(Boolean).length * frameMs),
+    shortSingerLimitMs(active, frameMs, settings),
+  )
+  const rangeSettings = { frameMs, minGapMs: settings.minGapMs, minRangeMs: settings.minRangeMs }
   return renumberByFirstRange(
-    singerShares(speakers, singers, starts, grid).flatMap((share, singer) =>
-      activityToRanges(
-        Array.from(share, (value) => value >= 0.5),
-        singer,
-        rangeSettings,
-      ),
+    singerActivity(singerShares(speakers, folded, starts, grid)).flatMap((frames, singer) =>
+      activityToRanges(frames, singer, rangeSettings),
     ),
   )
+}
+
+/** Returns, for each singer, true for each frame that at least half of the windows over it give to the singer. */
+function singerActivity(shares: readonly Float32Array[]): boolean[][] {
+  return shares.map((share) => Array.from(share, (value) => value >= 0.5))
+}
+
+/** Returns the sung time under which a singer joins another singer: a share of the sung time, but not less than a fixed time. */
+function shortSingerLimitMs(
+  active: readonly boolean[][],
+  frameMs: number,
+  settings: DiarizeSettings,
+): number {
+  const frames = active[0]?.length ?? 0
+  let sungFrames = 0
+  for (let frame = 0; frame < frames; frame++) {
+    if (active.some((singer) => singer[frame] === true)) sungFrames++
+  }
+  return Math.max(settings.minSingerShare * sungFrames * frameMs, settings.minSingerMs)
 }

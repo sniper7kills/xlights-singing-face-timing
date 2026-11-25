@@ -10,6 +10,8 @@ const settings = {
   threshold: 0.5,
   minGroupSize: 1,
   maxSingers: 12,
+  minSingerShare: 0,
+  minSingerMs: 0,
   minGapMs: 0,
   minRangeMs: 0,
 }
@@ -106,6 +108,24 @@ describe('diarize', () => {
       { startMs: 0, endMs: 2000, singer: 0 },
       { startMs: 1500, endMs: 3000, singer: 1 },
     ])
+  })
+
+  it('joins a singer with less sung time than the fixed limit into the closest other singer', async () => {
+    const vocals = audio([1, 3000], [-1, 500], [1, 3000])
+    const ranges = await diarize(vocals, fakeModels(), { ...settings, minSingerMs: 1000 }, () => {})
+    expect(ranges).toEqual([{ startMs: 0, endMs: 6500, singer: 0 }])
+  })
+
+  it('joins a singer with less than the share limit of the sung time into the closest other singer', async () => {
+    const vocals = audio([1, 3000], [-1, 500], [1, 3000])
+    const ranges = await diarize(vocals, fakeModels(), { ...settings, minSingerShare: 0.1 }, () => {})
+    expect(ranges).toEqual([{ startMs: 0, endMs: 6500, singer: 0 }])
+  })
+
+  it('keeps a short singer when the limits are 0', async () => {
+    const vocals = audio([1, 3000], [-1, 500], [1, 3000])
+    const ranges = await diarize(vocals, fakeModels(), settings, () => {})
+    expect(ranges.map((range) => range.singer)).toEqual([0, 1, 0])
   })
 
   it('rejects with the error of a model call', async () => {

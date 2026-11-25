@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { loadFailure, runFailure, SingerFailure } from './singerFailure.ts'
+import { SingerFailure } from '../singerFailure.ts'
+import { loadFailure, runFailure } from './modelFailure.ts'
 
 describe('loadFailure', () => {
   it('gives download for a network error of fetch', () => {

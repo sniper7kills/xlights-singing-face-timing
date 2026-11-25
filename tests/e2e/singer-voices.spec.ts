@@ -19,7 +19,7 @@ const INIT_SCRIPT = `
 `
 
 const SEPARATE = 'Separate the vocals first'
-const SINGERS = 'Put each singer on its own voice'
+const SINGERS = 'Put each singer on its own voice (experimental)'
 const SHARED_PHRASE = 'All is calm all is bright'
 const APP_ORIGIN = 'http://localhost:4173'
 

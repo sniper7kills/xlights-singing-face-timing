@@ -28,6 +28,15 @@ export const EMBEDDING_MODEL: SingerModel = {
 export const SINGER_MODEL_BYTES = SEGMENTATION_MODEL.bytes + EMBEDDING_MODEL.bytes
 
 /**
+ * A singer with less than this share of the sung time joins the closest other singer.
+ * The one run on a song found 8 singers in 30 s where 2 were correct. This value and `MIN_SINGER_MS` are NOT tuned on songs.
+ */
+export const MIN_SINGER_SHARE = 0.05
+
+/** A singer with less sung time than this, in milliseconds, joins the closest other singer. NOT tuned on songs. */
+export const MIN_SINGER_MS = 3000
+
+/**
  * The settings of the diarization, at the 16 000 Hz of the input.
  * The window is the 10 s that the segmentation model reads. The clustering values are those of the
  * pyannote.audio 3.1 pipeline (`tutorials/community/offline_usage_speaker_diarization.ipynb`), which is tuned on speech.
@@ -42,6 +51,8 @@ export const DIARIZE_SETTINGS = {
   minGroupSize: 12,
   // A song has 12 voices at most.
   maxSingers: 12,
+  minSingerShare: MIN_SINGER_SHARE,
+  minSingerMs: MIN_SINGER_MS,
   minGapMs: 300,
   minRangeMs: 300,
 } as const
