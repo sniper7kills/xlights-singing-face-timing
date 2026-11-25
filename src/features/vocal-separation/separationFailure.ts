@@ -17,8 +17,7 @@ export class SeparationFailure extends Error {
 }
 
 // The browser and the WASM runtime name an allocation failure in different words.
-const MEMORY_PATTERN =
-  /out of memory|memory access out of bounds|allocation|Array buffer allocation failed/i
+const MEMORY_PATTERN = /out of memory|allocation failed/i
 
 /**
  * Returns the cause of an engine failure.
