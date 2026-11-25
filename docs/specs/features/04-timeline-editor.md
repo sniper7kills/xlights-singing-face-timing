@@ -3,7 +3,7 @@ id: timeline-editor
 feature: Timeline editor
 epic: "Epic 4: Editor"
 status: built
-issues: [19, 26, 27, 28, 29, 30, 31, 32, 33, 34]
+issues: [19, 26, 27, 28, 29, 30, 31, 32, 33, 34, 130]
 mockups: [mockups/02-editor.html]
 ---
 
@@ -22,6 +22,8 @@ face that sings during play, so the person sees the result before xLights does.
 - As the person, I want a face that moves its mouth during play, so that I can see
   errors that I cannot hear.
 - As the person, I want undo, so that an error in an edit costs nothing.
+- As the person, I want to hear the vocals alone, so that I can judge the time of
+  a word under loud instruments.
 
 ## Functional requirements
 
@@ -65,6 +67,15 @@ face that sings during play, so the person sees the result before xLights does.
 - FR-editor-29 — The editor has a shortcut list that opens with the `?` key.
 - FR-editor-30 — Editing a phrase label breaks down the phrase into words again
   after a confirm dialog.
+- FR-editor-31 — The editor shows one track row for each kept audio track of the
+  song, under the waveform, on the time scale of the stage.
+- FR-editor-32 — The editor shows one track row for each singer voice of the last
+  run.
+- FR-editor-33 — The person mutes each track row and the "Song" row.
+- FR-editor-34 — The person soloes each track row and the "Song" row.
+- FR-editor-35 — Each track that sounds plays in time with the play cursor.
+- FR-editor-36 — The person folds the group of track rows.
+- FR-editor-37 — The editor keeps the mute, the solo and the fold for each song.
 
 ## User flows
 
@@ -126,7 +137,8 @@ Regions:
 - **Voice rail** (left). The voices of the song. Defined in
   [05-voices-sections.md](05-voices-sections.md).
 - **Stage** (centre). From top to bottom: the section band, the time ruler, the
-  waveform, the phrase layer, the word layer, the phoneme layer.
+  waveform, the group "Audio tracks" with the track rows, the phrase layer, the
+  word layer, the phoneme layer. A song with no kept audio tracks has no group.
 - **Transport** (below the stage). Play, loop, speed, play time, zoom slider,
   frame size selector, undo, redo, unknown-word counter.
 - **Inspector** (right). The face preview at the top. Under it, the fields of the
@@ -163,7 +175,41 @@ Controls on the layers:
 - `Shift`+click selects the marks from the anchor to the clicked mark on one
   layer. A plain click sets the anchor.
 
+Track rows (FR-editor-31 to 37):
+
+- A song with kept audio tracks shows the group "Audio tracks" under the waveform.
+  The group has the rows "Vocals" and "Instruments". Each row draws the waveform of
+  its audio track on the time scale of the stage. A row is lower than the
+  waveform.
+- If the singer step of the last run put the singers on voices, the group also has
+  one row for each of those voices. The row name is the voice name. The row shows
+  the vocals only in the time ranges of that singer, in the colour of the voice.
+  The row name has the tooltip "This row is the vocals track, limited to the times
+  of this singer."
+- The waveform of the song is the row "Song". It gets its controls when the group
+  shows.
+- Each row has the toggle buttons "Mute <row name>" and "Solo <row name>". A
+  pressed button shows a fill, a bold letter and a frame.
+- The fold button "Audio tracks" hides and shows the rows. It has `aria-expanded`.
+- A song with no kept audio tracks shows no group and no "Song" controls.
+
 ## Behaviour rules
+
+- **Track rows.**
+  - With no choice of the person, "Song" sounds and each other row is muted. So the
+    same sound does not play twice.
+  - If one row or more is soloed, only the soloed rows sound. Else each row that is
+    not muted sounds.
+  - With "Song" muted, the song audio plays with no sound. The play cursor, the
+    loop, the face preview and the shortcuts work as before.
+  - Each track that sounds plays, pauses, seeks, loops and changes speed with the
+    song audio. A track that is more than 50 ms from the song time moves to it.
+    The pitch does not change at 50% and 75%. The design is in
+    `docs/adr/0010-track-rows-follow-the-song-audio.md`.
+  - A track of a range run covers the range only. Outside the range it is silent
+    and its row shows no waveform.
+  - A singer row sounds only in the time ranges of its singer.
+  - Mute, solo and fold are view state. They are not undo steps.
 
 - **Shortcuts.** `Space` play or pause. `L` loop the selection. `S` split at the
   play cursor. `M` merge with the next mark. `Delete` delete. `Enter` or `F2` edit
@@ -230,6 +276,9 @@ Controls on the layers:
   change.
 - The history stack is in memory only. A reload clears it.
 - Stores zoom and scroll for each song in `localStorage`.
+- Reads the kept audio tracks and the singer ranges from `RunData`.
+- Stores mute, solo and fold for each song in `localStorage`, under the key
+  `sft.tracks.<song id>`.
 
 ## Interfaces
 
@@ -276,6 +325,9 @@ scroll methods before use. Those names are not verified in this spec.
 | Empty label on a phrase or a word | The app keeps the old label. |
 | Audio missing | Play controls are disabled. Edits work. |
 | 3 000 marks in view | Scroll and zoom stay at 60 frames per second. The editor draws only the marks in view. |
+| A new run stores new tracks | The track rows show the new tracks. |
+| The browser refuses to play a track | The track stays silent, and the song audio plays. The next check tries again. |
+| A voice of a singer row has a new name or is deleted | The row of that voice does not show. |
 
 ## Acceptance criteria
 
@@ -313,6 +365,18 @@ scroll methods before use. Those names are not verified in this spec.
 - A typed start time of `0:12.350` with a 50 ms frame size sets the start to
   12 350 ms. (FR-editor-28)
 - `?` opens the shortcut list, and `Escape` closes it. (FR-editor-29)
+- After a run with separation, the rows "Vocals" and "Instruments" show, each with
+  a waveform at the correct times. (FR-editor-31)
+- After a run that put two singers on voices, one row for each of the two voices
+  shows. (FR-editor-32)
+- With "Solo" on "Vocals", only the vocals play, and the play cursor and the face
+  preview move as before. (FR-editor-33, 34)
+- A loop, a seek and the 50% play speed keep every playing track within 50 ms of
+  the song time. (FR-editor-35)
+- A song with no tracks has no row and no change in play. (FR-editor-31)
+- The fold button hides the rows, and each control is reachable by keyboard and
+  has a name. (FR-editor-36)
+- After a reload, the mute, the solo and the fold of the song stay. (FR-editor-37)
 - A changed phrase label shows the confirm dialog, and confirm rebuilds the words.
   (FR-editor-30)
 
@@ -323,6 +387,8 @@ scroll methods before use. Those names are not verified in this spec.
 - A spectrogram view.
 - A custom image for the face preview.
 - Touch gestures.
+- A volume slider for each track row.
+- Waveform edits on a track row.
 
 ## Open questions
 

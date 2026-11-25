@@ -64,6 +64,8 @@ The user's request, verbatim:
 | song | noun | One audio file plus all voices, sections and marks that belong to it. The app saves a song in the browser. | project, session, document |
 | audio file | noun | The file that the person loads. It holds the recording. | track, media, upload |
 | audio track | noun | One audio signal of a song: the song audio, the vocals or the instruments. A timing track is a different term: it holds marks, not audio. | stem, channel |
+| track row | noun | One row of the stage under the waveform that shows one audio track, with "Mute" and "Solo". A layer is a different term: it holds marks. | lane, strip |
+| solo | verb | To make one track row or more the only rows that sound. | isolate |
 | voice | noun | One singer or one vocal part in a song. One voice becomes one timing track. | singer, face, character, part |
 | singer | noun | A person who sings in the audio of a song. The app estimates the singers and gives each one a voice. A singer is the person in the audio, and a voice is the row in the app, so a voice is never called a singer. | speaker, vocalist, performer |
 | section | noun | A named time range of the song, for example "Chorus 1". | segment, region, part |
@@ -594,6 +596,9 @@ None of these blocks approval. Each one names the epic that settles it.
 - 2026-11-24 — A transcribe run with the vocal separation keeps the vocals and the
   instruments as audio tracks of the song, with the check box "Keep the separated
   tracks" on by default (issue #129). The zip file holds them and `report.txt`.
+- 2026-11-24 — The editor shows each kept audio track as a track row with "Mute"
+  and "Solo" (issue #130). Each track plays in its own media element that follows
+  the song audio, so the play speed keeps the pitch (`docs/adr/0010`).
 
 ## Issue map
 
