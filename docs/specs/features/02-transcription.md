@@ -180,8 +180,8 @@ leaves the browser, and the app shows the host before each run.
   its count of phrases.
 - FR-transcribe-79 — The app gives the report as plain text: one heading line for
   each section, one fact on each line, a unit with each number.
-- FR-transcribe-80 — If the browser storage is full, the run completes and the song
-  keeps the earlier report.
+- FR-transcribe-80 — If the browser storage is full, the run completes. If the run
+  data does not fit with no audio tracks either, the song keeps the earlier report.
 
 ### Run report panel (issue #131)
 
