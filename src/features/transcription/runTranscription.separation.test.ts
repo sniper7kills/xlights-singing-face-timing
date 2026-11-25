@@ -232,7 +232,7 @@ describe('runTranscription with vocal separation', () => {
 
     await runTranscription(separatedRequest, client, run)
 
-    expect(run.confirmNoSeparation).toHaveBeenCalledExactlyOnceWith(failure)
+    expect(run.confirmNoSeparation).toHaveBeenCalledExactlyOnceWith(failure, 'spleeter')
     expect(client.transcribe).toHaveBeenCalledWith(ORIGINAL, 0, expect.anything())
     expect(steps.slice(-5)).toEqual(['preparing', 'resample', 'loading', 'load', 'transcribe'])
     expect(marks().filter((mark) => mark.layer === 'word')).toHaveLength(2)

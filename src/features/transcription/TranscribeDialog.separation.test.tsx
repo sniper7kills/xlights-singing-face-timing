@@ -177,7 +177,7 @@ describe('TranscribeDialog and the vocal separation', () => {
     await startSeparatedRun()
 
     act(() => {
-      void lastRun().handlers.confirmNoSeparation(new SeparateError(kind, 'detail'))
+      void lastRun().handlers.confirmNoSeparation(new SeparateError(kind, 'detail'), 'spleeter')
     })
 
     expect(await screen.findByRole('alert')).toHaveTextContent(message)
@@ -187,9 +187,12 @@ describe('TranscribeDialog and the vocal separation', () => {
 
   it('continues the run for "Continue with no separation"', async () => {
     const { user } = await startSeparatedRun()
-    let answer: Promise<boolean> = Promise.resolve(false)
+    let answer: Promise<unknown> = Promise.resolve(false)
     act(() => {
-      answer = lastRun().handlers.confirmNoSeparation(new SeparateError('model', 'detail'))
+      answer = lastRun().handlers.confirmNoSeparation(
+        new SeparateError('model', 'detail'),
+        'spleeter',
+      )
     })
 
     await user.click(await screen.findByRole('button', { name: 'Continue with no separation' }))
@@ -201,9 +204,12 @@ describe('TranscribeDialog and the vocal separation', () => {
 
   it('stops the run for "Cancel" after a failure', async () => {
     const { user } = await startSeparatedRun()
-    let answer: Promise<boolean> = Promise.resolve(true)
+    let answer: Promise<unknown> = Promise.resolve(true)
     act(() => {
-      answer = lastRun().handlers.confirmNoSeparation(new SeparateError('model', 'detail'))
+      answer = lastRun().handlers.confirmNoSeparation(
+        new SeparateError('model', 'detail'),
+        'spleeter',
+      )
     })
 
     await user.click(await screen.findByRole('button', { name: 'Cancel' }))
@@ -215,9 +221,12 @@ describe('TranscribeDialog and the vocal separation', () => {
 
   it('answers false for Escape after a failure', async () => {
     const { user } = await startSeparatedRun()
-    let answer: Promise<boolean> = Promise.resolve(true)
+    let answer: Promise<unknown> = Promise.resolve(true)
     act(() => {
-      answer = lastRun().handlers.confirmNoSeparation(new SeparateError('model', 'detail'))
+      answer = lastRun().handlers.confirmNoSeparation(
+        new SeparateError('model', 'detail'),
+        'spleeter',
+      )
     })
     await screen.findByRole('button', { name: 'Continue with no separation' })
 

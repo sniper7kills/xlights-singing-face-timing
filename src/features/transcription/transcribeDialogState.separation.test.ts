@@ -74,6 +74,7 @@ describe('the separation states of the transcribe dialog', () => {
     expect(state).toEqual({
       status: 'separation-failed',
       message: SEPARATION_COPY.memory,
+      fastModel: false,
       resume: running,
     })
     expect(shownRunState(state)).toEqual(running)
