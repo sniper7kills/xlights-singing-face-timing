@@ -35,7 +35,7 @@ type HeldRun = {
 const SEPARATE = 'Separate the vocals first'
 const SINGERS = 'Put each singer on its own voice (experimental)'
 const NOTE =
-  'The app estimates which singer sings each phrase, and makes one voice for each singer. Check the result. Use "Move to voice" to correct a phrase. The app can find too many singers.'
+  'The app estimates which singer sings each phrase, and makes one voice for each singer. Check the result. Use "Move to voice" to correct a phrase. The app can find too many singers. This step downloads models of 33 MB one time.'
 const HINT = 'Select "Separate the vocals first" to use this option.'
 
 let client: TranscribeClient

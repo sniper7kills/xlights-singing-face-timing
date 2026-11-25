@@ -1,4 +1,4 @@
-import { clusterEmbeddings, foldShortGroups } from './clustering.ts'
+import { clusterEmbeddings, foldShortGroups, NO_GROUP } from './clustering.ts'
 import { decodePowerset } from './powerset.ts'
 import type { SingerSegment } from '../protocol.ts'
 import { activityToRanges, renumberByFirstRange } from './segments.ts'
@@ -93,7 +93,13 @@ async function windowSpeakers(
   const frameSamples = settings.windowSamples / (activity[0]?.length ?? 1)
   const speakers: LocalSpeaker[] = []
   for (const speaker of activity) {
-    const samples = speakerSamples(window, activity, speaker, frameSamples, settings.minEmbedSamples)
+    const samples = speakerSamples(
+      window,
+      activity,
+      speaker,
+      frameSamples,
+      settings.minEmbedSamples,
+    )
     if (samples.length >= settings.minEmbedSamples) {
       speakers.push({ windowStart, activity: speaker, embedding: await models.embed(samples) })
     }
@@ -130,7 +136,10 @@ function singerShares(
       part[offset] = (part[offset] ?? 0) + 1
     })
   }
-  const votes = Array.from({ length: Math.max(...singers) + 1 }, () => new Float32Array(grid.frames))
+  const votes = Array.from(
+    { length: Math.max(...singers) + 1 },
+    () => new Float32Array(grid.frames),
+  )
   speakers.forEach((speaker, index) => {
     const singerVotes = votes[singers[index] ?? 0] ?? new Float32Array()
     const first = gridIndex(grid, speaker.windowStart, 0)
@@ -162,22 +171,25 @@ export async function diarize(
   onProgress: (doneSamples: number, totalSamples: number) => void,
 ): Promise<SingerSegment[]> {
   const starts = planWindows(vocals.length, settings.windowSamples, settings.stepSamples)
-  const speakers: LocalSpeaker[] = []
+  const found: LocalSpeaker[] = []
   for (const start of starts) {
     const window = windowSamplesAt(vocals, start, settings.windowSamples)
-    speakers.push(...(await windowSpeakers(window, start, models, settings)))
+    found.push(...(await windowSpeakers(window, start, models, settings)))
     onProgress(Math.min(vocals.length, start + settings.windowSamples), vocals.length)
   }
-  const first = speakers[0]
-  if (first === undefined) return []
-  const singers = clusterEmbeddings(
-    speakers.map((speaker) => speaker.embedding),
+  const owners = clusterEmbeddings(
+    found.map((speaker) => speaker.embedding),
     {
       threshold: settings.threshold,
       minGroupSize: settings.minGroupSize,
       maxGroups: settings.maxSingers,
     },
   )
+  // A speaker with an embedding that is not finite has no group, so its frames count for no singer, as silence does.
+  const speakers = found.filter((_, index) => owners[index] !== NO_GROUP)
+  const singers = owners.filter((owner) => owner !== NO_GROUP)
+  const first = speakers[0]
+  if (first === undefined) return []
   const frameSamples = settings.windowSamples / first.activity.length
   const grid = {
     frameSamples,

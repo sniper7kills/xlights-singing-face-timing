@@ -666,7 +666,7 @@ body.rv-open .layout { padding-right:21rem; }
 </li>
 </ul>
 <p>separation" and "Cancel".</p>
-<p><strong>Put each singer on its own voice.</strong> The label of the check box is "Put each singer on its own voice (experimental)". The check box comes after "Separate the vocals first". "Lyrics only" hides it. While "Separate the vocals first" is off, the check box is disabled, and the hint under it reads "Select "Separate the vocals first" to use this option." The note under the check box reads "The app estimates which singer sings each phrase, and makes one voice for each singer. Check the result. Use "Move to voice" to correct a phrase. The app can find too many singers."</p>
+<p><strong>Put each singer on its own voice.</strong> The label of the check box is "Put each singer on its own voice (experimental)". The check box comes after "Separate the vocals first". "Lyrics only" hides it. While "Separate the vocals first" is off, the check box is disabled, and the hint under it reads "Select "Separate the vocals first" to use this option." The note under the check box reads "The app estimates which singer sings each phrase, and makes one voice for each singer. Check the result. Use "Move to voice" to correct a phrase. The app can find too many singers. This step downloads models of 33 MB one time."</p>
 <p>The states of the singer step come after finishing, because the step starts after the run writes its marks:</p>
 <ul>
 <li>singers loading: "Loading singer model, 0:03 elapsed" with a bar that has no end.
@@ -1114,6 +1114,8 @@ spreadLyrics(lyrics: string, startMs: number, endMs: number): AlignedPhrase[]</c
 <tr><td>Singer step: the person selects "Cancel" during the step</td><td>The app stops the worker. The marks of the run stay. The dialog closes, and the toast adds "The app stopped the search for the singers. All phrases stay on &lt;voice name&gt;."</td></tr>
 <tr><td>Singer step: the vocal separation failed and the person selected "Continue with no separation"</td><td>The step does not run. The toast adds "The app finds the singers only in separated vocals. All phrases stay on &lt;voice name&gt;."</td></tr>
 <tr><td>Singer step: more singers than free voices</td><td>The song keeps 12 voices or fewer. See the singer rules in <a href="feature-voices-sections.html#behaviour-rules">05-voices-sections.md</a>.</td></tr>
+<tr><td>Singer step: more singers than free voices, and the song has 12 voices</td><td>No new voice. The toast adds "The song has 12 voices, so the app cannot add a voice for each singer. All phrases stay on &lt;voice name&gt;."</td></tr>
+<tr><td>Singer step: more singers than free voices, and the song has room for some singers</td><td>The app adds a voice for each free voice. The toast adds "The song has room for &lt;k&gt; more voices. The other singers stay on &lt;voice name&gt;."</td></tr>
 <tr><td>Remote endpoint: the browser asks for the permission to reach the local network</td><td>The run waits for the answer of the person. If the person refuses, the dialog shows the message for no connection.</td></tr>
 </table></div>
 <h3 id="transcription-acceptance-criteria">Acceptance criteria</h3>

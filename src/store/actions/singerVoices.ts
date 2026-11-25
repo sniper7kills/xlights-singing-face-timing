@@ -74,17 +74,37 @@ function transfersOf(
   )
 }
 
+/**
+ * Returns the assignment of the phrases with the singers after singer 0 numbered 1, 2, 3 … with no gap,
+ * in the order of the first phrase of each singer by start time, and the count of singers.
+ * Singer 0 keeps its number, because it is the singer of the voice of the run.
+ * With no gap, each new voice gets at least one phrase.
+ */
+function denseSingers(phrases: readonly Mark[], assignment: SingerAssignment) {
+  const newNumber = new Map([[0, 0]])
+  const ordered = phrases.toSorted((a, b) => a.startMs - b.startMs)
+  for (const phrase of ordered)
+    for (const singer of (assignment.get(phrase.id) ?? []).toSorted((a, b) => a - b))
+      if (!newNumber.has(singer)) newNumber.set(singer, newNumber.size)
+  const dense = new Map(
+    phrases.map((phrase) => [
+      phrase.id,
+      (assignment.get(phrase.id) ?? []).map((singer) => newNumber.get(singer) ?? 0),
+    ]),
+  )
+  return { dense, singerCount: newNumber.size }
+}
+
 /** Returns the content after each transfer, with the voices of the singers, and the voice count of the run. */
 function singerVoicesStep(content: SongContent, voiceId: string, assignment: SingerAssignment) {
   const unchanged = { content, voiceCount: 1 }
   if (!content.voices.some((voice) => voice.id === voiceId)) return unchanged
   const phrases = runPhrases(content, voiceId, assignment)
-  const singerCount =
-    Math.max(0, ...phrases.flatMap((phrase) => assignment.get(phrase.id) ?? [])) + 1
+  const { dense, singerCount } = denseSingers(phrases, assignment)
   const withVoices = withSingerVoices(content, voiceId, singerCount)
   if (withVoices.voiceIds.length === 1) return unchanged
   let marks = withVoices.content.marks
-  for (const transfer of transfersOf(phrases, assignment, withVoices.voiceIds, voiceId)) {
+  for (const transfer of transfersOf(phrases, dense, withVoices.voiceIds, voiceId)) {
     // Each new voice is empty, so `replace` removes nothing there. It keeps the replace rule of a transfer in force.
     const edit = previewTransfer(
       marks,
@@ -109,6 +129,7 @@ function singerVoicesStep(content: SongContent, voiceId: string, assignment: Sin
  * - A phrase with more than one singer goes to each other singer as a copy with new ids.
  * - Only the phrases in the assignment change. Older marks of the voice stay.
  * - A song has 12 voices at most. A singer with no free voice keeps the voice of the run.
+ * - The action numbers the singers after singer 0 again with no gap, so a gap in the assignment makes no empty voice.
  *
  * With one singer, an unknown voice or no phrase, the action records no step.
  * @param voiceId The voice of the run.
