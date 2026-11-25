@@ -81,7 +81,8 @@ function outerPlace(
  *
  * The rules:
  * - Both times snap to the frame size. The start time is the anchor of the empty range.
- * - The mark goes in the empty range of its layer of its voice around the anchor, and the rule clamps the mark to that range.
+ * - The mark goes in the empty range of its layer of its voice around the anchor.
+ *   A mark that ends past the empty range moves earlier to keep its length. A mark longer than the empty range fills it.
  * - The mark stays inside its parent: a word in the phrase that holds the anchor, a phoneme in the word that holds the anchor.
  *   A word outside any phrase stays in the empty range between phrases.
  * - The clamped mark must be one frame size or longer.
@@ -104,7 +105,10 @@ export function addPlace(
   const place = outerPlace(marks, input, anchorMs, songRange)
   const gap = place && gapAround(marks, input.voiceId, input.layer, anchorMs, place.outer)
   if (!place || !gap) return undefined
-  const range = { startMs: Math.max(startMs, gap.startMs), endMs: Math.min(endMs, gap.endMs) }
+  // A double-click near the end of a gap asks for a range past the gap, so the range moves back to keep its length.
+  const length = endMs - startMs
+  const rangeStartMs = clamp(startMs, gap.startMs, Math.max(gap.startMs, gap.endMs - length))
+  const range = { startMs: rangeStartMs, endMs: Math.min(rangeStartMs + length, gap.endMs) }
   return range.endMs - range.startMs >= frameMs ? { range, parent: place.parent } : undefined
 }
 

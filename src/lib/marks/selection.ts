@@ -2,7 +2,7 @@ import type { Mark } from '../../store/types.ts'
 import type { TimeRange } from '../time/timeRange.ts'
 import { childrenOf, findMark } from './family.ts'
 
-/** The length of a mark that a double-click adds, in frames. The add rule clamps it to the empty range. */
+/** The length of a mark that a double-click adds, in frames. The add rule keeps it inside the empty range. */
 const ADD_LENGTH_FRAMES = 10
 
 /**
@@ -71,4 +71,23 @@ export function markOnNextLayer(
  */
 export function addRangeAt(atMs: number, frameMs: number): TimeRange {
   return { startMs: atMs, endMs: atMs + ADD_LENGTH_FRAMES * frameMs }
+}
+
+/**
+ * Returns the range of the selected marks, from the earliest start to the latest end.
+ * Returns undefined when no selected id names a mark.
+ * @param marks The marks of the song.
+ * @param selectedIds The ids of the selected marks.
+ */
+export function selectionRange(
+  marks: readonly Mark[],
+  selectedIds: readonly string[],
+): TimeRange | undefined {
+  const ids = new Set(selectedIds)
+  const selected = marks.filter((mark) => ids.has(mark.id))
+  if (selected.length === 0) return undefined
+  return {
+    startMs: Math.min(...selected.map((mark) => mark.startMs)),
+    endMs: Math.max(...selected.map((mark) => mark.endMs)),
+  }
 }

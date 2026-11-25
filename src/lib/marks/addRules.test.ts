@@ -32,8 +32,13 @@ function place(layer: Layer, startMs: number, endMs: number) {
 }
 
 describe('addPlace', () => {
-  it('snaps the times and clamps the mark to the empty range around the start', () => {
-    expect(place('word', 2040, 2690)?.range).toEqual({ startMs: 2050, endMs: 2200 })
+  it('snaps the times and fills an empty range that is shorter than the mark', () => {
+    expect(place('word', 2040, 2690)?.range).toEqual({ startMs: 2000, endMs: 2200 })
+  })
+
+  it('moves a mark that ends past the empty range earlier, so it keeps its length', () => {
+    // A double-click 50 ms before the end of the 1 s gap from 5000 to 6000 asks for 10 frames.
+    expect(place('word', 5950, 6450)?.range).toEqual({ startMs: 5500, endMs: 6000 })
   })
 
   it('accepts the times in either order', () => {
@@ -53,15 +58,15 @@ describe('addPlace', () => {
   })
 
   it('keeps a word outside any phrase in the empty range between phrases', () => {
-    expect(place('word', 5200, 6500)).toEqual({
-      range: { startMs: 5200, endMs: 6000 },
+    expect(place('word', 5200, 5900)).toEqual({
+      range: { startMs: 5200, endMs: 5900 },
       parent: undefined,
     })
   })
 
   it('keeps a phrase inside the song', () => {
-    expect(place('phrase', 9800, 12_000)?.range).toEqual({ startMs: 9800, endMs: DURATION_MS })
-    expect(place('phrase', -500, 400)?.range).toEqual({ startMs: 0, endMs: 400 })
+    expect(place('phrase', 9800, 10_300)?.range).toEqual({ startMs: 9500, endMs: DURATION_MS })
+    expect(place('phrase', -500, 400)?.range).toEqual({ startMs: 0, endMs: 900 })
   })
 })
 
