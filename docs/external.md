@@ -63,6 +63,10 @@ These values come from the outputs of the hosting stack.
 - xLights source, for the `.xtiming` format:
   https://github.com/xLightsSequencer/xLights
 - xLights manual: https://manual.xlights.org/xlights/
+- Singer models: `onnx-community/pyannote-segmentation-3.0` and
+  `onnx-community/wespeaker-voxceleb-resnet34-LM` on the Hugging Face Hub,
+  downloaded by the browser at the first run with the singer option on. The licence
+  notes are in `docs/licences/singer-models.md`.
 
 ## Test data
 

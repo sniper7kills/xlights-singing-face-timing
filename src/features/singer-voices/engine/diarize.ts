@@ -1,0 +1,195 @@
+import { clusterEmbeddings } from './clustering.ts'
+import { decodePowerset } from './powerset.ts'
+import { activityToRanges, renumberByFirstRange, type SingerRange } from './segments.ts'
+import { planWindows, windowSamplesAt } from './windows.ts'
+
+/** The two models that the diarization calls. Tests replace them. */
+export interface DiarizeModels {
+  /** Returns the 7 class scores of each frame of one window, frame after frame. */
+  segment(window: Float32Array): Promise<Float32Array>
+  /** Returns the speaker embedding of the samples. */
+  embed(samples: Float32Array): Promise<Float32Array>
+}
+
+/** The settings of the diarization. All counts are in samples of the input. */
+export interface DiarizeSettings {
+  sampleRate: number
+  windowSamples: number
+  stepSamples: number
+  /** A local speaker with fewer samples than this gets no embedding, and its frames count for no singer. */
+  minEmbedSamples: number
+  /** The merge threshold of the clustering: a distance between the centroids of unit-length embeddings. */
+  threshold: number
+  /** A group with fewer local speakers than this joins the closest larger group. */
+  minGroupSize: number
+  maxSingers: number
+  minGapMs: number
+  minRangeMs: number
+}
+
+/** One speaker of one window, with its frames and its embedding. */
+interface LocalSpeaker {
+  windowStart: number
+  activity: Uint8Array
+  embedding: Float32Array
+}
+
+/** Returns the samples of the frames that are set, in order. */
+function framesSamples(
+  window: Float32Array,
+  frames: readonly boolean[],
+  frameSamples: number,
+): Float32Array {
+  const parts = frames.flatMap((on, frame) =>
+    on
+      ? [window.subarray(Math.round(frame * frameSamples), Math.round((frame + 1) * frameSamples))]
+      : [],
+  )
+  const samples = new Float32Array(parts.reduce((sum, part) => sum + part.length, 0))
+  let offset = 0
+  for (const part of parts) {
+    samples.set(part, offset)
+    offset += part.length
+  }
+  return samples
+}
+
+/**
+ * Returns the samples for the embedding of one local speaker: the frames in which it sings alone, as pyannote.audio does.
+ * If those are too short, the frames in which it sings with another speaker count too.
+ */
+function speakerSamples(
+  window: Float32Array,
+  activity: readonly Uint8Array[],
+  speaker: Uint8Array,
+  frameSamples: number,
+  minEmbedSamples: number,
+): Float32Array {
+  const alone = Array.from(
+    speaker,
+    (on, frame) => on === 1 && activity.every((other) => other === speaker || other[frame] === 0),
+  )
+  const aloneSamples = framesSamples(window, alone, frameSamples)
+  if (aloneSamples.length >= minEmbedSamples) return aloneSamples
+  return framesSamples(
+    window,
+    Array.from(speaker, (on) => on === 1),
+    frameSamples,
+  )
+}
+
+async function windowSpeakers(
+  window: Float32Array,
+  windowStart: number,
+  models: DiarizeModels,
+  settings: DiarizeSettings,
+): Promise<LocalSpeaker[]> {
+  const activity = decodePowerset(await models.segment(window))
+  const frameSamples = settings.windowSamples / (activity[0]?.length ?? 1)
+  const speakers: LocalSpeaker[] = []
+  for (const speaker of activity) {
+    const samples = speakerSamples(window, activity, speaker, frameSamples, settings.minEmbedSamples)
+    if (samples.length >= settings.minEmbedSamples) {
+      speakers.push({ windowStart, activity: speaker, embedding: await models.embed(samples) })
+    }
+  }
+  return speakers
+}
+
+/** The frame grid of the whole input. It starts at sample 0 and has the frame duration of the model. */
+interface Grid {
+  frameSamples: number
+  frames: number
+  /** The frames of one window. */
+  windowFrames: number
+}
+
+function gridIndex(grid: Grid, windowStart: number, frame: number): number {
+  return Math.round(windowStart / grid.frameSamples) + frame
+}
+
+/**
+ * Returns, for each singer, the share of the windows over each grid frame that give the frame to the singer.
+ * A share of 1 means that every window over the frame hears the singer.
+ */
+function singerShares(
+  speakers: readonly LocalSpeaker[],
+  singers: readonly number[],
+  windowStarts: readonly number[],
+  grid: Grid,
+): Float32Array[] {
+  const coverage = new Float32Array(grid.frames)
+  for (const start of windowStarts) {
+    const first = gridIndex(grid, start, 0)
+    coverage.subarray(first, first + grid.windowFrames).forEach((_, offset, part) => {
+      part[offset] = (part[offset] ?? 0) + 1
+    })
+  }
+  const votes = Array.from({ length: Math.max(...singers) + 1 }, () => new Float32Array(grid.frames))
+  speakers.forEach((speaker, index) => {
+    const singerVotes = votes[singers[index] ?? 0] ?? new Float32Array()
+    const first = gridIndex(grid, speaker.windowStart, 0)
+    speaker.activity.forEach((on, frame) => {
+      if (on === 1) singerVotes[first + frame] = (singerVotes[first + frame] ?? 0) + 1
+    })
+  })
+  return votes.map((singerVotes) =>
+    singerVotes.map((value, frame) => value / Math.max(1, coverage[frame] ?? 0)),
+  )
+}
+
+/**
+ * Returns the time ranges in which each singer sings, sorted by start, with singers numbered in the order of their first range.
+ * The segmentation model reads overlapping windows and finds up to 3 local speakers in each.
+ * The embedding model and the clustering give the same singer number to the same voice in all windows.
+ * A frame belongs to a singer when at least half of the windows over it give it to that singer.
+ * @param vocals The audio, mono, at `settings.sampleRate`.
+ * @param models The segmentation model and the embedding model.
+ * @param settings The window plan, the clustering and the range limits.
+ * @param onProgress Called after each window with the samples done and the total samples.
+ * Rejects with the error of a model call.
+ */
+export async function diarize(
+  vocals: Float32Array,
+  models: DiarizeModels,
+  settings: DiarizeSettings,
+  onProgress: (doneSamples: number, totalSamples: number) => void,
+): Promise<SingerRange[]> {
+  const starts = planWindows(vocals.length, settings.windowSamples, settings.stepSamples)
+  const speakers: LocalSpeaker[] = []
+  for (const start of starts) {
+    const window = windowSamplesAt(vocals, start, settings.windowSamples)
+    speakers.push(...(await windowSpeakers(window, start, models, settings)))
+    onProgress(Math.min(vocals.length, start + settings.windowSamples), vocals.length)
+  }
+  const first = speakers[0]
+  if (first === undefined) return []
+  const singers = clusterEmbeddings(
+    speakers.map((speaker) => speaker.embedding),
+    {
+      threshold: settings.threshold,
+      minGroupSize: settings.minGroupSize,
+      maxGroups: settings.maxSingers,
+    },
+  )
+  const frameSamples = settings.windowSamples / first.activity.length
+  const grid = {
+    frameSamples,
+    frames: Math.ceil(vocals.length / frameSamples),
+    windowFrames: first.activity.length,
+  }
+  const rangeSettings = {
+    frameMs: (frameSamples / settings.sampleRate) * 1000,
+    minGapMs: settings.minGapMs,
+    minRangeMs: settings.minRangeMs,
+  }
+  return renumberByFirstRange(
+    singerShares(speakers, singers, starts, grid).flatMap((share, singer) =>
+      activityToRanges(
+        Array.from(share, (value) => value >= 0.5),
+        singer,
+        rangeSettings,
+      ),
+    ),
+  )
+}

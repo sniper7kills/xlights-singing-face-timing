@@ -294,6 +294,51 @@ and the service authorization reference above (issue #54):
   level Write and the same resource type.
 - AWS has not validated the new permission on the stack.
 
+Confirmed on 2026-11-24 for the singer models of issue #119, from the model cards,
+the Hub API (`https://huggingface.co/api/models/<repo>?blobs=true`) and the source
+of `@huggingface/transformers` 4.3.2 in `node_modules/@huggingface/transformers/src/`:
+
+- `onnx-community/pyannote-segmentation-3.0`, commit
+  `733a93b6473d019a773298e08cefa686894b1854`: MIT, not gated. `onnx/model.onnx` is
+  5 986 908 bytes. The upstream `pyannote/segmentation-3.0` is MIT and gated
+  (`gated: auto`).
+- The library loads it with `AutoModelForAudioFrameClassification`
+  (`PyAnnoteForAudioFrameClassification`) and `AutoProcessor` (`PyAnnoteProcessor`).
+  The input is `input_values` with the shape `[1, 1, samples]` at 16 000 Hz. The
+  output is `logits` with the shape `[1, frames, 7]`. A 10 s window gives 589
+  frames. `preprocessor_config.json` sets `step` 270 and `offset` 990.
+- The 7 classes, from `config.json`: `NO_SPEAKER`, `SPEAKER_1` to `SPEAKER_3`, and
+  `SPEAKERS_1_AND_2`, `SPEAKERS_1_AND_3`, `SPEAKERS_2_AND_3`. The model card of
+  https://huggingface.co/pyannote/segmentation-3.0 states 10 s windows, 3 speakers
+  for each window and 2 at the same time. It states that the model "cannot be used
+  to perform speaker diarization of full recordings on its own".
+- `onnx-community/wespeaker-voxceleb-resnet34-LM`, commit
+  `6a61a1833ff2583aabeba044f5c8221f00b67ceb`: CC BY 4.0, not gated.
+  `onnx/model.onnx` is 26 535 549 bytes. The model type `wespeaker-resnet` loads with
+  `AutoModel` (`WeSpeakerResNetModel`). `WeSpeakerFeatureExtractor` gives
+  `input_features` with 80 log-mel bins for each 10 ms. The output is
+  `last_hidden_state` with the shape `[1, 256]`. `ModelRegistry.get_files` logs a
+  warning that it falls back to one `model.onnx` file for this type.
+- `ModelRegistry.is_cached(repo, { revision, dtype, device })` expects
+  `config.json`, `onnx/model.onnx` and `preprocessor_config.json` for each of the
+  two models. So the engine loads the processor of the segmentation model too.
+- `from_pretrained` with a `progress_callback` sends `progress` events with
+  `name`, `file`, `loaded` and `total` for each file, and a `progress_total` event
+  for the files of that one model.
+- An HTTP error of the Hub gives an `Error` with a text from
+  `src/utils/hub/constants.js`, for example `Could not locate file` for 404.
+- The clustering values of the pyannote.audio 3.1 pipeline: `method: centroid`,
+  `min_cluster_size: 12`, `threshold: 0.7045654963945799`, and
+  `embedding_exclude_overlap: true`. Source:
+  https://github.com/pyannote/pyannote-audio/blob/develop/tutorials/community/offline_usage_speaker_diarization.ipynb
+  and `src/pyannote/audio/pipelines/clustering.py` (`AgglomerativeClustering`).
+  The values are tuned on speech.
+- Both hosts send CORS headers, as for the Whisper models. A `GET` with an
+  `Origin` header answers `302` with `access-control-allow-origin: <origin>`, then
+  `200` from `us.aws.cdn.hf.co` with `access-control-allow-origin: *`.
+- No licence was found for the weights of the karaoke models (for example
+  `UVR_MDXNET_KARA_2.onnx`), and no browser path is documented for them.
+
 Evidence format:
 
 ```
