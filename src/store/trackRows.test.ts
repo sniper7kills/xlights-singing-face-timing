@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { RunReport, SingerSection } from '../lib/runReport/runReport.ts'
-import { lastRunSingerVoices, trackRows } from './trackRows.ts'
+import { lastRunVoices, trackRows } from './trackRows.ts'
 import type { KeptTracks, Mark, RunData, Voice } from './types.ts'
 
 const TRACKS: KeptTracks = {
@@ -210,29 +210,34 @@ describe('trackRows with the voice ids of the run', () => {
   })
 })
 
-describe('lastRunSingerVoices', () => {
-  it('gives the voices that the singer step of the last run added, by id, also after a rename', () => {
-    const renamed = VOICES.map((voice) =>
-      voice.id === 'v2' ? { ...voice, name: 'Test Alto' } : voice,
-    )
+describe('lastRunVoices', () => {
+  const ids = (result: { voice: Voice; made: boolean }[]) =>
+    result.map(({ voice, made }) => [voice.id, made])
 
-    expect(lastRunSingerVoices(dataWithIds(), renamed, 'v1').map((voice) => voice.id)).toEqual([
-      'v2',
+  it('gives the voice of the last run and its singer voices, by id, also after a rename', () => {
+    const third: Voice = { id: 'v3', songId: 's', name: 'Singer 3', order: 2, color: '#7ae582' }
+    const renamed = [
+      ...VOICES.map((voice) => (voice.id === 'v2' ? { ...voice, name: 'Test Alto' } : voice)),
+      third,
+    ]
+
+    expect(ids(lastRunVoices(dataWithIds(), renamed, 'v3'))).toEqual([
+      ['v1', false],
+      ['v2', true],
     ])
   })
 
   it('leaves out the voice of the new run and a deleted voice', () => {
-    expect(lastRunSingerVoices(dataWithIds(), VOICES, 'v2')).toEqual([])
-    expect(lastRunSingerVoices(dataWithIds(), [VOICES[0] as Voice], 'v1')).toEqual([])
+    expect(ids(lastRunVoices(dataWithIds(), VOICES, 'v2'))).toEqual([['v1', false]])
+    expect(lastRunVoices(dataWithIds(), [VOICES[0] as Voice], 'v1')).toEqual([])
   })
 
   it('gives no voice for a song with no run data', () => {
-    expect(lastRunSingerVoices(undefined, VOICES, 'v1')).toEqual([])
+    expect(lastRunVoices(undefined, VOICES, 'v1')).toEqual([])
   })
 
   it('finds the voices by the names in the report for a record with no voice ids', () => {
-    expect(lastRunSingerVoices(data('split'), VOICES, 'v1').map((voice) => voice.id)).toEqual([
-      'v2',
-    ])
+    expect(ids(lastRunVoices(data('split'), VOICES, 'v1'))).toEqual([['v2', true]])
+    expect(ids(lastRunVoices(data('split'), VOICES, 'v2'))).toEqual([['v1', false]])
   })
 })

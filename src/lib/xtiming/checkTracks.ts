@@ -13,12 +13,13 @@ const PHONEME_LABEL_SET: ReadonlySet<string> = new Set(PHONEME_LABELS)
  * Each check has one name in `Finding.check`:
  * - Errors: `no-marks`, `duplicate-name`, `empty-name`, `import-name-empty`, `bad-phoneme-label`,
  *   `end-not-after-start`.
- * - Warnings: `voice-no-marks`, `import-name-changed`, `import-name-same`, `word-no-phoneme`, `unknown-word`,
+ * - Warnings: `voice-no-marks`, `voice-left-out`, `import-name-changed`, `import-name-same`, `word-no-phoneme`, `unknown-word`,
  *   `estimated-word`, `short-mark`, `ends-after-song`.
  *
  * The rules:
  * - A selected voice has no marks when no timing track of the voice holds a mark.
  *   Grouping `voice-section` omits such a voice, so the check reads `options.voiceIds`.
+ * - A voice that has marks and is not selected gives `voice-left-out`, so the person sees that the files do not hold it.
  * - If no selected voice has marks, the export has nothing to write. One `no-marks` error replaces the warnings.
  *   A file still holds a legal timing track with three empty layers for a selected voice with no marks.
  * - A name with only spaces is empty. Two empty names give two `empty-name` errors and no `duplicate-name` error.
@@ -55,6 +56,7 @@ export function checkTracks(
 
   const findings = [
     ...voiceFindings(tracks, options.voiceIds, voiceName),
+    ...leftOutFindings(voices, marks, options.voiceIds),
     ...nameFindings(tracks, voiceName),
     ...importNameFindings(tracks),
   ]
@@ -104,6 +106,22 @@ function voiceFindings(
     message: `“${voiceName(voiceId)}” has no marks. Clear its check box, or add marks.`,
     voiceId,
   }))
+}
+
+function leftOutFindings(
+  voices: readonly Voice[],
+  marks: readonly Mark[],
+  voiceIds: readonly string[],
+): Finding[] {
+  const sung = new Set(marks.map((mark) => mark.voiceId))
+  return voices
+    .filter((voice) => sung.has(voice.id) && !voiceIds.includes(voice.id))
+    .map((voice) => ({
+      type: 'warning',
+      check: 'voice-left-out',
+      message: `“${voice.name}” has marks, and it is not in this export. Select its check box to add it.`,
+      voiceId: voice.id,
+    }))
 }
 
 function nameFindings(

@@ -32,7 +32,8 @@ export function App() {
       </header>
       <main className="main">
         {route.name === 'song' ? (
-          <EditorPage songId={route.songId} />
+          // Each song gets a new editor, so a toast or a dialog of one song never shows with the next song.
+          <EditorPage key={route.songId} songId={route.songId} />
         ) : (
           <SongLibraryPage databaseStatus={databaseStatus} />
         )}

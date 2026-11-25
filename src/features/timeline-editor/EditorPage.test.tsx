@@ -1,11 +1,17 @@
-import { act, render, screen, waitFor, within } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { LIBRARY_HASH } from '../../app/routes.ts'
 import { setPageNotice } from '../../app/pageNotice.ts'
 import type { RunReport } from '../../lib/runReport/runReport.ts'
 import { breakDownWords, loadDictionaries } from '../../store/actions/breakDown.ts'
-import { startAutosave, useAutosaveStore } from '../../store/autosave.ts'
+import {
+  LEAVE_WAIT_MS,
+  SAVE_LIMIT_MS,
+  startAutosave,
+  useAutosaveStore,
+} from '../../store/autosave.ts'
+import { useOtherTabStore } from '../../store/otherTabs.ts'
 import * as db from '../../store/db.ts'
 import { loadSong, saveSong, StorageFullError } from '../../store/db.ts'
 import { useSongStore } from '../../store/songStore.ts'
@@ -68,6 +74,7 @@ beforeEach(() => {
   vi.mocked(createWaveformPlayer).mockReturnValue(new Promise(() => undefined))
   vi.mocked(loadDictionaries).mockRejectedValue(new DictionaryLoadError())
   useAutosaveStore.setState({ saveState: 'saved', error: null })
+  useOtherTabStore.setState({ songId: null })
   useSongStore.getState().closeSong()
 })
 
@@ -575,6 +582,57 @@ describe('EditorPage', () => {
     }
   })
 
+  it('stays on the song and shows the save message when the save does not end in 3 seconds after the back link', async () => {
+    const stopAutosave = startAutosave()
+    try {
+      const { song } = await renderEditor()
+      window.location.hash = `#/song/${song.id}`
+      vi.spyOn(db, 'saveSong').mockImplementation(() => new Promise(() => undefined))
+      vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+      act(() =>
+        useSongStore
+          .getState()
+          .apply((content) => ({ ...content, song: { ...content.song, name: 'noel' } })),
+      )
+
+      fireEvent.click(screen.getByRole('link', { name: 'Back to song library' }))
+      await act(() => vi.advanceTimersByTimeAsync(LEAVE_WAIT_MS - 1))
+      expect(screen.queryByText('The app could not save the song. Try again.')).toBeNull()
+      await act(() => vi.advanceTimersByTimeAsync(1))
+
+      expect(screen.getByRole('alert')).toHaveTextContent(
+        'The app could not save the song. Try again.',
+      )
+      expect(window.location.hash).toBe(`#/song/${song.id}`)
+      // The write ends at its own limit, so the next test finds no running write.
+      await act(() => vi.advanceTimersByTimeAsync(SAVE_LIMIT_MS))
+    } finally {
+      vi.useRealTimers()
+      stopAutosave()
+    }
+  })
+
+  it('shows the notice of a different tab until the person closes it', async () => {
+    const { song } = await renderEditor()
+
+    act(() => useOtherTabStore.setState({ songId: song.id }))
+    const notice = screen.getByRole('alert')
+    expect(notice).toHaveTextContent(
+      'This song is open in a different tab. The tab that saves last keeps its version. Close one of the tabs.',
+    )
+    await userEvent.click(within(notice).getByRole('button', { name: 'Close' }))
+
+    expect(screen.queryByRole('alert')).toBeNull()
+  })
+
+  it('shows no notice of a different tab for a different song', async () => {
+    await renderEditor()
+
+    act(() => useOtherTabStore.setState({ songId: 'song-other' }))
+
+    expect(screen.queryByRole('alert')).toBeNull()
+  })
+
   it('goes back to the song library for a song that does not exist', async () => {
     window.location.hash = '#/song/gone'
 
@@ -601,13 +659,19 @@ describe('EditorPage', () => {
       await held
       return undefined
     })
+    const opened = vi.spyOn(useSongStore.getState(), 'openSong')
     window.location.hash = '#/song/other'
     const view = render(<EditorPage songId="gone" />)
     await vi.waitFor(() => expect(load).toHaveBeenCalled())
 
     view.unmount()
     release()
-    await act(() => new Promise((resolve) => setTimeout(resolve, 20)))
+    // The open must end, and its result reach the editor, before the check of the route.
+    expect(opened).toHaveBeenCalledOnce()
+    await act(async () => {
+      await opened.mock.results[0]?.value
+    })
+    await act(async () => undefined)
 
     expect(window.location.hash).toBe('#/song/other')
   })

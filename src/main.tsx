@@ -5,6 +5,7 @@ import './app/app.css'
 import { startSaveOnPageHide } from './app/saveOnPageHide.ts'
 import { applyStoredTheme } from './app/theme.ts'
 import { startAutosave } from './store/autosave.ts'
+import { startOtherTabWatch } from './store/otherTabs.ts'
 
 const root = document.getElementById('root')
 if (!root) {
@@ -15,6 +16,7 @@ if (!root) {
 applyStoredTheme()
 startAutosave()
 startSaveOnPageHide()
+startOtherTabWatch()
 
 createRoot(root).render(
   <StrictMode>

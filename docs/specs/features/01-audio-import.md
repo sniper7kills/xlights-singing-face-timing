@@ -61,7 +61,12 @@ waveform, plays the audio and keeps the song in the browser for later visits.
 - FR-audio-25 — The app starts a save of the open song when the page becomes
   hidden or unloads.
 - FR-audio-26 — The link back to the song library opens the library after the
-  save of the open song ends.
+  save of the open song ends. If the save does not end in 3 seconds, the editor
+  stays open and shows "The app could not save the song. Try again."
+- FR-audio-27 — If a different tab saves the open song, the editor shows a notice
+  until the person closes it.
+- FR-audio-28 — A save that does not end in 10 seconds counts as failed. The next
+  change starts a new save.
 
 ## User flows
 
@@ -157,6 +162,17 @@ strip.
 - Deleting a song deletes its audio file, voices, sections and marks.
 - The demo song is a normal song. The person can edit and delete it.
 - 200 MB means 200 × 1024 × 1024 bytes.
+- A save writes the full song. It deletes each stored voice, section and mark that
+  the open song does not have, also a record that a different tab added. So the
+  tab that saves last keeps its version, and the stored marks keep the mark rules.
+- A save reads the stored keys of the song before it deletes. A save that starts
+  when the page becomes hidden or unloads skips the read only when the tab knows
+  the stored keys of the song. Then the save can complete after the page unloads.
+- After a save of a song in a different tab, the tab no longer knows the stored
+  keys of that song. A browser with no `BroadcastChannel` shows no notice.
+- If a save of a song fails and the person then opens a different song, the
+  change that is not saved goes away, and the editor keeps the message of the
+  failure.
 
 ## Data touched
 
@@ -166,6 +182,20 @@ strip.
 - Reads `APP_SETTINGS.defaultFrameMs` for the `frameMs` of a new song.
 
 ## Interfaces
+
+**BroadcastChannel.** `new BroadcastChannel(name)` connects the browsing
+contexts of one origin. `postMessage(message)` sends the message to each other
+channel object with the same name, not to the sender. The `message` event gives
+the message in `data`. `close()` stops the messages. Baseline since March 2022.
+The app uses the name `singing-face-timing` and sends `{ songId }`.
+Verified against: https://developer.mozilla.org/en-US/docs/Web/API/BroadcastChannel
+(last modified 2024-06-03, retrieved 2026-11-25).
+
+**IDBTransaction.commit().** It commits an active transaction and does not wait
+for the events of its requests. Older browsers, for example Safari before 15, do
+not have it, so the app calls it only when it exists.
+Verified against: https://developer.mozilla.org/en-US/docs/Web/API/IDBTransaction/commit
+(last modified 2024-07-19, retrieved 2026-11-25).
 
 **Web Audio.** `BaseAudioContext.decodeAudioData(arrayBuffer)` returns a Promise
 that fulfils with an `AudioBuffer`. The decoded audio has the sample rate of the
@@ -243,6 +273,8 @@ createDemoSong(): Promise<Song>
 | Reload during decode | The song does not exist. The library shows no partial song. |
 | Reload or close while a change is not saved | The browser asks the person to confirm. The browser shows its own text. |
 | The page unloads before a save ends | The browser can stop the save. The song keeps the last save that ended. |
+| A different tab saves the open song | "This song is open in a different tab. The tab that saves last keeps its version. Close one of the tabs." The notice has a "Close" button. |
+| A save does not end in its time limit | "The app could not save the song. Try again." |
 
 ## Acceptance criteria
 
@@ -283,6 +315,14 @@ createDemoSong(): Promise<Song>
   24, 25)
 - A reload with nothing to save shows no question. (FR-audio-24)
 - The song library lists the saved song name after the back link. (FR-audio-26)
+- With a save that does not end, the back link shows the save message after 3
+  seconds, and the editor stays open. (FR-audio-26)
+- Two tabs hold the same song. Tab B replaces a word and saves. Tab A moves a
+  different word and saves. The stored marks are the marks of tab A. (FR-audio-27)
+- Tab A shows the notice after tab B saves the song that is open in tab A.
+  (FR-audio-27)
+- After a save that does not end in 10 seconds, the next change saves the song.
+  (FR-audio-28)
 
 ## Out of scope
 

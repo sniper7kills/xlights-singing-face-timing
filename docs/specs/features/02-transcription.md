@@ -337,8 +337,8 @@ leaves the browser, and the app shows the host before each run.
   the run. It shows "<name> (deleted)" for a voice that the song no longer has. The
   stored report does not change.
 - FR-transcribe-148 — A run with "Put each singer on its own voice" replaces the
-  marks in the range of each voice that the singer step of the last run added, also
-  after a rename.
+  marks in the range of each voice that the last run wrote marks to, also after a
+  rename. The voice of the last run is one of these voices.
 - FR-transcribe-149 — The replace question names each voice that loses marks, and
   its count is the sum of the marks of those voices.
 - FR-transcribe-150 — A run with no singer step leaves the singer voices of the last
@@ -521,8 +521,9 @@ fully visible at 1440x900 and at 1024x768 with each option on.
 - confirm with the singer voices of the last run (FR-transcribe-149): "The run
   replaces <n> marks from <start> to <end>: the marks of "<voice name>", and the
   marks of "Singer 2" and "Singer 3" from the last run." `<n>` is the sum of the
-  marks of all named voices. The text names only a singer voice with a mark that
-  overlaps the range. Three names or more read "Singer 2", "Singer 3" and
+  marks of all named voices. The list names the voice of the last run too, when
+  the new run is on a different voice. The text names only a voice with a mark
+  that overlaps the range. Three names or more read "Singer 2", "Singer 3" and
   "Singer 4". For one mark, the text reads "1 mark".
 - confirm for a run with no singer step on a song with singer voices of the last
   run (FR-transcribe-150): the text adds "The voices of the last singer step do not
@@ -572,6 +573,9 @@ a digit. It leaves out other words, such as & or an emoji."
   the lines after line <k>." with "Continue" and "Cancel". For a run over the time
   selection, the second sentence reads "The time selection has room for about <m>
   words." "Continue" runs with lines 1 to <k>. "Cancel" changes no mark.
+- lyrics question when line 1 alone does not fit: the last sentence reads "The app
+  leaves out the words of line 1 that do not fit." With more lines, it reads "The
+  app leaves out the words of line 1 that do not fit, and the lines after line 1."
 - If the run left out words that it cannot use, the toast adds "The app left out
   <n> words that it cannot use."
 
@@ -798,11 +802,13 @@ copy, the status line shows "Press Ctrl+C to copy."
     unknown word, for example a word in another script.
 - **Room rule.** The room of a range is one word for each frame size of the range.
   The app keeps a word one frame size long or more, so more words cannot fit.
-  - Before a run with lyrics, the app counts the words of each lyrics line.
+  - Before a run with lyrics, the app counts the words of each lyrics line. A
+    word is a part with a letter or a digit, the same rule that makes the word
+    marks. So a lone "&", an emoji or a dash is not in the count.
   - The app keeps the lines from line 1 while their words fit in the room. It
     leaves out each line after the first line that does not fit.
-  - The app always keeps line 1. If line 1 alone does not fit, the app keeps its
-    earliest words that fit.
+  - The app always keeps line 1. If line 1 alone does not fit, the app asks
+    first, and then keeps its earliest words that fit.
   - At 50 ms, a song of 28.9 s has room for 578 words. 200 lines of 7 words keep
     lines 1 to 82.
   - More than about 4 words for each second gives words of one or two frames. The
@@ -832,13 +838,20 @@ copy, the status line shows "Press Ctrl+C to copy."
     before issue #173 has no ids, so the app finds them by the names in the report.
   - The voice of the new run is never a singer voice of the last run, also when
     the last run added it.
+  - The voices of the last run are its singer voices and the voice that the last
+    run started on. The run data lists them by id.
   - A speech model run with "Put each singer on its own voice" replaces the marks
-    in the range of each singer voice of the last run, by the range rules above.
+    in the range of each voice of the last run, by the range rules above. So a
+    run on a different voice also clears the voice that the last run started on.
     Marks that the person added by hand inside the range go too.
-  - A singer voice of the last run with no mark left after the replace goes. So
+  - A singer voice of the last run goes when the replace removes its last mark. So
     the singer step of the run can use the name "Singer 2" again. A singer voice
     with marks outside the range stays, and the new singer voices get the next free
     names.
+  - A singer voice of the last run that had no mark before the run stays, because
+    the person can keep an empty voice on purpose.
+  - The voice that the last run started on stays when the replace removes its last
+    mark, because the singer step did not add it.
   - The replace of all voices and the removed voices are one undo step with the
     marks of the run. The undo steps of the run in order are: the singer step, the
     sections of the tags, then the marks with the replace. Each undo restores the

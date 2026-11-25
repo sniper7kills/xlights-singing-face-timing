@@ -831,7 +831,7 @@ body.rv-open .layout { padding-right:21rem; }
 <li>FR-transcribe-148 — A run with "Put each singer on its own voice" replaces the
 </li>
 </ul>
-<p>marks in the range of each voice that the singer step of the last run added, also after a rename.</p>
+<p>marks in the range of each voice that the last run wrote marks to, also after a rename. The voice of the last run is one of these voices.</p>
 <ul>
 <li>FR-transcribe-149 — The replace question names each voice that loses marks, and
 </li>
@@ -1084,7 +1084,7 @@ body.rv-open .layout { padding-right:21rem; }
 <li>confirm with the singer voices of the last run (FR-transcribe-149): "The run
 </li>
 </ul>
-<p>replaces &lt;n&gt; marks from &lt;start&gt; to &lt;end&gt;: the marks of "&lt;voice name&gt;", and the marks of "Singer 2" and "Singer 3" from the last run." <code>&lt;n&gt;</code> is the sum of the marks of all named voices. The text names only a singer voice with a mark that overlaps the range. Three names or more read "Singer 2", "Singer 3" and "Singer 4". For one mark, the text reads "1 mark".</p>
+<p>replaces &lt;n&gt; marks from &lt;start&gt; to &lt;end&gt;: the marks of "&lt;voice name&gt;", and the marks of "Singer 2" and "Singer 3" from the last run." <code>&lt;n&gt;</code> is the sum of the marks of all named voices. The list names the voice of the last run too, when the new run is on a different voice. The text names only a voice with a mark that overlaps the range. Three names or more read "Singer 2", "Singer 3" and "Singer 4". For one mark, the text reads "1 mark".</p>
 <ul>
 <li>confirm for a run with no singer step on a song with singer voices of the last
 </li>
@@ -1146,6 +1146,11 @@ body.rv-open .layout { padding-right:21rem; }
 </li>
 </ul>
 <p>lyrics have &lt;n&gt; words. This song has room for about &lt;m&gt; words. The app leaves out the lines after line &lt;k&gt;." with "Continue" and "Cancel". For a run over the time selection, the second sentence reads "The time selection has room for about &lt;m&gt; words." "Continue" runs with lines 1 to &lt;k&gt;. "Cancel" changes no mark.</p>
+<ul>
+<li>lyrics question when line 1 alone does not fit: the last sentence reads "The app
+</li>
+</ul>
+<p>leaves out the words of line 1 that do not fit." With more lines, it reads "The app leaves out the words of line 1 that do not fit, and the lines after line 1."</p>
 <ul>
 <li>If the run left out words that it cannot use, the toast adds "The app left out
 </li>
@@ -1406,19 +1411,20 @@ body.rv-open .layout { padding-right:21rem; }
 </ul>
 <p>The app keeps a word one frame size long or more, so more words cannot fit.</p>
 <ul>
-<li>Before a run with lyrics, the app counts the words of each lyrics line.
+<li>Before a run with lyrics, the app counts the words of each lyrics line. A
+</li>
+</ul>
+<p>word is a part with a letter or a digit, the same rule that makes the word marks. So a lone "&amp;", an emoji or a dash is not in the count.</p>
 <ul>
 <li>The app keeps the lines from line 1 while their words fit in the room. It
 </li>
 </ul>
-</li>
-</ul>
 <p>leaves out each line after the first line that does not fit.</p>
 <ul>
-<li>The app always keeps line 1. If line 1 alone does not fit, the app keeps its
+<li>The app always keeps line 1. If line 1 alone does not fit, the app asks
 </li>
 </ul>
-<p>earliest words that fit.</p>
+<p>first, and then keeps its earliest words that fit.</p>
 <ul>
 <li>At 50 ms, a song of 28.9 s has room for 578 words. 200 lines of 7 words keep
 </li>
@@ -1493,15 +1499,30 @@ body.rv-open .layout { padding-right:21rem; }
 </ul>
 <p>the last run added it.</p>
 <ul>
+<li>The voices of the last run are its singer voices and the voice that the last
+</li>
+</ul>
+<p>run started on. The run data lists them by id.</p>
+<ul>
 <li>A speech model run with "Put each singer on its own voice" replaces the marks
 </li>
 </ul>
-<p>in the range of each singer voice of the last run, by the range rules above. Marks that the person added by hand inside the range go too.</p>
+<p>in the range of each voice of the last run, by the range rules above. So a run on a different voice also clears the voice that the last run started on. Marks that the person added by hand inside the range go too.</p>
 <ul>
-<li>A singer voice of the last run with no mark left after the replace goes. So
+<li>A singer voice of the last run goes when the replace removes its last mark. So
 </li>
 </ul>
 <p>the singer step of the run can use the name "Singer 2" again. A singer voice with marks outside the range stays, and the new singer voices get the next free names.</p>
+<ul>
+<li>A singer voice of the last run that had no mark before the run stays, because
+</li>
+</ul>
+<p>the person can keep an empty voice on purpose.</p>
+<ul>
+<li>The voice that the last run started on stays when the replace removes its last
+</li>
+</ul>
+<p>mark, because the singer step did not add it.</p>
 <ul>
 <li>The replace of all voices and the removed voices are one undo step with the
 </li>

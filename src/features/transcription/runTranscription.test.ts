@@ -806,6 +806,7 @@ describe('runTranscription with lyrics that do not fit in the range', () => {
       room: 600,
       keptLineCount: 85,
       lineCount: 200,
+      firstLineCut: false,
     })
     expect(labels('phrase')).toHaveLength(85)
     expect(labels('phrase').at(-1)).toBe('Line number 85 sings a little song')
@@ -829,6 +830,33 @@ describe('runTranscription with lyrics that do not fit in the range', () => {
     await runTranscription(lyricsOnly, fakeClient(), run)
 
     expect(run.confirmLyricsFit).not.toHaveBeenCalled()
+  })
+
+  it('counts only the parts with a letter or a digit, so lyrics that fit with & and emoji ask nothing', async () => {
+    const run = handlers()
+    const words = Array.from({ length: 500 }, (_, i) => `word${i}`)
+    const lyrics = [words.slice(0, 250).join(' & '), words.slice(250).join(' 😀 — ')].join('\n')
+
+    await runTranscription({ ...lyricsOnly, lyrics }, fakeClient(), run)
+
+    expect(run.confirmLyricsFit).not.toHaveBeenCalled()
+    expect(labels('word')).toHaveLength(500)
+  })
+
+  it('asks before a run whose first line alone has more words than the room', async () => {
+    const run = handlers()
+    const lyrics = Array.from({ length: 700 }, (_, i) => `word${i}`).join(' ')
+
+    await runTranscription({ ...lyricsOnly, lyrics }, fakeClient(), run)
+
+    expect(run.confirmLyricsFit).toHaveBeenCalledWith({
+      wordCount: 700,
+      room: 600,
+      keptLineCount: 1,
+      lineCount: 1,
+      firstLineCut: true,
+    })
+    expect(labels('word')).toHaveLength(600)
   })
 
   it('asks before a speech model run with lyrics that do not fit', async () => {
