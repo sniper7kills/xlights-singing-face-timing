@@ -27,7 +27,7 @@ from tags in the lyrics. Production exists and each commit on `main` deploys.
 The transcribe dialog has the option "Separate the vocals first", off by default.
 The run report panel shows the report of the last run, with "Copy report".
 The editor shows each kept audio track as a track row with "Mute" and "Solo".
-The manual xLights import check (issue #79) is next.
+A user manual exists in `docs/manual/`. A review round of 22 fixes landed.
 
 ## Design
 

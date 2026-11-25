@@ -325,7 +325,6 @@ erDiagram
   APP_SETTINGS {
     string speechModelId
     int defaultFrameMs
-    string theme
     string transcribeSource
     object remoteEndpoint
   }
@@ -366,6 +365,8 @@ erDiagram
   browser on each visit. `transcribeSource` is `browser` or `remote`, and the
   default is `browser`. `remoteEndpoint` holds `baseUrl`, `apiKey` and `model`. The
   API key stays in this record. No export and no custom dictionary file holds it.
+  The theme is not in this record. The browser keeps the theme in `localStorage`
+  under the key `theme`.
 
 ## Cross-cutting concerns
 
@@ -785,6 +786,19 @@ The spec has one editor epic. The tracker has two, because 30 requirements do no
 | FR-export-20 | #46 |
 | FR-export-21 | #45 |
 | FR-export-22 | #45 |
+
+Review issues of the review run 2026-11-25-night. The batch is issue #165. Each
+issue maps to the feature files that its fix edited.
+
+| Feature | Review issues |
+|---|---|
+| foundation | #154, #155 |
+| audio-import | #154, #155, #166 |
+| transcription | #153, #156, #163, #164, #173, #174, #175, #176 |
+| phoneme-breakdown | #170, #171 |
+| timeline-editor | #154, #158, #159, #160, #161, #162, #167, #168, #173, #174, #175, #176 |
+| voices-sections | #158, #159, #162, #167, #168, #173, #174 |
+| xtiming-export | #153, #156, #163, #164, #170, #171 |
 - 2026-11-24 — Batch gate of epic #26. A range run replaces the marks that overlap
   the range, not only the marks fully inside it (issues #97 and #98). The editor
   loads the dictionary when it opens a song that has a word. The acceptance

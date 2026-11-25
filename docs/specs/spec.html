@@ -476,7 +476,6 @@ body.rv-open .layout { padding-right:21rem; }
   APP_SETTINGS {
     string speechModelId
     int defaultFrameMs
-    string theme
     string transcribeSource
     object remoteEndpoint
   }</pre></div>
@@ -516,7 +515,7 @@ body.rv-open .layout { padding-right:21rem; }
 <li><strong>App settings.</strong> One record. <code>speechModelId</code> is one of the three supported speech
 </li>
 </ul>
-<p>models. The app does not store <code>device</code>. The app derives the device from the browser on each visit. <code>transcribeSource</code> is <code>browser</code> or <code>remote</code>, and the default is <code>browser</code>. <code>remoteEndpoint</code> holds <code>baseUrl</code>, <code>apiKey</code> and <code>model</code>. The API key stays in this record. No export and no custom dictionary file holds it.</p>
+<p>models. The app does not store <code>device</code>. The app derives the device from the browser on each visit. <code>transcribeSource</code> is <code>browser</code> or <code>remote</code>, and the default is <code>browser</code>. <code>remoteEndpoint</code> holds <code>baseUrl</code>, <code>apiKey</code> and <code>model</code>. The API key stays in this record. No export and no custom dictionary file holds it. The theme is not in this record. The browser keeps the theme in <code>localStorage</code> under the key <code>theme</code>.</p>
 <h2 id="cross-cutting-concerns">Cross-cutting concerns</h2>
 <ul>
 <li><strong>Auth.</strong> None. The app has no accounts and no server data.
@@ -992,6 +991,17 @@ body.rv-open .layout { padding-right:21rem; }
 <tr><td>FR-export-20</td><td>#46</td></tr>
 <tr><td>FR-export-21</td><td>#45</td></tr>
 <tr><td>FR-export-22</td><td>#45</td></tr>
+</table></div>
+<p>Review issues of the review run 2026-11-25-night. The batch is issue #165. Each issue maps to the feature files that its fix edited.</p>
+<div class="table-wrap"><table>
+<tr><th>Feature</th><th>Review issues</th></tr>
+<tr><td>foundation</td><td>#154, #155</td></tr>
+<tr><td>audio-import</td><td>#154, #155, #166</td></tr>
+<tr><td>transcription</td><td>#153, #156, #163, #164, #173, #174, #175, #176</td></tr>
+<tr><td>phoneme-breakdown</td><td>#170, #171</td></tr>
+<tr><td>timeline-editor</td><td>#154, #158, #159, #160, #161, #162, #167, #168, #173, #174, #175, #176</td></tr>
+<tr><td>voices-sections</td><td>#158, #159, #162, #167, #168, #173, #174</td></tr>
+<tr><td>xtiming-export</td><td>#153, #156, #163, #164, #170, #171</td></tr>
 </table></div>
 <ul>
 <li>2026-11-24 — Batch gate of epic #26. A range run replaces the marks that overlap
