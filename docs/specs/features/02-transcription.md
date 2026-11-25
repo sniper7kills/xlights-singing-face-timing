@@ -181,11 +181,12 @@ leaves the browser, and the app shows the host before each run.
 - FR-transcribe-75 — The singer section holds the diagnostics of the singer search.
   See "Singer diagnostics" in the behaviour rules.
 - FR-transcribe-76 — The singer section states the count of singers with one phrase
-  or more, the phrase share of 30%, and the count of voices made.
+  or more, the phrase rule in force with its constants, and the count of voices made.
 - FR-transcribe-123 — The singer section states the choice of "Singers" of the run:
   "Automatic", 2, 3 or 4. A report from before this field gives "not recorded".
 - FR-transcribe-77 — The singer section states the count of phrases that no singer
-  range touches, and the count of phrases with more than one singer.
+  range touches, and the count of phrases with more than one singer. Each voice of
+  such a phrase gets a copy.
 - FR-transcribe-78 — The report lists each voice that holds phrases of the run, with
   its count of phrases.
 - FR-transcribe-79 — The app gives the report as plain text: one heading line for
@@ -270,6 +271,15 @@ leaves the browser, and the app shows the host before each run.
 - FR-transcribe-118 — If another tab of the app keeps the database open during an
   upgrade, the song library shows "Close the other tabs of the app. Then reload this
   page."
+
+### Phrase rule and speech model hint (issue #148)
+
+- FR-transcribe-125 — While "Put each singer on its own voice" is on and the speech
+  model of this browser is tiny or base, the dialog shows a hint under the singer
+  note.
+- FR-transcribe-126 — The singer section states the limits of a phrase division.
+- FR-transcribe-127 — The singer section states the count of phrases that the
+  singer step divided.
 
 ## User flows
 
@@ -388,8 +398,8 @@ sequenceDiagram
    with vocal separation.
 5. The singers worker downloads the singer model if the browser does not have it.
 6. The singers worker finds the time ranges of each singer in the separated vocals.
-7. The app gives each phrase of the run to its singers, and puts each singer on its
-   own voice. See the singer rules in
+7. The app divides each phrase in which the singer changes, gives each phrase of the
+   run to its singers, and puts each singer on its own voice. See the singer rules in
    [05-voices-sections.md](05-voices-sections.md#behaviour-rules).
    With a count in "Singers", the worker finds that count of singers. With
    "Automatic", the worker estimates the count.
@@ -493,6 +503,11 @@ sings each phrase, and makes one voice for each singer. Check the result. Use "M
 to voice" to correct a phrase. The app can find too many singers. This step
 downloads models of 33 MB one time."
 
+While the check box is on and the speech model of this browser is tiny or base, the
+hint "A larger speech model finds more of the quiet parts." comes under the note.
+Issue #137 measured that the base speech model wrote few of the quiet chorus lines,
+so those lines got no phrase. A remote run shows no hint.
+
 While the check box is on, the choice "Singers" comes under its note, with the
 options "Automatic", "2", "3" and "4". The note of the choice reads "Select the
 count if you know it. The result is better."
@@ -565,7 +580,7 @@ it. If that control is gone, the focus goes to "Run report" in the top bar.
 | Run | The start time in local time, the build, the source, the host of the remote endpoint, the speech model, the device, the range, the frame size | — |
 | Steps | A table with the time of each step, and the total | "The report has no step times." |
 | Vocal separation | The separation model, and "Changed to the fast model" | "The run did not separate the vocals." |
-| Singers | The result of the singer step in one sentence. A table of the groups after the clustering. A table of the final singers with the sung time and the count of ranges. The settings in force, the centroid distances, the singer ranges, the phrase share, the phrases with no singer and with more than one singer | "The singer step did not run, because the option was off." or "The singer step did not run, because the run had no separated vocals." |
+| Singers | The result of the singer step in one sentence. A table of the groups after the clustering. A table of the final singers with the sung time and the count of ranges. The settings in force, the centroid distances, the singer ranges, the phrase rule, the phrase division, the phrases divided, the phrases with no singer and with more than one singer | "The singer step did not run, because the option was off." or "The singer step did not run, because the run had no separated vocals." |
 | Voices | A table: the voice, its count of phrases, and "Made by the run" | "No voice holds phrases of the run." |
 | Marks | Phrases, words, estimated words, unknown words | — |
 | Notes | Each warning and failure | "The run had no warning and no failure." |
@@ -946,7 +961,7 @@ section starts with a heading line in brackets.
 | `[Vocal separation]` | The separation model of the vocals (`spleeter`, `demucs` or `none`), "Changed to the fast model" (`yes` or `no`), "Audio tracks" (the count), "Tracks kept" (`yes` or `no`). A report from before issue #129 gives `not known` for the last two. |
 | `[Counts]` | Phrases, words, estimated words, unknown words |
 | `[Voices]` | Each voice that holds phrases of the run, with its count of phrases. A voice that the singer step made has ", made by the run". |
-| `[Singers]` | The result of the singer step, the choice of "Singers" ("Singers selected": `Automatic`, the count, or `not recorded`), the singer diagnostics, the singer ranges, the phrase share, the singers with one phrase or more, the phrases with no singer range, the phrases with more than one singer, the voices made |
+| `[Singers]` | The result of the singer step, the choice of "Singers" ("Singers selected": `Automatic`, the count, or `not recorded`), the singer diagnostics, the singer ranges, the phrase rule, the phrase division, the phrases divided, the singers with one phrase or more, the phrases with no singer range, the phrases with more than one singer, the voices made |
 | `[Step times]` | The time of each step that ran, in ms |
 | `[Warnings and failures]` | One line for each warning or failure, for example "separation failed: memory; continued with the fast model" |
 
@@ -1077,6 +1092,13 @@ The text writes the raw groups and the final singers as tables with aligned colu
 - After a failed singer step, the song has a run report with the status `failed`
   and its cause. (FR-transcribe-64, 74)
 - After a cancelled run, the song keeps the earlier run report. (FR-transcribe-65)
+- With "Put each singer on its own voice" on and the speech model base, the dialog
+  shows "A larger speech model finds more of the quiet parts." With small, it shows
+  no hint. (FR-transcribe-125)
+- The report text of a run with both options on has the lines "Phrase rule: the
+  singer with the most time; a second singer with 80% of that time and 1 s or
+  more", "Phrase division: at a change of singer, when each part has 1 word or more
+  and 1 s or more" and "Phrases divided: <n>". (FR-transcribe-76, 126, 127)
 - The stored report and its text hold no word of the lyrics. (FR-transcribe-67, 79)
 - Deleting a song removes its run report. (FR-transcribe-63)
 - A full browser storage gives a completed run. (FR-transcribe-80)

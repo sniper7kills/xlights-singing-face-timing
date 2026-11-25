@@ -62,6 +62,10 @@ the song at a time.
 - FR-voice-26 — The app copies a phrase that more than one singer sings to the voice
   of each other singer.
 - FR-voice-27 — The singer voices are one undo step after the marks of the run.
+- FR-voice-28 — The singer step divides a phrase of the run where the singer changes
+  inside it.
+- FR-voice-29 — A second singer gets a copy of a phrase only when it sings almost as
+  long as the top singer of the phrase.
 
 ## User flows
 
@@ -98,12 +102,14 @@ flowchart TD
 2. The run writes the marks to the selected voice.
 3. The app finds the singers in the separated vocals. With a count in "Singers", the
    app finds that count of singers. With "Automatic", the app estimates the count.
-4. The app adds "Singer 2", "Singer 3" … and moves or copies the phrases of each
+4. The app divides each phrase in which the singer changes, at the word boundary
+   nearest to the change.
+5. The app adds "Singer 2", "Singer 3" … and moves or copies the phrases of each
    singer to its voice.
-5. The person checks each voice. The person corrects a wrong phrase with "Move to
+6. The person checks each voice. The person corrects a wrong phrase with "Move to
    voice" or "Copy to voice".
-6. One undo removes the singer voices and puts each phrase back on the voice of the
-   run. The marks of the run stay.
+7. One undo removes the singer voices and the divisions, and puts each phrase back on
+   the voice of the run. The marks of the run stay.
 
 ### Make sections
 
@@ -220,16 +226,35 @@ voices and "New voice".
   `docs/adr/0009-singer-voices-from-diarization.md`.
 - **Singer rules.** The singer step gives each phrase of the run its singers. The
   rule is `assignSingers` in `src/lib/singers/assignSingers.ts`:
-  - The share of a singer is the time of its ranges inside the phrase, divided by
-    the length of the phrase. Ranges of one singer that overlap count one time.
-  - A singer with a share of 30% or more (`SINGER_SHARE`) sings the phrase.
-  - If no singer reaches 30%, the singer with the largest share sings the phrase.
+  - The time of a singer is the time of its ranges inside the phrase. Ranges of one
+    singer that overlap count one time.
+  - The singer with the most time sings the phrase. Two singers with the same top
+    time both sing it.
+  - A second singer also sings the phrase when its time is 80% of the top time or
+    more (`SECOND_SINGER_RATIO`), and 1 second or more (`SECOND_SINGER_MS`).
   - A phrase that no range of a singer touches goes to the first singer.
+  - Issue #148 replaced the rule of 30% of the phrase length. The measurement is in
+    `docs/adr/0009-singer-voices-from-diarization.md`.
   - The app numbers the singers in the order of their first phrase. The first
     singer has the number 0.
   - A song has 12 voices at most. If the singers need more voices than the song has
     free, the first singer stays. The other singers with the most phrase time stay.
     Each other singer goes to the nearest earlier singer that stays.
+- **Phrase division.** Before the rule above, the singer step divides each phrase of
+  the run in which the singer changes. The rule is `divideAtSingers` in
+  `src/lib/singers/divideAtSingers.ts`:
+  - Each word gets the singer with the most time in the word.
+  - Adjacent words with the same singer are one part. A word that no range touches
+    joins the part before it.
+  - A part with fewer than 1 word (`PART_MIN_WORDS`) or shorter than 1 second
+    (`PART_MIN_MS`) joins its longer neighbour. The time of a part is from the start
+    of its first word to the end of its last word.
+  - The phrase divides at the start of the first word of each part after the first.
+    So a change inside a word never divides the word.
+  - The first part keeps the id of the phrase. Each other part is a new phrase.
+  - Each word and each phoneme keeps its id and its times.
+  - The label of each part is the labels of its words, with one space between them.
+  - With one singer, the step divides no phrase.
 - The voice of the run keeps the phrases of the first singer. Each other singer gets
   a new voice "Singer 2", "Singer 3" …, with the lowest free number and the next
   unused colour.
@@ -239,8 +264,9 @@ voices and "New voice".
 - The singer step changes only the phrases that the run wrote. Older marks of the
   voice of the run stay.
 - A run has these undo steps, in this order: the marks of the run, the sections of
-  the `[Name]` tags, and the singer voices. One undo after the run removes the singer
-  voices only, and the marks of the run stay on the voice of the run.
+  the `[Name]` tags, and the singer voices with the phrase divisions. One undo after
+  the run removes the singer voices and the divisions only, and the marks of the run
+  stay on the voice of the run.
 
 ## Data touched
 
@@ -253,7 +279,7 @@ voices and "New voice".
 
 ```ts
 addVoice(songId, name?): Voice
-putSingersOnVoices(voiceId, assignment: Map<phraseId, number[]>): number   // the count of voices that hold the phrases of the run
+putSingersOnVoices(voiceId, phraseIds, segments, maxSingers): SingerStepResult   // { voiceCount, dividedCount, stats }
 renameVoice(id, name)            // rejects a duplicate name
 setVoiceColor(id, color)
 reorderVoices(songId, orderedIds)
@@ -281,7 +307,11 @@ No external interface.
 | Singer step finds one singer | No new voice. The phrases stay on the voice of the run. |
 | Singer step finds more singers than free voices | The song keeps 12 voices. The singers with the least phrase time go to the nearest earlier singer. |
 | Singer step on a range run | Only the phrases of the range get singers. A new voice holds only phrases of the range. |
-| A phrase that two singers sing | The phrase is on the voice of the first singer, and a copy is on the voice of the second singer. |
+| A phrase that two singers sing for the same time, or the second for 80% of the top time and 1 second or more | The phrase is on the voice of the first singer, and a copy is on the voice of the second singer. |
+| A second singer sings a short part of a phrase | The phrase stays on the voice of the top singer only. |
+| The singer changes inside a phrase, and each part is 1 second or longer | The phrase becomes one phrase for each part. Each part goes to the voice of its singer. |
+| The singer changes inside a word | The word stays whole. It goes to the part of the singer with the most time in it. |
+| A part of a phrase is shorter than 1 second | The part stays in the phrase of its longer neighbour. |
 | Song has more than 4 unmuted voices | The face preview shows the first 4 in voice order and the note "+2 more". |
 
 ## Acceptance criteria
@@ -322,6 +352,13 @@ No external interface.
 - The count of voices never goes above 12. (FR-voice-24)
 - One undo after the run removes "Singer 2" and puts each phrase back on the voice
   of the run. (FR-voice-27)
+- A phrase in which singer 1 sings the first two words and singer 2 the last two
+  becomes two phrases on two voices. No word or phoneme changes its time.
+  (FR-voice-28)
+- A phrase in which a second singer sings 40% of the time of the top singer is on
+  the voice of the top singer only. (FR-voice-29)
+- Each mark rule holds after the singer step, and one undo removes the divisions too.
+  (FR-voice-27, 28)
 
 ## Out of scope
 

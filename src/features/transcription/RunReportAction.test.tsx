@@ -58,7 +58,6 @@ function report(wordCount = 16): RunReport {
       failureKind: null,
       diagnostics: DIAGNOSTICS,
       rangeCount: 2,
-      shareThreshold: 0.3,
       singersWithPhrases: 2,
       phrasesWithNoSinger: 0,
       phrasesWithMoreSingers: 1,

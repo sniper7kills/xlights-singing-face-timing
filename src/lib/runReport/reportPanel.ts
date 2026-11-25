@@ -2,7 +2,9 @@
 import { joinReasonText, type RawGroup, type SingerDiagnostics } from '../singers/diagnostics.ts'
 import { safeFileName } from '../xtiming/names.ts'
 import {
+  divisionRuleText,
   knownYesNo,
+  phraseRuleText,
   type ReportSeparationModel,
   type RunReport,
   type SingerSection,
@@ -224,17 +226,16 @@ function assignmentFacts(singers: SingerSection): PanelFact[] {
   return [
     { label: 'Singers selected', value: selectedSingersText(singers.selected) },
     { label: 'Singer ranges', value: countText(singers.rangeCount) },
-    {
-      label: 'Phrase share for a singer',
-      value: `${Math.round(singers.shareThreshold * 100)}% of the phrase length`,
-    },
+    { label: 'Phrase rule', value: phraseRuleText(singers.rule) },
+    { label: 'Phrase division', value: divisionRuleText(singers.rule) },
+    { label: 'Phrases divided', value: countText(singers.phrasesDivided ?? null) },
     {
       label: 'Singers with one phrase or more',
       value: countText(singers.singersWithPhrases),
     },
     { label: 'Phrases with no singer', value: countText(singers.phrasesWithNoSinger) },
     {
-      label: 'Phrases with more than one singer',
+      label: 'Phrases with more than one singer (copied to each voice)',
       value: countText(singers.phrasesWithMoreSingers),
     },
   ]

@@ -1,5 +1,5 @@
 import { floatToPcm16, KEPT_TRACK_SAMPLE_RATE, type PcmTrack } from '../../lib/audio/pcm.ts'
-import { SINGER_SHARE } from '../../lib/singers/assignSingers.ts'
+import { PHRASE_RULE } from '../../lib/singers/divideAtSingers.ts'
 import type { SingerDiagnostics } from '../../lib/singers/diagnostics.ts'
 import {
   buildRunReport,
@@ -42,7 +42,7 @@ export type RunRecord = {
   /** The counts of the assignment of the phrases to the singers, or null before it. */
   assignment: Pick<
     SingerSection,
-    'singersWithPhrases' | 'phrasesWithNoSinger' | 'phrasesWithMoreSingers'
+    'singersWithPhrases' | 'phrasesWithNoSinger' | 'phrasesWithMoreSingers' | 'phrasesDivided'
   > | null
   singers: SingerOutcome | null
   /** The ids of the voices that the singer step added. */
@@ -157,7 +157,7 @@ function singerSection(record: RunRecord, request: TranscribeRequest): SingerSec
     failureKind: singers?.status === 'failed' ? singers.kind : null,
     diagnostics: record.singerDiagnostics,
     rangeCount: record.singerSegments?.length ?? null,
-    shareThreshold: SINGER_SHARE,
+    rule: PHRASE_RULE,
     ...(record.assignment ?? NO_ASSIGNMENT),
     voicesMade: singers !== null && 'voiceCount' in singers ? singers.voiceCount : null,
   }
@@ -168,6 +168,7 @@ const NO_ASSIGNMENT = {
   singersWithPhrases: null,
   phrasesWithNoSinger: null,
   phrasesWithMoreSingers: null,
+  phrasesDivided: null,
 } as const
 
 /** The facts of the end of a run that `finishRunRecord` needs from the run. */

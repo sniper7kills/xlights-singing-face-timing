@@ -1,5 +1,12 @@
 import { applyEdit } from '../../lib/marks/markEdit.ts'
 import { previewTransfer, type TransferMode } from '../../lib/marks/transferRules.ts'
+import {
+  type AssignmentStats,
+  assignmentStats,
+  assignSingers,
+  type SingerRange,
+} from '../../lib/singers/assignSingers.ts'
+import { divideAtSingers } from '../../lib/singers/divideAtSingers.ts'
 import { nextVoiceName } from '../../lib/voices/voiceRules.ts'
 import { useSongStore } from '../songStore.ts'
 import type { Mark, SongContent } from '../types.ts'
@@ -7,7 +14,17 @@ import { newMarkId } from './commitMarkEdit.ts'
 import { addVoiceStep } from './voices.ts'
 
 /** The singers of each phrase of a run, as `assignSingers` returns them. */
-export type SingerAssignment = ReadonlyMap<string, readonly number[]>
+type SingerAssignment = ReadonlyMap<string, readonly number[]>
+
+/** What the singer step did with the phrases of a run. */
+export type SingerStepResult = {
+  /** The count of voices that hold the phrases of the run: 1 when the step changed nothing. */
+  voiceCount: number
+  /** The phrases of the run that the step divided where the singer changes. */
+  dividedCount: number
+  /** The counts of the assignment of the phrases after the division, with no limit of singers. */
+  stats: AssignmentStats
+}
 
 /** One transfer of phrases to one voice. */
 type Transfer = { phraseIds: string[]; toVoiceId: string; mode: TransferMode }
@@ -96,9 +113,8 @@ function denseSingers(phrases: readonly Mark[], assignment: SingerAssignment) {
 }
 
 /** Returns the content after each transfer, with the voices of the singers, and the voice count of the run. */
-function singerVoicesStep(content: SongContent, voiceId: string, assignment: SingerAssignment) {
+function transferStep(content: SongContent, voiceId: string, assignment: SingerAssignment) {
   const unchanged = { content, voiceCount: 1 }
-  if (!content.voices.some((voice) => voice.id === voiceId)) return unchanged
   const phrases = runPhrases(content, voiceId, assignment)
   const { dense, singerCount } = denseSingers(phrases, assignment)
   const withVoices = withSingerVoices(content, voiceId, singerCount)
@@ -119,29 +135,74 @@ function singerVoicesStep(content: SongContent, voiceId: string, assignment: Sin
   return { content: { ...withVoices.content, marks }, voiceCount: withVoices.voiceIds.length }
 }
 
+/** Returns the content after the division and the transfers, and what the step did. */
+function singerVoicesStep(
+  content: SongContent,
+  voiceId: string,
+  phraseIds: readonly string[],
+  segments: readonly SingerRange[],
+  maxSingers: number,
+): { content: SongContent; result: SingerStepResult } {
+  const owned = content.marks.filter(
+    (mark) => mark.layer === 'phrase' && mark.voiceId === voiceId && phraseIds.includes(mark.id),
+  )
+  const divided = divideAtSingers(
+    content.marks,
+    owned.map((mark) => mark.id),
+    segments,
+    content.song.frameMs,
+    newMarkId,
+  )
+  const phrases = divided.marks.filter((mark) => divided.phraseIds.includes(mark.id))
+  const stats = assignmentStats(phrases, segments)
+  const assignment = assignSingers(phrases, segments, maxSingers)
+  const moved = transferStep({ ...content, marks: divided.marks }, voiceId, assignment)
+  // With one voice, the division alone gives the person no gain, so the step keeps the song as it was.
+  if (moved.voiceCount === 1)
+    return {
+      content,
+      result: { voiceCount: 1, dividedCount: 0, stats: assignmentStats(owned, segments) },
+    }
+  return {
+    content: moved.content,
+    result: { voiceCount: moved.voiceCount, dividedCount: divided.dividedCount, stats },
+  }
+}
+
 /**
  * Puts each singer of a transcribe run on its own voice, as one undo step.
  *
  * The rules:
- * - Singer 0 keeps the voice of the run.
+ * - A phrase of the run with a change of singer inside it becomes two or more phrases. See `divideAtSingers`.
+ * - `assignSingers` gives the singers of each phrase. Singer 0 keeps the voice of the run.
  * - Each other singer gets a new voice "Singer 2", "Singer 3" … with the next unused colour.
  * - A phrase moves to the voice of its first singer, with its words and phonemes.
  * - A phrase with more than one singer goes to each other singer as a copy with new ids.
- * - Only the phrases in the assignment change. Older marks of the voice stay.
+ * - Only the phrases of the run change. Older marks of the voice stay.
  * - A song has 12 voices at most. A singer with no free voice keeps the voice of the run.
  * - The action numbers the singers after singer 0 again with no gap, so a gap in the assignment makes no empty voice.
  *
- * With one singer, an unknown voice or no phrase, the action records no step.
+ * With one singer, an unknown voice or no phrase, the action records no step and divides no phrase.
  * @param voiceId The voice of the run.
- * @param assignment The singers of each phrase of the run, from `assignSingers`.
- * Returns the count of voices that hold the phrases of the run: 1 when the action changes nothing.
+ * @param phraseIds The phrases that the run wrote. An id of another voice changes nothing.
+ * @param segments The singer ranges, with song times.
+ * @param maxSingers The most singers: the free voices of the song plus the voice of the run.
  */
-export function putSingersOnVoices(voiceId: string, assignment: SingerAssignment): number {
-  let voiceCount = 1
+export function putSingersOnVoices(
+  voiceId: string,
+  phraseIds: readonly string[],
+  segments: readonly SingerRange[],
+  maxSingers: number,
+): SingerStepResult {
+  let result: SingerStepResult = {
+    voiceCount: 1,
+    dividedCount: 0,
+    stats: { singersWithPhrases: 0, phrasesWithNoSinger: 0, phrasesWithMoreSingers: 0 },
+  }
   useSongStore.getState().apply((content) => {
-    const result = singerVoicesStep(content, voiceId, assignment)
-    voiceCount = result.voiceCount
-    return result.content
+    const step = singerVoicesStep(content, voiceId, phraseIds, segments, maxSingers)
+    result = step.result
+    return step.content
   })
-  return voiceCount
+  return result
 }

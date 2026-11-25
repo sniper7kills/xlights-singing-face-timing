@@ -25,25 +25,38 @@ describe('assignSingers', () => {
     expect(asObject(assignSingers(phrases, segments))).toEqual({ a: [0], b: [1], c: [0] })
   })
 
-  it('gives a phrase to two singers when each sings 30% of it or more', () => {
+  it('gives a phrase to both singers when they have the same time in it', () => {
     const segments = [sings(0, 0, 600), sings(1, 400, 1000)]
 
     expect(asObject(assignSingers([phrase('a', 0, 1000)], segments))).toEqual({ a: [0, 1] })
   })
 
-  it('gives a phrase to one singer when the second singer sings less than 30% of it', () => {
-    const segments = [sings(0, 0, 1000), sings(1, 710, 1000)]
+  it('gives a phrase to one singer when the second singer has less than 80% of the top time', () => {
+    const segments = [sings(0, 0, 5000), sings(1, 1050, 5000)]
+
+    expect(asObject(assignSingers([phrase('a', 0, 5000)], segments))).toEqual({ a: [0] })
+  })
+
+  it('gives a phrase to a second singer with exactly 80% of the top time and 1 s or more', () => {
+    const segments = [sings(0, 0, 5000), sings(1, 1000, 5000)]
+
+    expect(asObject(assignSingers([phrase('a', 0, 5000)], segments))).toEqual({ a: [0, 1] })
+  })
+
+  it('gives no copy to a second singer with 80% of the top time but less than 1 s', () => {
+    const segments = [sings(0, 0, 1000), sings(1, 0, 900)]
 
     expect(asObject(assignSingers([phrase('a', 0, 1000)], segments))).toEqual({ a: [0] })
   })
 
-  it('gives a share of exactly 30% to the singer', () => {
-    const segments = [sings(0, 0, 1000), sings(1, 700, 1000)]
+  it('gives no copy for a short answer of the chorus inside a phrase of the lead singer', () => {
+    // The shape of phrase 15 of the song of issue #148: the chorus holds 40% of the phrase, the man 100%.
+    const segments = [sings(0, 54_500, 56_550), sings(1, 54_500, 55_320)]
 
-    expect(asObject(assignSingers([phrase('a', 0, 1000)], segments))).toEqual({ a: [0, 1] })
+    expect(asObject(assignSingers([phrase('a', 54_500, 56_550)], segments))).toEqual({ a: [0] })
   })
 
-  it('gives a phrase below the share to the singer with the most time in it', () => {
+  it('gives a phrase that no singer covers well to the singer with the most time in it', () => {
     const phrases = [phrase('first', 0, 1000), phrase('a', 1000, 2000)]
     const segments = [sings(0, 0, 1000), sings(0, 1000, 1100), sings(1, 1800, 2000)]
 
@@ -129,7 +142,7 @@ describe('assignmentStats', () => {
 
   it('counts the phrases that two singers got', () => {
     const phrases = [phrase('a', 0, 1000), phrase('b', 1000, 2000)]
-    const segments = [sings(0, 0, 2000), sings(1, 400, 1000)]
+    const segments = [sings(0, 0, 2000), sings(1, 0, 1000)]
 
     expect(assignmentStats(phrases, segments).phrasesWithMoreSingers).toBe(1)
   })

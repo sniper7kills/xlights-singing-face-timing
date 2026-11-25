@@ -31,7 +31,6 @@ function report(change: Partial<RunReport> = {}): RunReport {
       failureKind: null,
       diagnostics: null,
       rangeCount: null,
-      shareThreshold: 0.3,
       singersWithPhrases: null,
       phrasesWithNoSinger: null,
       phrasesWithMoreSingers: null,

@@ -83,9 +83,10 @@ test('a run with separation and singer voices keeps a report with the singer sec
   expect(report?.singers).toMatchObject({
     status: 'split',
     rangeCount: 2,
-    shareThreshold: 0.3,
+    rule: { secondSingerRatio: 0.8, secondSingerMs: 1000, partMinWords: 1, partMinMs: 1000 },
+    phrasesDivided: 1,
     singersWithPhrases: 2,
-    phrasesWithMoreSingers: 1,
+    phrasesWithMoreSingers: 0,
     voicesMade: 2,
   })
   expect(report?.singers.diagnostics).toMatchObject({ rawGroupCount: 3, finalSingerCount: 2 })

@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { PHRASE_RULE } from '../../lib/singers/divideAtSingers.ts'
 import { loadRunData } from '../../store/db.ts'
 import { useSongStore } from '../../store/songStore.ts'
 import type { RunData } from '../../store/types.ts'
@@ -175,7 +176,8 @@ describe('runTranscription stores the run report', () => {
       status: 'split',
       failureKind: null,
       rangeCount: 2,
-      shareThreshold: 0.3,
+      rule: PHRASE_RULE,
+      phrasesDivided: 0,
       singersWithPhrases: 2,
       phrasesWithNoSinger: 0,
       phrasesWithMoreSingers: 1,

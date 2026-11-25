@@ -7,7 +7,6 @@ import { encodeWav } from '../../lib/remote/wav.ts'
 import type { TimeRange } from '../../lib/time/timeRange.ts'
 import { getAudioFile } from '../../store/db.ts'
 import { DictionaryLoadError } from '../phoneme-breakdown/loadDictionary.ts'
-import { assignmentStats, assignSingers } from '../../lib/singers/assignSingers.ts'
 import { MAX_VOICES } from '../../lib/voices/voiceRules.ts'
 import { putSingersOnVoices } from '../../store/actions/singerVoices.ts'
 import { findSingers, SingersError, type SingersErrorKind } from '../singer-voices/singersClient.ts'
@@ -326,7 +325,8 @@ function voiceNameOf(voiceId: string): string {
 }
 
 /**
- * Finds the singers in the vocals of the run, and puts each singer on its own voice as one undo step.
+ * Finds the singers in the vocals of the run, divides each phrase where the singer changes,
+ * and puts each singer on its own voice, all as one undo step.
  * The singer times start at the start of the vocals, so a range run adds the start of the range.
  * The count of singers keeps the song at 12 voices or fewer.
  */
@@ -364,13 +364,16 @@ async function splitSingers(
     }))
     record.singerSegments = songSegments
     const songVoices = useSongStore.getState().current?.voices.length ?? MAX_VOICES
-    // The count before the cap tells the person when the song had too few free voices.
-    const stats = assignmentStats(runPhrases, songSegments)
-    record.assignment = stats
-    const found = stats.singersWithPhrases
     // Singer 0 keeps the voice of the run, so each free voice gives one more singer.
-    const assignment = assignSingers(runPhrases, songSegments, MAX_VOICES - songVoices + 1)
-    const voiceCount = putSingersOnVoices(request.voiceId, assignment)
+    const { voiceCount, dividedCount, stats } = putSingersOnVoices(
+      request.voiceId,
+      runPhrases.map((phrase) => phrase.id),
+      songSegments,
+      MAX_VOICES - songVoices + 1,
+    )
+    record.assignment = { ...stats, phrasesDivided: dividedCount }
+    // The count before the cap tells the person when the song had too few free voices.
+    const found = stats.singersWithPhrases
     return { status: found > voiceCount ? 'capped' : 'split', voiceCount, voiceName }
   } catch (error) {
     return singerFailure(error, voiceName)

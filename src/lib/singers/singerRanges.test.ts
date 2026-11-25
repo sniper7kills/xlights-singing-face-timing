@@ -58,4 +58,22 @@ describe('singerVoiceRanges', () => {
     )
     expect([...ranges.keys()]).toEqual(['first'])
   })
+
+  it('gives each singer the voice of its part after the singer step divides a phrase', () => {
+    // The singer step of issue #148 divides the phrase 0 to 4000 ms at 2000 ms and moves the second part.
+    const ranges = singerVoiceRanges(
+      [
+        { startMs: 0, endMs: 2100, singer: 1 },
+        { startMs: 1900, endMs: 4000, singer: 0 },
+      ],
+      [
+        { voiceId: 'lead', phrases: [{ startMs: 0, endMs: 2000 }] },
+        { voiceId: 'second', phrases: [{ startMs: 2000, endMs: 4000 }] },
+      ],
+    )
+    expect(Object.fromEntries(ranges)).toEqual({
+      lead: [{ startMs: 0, endMs: 2100 }],
+      second: [{ startMs: 1900, endMs: 4000 }],
+    })
+  })
 })

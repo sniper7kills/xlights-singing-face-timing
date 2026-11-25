@@ -64,7 +64,9 @@ import {
   runSpeed,
   SINGER_COUNT_NOTE,
   SINGER_HINT,
+  SINGER_MODEL_HINT,
   SINGER_NOTE,
+  showsSingerModelHint,
   shownRunState,
   SLOW_GPU_MESSAGE,
   stateLabel,
@@ -311,6 +313,7 @@ export function TranscribeDialog({
             onChange={selectSingers}
             count={singerCount}
             onCountChange={selectSingerCount}
+            modelHint={showsSingerModelHint(usesRemote, speechModelId)}
           />
           <fieldset className="choice-group">
             <legend>Range</legend>
@@ -499,11 +502,13 @@ type SingerChoiceProps = {
   onChange: (checked: boolean) => void
   count: SingerCountChoice
   onCountChange: (count: SingerCountChoice) => void
+  /** True when the run uses a small speech model of this browser. See `showsSingerModelHint`. */
+  modelHint: boolean
 }
 
 /**
  * Shows the check box "Put each singer on its own voice", its note, and the hint while it is disabled.
- * While the option is on, it also shows the "Singers" choice.
+ * While the option is on, it also shows the hint for a small speech model and the "Singers" choice.
  */
 function SingerChoice(props: SingerChoiceProps) {
   const { shown, enabled, checked, onChange } = props
@@ -530,6 +535,7 @@ function SingerChoice(props: SingerChoiceProps) {
       <p id={noteId} className="dialog-note">
         {SINGER_NOTE}
       </p>
+      {enabled && checked && props.modelHint && <p className="dialog-note">{SINGER_MODEL_HINT}</p>}
       {enabled && checked && (
         <SingerCountChoices count={props.count} onChange={props.onCountChange} />
       )}
