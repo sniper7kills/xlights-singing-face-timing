@@ -290,6 +290,14 @@ leaves the browser, and the app shows the host before each run.
 - FR-transcribe-130 — If the app cannot convert the audio tracks of a run, the
   toast states it.
 
+### Lyrics limit (issue #156)
+
+- FR-transcribe-131 — The lyrics field accepts 20 000 characters at most.
+- FR-transcribe-132 — With more than 20 000 characters, the dialog shows a message
+  under the lyrics field and disables "Start".
+- FR-transcribe-133 — A paste of 1 000 000 characters returns control to the
+  person in less than 1 second.
+
 ## User flows
 
 ### Transcribe a song
@@ -464,6 +472,11 @@ available. Transcription is slower on this browser."
 
 If the person selects "Lyrics only" and the lyrics field has no word, the app
 disables "Start". The hint reads "Paste the lyrics to use Lyrics only."
+
+If the lyrics have more than 20 000 characters, the message under the lyrics field
+reads "The lyrics are too long. Use 20 000 characters at most." The app disables
+"Start" and reads no line of the lyrics until the text is shorter. No real song
+has lyrics of this length.
 
 **Separate the vocals first.** The check box comes after "Lyrics only". "Lyrics
 only" hides it, because a lyrics-only run reads no audio. The note under the check

@@ -4,12 +4,14 @@ import {
   useCallback,
   useEffect,
   useId,
+  useMemo,
   useReducer,
   useRef,
   useState,
 } from 'react'
 import { keepFocusInside, tabStops } from '../../app/modalFocus.ts'
 import { endpointHost, isMixedContent, type RemoteEndpoint } from '../../lib/remote/endpoint.ts'
+import { LYRICS_TOO_LONG_MESSAGE, lyricsTooLong } from '../../lib/text/lyricsLength.ts'
 import { formatTime } from '../../lib/time/formatTime.ts'
 import type { TimeRange } from '../../lib/time/timeRange.ts'
 import { DEFAULT_SETTINGS, loadSettings, updateSettings } from '../../store/settings.ts'
@@ -134,12 +136,12 @@ export function TranscribeDialog({
   const { state } = run
   const active = isActive(state)
   const meter = active ? run.meter : null
-  // Lyrics with no word, such as one "[Chorus]" line, give no phrase, so they count as no lyrics.
-  const hasLyrics = parseLyrics(lyrics).length > 0
-  const hasTags = offersTagSections(lyrics)
-  const needsLyrics = lyricsOnly && !hasLyrics
+  const { tooLong, hasLyrics, hasTags, needsLyrics, lyricsReady } = useLyricsFacts(
+    lyrics,
+    lyricsOnly,
+  )
   const usesRemote = remote.appliesTo(lyricsOnly)
-  const canStart = remote.canStart(usesRemote, run.webgpu !== null) && !needsLyrics
+  const canStart = remote.canStart(usesRemote, run.webgpu !== null) && lyricsReady
 
   useEffect(() => {
     let mounted = true
@@ -284,10 +286,7 @@ export function TranscribeDialog({
               <DeviceNote webgpu={run.webgpu} device={run.device} meter={meter} />
             </>
           )}
-          <label className="dialog-field">
-            Lyrics (optional)
-            <textarea rows={5} value={lyrics} onChange={(event) => setLyrics(event.target.value)} />
-          </label>
+          <LyricsField lyrics={lyrics} tooLong={tooLong} onChange={setLyrics} />
           <TagSectionsChoice shown={hasTags} checked={tagSections} onChange={setTagSections} />
           <label className="choice">
             <input
@@ -366,9 +365,53 @@ function AlertMessage({ shown, text }: { shown: boolean; text: string }) {
   )
 }
 
-/** Returns true when the lyrics have a `[Name]` tag and a word. A tag with no lyrics line gives no phrase, so it gives no section. */
-function offersTagSections(lyrics: string): boolean {
-  return parseSectionTags(lyrics).length > 0 && parseLyrics(lyrics).length > 0
+/**
+ * Returns the facts of the lyrics that the dialog needs.
+ * Lyrics with no word, such as one "[Chorus]" line, give no phrase, so they count as no lyrics.
+ * Lyrics above the limit are not read, so a very large paste does not hold the page.
+ */
+function useLyricsFacts(lyrics: string, lyricsOnly: boolean) {
+  const tooLong = lyricsTooLong(lyrics)
+  const facts = useMemo(() => {
+    const hasLyrics = !tooLong && parseLyrics(lyrics).length > 0
+    // A tag with no lyrics line gives no phrase, so it gives no section.
+    const hasTags = hasLyrics && parseSectionTags(lyrics).length > 0
+    return { tooLong, hasLyrics, hasTags }
+  }, [lyrics, tooLong])
+  const needsLyrics = lyricsOnly && !facts.hasLyrics
+  /** True when the lyrics let the run start: not too long, and with a word for a lyrics-only run. */
+  return { ...facts, needsLyrics, lyricsReady: !needsLyrics && !tooLong }
+}
+
+type LyricsFieldProps = {
+  lyrics: string
+  /** True when the lyrics have more characters than the limit. */
+  tooLong: boolean
+  onChange: (lyrics: string) => void
+}
+
+/** Shows the lyrics field, and the message under it when the lyrics are too long. */
+function LyricsField({ lyrics, tooLong, onChange }: LyricsFieldProps) {
+  const errorId = useId()
+  return (
+    <div className="dialog-field">
+      <label className="dialog-field">
+        Lyrics (optional)
+        <textarea
+          rows={5}
+          value={lyrics}
+          aria-invalid={tooLong}
+          aria-describedby={tooLong ? errorId : undefined}
+          onChange={(event) => onChange(event.target.value)}
+        />
+      </label>
+      {tooLong && (
+        <p id={errorId} className="field-error" role="alert">
+          {LYRICS_TOO_LONG_MESSAGE}
+        </p>
+      )}
+    </div>
+  )
 }
 
 type TagSectionsChoiceProps = {

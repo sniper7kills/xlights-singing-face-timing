@@ -738,6 +738,19 @@ body.rv-open .layout { padding-right:21rem; }
 </li>
 </ul>
 <p>toast states it.</p>
+<h4 id="transcription-lyrics-limit-issue-156">Lyrics limit (issue #156)</h4>
+<ul>
+<li>FR-transcribe-131 — The lyrics field accepts 20 000 characters at most.
+</li>
+<li>FR-transcribe-132 — With more than 20 000 characters, the dialog shows a message
+</li>
+</ul>
+<p>under the lyrics field and disables "Start".</p>
+<ul>
+<li>FR-transcribe-133 — A paste of 1 000 000 characters returns control to the
+</li>
+</ul>
+<p>person in less than 1 second.</p>
 <h3 id="transcription-user-flows">User flows</h3>
 <h4 id="transcription-transcribe-a-song">Transcribe a song</h4>
 <div class="diagram"><pre class="mermaid">sequenceDiagram
@@ -980,6 +993,7 @@ body.rv-open .layout { padding-right:21rem; }
 </ul>
 <p>card was too slow. The run continues on the CPU." one time.</p>
 <p>If the person selects "Lyrics only" and the lyrics field has no word, the app disables "Start". The hint reads "Paste the lyrics to use Lyrics only."</p>
+<p>If the lyrics have more than 20 000 characters, the message under the lyrics field reads "The lyrics are too long. Use 20 000 characters at most." The app disables "Start" and reads no line of the lyrics until the text is shorter. No real song has lyrics of this length.</p>
 <p><strong>Separate the vocals first.</strong> The check box comes after "Lyrics only". "Lyrics only" hides it, because a lyrics-only run reads no audio. The note under the check box reads "The app removes the instruments before it finds the words. This step downloads a model of 79 MB one time and adds time to the run. The audio stays in this browser." For a remote run, the third sentence reads "The app separates the vocals in this browser, and then sends the vocals to &lt;host&gt;."</p>
 <p>The states of the vocal separation come after preparing and before the states of the speech model or the remote endpoint:</p>
 <ul>
