@@ -62,9 +62,17 @@ test('downloads the demo song as the golden file and shows the done state', asyn
   )
   const steps = dialog.locator('details', { hasText: 'Next, in xLights' })
   await expect(steps).toHaveAttribute('open', '')
-  await expect(steps.getByRole('listitem')).toHaveCount(7)
-  await expect(steps.getByRole('listitem').nth(1)).toContainText(
+  const importList = steps.getByRole('list', { name: 'Import steps' })
+  await expect(importList.getByRole('listitem')).toHaveCount(7)
+  await expect(importList.getByRole('listitem').nth(1)).toContainText(
     'It must match the frame size in this dialog: 50 ms.',
+  )
+  const faceModelList = steps.getByRole('list', {
+    name: 'Use the timing tracks with several face models',
+  })
+  await expect(faceModelList.getByRole('listitem')).toHaveCount(5)
+  await expect(faceModelList.getByRole('listitem').nth(4)).toHaveText(
+    'In each of these effects, select the same timing track: the timing track of the chorus voice.',
   )
 })
 

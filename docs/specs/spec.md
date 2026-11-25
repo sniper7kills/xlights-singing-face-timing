@@ -93,6 +93,7 @@ The user's request, verbatim:
 | export | verb | To write an `.xtiming` file and give it to the person as a download. | save, generate, publish |
 | zip file | noun | One `.zip` file from the export dialog that holds the timing files, the audio file and the song data of one song. | archive, bundle, package |
 | face model | noun | The xLights model that shows a singing face. | prop, face |
+| face definition | noun | The part of a face model in xLights that gives the nodes or the picture for each phoneme label and each eye state. | face map, mouth map |
 | editor | noun | The screen that shows the waveform and the layers of the selected voice. | timeline, workspace |
 
 ## Goals
