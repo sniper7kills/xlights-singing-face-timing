@@ -1,4 +1,5 @@
 import { type KeyboardEvent, useEffect, useId, useRef, useState } from 'react'
+import { idList } from '../../lib/text/idList.ts'
 import { voiceNameError } from '../../lib/voices/voiceRules.ts'
 import { importNameHint } from '../../lib/xtiming/names.ts'
 import { setVoicePreviewMuted } from '../../store/actions/setPreviewMuted.ts'
@@ -24,7 +25,7 @@ type VoiceRowProps = {
 type Focus = 'select' | 'menu' | null
 
 /**
- * Shows one row of the voice rail: a select button with the colour chip, the name and the phrase count,
+ * Shows one row of the voice rail: a select button with the row number, the colour chip, the name and the phrase count,
  * then the mute button of the face preview and the menu button.
  * "Rename" shows a text field in place of the select button. `Enter` and a lost focus save, and `Escape` cancels.
  * A name with a field error keeps the field open with the error.
@@ -44,7 +45,6 @@ export function VoiceRow({
   const [hint, setHint] = useState<string | null>(null)
   // A control that the next render removes cannot keep the focus, so the row moves the focus after the render.
   const [focus, setFocus] = useState<Focus>(null)
-  const row = useRef<HTMLLIElement>(null)
   const selectButton = useRef<HTMLButtonElement>(null)
   const menuButton = useRef<HTMLButtonElement>(null)
   const errorId = useId()
@@ -61,16 +61,6 @@ export function VoiceRow({
     ;(focus === 'select' ? selectButton : menuButton).current?.focus()
     setFocus(null)
   }, [focus])
-
-  useEffect(() => {
-    if (!menuOpen) return
-    // A press outside the row closes the menu. The menu button toggles the menu itself.
-    function onPointerDown(event: PointerEvent) {
-      if (event.target instanceof Node && !row.current?.contains(event.target)) setMenuOpen(false)
-    }
-    document.addEventListener('pointerdown', onPointerDown)
-    return () => document.removeEventListener('pointerdown', onPointerDown)
-  }, [menuOpen])
 
   function closeMenu(refocus: boolean) {
     setMenuOpen(false)
@@ -104,7 +94,7 @@ export function VoiceRow({
   }
 
   return (
-    <li ref={row} className="voice-row">
+    <li className="voice-row" aria-current={selected ? 'true' : undefined}>
       {renaming ? (
         <div className="voice-rename">
           <input
@@ -112,10 +102,7 @@ export function VoiceRow({
             aria-label="Voice name"
             defaultValue={voice.name}
             aria-invalid={error !== null}
-            aria-describedby={
-              [error === null ? '' : errorId, hint === null ? '' : hintId].join(' ').trim() ||
-              undefined
-            }
+            aria-describedby={idList(error !== null && errorId, hint !== null && hintId)}
             // The field opens from the menu, so the person types at once.
             autoFocus
             onFocus={(event) => event.currentTarget.select()}
@@ -142,13 +129,19 @@ export function VoiceRow({
           aria-pressed={selected}
           aria-labelledby={nameId}
           aria-describedby={countId}
+          // The rail can cut a long name, so the tooltip shows the full name.
+          title={voice.name}
           onClick={() => {
             if (!selected) useViewStore.getState().selectVoice(voice.id)
           }}
         >
+          {/* The number tells apart two names that the rail cuts at the same place. */}
+          <span className="voice-number" aria-hidden="true">
+            {index + 1}
+          </span>
           <span className="voice-chip" style={{ background: voice.color }} aria-hidden="true" />
           <span className="voice-text">
-            <span id={nameId} className="voice-name" title={voice.name}>
+            <span id={nameId} className="voice-name">
               {voice.name}
             </span>
             <small id={countId} className="voice-count">
@@ -195,6 +188,7 @@ export function VoiceRow({
             onMove(direction)
             closeMenu(true)
           }}
+          anchor={menuButton}
           onDelete={() => {
             // The dialog gives the focus back to the control that has it when the dialog opens.
             menuButton.current?.focus()

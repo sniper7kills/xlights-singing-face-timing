@@ -47,8 +47,8 @@ test('shows a face for each unmuted voice and the phrases of the other voice on 
   await expect(ghostBars(page).first()).toHaveCSS('background-color', 'rgb(76, 201, 240)')
 
   await rail(page).getByRole('button', { name: 'Actions for Voice 2', exact: true }).click()
-  await rail(page).getByRole('menuitem', { name: 'Colour', exact: true }).click()
-  await rail(page).getByRole('menuitemradio', { name: 'Pink' }).click()
+  await page.getByRole('menuitem', { name: 'Colour', exact: true }).click()
+  await page.getByRole('menuitemradio', { name: 'Pink' }).click()
   // Pink is #f472b6. The chip and every bar show it.
   const pink = 'rgb(244, 114, 182)'
   await expect(voiceButton(page, 'Voice 2').locator('.voice-chip')).toHaveCSS(

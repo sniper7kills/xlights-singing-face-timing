@@ -334,41 +334,43 @@ body.rv-open .layout { padding-right:21rem; }
 </ul>
 <p>the song.</p>
 <ul>
-<li>FR-editor-54 — A phrase label change gives each new word 3 frame sizes or more
+<li>FR-editor-54 — A heading above the phrase layer names the shown voice.
+</li>
+<li>FR-editor-55 — A phrase label change gives each new word 3 frame sizes or more
 </li>
 </ul>
 <p>when the phrase has room.</p>
 <ul>
-<li>FR-editor-55 — A mark that a double-click adds is 10 frame sizes long, or the
+<li>FR-editor-56 — A mark that a double-click adds is 10 frame sizes long, or the
 </li>
 </ul>
 <p>length of the empty range when it is shorter.</p>
 <ul>
-<li>FR-editor-56 — A mark never draws over the next mark of its layer.
+<li>FR-editor-57 — A mark never draws over the next mark of its layer.
 </li>
-<li>FR-editor-57 — A selected mark of any width has two edge handles that the person
+<li>FR-editor-58 — A selected mark of any width has two edge handles that the person
 </li>
 </ul>
 <p>can drag.</p>
 <ul>
-<li>FR-editor-58 — A phrase or a word shorter than 3 frame sizes has the "short"
+<li>FR-editor-59 — A phrase or a word shorter than 3 frame sizes has the "short"
 </li>
 </ul>
 <p>style.</p>
 <ul>
-<li>FR-editor-59 — A zoom with the slider or a key keeps the selected mark, the play
+<li>FR-editor-60 — A zoom with the slider or a key keeps the selected mark, the play
 </li>
 </ul>
 <p>cursor or the centre of the stage in place.</p>
 <ul>
-<li>FR-editor-60 — "Zoom to selection" shows the selected marks or the time
+<li>FR-editor-61 — "Zoom to selection" shows the selected marks or the time
 </li>
 </ul>
 <p>selection.</p>
 <ul>
-<li>FR-editor-61 — "Fit song" shows the full song.
+<li>FR-editor-62 — "Fit song" shows the full song.
 </li>
-<li>FR-editor-62 — The person folds the voice rail and the inspector.
+<li>FR-editor-63 — The person folds the voice rail and the inspector.
 </li>
 </ul>
 <h3 id="timeline-editor-user-flows">User flows</h3>
@@ -478,7 +480,12 @@ body.rv-open .layout { padding-right:21rem; }
 <li>empty: the layers show "No marks yet. Select Transcribe to find the words." with
 </li>
 </ul>
-<p>a "Transcribe" button.</p>
+<p>a "Transcribe" button. When a different voice of the song has phrases, the text is "This voice has no marks. Select phrases of a different voice, then select "Phrase" and "Move to voice". Or select "Transcribe"."</p>
+<ul>
+<li>each state with a voice: the heading "Voice: &lt;voice name&gt;", with the colour
+</li>
+</ul>
+<p>chip of the voice, is above the phrase layer. It changes with the shown voice. See <a href="feature-voices-sections.html#behaviour-rules">05-voices-sections.md</a>.</p>
 <ul>
 <li>loading: skeleton layers while the song opens.
 </li>
@@ -494,7 +501,7 @@ body.rv-open .layout { padding-right:21rem; }
 </ul>
 <p>is 1024 px wide or more.", and a link "Back to the song library".</p>
 <p>Mark styles on the layers: phrases are wide bars with the full text. Words are bars with the word. Phonemes are short blocks with the phoneme label and one colour for each phoneme label. A label that does not fit is cut with an ellipsis. The tooltip of a mark shows the full label on the first line and "&lt;start&gt; to &lt;end&gt;" on the second line, for example "0:01.200 to 0:01.650". An "unknown" word has a dotted border. An "estimated" word has a dashed inner frame, and a screen reader gets the text "(estimated time)".</p>
-<p>The drawn width of a mark (FR-editor-56 to 58):</p>
+<p>The drawn width of a mark (FR-editor-57 to 59):</p>
 <ul>
 <li>A mark draws from its start to its end on the time scale, and no wider. So it
 </li>
@@ -735,7 +742,7 @@ body.rv-open .layout { padding-right:21rem; }
 <li><strong>Zoom.</strong> The zoom slider, <code>+</code> and <code>-</code> keep one time in place on the stage
 </li>
 </ul>
-<p>(FR-editor-59):</p>
+<p>(FR-editor-60):</p>
 <ol>
 <li>The middle of the selected marks, when a part of them is in view. A middle
 </li>
@@ -759,7 +766,7 @@ body.rv-open .layout { padding-right:21rem; }
 <li><strong>Side panels.</strong> The voice rail and the inspector each have a fold button with
 </li>
 </ul>
-<p><code>aria-expanded</code> (FR-editor-62). A folded panel keeps only its fold button, and the stage takes the width. The arrow on the button points to the side where the panel moves, and the tooltip is "Hide the voices panel" or "Show the voices panel" (or the inspector panel). In a window narrower than 1280 px, a panel starts folded until the person opens it. The browser keeps the choice of the person in <code>localStorage</code>. A fold is view state, not an undo step. A folded inspector hides the face preview too.</p>
+<p><code>aria-expanded</code> (FR-editor-63). A folded panel keeps only its fold button, and the stage takes the width. The arrow on the button points to the side where the panel moves, and the tooltip is "Hide the voices panel" or "Show the voices panel" (or the inspector panel). In a window narrower than 1280 px, a panel starts folded until the person opens it. The browser keeps the choice of the person in <code>localStorage</code>. A fold is view state, not an undo step. A folded inspector hides the face preview too.</p>
 <ul>
 <li><strong>Help line.</strong> The text depends on the selection:
 <ul>
@@ -835,9 +842,9 @@ body.rv-open .layout { padding-right:21rem; }
 <li><strong>Add a mark.</strong> A double-click in an empty range of a layer adds a mark of 10
 </li>
 </ul>
-<p>frame sizes that starts at the pointer (FR-editor-55). A mark that would end after the empty range moves earlier, so it keeps its length. An empty range shorter than 10 frame sizes gets a mark of its full length. A word outside any phrase also adds a phrase with the same range and the same label.</p>
+<p>frame sizes that starts at the pointer (FR-editor-56). A mark that would end after the empty range moves earlier, so it keeps its length. An empty range shorter than 10 frame sizes gets a mark of its full length. A word outside any phrase also adds a phrase with the same range and the same label.</p>
 <ul>
-<li><strong>Words of a changed phrase</strong> (FR-editor-54). When a phrase label changes the
+<li><strong>Words of a changed phrase</strong> (FR-editor-55). When a phrase label changes the
 </li>
 </ul>
 <p>words:</p>
@@ -1180,43 +1187,48 @@ formatTime(ms: number): string                   // m:ss.mmm</code></pre>
 </ul>
 <p>(FR-editor-53)</p>
 <ul>
+<li>After a click on a voice, the heading above the phrase layer is "Voice: &lt;voice
+</li>
+</ul>
+<p>name&gt;". (FR-editor-54)</p>
+<ul>
 <li>After "All is calm, all is bright" becomes "All is calm and all is bright
 </li>
 </ul>
-<p>tonight" on the demo song, "and" and "tonight" are each 3 frame sizes or longer. (FR-editor-54)</p>
+<p>tonight" on the demo song, "and" and "tonight" are each 3 frame sizes or longer. (FR-editor-55)</p>
 <ul>
 <li>A double-click in an empty range of 1 second adds a mark of 10 frame sizes, also
 </li>
 </ul>
-<p>near the end of the range. (FR-editor-55)</p>
+<p>near the end of the range. (FR-editor-56)</p>
 <ul>
 <li>No two marks of a layer draw over each other at any zoom, with marks of one frame
 </li>
 </ul>
-<p>size. (FR-editor-56)</p>
+<p>size. (FR-editor-57)</p>
 <ul>
 <li>A selected mark of one frame size has two handles of 10 px under its bar.
 </li>
 </ul>
-<p>(FR-editor-57)</p>
+<p>(FR-editor-58)</p>
 <ul>
-<li>A word of 2 frame sizes shows the "short" style. (FR-editor-58)
+<li>A word of 2 frame sizes shows the "short" style. (FR-editor-59)
 </li>
-<li>After a zoom with the slider, the selected mark is in view. (FR-editor-59)
+<li>After a zoom with the slider, the selected mark is in view. (FR-editor-60)
 </li>
-<li>Five arrow keys on the zoom slider change the zoom by 40% or more. (FR-editor-59)
+<li>Five arrow keys on the zoom slider change the zoom by 40% or more. (FR-editor-60)
 </li>
 <li>"Zoom to selection" shows a selected phoneme of 50 ms at 40 px wide or more.
 </li>
 </ul>
-<p>(FR-editor-60)</p>
+<p>(FR-editor-61)</p>
 <ul>
-<li>"Fit song" shows the full song. (FR-editor-61)
+<li>"Fit song" shows the full song. (FR-editor-62)
 </li>
 <li>In a window of 1024 px with both side panels folded, the stage is 700 px wide or
 </li>
 </ul>
-<p>more. (FR-editor-62)</p>
+<p>more. (FR-editor-63)</p>
 <ul>
 <li>A changed phrase label shows the confirm dialog, and confirm rebuilds the words.
 </li>

@@ -1,4 +1,5 @@
-import { type KeyboardEvent, useEffect, useRef } from 'react'
+import { type KeyboardEvent, type RefObject, useEffect, useRef } from 'react'
+import { FloatingMenu } from './FloatingMenu.tsx'
 
 /** One item of an `ActionMenu`. */
 export type ActionMenuItem = {
@@ -13,8 +14,10 @@ type ActionMenuProps = {
   /** The accessible name of the menu. */
   label: string
   items: readonly ActionMenuItem[]
+  /** The button that opens the menu. See `FloatingMenu`. */
+  anchor: RefObject<HTMLElement | null>
   /**
-   * Receives `Escape`, or a focus that leaves the menu.
+   * Receives `Escape`, a focus that leaves the menu, or a press outside the menu.
    * `refocus` is false when the focus goes to another control, so the menu button must not take it back.
    */
   onClose: (refocus: boolean) => void
@@ -35,8 +38,9 @@ function nextIndex(key: string, index: number, count: number): number | undefine
  * Shows a menu of actions, with the focus on the first item.
  * The arrow keys, `Home` and `End` move the focus. `Enter` or `Space` runs the item. `Escape` closes the menu.
  * The menu takes each key except `Tab`, so the editor shortcuts do not act while it is open.
+ * The menu opens next to `anchor`, with the rules of `FloatingMenu`.
  */
-export function ActionMenu({ label, items, onClose }: ActionMenuProps) {
+export function ActionMenu({ label, items, anchor, onClose }: ActionMenuProps) {
   const menu = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -58,35 +62,37 @@ export function ActionMenu({ label, items, onClose }: ActionMenuProps) {
   }
 
   return (
-    <div
-      ref={menu}
-      className="action-menu"
-      role="menu"
-      aria-label={label}
-      onKeyDown={onKeyDown}
-      onBlur={(event) => {
-        const target = event.relatedTarget
-        if (target instanceof Node && !event.currentTarget.contains(target)) onClose(false)
-      }}
-    >
-      {items.map((item, index) => (
-        <button
-          // A voice can have the name of another item, so the label alone is not a unique key.
-          key={`${index}-${item.label}`}
-          type="button"
-          className="action-menu-item"
-          role="menuitem"
-          aria-disabled={item.disabled}
-          // The text names the item, so the browser gives the title as its accessible description.
-          title={item.note}
-          tabIndex={-1}
-          onClick={() => {
-            if (!item.disabled) item.run()
-          }}
-        >
-          {item.label}
-        </button>
-      ))}
-    </div>
+    <FloatingMenu anchor={anchor} onClose={onClose}>
+      <div
+        ref={menu}
+        className="action-menu"
+        role="menu"
+        aria-label={label}
+        onKeyDown={onKeyDown}
+        onBlur={(event) => {
+          const target = event.relatedTarget
+          if (target instanceof Node && !event.currentTarget.contains(target)) onClose(false)
+        }}
+      >
+        {items.map((item, index) => (
+          <button
+            // A voice can have the name of another item, so the label alone is not a unique key.
+            key={`${index}-${item.label}`}
+            type="button"
+            className="action-menu-item"
+            role="menuitem"
+            aria-disabled={item.disabled}
+            // The text names the item, so the browser gives the title as its accessible description.
+            title={item.note}
+            tabIndex={-1}
+            onClick={() => {
+              if (!item.disabled) item.run()
+            }}
+          >
+            {item.label}
+          </button>
+        ))}
+      </div>
+    </FloatingMenu>
   )
 }

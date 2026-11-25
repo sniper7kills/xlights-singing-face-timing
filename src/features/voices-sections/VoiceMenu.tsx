@@ -1,7 +1,8 @@
-import { type KeyboardEvent, useEffect, useRef, useState } from 'react'
+import { type KeyboardEvent, type RefObject, useEffect, useRef, useState } from 'react'
 import { VOICE_COLOR_NAMES, VOICE_COLORS } from '../../lib/voices/voiceRules.ts'
 import { setVoiceColor } from '../../store/actions/voices.ts'
 import type { Voice } from '../../store/types.ts'
+import { FloatingMenu } from './FloatingMenu.tsx'
 
 type VoiceMenuProps = {
   voice: Voice
@@ -15,8 +16,10 @@ type VoiceMenuProps = {
   /** Receives -1 for "Move up" and 1 for "Move down". */
   onMove: (direction: -1 | 1) => void
   onDelete: () => void
+  /** The menu button of the row. The menu opens next to it. See `FloatingMenu`. */
+  anchor: RefObject<HTMLElement | null>
   /**
-   * Receives `Escape`, a chosen colour, or a focus that leaves the menu.
+   * Receives `Escape`, a chosen colour, a focus that leaves the menu, or a press outside the menu.
    * `refocus` is false when the focus goes to another control, so the menu button must not take it back.
    */
   onClose: (refocus: boolean) => void
@@ -46,12 +49,13 @@ function nextIndex(key: string, index: number, count: number): number | undefine
 
 /**
  * Shows the menu of a voice row: "Rename", "Colour", "Move up", "Move down" and "Delete".
- * "Colour" shows the 8 preset colours in the same menu, each with its colour name.
+ * "Colour" shows the 12 preset colours in the same menu, each with its colour name.
+ * A stored colour that is not a preset colour stays, and the list then checks no colour.
  * The arrow keys, `Home` and `End` move the focus. `Enter` or `Space` runs the item. `Escape` closes the menu.
  * The menu takes each key except `Tab`, so the editor shortcuts do not act while it is open.
  */
 export function VoiceMenu(props: VoiceMenuProps) {
-  const { voice, first, last, canDelete, onRename, onMove, onDelete, onClose } = props
+  const { voice, first, last, canDelete, onRename, onMove, onDelete, anchor, onClose } = props
   const [colours, setColours] = useState(false)
   const menu = useRef<HTMLDivElement>(null)
 
@@ -92,36 +96,38 @@ export function VoiceMenu(props: VoiceMenuProps) {
   }
 
   return (
-    <div
-      ref={menu}
-      className="voice-menu"
-      role="menu"
-      aria-label={colours ? `Colour of ${voice.name}` : `Actions for ${voice.name}`}
-      onKeyDown={onKeyDown}
-      onBlur={(event) => {
-        const target = event.relatedTarget
-        if (target instanceof Node && !event.currentTarget.contains(target)) onClose(false)
-      }}
-    >
-      {items.map((item) => (
-        <button
-          key={item.label}
-          type="button"
-          className="voice-menu-item"
-          role={item.checked === undefined ? 'menuitem' : 'menuitemradio'}
-          aria-checked={item.checked}
-          aria-disabled={item.disabled}
-          tabIndex={-1}
-          onClick={() => {
-            if (!item.disabled) item.run()
-          }}
-        >
-          {item.color !== undefined && (
-            <span className="voice-chip" style={{ background: item.color }} aria-hidden="true" />
-          )}
-          {item.label}
-        </button>
-      ))}
-    </div>
+    <FloatingMenu anchor={anchor} onClose={onClose}>
+      <div
+        ref={menu}
+        className="voice-menu"
+        role="menu"
+        aria-label={colours ? `Colour of ${voice.name}` : `Actions for ${voice.name}`}
+        onKeyDown={onKeyDown}
+        onBlur={(event) => {
+          const target = event.relatedTarget
+          if (target instanceof Node && !event.currentTarget.contains(target)) onClose(false)
+        }}
+      >
+        {items.map((item) => (
+          <button
+            key={item.label}
+            type="button"
+            className="voice-menu-item"
+            role={item.checked === undefined ? 'menuitem' : 'menuitemradio'}
+            aria-checked={item.checked}
+            aria-disabled={item.disabled}
+            tabIndex={-1}
+            onClick={() => {
+              if (!item.disabled) item.run()
+            }}
+          >
+            {item.color !== undefined && (
+              <span className="voice-chip" style={{ background: item.color }} aria-hidden="true" />
+            )}
+            {item.label}
+          </button>
+        ))}
+      </div>
+    </FloatingMenu>
   )
 }
