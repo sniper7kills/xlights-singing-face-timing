@@ -56,21 +56,43 @@ describe('createSpleeterSeparator', () => {
   })
 
   it('returns finite vocals with the length of the input', async () => {
-    const vocals = await createSpleeterSeparator().separate(audio, events)
+    const { vocals } = await createSpleeterSeparator().separate(audio, events, false)
     expect(vocals).toHaveLength(audio.left.length)
     expect(vocals.every(Number.isFinite)).toBe(true)
   })
 
+  it('returns finite instruments with the length of the input when the request asks for them', async () => {
+    const { instruments } = await createSpleeterSeparator().separate(audio, events, true)
+
+    expect(instruments).toHaveLength(audio.left.length)
+    expect(instruments?.every(Number.isFinite)).toBe(true)
+  })
+
+  it('returns equal vocals and instruments when both masks are 0.5', async () => {
+    const { vocals, instruments } = await createSpleeterSeparator().separate(audio, events, true)
+
+    expect(instruments).toBeDefined()
+    for (const [index, value] of vocals.entries()) {
+      expect(instruments?.[index]).toBeCloseTo(value, 5)
+    }
+  })
+
+  it('returns no instruments field without the instruments flag', async () => {
+    const result = await createSpleeterSeparator().separate(audio, events, false)
+
+    expect(result).not.toHaveProperty('instruments')
+  })
+
   it('fails with the kind model when the model gives NaN', async () => {
     output.value = Number.NaN
-    const failure = createSpleeterSeparator().separate(audio, events)
+    const failure = createSpleeterSeparator().separate(audio, events, false)
     await expect(failure).rejects.toThrow(SeparationFailure)
     await expect(failure).rejects.toHaveProperty('kind', 'model')
   })
 
   it('fails with the kind model when the model gives Infinity', async () => {
     output.value = Number.POSITIVE_INFINITY
-    await expect(createSpleeterSeparator().separate(audio, events)).rejects.toHaveProperty(
+    await expect(createSpleeterSeparator().separate(audio, events, false)).rejects.toHaveProperty(
       'kind',
       'model',
     )

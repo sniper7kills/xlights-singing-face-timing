@@ -1,3 +1,4 @@
+import { floatToPcm16, KEPT_TRACK_SAMPLE_RATE, type PcmTrack } from '../../lib/audio/pcm.ts'
 import { SINGER_SHARE } from '../../lib/singers/assignSingers.ts'
 import type { SingerDiagnostics } from '../../lib/singers/diagnostics.ts'
 import {
@@ -13,10 +14,12 @@ import {
 } from '../../lib/runReport/runReport.ts'
 import type { TimeRange } from '../../lib/time/timeRange.ts'
 import { endpointHost } from '../../lib/remote/endpoint.ts'
-import { saveRunData } from '../../store/db.ts'
+import { saveRunData, StorageFullError } from '../../store/db.ts'
 import { useSongStore } from '../../store/songStore.ts'
-import type { Mark, RunData } from '../../store/types.ts'
+import type { KeptTracks, Mark, RunData } from '../../store/types.ts'
+import type { SeparatedAudio } from '../vocal-separation/protocol.ts'
 import { SeparateError } from '../vocal-separation/separateClient.ts'
+import { resampleSeparated } from '../vocal-separation/separationAudio.ts'
 import type { RunStage, SingerOutcome, TranscribeRequest } from './runTranscription.ts'
 
 /**
@@ -28,6 +31,10 @@ export type RunRecord = {
   clock: StepClock
   separationModel: ReportSeparationModel
   separationFallback: boolean
+  /** The count of audio tracks that the vocal separation gave. */
+  trackCount: number
+  /** The audio tracks to store, or null when the run keeps none. */
+  tracks: KeptTracks | null
   notes: RunNote[]
   /** The singer ranges with song times, or null when the singer search returned none. */
   singerSegments: ReportSingerRange[] | null
@@ -49,6 +56,8 @@ export function startRunRecord(now: Date = new Date()): RunRecord {
     clock: createStepClock(() => performance.now()),
     separationModel: 'none',
     separationFallback: false,
+    trackCount: 0,
+    tracks: null,
     notes: [],
     singerSegments: null,
     singerDiagnostics: null,
@@ -69,6 +78,40 @@ export const STAGE_STEP: Record<RunStage, RunStep> = {
   waiting: 'wait',
   'singers-download': 'singersDownload',
   'finding-singers': 'singers',
+}
+
+/**
+ * Returns the two audio tracks of a separation to store: 16-bit PCM at `KEPT_TRACK_SAMPLE_RATE`, or null with no instruments.
+ * @param separated The vocals and the instruments at 44 100 Hz.
+ * @param startMs The song time of the first sample. A range run gives the start of the range.
+ * Rejects when the browser cannot resample the audio.
+ */
+export async function tracksToKeep(
+  separated: SeparatedAudio,
+  startMs: number,
+): Promise<KeptTracks | null> {
+  const { instruments } = separated
+  if (instruments === undefined) return null
+  const track = async (samples: Float32Array): Promise<PcmTrack> => ({
+    startMs,
+    sampleRate: KEPT_TRACK_SAMPLE_RATE,
+    samples: floatToPcm16(await resampleSeparated(samples, KEPT_TRACK_SAMPLE_RATE)),
+  })
+  return { vocals: await track(separated.vocals), instruments: await track(instruments) }
+}
+
+/** The report line of a run whose audio tracks the browser storage could not keep. */
+export const STORAGE_FULL_NOTE: RunNote = {
+  step: 'storage',
+  kind: 'storage-full',
+  text: 'audio tracks not kept: the browser storage is full',
+}
+
+/** The report line of a run whose audio tracks the browser could not convert for storage. */
+export const TRACKS_FAILED_NOTE: RunNote = {
+  step: 'storage',
+  kind: 'unknown',
+  text: 'audio tracks not kept: the app could not convert the tracks',
 }
 
 /**
@@ -105,10 +148,11 @@ function singerStatus(singers: SingerOutcome | null): SingerSection['status'] {
   return singers.status
 }
 
-/** Returns the singer section of the report. */
-function singerSection(record: RunRecord): SingerSection {
+/** Returns the singer section of the report. The request gives the choice of "Singers". */
+function singerSection(record: RunRecord, request: TranscribeRequest): SingerSection {
   const { singers } = record
   return {
+    ...(request.singerVoices === true ? { selected: request.singerCount ?? 'automatic' } : {}),
     status: singerStatus(singers),
     failureKind: singers?.status === 'failed' ? singers.kind : null,
     diagnostics: record.singerDiagnostics,
@@ -169,7 +213,9 @@ export function finishRunRecord(record: RunRecord, end: RunEnd): RunData {
     mode: end.request.mode,
     separationModel: record.separationModel,
     separationFallback: record.separationFallback,
-    singers: singerSection(record),
+    trackCount: record.trackCount,
+    tracksKept: record.tracks !== null,
+    singers: singerSection(record, end.request),
     voices: voicePhrases(voices, content?.marks ?? [], end.range, record.singerVoiceIds),
     marks: end.written,
     range: { startMs: end.range.startMs, endMs: end.range.endMs },
@@ -179,15 +225,58 @@ export function finishRunRecord(record: RunRecord, end: RunEnd): RunData {
   })
   return {
     songId: content?.song.id ?? '',
+    ...(record.tracks === null ? {} : { tracks: record.tracks }),
     singerSegments: record.singerSegments ?? [],
     report,
   }
 }
 
 /**
- * Stores the run data. A run must complete when the browser cannot store its report, so a failed write changes nothing else.
+ * The longest time that a run waits for the write of its run data, in milliseconds.
+ * A transaction that does not end must not hold the result of the run. Two audio tracks of a long song make a write of tens of MB.
+ */
+export const RUN_DATA_WRITE_LIMIT_MS = 5000
+
+/**
+ * The result of the write of the run data:
+ * - `stored`: the app stored all run data.
+ * - `storage-full`: the browser storage was full, so the app stored the run data with no audio tracks.
+ * - `failed`: the app stored no run data.
+ * - `late`: the write did not end in `RUN_DATA_WRITE_LIMIT_MS`. The write continues, and `onRunDataSaved` tells the editor when it ends.
+ */
+export type RunDataWrite = 'stored' | 'storage-full' | 'failed' | 'late'
+
+/** Writes the run data, and a second time with no audio tracks when the storage is full. */
+async function writeRunData(data: RunData): Promise<RunDataWrite> {
+  try {
+    await saveRunData(data)
+    return 'stored'
+  } catch (error) {
+    if (!(error instanceof StorageFullError) || data.tracks === undefined) return 'failed'
+  }
+  const report = {
+    ...data.report,
+    tracksKept: false,
+    notes: [...data.report.notes, STORAGE_FULL_NOTE],
+  }
+  return saveRunData({ songId: data.songId, singerSegments: data.singerSegments, report }).then(
+    (): RunDataWrite => 'storage-full',
+    (): RunDataWrite => 'failed',
+  )
+}
+
+/**
+ * Stores the run data and returns the result of the write.
+ * A run must complete when the browser cannot store its data, so the function never rejects.
+ * A full storage gives a second write with no audio tracks, so the singer ranges and the report stay.
+ * After `RUN_DATA_WRITE_LIMIT_MS`, the function returns `late` and the write continues.
+ * A late write that meets a full storage also writes again with no audio tracks.
  * @param data The run data of a completed run.
  */
-export async function keepRunData(data: RunData): Promise<void> {
-  await saveRunData(data).catch(() => undefined)
+export function keepRunData(data: RunData): Promise<RunDataWrite> {
+  let timer: ReturnType<typeof setTimeout> | undefined
+  const late = new Promise<RunDataWrite>((resolve) => {
+    timer = setTimeout(() => resolve('late'), RUN_DATA_WRITE_LIMIT_MS)
+  })
+  return Promise.race([writeRunData(data), late]).finally(() => clearTimeout(timer))
 }

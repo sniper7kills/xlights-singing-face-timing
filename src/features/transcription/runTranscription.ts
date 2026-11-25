@@ -18,11 +18,14 @@ import { useSongStore } from '../../store/songStore.ts'
 import {
   finishRunRecord,
   keepRunData,
+  type RunDataWrite,
   type RunRecord,
   separationFailureNote,
   singerNote,
   STAGE_STEP,
   startRunRecord,
+  tracksToKeep,
+  TRACKS_FAILED_NOTE,
 } from './runRecord.ts'
 import type { Mark } from '../../store/types.ts'
 import { alignLyrics } from './alignLyrics.ts'
@@ -71,6 +74,11 @@ export type TranscribeRequest = {
   /** The vocal separation model of the run. Without it, the run uses 'spleeter'. */
   separationModel?: SeparationModelId
   /**
+   * True stores the vocals and the instruments of a successful separation for the song, as 16-bit PCM.
+   * It needs `separateVocals`. Without it, the run stores no audio track.
+   */
+  keepTracks?: boolean
+  /**
    * True puts each singer on its own voice after the marks, as a further undo step.
    * The step reads the separated vocals, so it needs `separateVocals`. Without it, the run makes no singer voices.
    */
@@ -113,6 +121,8 @@ export type TranscribeOutcome = {
   breakDownFailure: BreakDownFailure | null
   /** The result of the singer step. A run without `singerVoices` has no value. */
   singers?: SingerOutcome
+  /** The result of the write of the run data. See `RunDataWrite`. */
+  runData: RunDataWrite
 }
 
 /** A break down that did not run, and the words that it leaves without phonemes. */
@@ -253,12 +263,13 @@ export async function runTranscription(
   const singers = await singerStep(request, range, vocals, written, timed, record)
   const end = { request, range, frameMs: song.frameMs, written, device: client.device }
   // The report of every completed run is kept, so the person can see what the run did.
-  await keepRunData(finishRunRecord(record, end))
+  const runData = await keepRunData(finishRunRecord(record, end))
   return {
     wordCount: words.length,
     estimatedCount: words.filter((mark) => mark.estimated).length,
     breakDownFailure,
     ...singers,
+    runData,
   }
 }
 
@@ -505,7 +516,7 @@ async function findWords(
  * With `separateVocals`, the samples are the vocals. A range run separates only the audio of the range.
  * If the separation fails and the person selects "Continue with no separation", the samples are the audio of the song.
  * If the person selects "Use the fast model", the step runs again with Spleeter.
- * The record gets the model that gave the vocals and a report line for each failure.
+ * The record gets the model that gave the vocals, a report line for each failure, and the audio tracks to store.
  * @param model The vocal separation model of this attempt.
  * Rejects as cancelled when the signal aborts or the person declines to continue.
  */
@@ -519,7 +530,7 @@ async function speechSamples(
   if (request.separateVocals !== true)
     return { samples: await resampleForSpeech(audio, request.range), separated: false }
   try {
-    const samples = await separatedSamples(audio, request.range, model, handlers)
+    const samples = await separatedSamples(request, audio, model, handlers, record)
     record.separationModel = model
     return { samples, separated: true }
   } catch (error) {
@@ -536,21 +547,26 @@ async function speechSamples(
   }
 }
 
-/** Returns the vocals of the audio of the run, at the speech model sample rate. */
+/**
+ * Returns the vocals of the audio of the run, at the speech model sample rate.
+ * With `keepTracks`, the record also gets the vocals and the instruments as audio tracks to store.
+ */
 async function separatedSamples(
+  request: TranscribeRequest,
   audio: Blob,
-  range: TimeRange | undefined,
   model: SeparationModelId,
   handlers: TranscribeRunHandlers,
+  record: RunRecord,
 ): Promise<Float32Array> {
   const { signal } = handlers
-  const stereo = await decodeStereo(audio, range)
+  const stereo = await decodeStereo(audio, request.range)
   stopIfCancelled(signal)
   handlers.onStage('separation-download')
   let separating = false
-  const vocals = await separateVocals(stereo, {
+  const separated = await separateVocals(stereo, {
     signal,
     model,
+    instruments: request.keepTracks === true,
     onDownload: handlers.onSeparationDownload,
     onProgress: (doneMs, totalMs) => {
       // The protocol has no message for the end of the model load, so the first progress starts the step.
@@ -560,5 +576,13 @@ async function separatedSamples(
     },
   })
   stopIfCancelled(signal)
-  return vocalsForSpeech(vocals)
+  const speech = await vocalsForSpeech(separated.vocals)
+  // The model gives the vocals and the instruments, also when the app asks only for the vocals.
+  record.trackCount = 2
+  record.tracks = await tracksToKeep(separated, request.range?.startMs ?? 0).catch(() => {
+    // The tracks are extra data, so a failed conversion keeps the run and adds a report line.
+    record.notes.push(TRACKS_FAILED_NOTE)
+    return null
+  })
+  return speech
 }

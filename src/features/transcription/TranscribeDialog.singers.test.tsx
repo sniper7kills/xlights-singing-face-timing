@@ -174,6 +174,34 @@ describe('TranscribeDialog and the singer voices', () => {
     expect(lastRun().request).toMatchObject({ singerVoices: true, singerCount: 2 })
   })
 
+  it('starts a run with the kept tracks and the count together', async () => {
+    await updateSettings({ separateVocals: true, singerVoices: true, singerCount: 3 })
+    const { user, start } = await renderDialog()
+    await vi.waitFor(() => expect(screen.getByRole('radio', { name: '3' })).toBeChecked())
+
+    await user.click(start)
+
+    expect(lastRun().request).toMatchObject({
+      keepTracks: true,
+      singerVoices: true,
+      singerCount: 3,
+    })
+  })
+
+  it('shows "Keep the separated tracks" between the separation model and the singer option', async () => {
+    await updateSettings({ separateVocals: true, singerVoices: true })
+    await renderDialog()
+    await screen.findByRole('group', { name: 'Singers' })
+
+    const names = screen
+      .getAllByRole('checkbox')
+      .map((box) => box.getAttribute('aria-label') ?? box.parentElement?.textContent ?? '')
+    const keep = names.findIndex((name) => name.includes('Keep the separated tracks'))
+    const singers = names.findIndex((name) => name.includes('Put each singer on its own voice'))
+    expect(keep).toBeGreaterThan(-1)
+    expect(singers).toBeGreaterThan(keep)
+  })
+
   it('opens with the stored count', async () => {
     await updateSettings({ separateVocals: true, singerVoices: true, singerCount: 4 })
     await renderDialog()
@@ -224,6 +252,7 @@ describe('TranscribeDialog and the singer voices', () => {
     const outcome: TranscribeOutcome = {
       wordCount: 3,
       estimatedCount: 0,
+      runData: 'stored',
       breakDownFailure: null,
       singers: { status: 'cancelled', voiceName: 'Lead' },
     }
@@ -238,7 +267,9 @@ describe('TranscribeDialog and the singer voices', () => {
     const run = lastRun()
 
     await user.click(screen.getByRole('button', { name: 'Cancel' }))
-    await act(async () => run.resolve({ wordCount: 3, estimatedCount: 0, breakDownFailure: null }))
+    await act(async () =>
+      run.resolve({ wordCount: 3, estimatedCount: 0, runData: 'stored', breakDownFailure: null }),
+    )
 
     expect(onDone).not.toHaveBeenCalled()
     expect(await screen.findByRole('button', { name: 'Start' })).toBeEnabled()

@@ -55,11 +55,32 @@ export class StorageFullError extends Error {
 
 let connection: Promise<IDBDatabase> | undefined
 
+/** The functions that hear that another tab of the app holds the database open during an upgrade. */
+const blockedListeners = new Set<() => void>()
+
+/**
+ * Calls `listener` when the open request of the database is blocked: another tab holds an earlier version open.
+ * The open request waits, and it completes when the other tab closes its connection.
+ * Returns the function that stops the calls.
+ */
+export function onDatabaseBlocked(listener: () => void): () => void {
+  blockedListeners.add(listener)
+  return () => blockedListeners.delete(listener)
+}
+
+/** Returns true when the open failed because a newer version of the app wrote the database. */
+export function isNewerDatabaseError(error: unknown): boolean {
+  return (
+    typeof error === 'object' && error !== null && 'name' in error && error.name === 'VersionError'
+  )
+}
+
 /**
  * Returns the one shared connection to the app database, at version 3.
  * The first call opens the database and creates the object stores that are missing.
  * Version 3 adds the `runs` object store, and the upgrade keeps each record of the other object stores.
  * Rejects if the browser has no IndexedDB or refuses the open request.
+ * Rejects with a `VersionError` DOMException when a newer version of the app wrote the database. See `isNewerDatabaseError`.
  */
 export function openDatabase(): Promise<IDBDatabase> {
   connection ??= requestDatabase().catch((error: unknown) => {
@@ -94,6 +115,9 @@ function requestDatabase(): Promise<IDBDatabase> {
       return
     }
     request.onupgradeneeded = () => createMissingStores(request.result)
+    request.onblocked = () => {
+      for (const listener of blockedListeners) listener()
+    }
     request.onsuccess = () => {
       const database = request.result
       database.onversionchange = () => {
@@ -371,7 +395,7 @@ export function loadRunData(songId: string): Promise<RunData | undefined> {
 }
 
 /**
- * Writes the data of a run in one transaction, and replaces the singer ranges and the report of the earlier run.
+ * Writes the data of a run in one transaction, and replaces the audio tracks, the singer ranges and the report of the earlier run.
  * After the write, each listener of `onRunDataSaved` hears of it.
  * Rejects with StorageFullError when the browser storage is full. The earlier run data then stays.
  */

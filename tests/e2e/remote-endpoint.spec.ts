@@ -95,23 +95,30 @@ test('a remote run creates the same marks on three layers as a browser run of th
   })
   await createSong(page)
 
+  // A busy test computer can take more than 5 seconds for a run and the write of its marks.
   const browser = await openDialog(page)
   await browser.getByRole('button', { name: 'Start' }).click()
-  await expect(browser).toBeHidden()
-  await expect(page.getByText('16 words, 0 estimated')).toBeVisible()
+  await expect(browser).toBeHidden({ timeout: 20_000 })
+  await expect(page.getByText('16 words, 0 estimated')).toBeVisible({ timeout: 20_000 })
+  await expect
+    .poll(async () => (await layerMarks(page, 'Phonemes')).length, { timeout: 20_000 })
+    .toBeGreaterThan(16)
   const browserMarks = await allLayers(page)
   expect(browserMarks.words).toHaveLength(16)
-  expect(browserMarks.phonemes.length).toBeGreaterThan(16)
 
   const remote = await openDialog(page)
   await saveEndpoint(remote)
   await remote.getByRole('button', { name: 'Start' }).click()
-  await expect(remote.getByText('The run replaces the marks of this voice.')).toBeVisible()
+  await expect(remote.getByText('The run replaces the marks of this voice.')).toBeVisible({
+    timeout: 20_000,
+  })
   await remote.getByRole('button', { name: 'Continue' }).click()
-  await expect(remote).toBeHidden()
-  await expect(page.getByText('16 words, 0 estimated')).toBeVisible()
+  await expect(remote).toBeHidden({ timeout: 20_000 })
 
-  expect(await allLayers(page)).toEqual(browserMarks)
+  await expect(page.getByText('16 words, 0 estimated')).toBeVisible({ timeout: 20_000 })
+
+  // The editor can draw the layers after the dialog closes, so the test reads them until they match.
+  await expect.poll(() => allLayers(page), { timeout: 20_000 }).toEqual(browserMarks)
   // `require-corp` (ADR 0006) lets a CORS request to another host through.
   expect(await page.evaluate('crossOriginIsolated')).toBe(true)
   expect(posts).toHaveLength(1)

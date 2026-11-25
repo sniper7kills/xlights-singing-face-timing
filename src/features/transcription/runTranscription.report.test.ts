@@ -98,7 +98,7 @@ async function savedRun(): Promise<RunData> {
 beforeEach(async () => {
   vi.mocked(resampleForSpeech).mockResolvedValue(new Float32Array(2 * SPEECH_SAMPLE_RATE))
   vi.mocked(decodeStereo).mockResolvedValue(STEREO)
-  vi.mocked(separateVocals).mockResolvedValue(new Float32Array(3))
+  vi.mocked(separateVocals).mockResolvedValue({ vocals: new Float32Array(3) })
   vi.mocked(vocalsForSpeech).mockResolvedValue(VOCALS)
   vi.mocked(findSingers).mockImplementation(async (_vocals, singerHandlers) => {
     singerHandlers?.onDiagnostics?.(fixtureDiagnostics(1300, SEGMENTS))
@@ -147,6 +147,7 @@ describe('runTranscription stores the run report', () => {
       notes: [],
     })
     expect(report.singers.status).toBe('option-off')
+    expect(report.singers).not.toHaveProperty('selected')
     expect(report.build).toBe(__APP_BUILD__)
     expect(report.durationsMs.prepare).toBeTypeOf('number')
     expect(report.durationsMs.modelLoad).toBeTypeOf('number')
@@ -179,6 +180,7 @@ describe('runTranscription stores the run report', () => {
       phrasesWithNoSinger: 0,
       phrasesWithMoreSingers: 1,
       voicesMade: 2,
+      selected: 'automatic',
     })
     expect(report.singers.diagnostics?.rawGroupCount).toBe(3)
     expect(report.voices.map((voice) => [voice.name, voice.made])).toEqual([
@@ -186,6 +188,16 @@ describe('runTranscription stores the run report', () => {
       ['Singer 2', true],
     ])
     expect(report.durationsMs.singers).toBeUndefined()
+  })
+
+  it('stores the count that the person selected in "Singers"', async () => {
+    await runTranscription(
+      { ...request, singerVoices: true, singerCount: 3 },
+      fakeClient(),
+      handlers(),
+    )
+
+    expect((await savedRun()).report.singers.selected).toBe(3)
   })
 
   it('reports one singer when the singer step finds one singer', async () => {
@@ -260,7 +272,7 @@ describe('runTranscription stores the run report', () => {
   it('reports the change to the fast model', async () => {
     vi.mocked(separateVocals)
       .mockRejectedValueOnce(new SeparateError('memory', 'std::bad_alloc'))
-      .mockResolvedValueOnce(new Float32Array(3))
+      .mockResolvedValueOnce({ vocals: new Float32Array(3) })
     const run = handlers()
     vi.mocked(run.confirmNoSeparation).mockResolvedValue('fast-model')
 

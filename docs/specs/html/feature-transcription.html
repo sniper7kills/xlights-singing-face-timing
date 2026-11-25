@@ -440,19 +440,19 @@ body.rv-open .layout { padding-right:21rem; }
 </ul>
 <p>voice of the run, and the toast states the failure.</p>
 <ul>
-<li>FR-transcribe-63 — While "Put each singer on its own voice" is on, the dialog
+<li>FR-transcribe-119 — While "Put each singer on its own voice" is on, the dialog
 </li>
 </ul>
 <p>shows the choice "Singers" with "Automatic", "2", "3" and "4". "Automatic" is the default.</p>
 <ul>
-<li>FR-transcribe-64 — The app remembers the last choice of "Singers".
+<li>FR-transcribe-120 — The app remembers the last choice of "Singers".
 </li>
-<li>FR-transcribe-65 — With a count in "Singers", the singer step finds that count of
+<li>FR-transcribe-121 — With a count in "Singers", the singer step finds that count of
 </li>
 </ul>
 <p>singers.</p>
 <ul>
-<li>FR-transcribe-66 — With "Automatic", the singer step estimates the count of
+<li>FR-transcribe-122 — With "Automatic", the singer step estimates the count of
 </li>
 </ul>
 <p>singers.</p>
@@ -522,6 +522,11 @@ body.rv-open .layout { padding-right:21rem; }
 </ul>
 <p>or more, the phrase share of 30%, and the count of voices made.</p>
 <ul>
+<li>FR-transcribe-123 — The singer section states the choice of "Singers" of the run:
+</li>
+</ul>
+<p>"Automatic", 2, 3 or 4. A report from before this field gives "not recorded".</p>
+<ul>
 <li>FR-transcribe-77 — The singer section states the count of phrases that no singer
 </li>
 </ul>
@@ -537,10 +542,10 @@ body.rv-open .layout { padding-right:21rem; }
 </ul>
 <p>each section, one fact on each line, a unit with each number.</p>
 <ul>
-<li>FR-transcribe-80 — If the browser storage is full, the run completes and the song
+<li>FR-transcribe-80 — If the browser storage is full, the run completes. If the run
 </li>
 </ul>
-<p>keeps the earlier report.</p>
+<p>data does not fit with no audio tracks either, the song keeps the earlier report.</p>
 <h4 id="transcription-run-report-panel-issue-131">Run report panel (issue #131)</h4>
 <ul>
 <li>FR-transcribe-81 — The editor top bar shows "Run report" after "Transcribe".
@@ -550,10 +555,10 @@ body.rv-open .layout { padding-right:21rem; }
 </ul>
 <p>shows the tooltip "No transcribe run for this song yet."</p>
 <ul>
-<li>FR-transcribe-83 — If the song has a run report, the toast after a run shows a
+<li>FR-transcribe-83 — If the run stored its run report, the toast after the run
 </li>
 </ul>
-<p>"Run report" link.</p>
+<p>shows a "Run report" link.</p>
 <ul>
 <li>FR-transcribe-84 — The toast stays while its link has the focus.
 </li>
@@ -607,6 +612,103 @@ body.rv-open .layout { padding-right:21rem; }
 <li>FR-transcribe-98 — The report states each voice that the singer step made.
 </li>
 </ul>
+<h4 id="transcription-kept-audio-tracks-issue-129">Kept audio tracks (issue #129)</h4>
+<ul>
+<li>FR-transcribe-99 — With "Separate the vocals first" on, the transcribe dialog
+</li>
+</ul>
+<p>shows the check box "Keep the separated tracks" after "Separation model" and before "Put each singer on its own voice". It is on by default.</p>
+<ul>
+<li>FR-transcribe-100 — The app remembers the last choice of "Keep the separated
+</li>
+</ul>
+<p>tracks". Settings from before the check box give the choice on.</p>
+<ul>
+<li>FR-transcribe-101 — Under the check box, the dialog shows "The app stores the
+</li>
+</ul>
+<p>vocals and the instruments of this song in this browser, about &lt;n&gt; MB. You can listen to each track in the editor." The length of the song or of the range gives <code>&lt;n&gt;</code>.</p>
+<ul>
+<li>FR-transcribe-102 — With the check box on, a run with a successful vocal
+</li>
+</ul>
+<p>separation stores two audio tracks for the song: the vocals and the instruments.</p>
+<ul>
+<li>FR-transcribe-103 — The app stores each audio track as 16-bit PCM in one channel
+</li>
+</ul>
+<p>at 22 050 Hz, about 2 646 000 bytes for each minute.</p>
+<ul>
+<li>FR-transcribe-104 — A range run stores the audio tracks of the range only, with
+</li>
+</ul>
+<p>the song time of the start of the range.</p>
+<ul>
+<li>FR-transcribe-105 — A new completed run replaces the audio tracks, the singer
+</li>
+</ul>
+<p>ranges and the report of the song in one write.</p>
+<ul>
+<li>FR-transcribe-106 — A run with no separated vocals stores no audio track.
+</li>
+<li>FR-transcribe-107 — After "Use the fast model", the run stores the audio tracks
+</li>
+</ul>
+<p>of Spleeter.</p>
+<ul>
+<li>FR-transcribe-108 — The report states the count of audio tracks of the vocal
+</li>
+</ul>
+<p>separation, and whether the app kept them.</p>
+<ul>
+<li>FR-transcribe-109 — If the browser storage is full, the app stores the report and
+</li>
+</ul>
+<p>the singer ranges with no audio tracks.</p>
+<ul>
+<li>FR-transcribe-110 — After FR-transcribe-109, the toast adds "The browser storage
+</li>
+</ul>
+<p>is full, so the app did not keep the separated tracks."</p>
+<ul>
+<li>FR-transcribe-111 — The run waits 5 seconds or less for the write of the run
+</li>
+</ul>
+<p>data. Then the run completes.</p>
+<ul>
+<li>FR-transcribe-112 — If the write of the run data failed, the toast shows no
+</li>
+</ul>
+<p>"Run report" link and adds "The app could not store the run report."</p>
+<ul>
+<li>FR-transcribe-124 — If the write of the run data did not end in 5 seconds, the
+</li>
+</ul>
+<p>toast shows no "Run report" link and adds "The app still stores the run report. It shows in "Run report" when it is ready." The write continues.</p>
+<ul>
+<li>FR-transcribe-113 — Deleting the song deletes its audio tracks.
+</li>
+<li>FR-transcribe-114 — The storage meter of the song library counts the audio
+</li>
+</ul>
+<p>tracks.</p>
+<ul>
+<li>FR-transcribe-115 — The zip file of the song holds the audio tracks and the run
+</li>
+</ul>
+<p>report. See <a href="feature-xtiming-export.html#behaviour-rules">06-xtiming-export.md</a>.</p>
+<ul>
+<li>FR-transcribe-116 — The app sends the audio tracks to no server.
+</li>
+<li>FR-transcribe-117 — If a newer version of the app wrote the database, the song
+</li>
+</ul>
+<p>library shows "This browser holds data from a newer version of the app. Reload the page. If the message stays, close the other tabs of the app and reload."</p>
+<ul>
+<li>FR-transcribe-118 — If another tab of the app keeps the database open during an
+</li>
+</ul>
+<p>upgrade, the song library shows "Close the other tabs of the app. Then reload this page."</p>
 <h3 id="transcription-user-flows">User flows</h3>
 <h4 id="transcription-transcribe-a-song">Transcribe a song</h4>
 <div class="diagram"><pre class="mermaid">sequenceDiagram
@@ -740,6 +842,11 @@ body.rv-open .layout { padding-right:21rem; }
 </li>
 </ol>
 <p>fast model" runs the vocal separation again with Spleeter.</p>
+<ol>
+<li>With "Keep the separated tracks" on, the separate worker also returns the
+</li>
+</ol>
+<p>instruments. At the end of the run, the app stores the vocals and the instruments at 22 050 Hz with the run report.</p>
 <h4 id="transcription-put-each-singer-on-its-own-voice">Put each singer on its own voice</h4>
 <ol>
 <li>The person selects "Separate the vocals first".
@@ -1112,10 +1219,15 @@ body.rv-open .layout { padding-right:21rem; }
 </ul>
 <h3 id="transcription-data-touched">Data touched</h3>
 <ul>
-<li>Writes <code>RUN_DATA</code> for the song at the end of each completed run: the singer ranges
+<li>Writes <code>RUN_DATA</code> for the song at the end of each completed run: the audio
 </li>
 </ul>
-<p>and the run report. A new run replaces the full record.</p>
+<p>tracks, the singer ranges and the run report. A new run replaces the full record.</p>
+<ul>
+<li>Reads and writes <code>APP_SETTINGS.keepTracks</code>, the last choice of "Keep the separated
+</li>
+</ul>
+<p>tracks". A record with no value gives <code>true</code>.</p>
 <ul>
 <li>Reads <code>AUDIO_FILE</code>. Reads and writes <code>APP_SETTINGS.speechModelId</code>.
 </li>
@@ -1301,12 +1413,13 @@ type ErrorKind = 'download' | 'device' | 'memory' | 'unknown'
 <p><strong>Vocal separation, <code>src/workers/separate.worker.ts</code>.</strong> The types are in <code>src/features/vocal-separation/protocol.ts</code>. The client <code>separateVocals(audio, { onDownload, onProgress, signal, model })</code> starts one worker for each run and terminates it at the end or at "Cancel". The worker makes the engine of <code>model</code>. A request with no <code>model</code> uses <code>'spleeter'</code>. The Demucs engine and <code>demucs-web</code> are a separate chunk that the worker imports only for <code>'demucs'</code>.</p>
 <pre class="code"><code>interface StereoAudio { left: Float32Array; right: Float32Array; sampleRate: 44100 }
 // to worker (SeparateRequest)
-{ type: 'separate'; runId: number; audio: StereoAudio; model?: 'spleeter' | 'demucs' }
+{ type: 'separate'; runId: number; audio: StereoAudio; model?: 'spleeter' | 'demucs'; instruments?: boolean }
 // from worker (SeparateMessage)
 { type: 'download'; runId: number; loadedBytes: number; totalBytes: number }
 { type: 'progress'; runId: number; doneMs: number; totalMs: number }
-{ type: 'result'; runId: number; vocals: Float32Array } // one channel, 44.1 kHz, the length of the input
-{ type: 'error'; runId: number; kind: 'download' | 'memory' | 'model' | 'unknown'; detail: string }</code></pre>
+{ type: 'result'; runId: number; vocals: Float32Array; instruments?: Float32Array } // one channel each, 44.1 kHz, the length of the input</code></pre>
+<p>The worker computes and sends <code>instruments</code> only for a request with <code>instruments: true</code>. Spleeter gives the input with the accompaniment mask, 1 minus the vocals mask. This costs one more inverse STFT and no model run. Demucs gives the sum of the drums, bass and other stems.</p>
+<pre class="code"><code>{ type: 'error'; runId: number; kind: 'download' | 'memory' | 'model' | 'unknown'; detail: string }</code></pre>
 <p>The app converts the vocals to 16 kHz in an <code>OfflineAudioContext</code> at 16 000 Hz: a buffer source plays a buffer at 44 100 Hz, and <code>startRendering()</code> returns the resampled <code>AudioBuffer</code>. A buffer can have a sample rate that is not the rate of the context, and the browser resamples it. Sources: https://developer.mozilla.org/en-US/docs/Web/API/OfflineAudioContext/startRendering, https://developer.mozilla.org/en-US/docs/Web/API/BaseAudioContext/createBuffer and https://developer.mozilla.org/en-US/docs/Web/API/AudioBuffer/copyToChannel (retrieved 2026-11-24).</p>
 <p><strong>Singer step, <code>src/workers/singers.worker.ts</code>.</strong> The types are in <code>src/features/singer-voices/protocol.ts</code>. The client <code>findSingers(vocals, { singerCount, onDownload, onProgress, signal })</code> starts one worker for each run and terminates it at the end or at "Cancel". The worker calls the engine of <code>createSingerFinder()</code> in <code>src/features/singer-voices/engine/index.ts</code>. When <code>__SINGERS_FIXTURE__</code> is true, the client starts <code>singersFixture.worker.ts</code>, which downloads no model.</p>
 <pre class="code"><code>interface SingerSegment { startMs: number; endMs: number; singer: number } // singer 0, 1, 2 … in order of first appearance
@@ -1367,6 +1480,12 @@ spreadLyrics(lyrics: string, startMs: number, endMs: number): AlignedPhrase[]</c
 <tr><td>Singer step: more singers than free voices</td><td>The song keeps 12 voices or fewer. See the singer rules in <a href="feature-voices-sections.html#behaviour-rules">05-voices-sections.md</a>.</td></tr>
 <tr><td>Singer step: more singers than free voices, and the song has 12 voices</td><td>No new voice. The toast adds "The song has 12 voices, so the app cannot add a voice for each singer. All phrases stay on &lt;voice name&gt;."</td></tr>
 <tr><td>Singer step: more singers than free voices, and the song has room for some singers</td><td>The app adds a voice for each free voice. The toast adds "The song has room for &lt;k&gt; more voices. The other singers stay on &lt;voice name&gt;."</td></tr>
+<tr><td>Kept audio tracks: the browser storage is full</td><td>The run completes. The app stores the report and the singer ranges with no audio tracks. The report has the line "audio tracks not kept: the browser storage is full". The toast adds "The browser storage is full, so the app did not keep the separated tracks."</td></tr>
+<tr><td>Kept audio tracks: the browser cannot resample the tracks</td><td>The run completes with no audio tracks. The report has the line "audio tracks not kept: the app could not convert the tracks".</td></tr>
+<tr><td>The write of the run data does not end in 5 seconds</td><td>The run completes. The toast shows no "Run report" link and adds "The app still stores the run report. It shows in "Run report" when it is ready." When the write ends, "Run report" and the track rows show the new run. If the storage is full, the app stores the report with no audio tracks and its line "audio tracks not kept: the browser storage is full".</td></tr>
+<tr><td>The write of the run data fails</td><td>The run completes. The toast shows no "Run report" link and adds "The app could not store the run report."</td></tr>
+<tr><td>A newer version of the app wrote the database</td><td>The song library shows "This browser holds data from a newer version of the app. Reload the page. If the message stays, close the other tabs of the app and reload."</td></tr>
+<tr><td>Another tab of the app keeps the database open during an upgrade</td><td>The song library shows "Close the other tabs of the app. Then reload this page." The library opens when the other tab closes.</td></tr>
 <tr><td>Remote endpoint: the browser asks for the permission to reach the local network</td><td>The run waits for the answer of the person. If the person refuses, the dialog shows the message for no connection.</td></tr>
 </table></div>
 <h3 id="transcription-run-report">Run report</h3>
@@ -1375,10 +1494,10 @@ spreadLyrics(lyrics: string, startMs: number, endMs: number): AlignedPhrase[]</c
 <tr><th>Section</th><th>Facts</th></tr>
 <tr><td>Header</td><td>"Transcribe run report", the start time of the run (ISO 8601)</td></tr>
 <tr><td><code>[Run]</code></td><td>The build of the app, source (<code>browser</code> or <code>remote</code>), the host of the remote endpoint, the mode, the speech model, the device, the range in ms, the frame size in ms</td></tr>
-<tr><td><code>[Vocal separation]</code></td><td>The separation model of the vocals (<code>spleeter</code>, <code>demucs</code> or <code>none</code>), "Changed to the fast model" (<code>yes</code> or <code>no</code>)</td></tr>
+<tr><td><code>[Vocal separation]</code></td><td>The separation model of the vocals (<code>spleeter</code>, <code>demucs</code> or <code>none</code>), "Changed to the fast model" (<code>yes</code> or <code>no</code>), "Audio tracks" (the count), "Tracks kept" (<code>yes</code> or <code>no</code>). A report from before issue #129 gives <code>not known</code> for the last two.</td></tr>
 <tr><td><code>[Counts]</code></td><td>Phrases, words, estimated words, unknown words</td></tr>
 <tr><td><code>[Voices]</code></td><td>Each voice that holds phrases of the run, with its count of phrases. A voice that the singer step made has ", made by the run".</td></tr>
-<tr><td><code>[Singers]</code></td><td>The result of the singer step, the singer diagnostics, the singer ranges, the phrase share, the singers with one phrase or more, the phrases with no singer range, the phrases with more than one singer, the voices made</td></tr>
+<tr><td><code>[Singers]</code></td><td>The result of the singer step, the choice of "Singers" ("Singers selected": <code>Automatic</code>, the count, or <code>not recorded</code>), the singer diagnostics, the singer ranges, the phrase share, the singers with one phrase or more, the phrases with no singer range, the phrases with more than one singer, the voices made</td></tr>
 <tr><td><code>[Step times]</code></td><td>The time of each step that ran, in ms</td></tr>
 <tr><td><code>[Warnings and failures]</code></td><td>One line for each warning or failure, for example "separation failed: memory; continued with the fast model"</td></tr>
 </table></div>
@@ -1646,14 +1765,14 @@ spreadLyrics(lyrics: string, startMs: number, endMs: number): AlignedPhrase[]</c
 <li>With "Put each singer on its own voice" on, the dialog shows "Singers" with
 </li>
 </ul>
-<p>"Automatic" selected. (FR-transcribe-63)</p>
+<p>"Automatic" selected. (FR-transcribe-119)</p>
 <ul>
-<li>The dialog opens with the last choice of "Singers". (FR-transcribe-64)
+<li>The dialog opens with the last choice of "Singers". (FR-transcribe-120)
 </li>
 <li>A run with "3" in "Singers" sends the count 3 to the singers worker. An E2E test
 </li>
 </ul>
-<p>with the fixture worker gets 3 voices. (FR-transcribe-65)</p>
+<p>with the fixture worker gets 3 voices. (FR-transcribe-121)</p>
 <ul>
 <li>After a failed singer step, the marks stay on the voice of the run, and the toast
 </li>
@@ -1707,7 +1826,55 @@ spreadLyrics(lyrics: string, startMs: number, endMs: number): AlignedPhrase[]</c
 <ul>
 <li>A new report shows in the open panel. (FR-transcribe-94)
 </li>
+<li>With "Separate the vocals first" on, the dialog shows "Keep the separated tracks"
+</li>
 </ul>
+<p>on, with the size note. With the separation off, the dialog hides it. (FR-transcribe-99, 101)</p>
+<ul>
+<li>After a run with separation and a reload, the song has two audio tracks of the
+</li>
+</ul>
+<p>length of the song and a report with the track count 2. (FR-transcribe-102, 103, 108)</p>
+<ul>
+<li>A run with "Keep the separated tracks" off stores no audio track.
+</li>
+</ul>
+<p>(FR-transcribe-102)</p>
+<ul>
+<li>A song with no separated run has no audio tracks and shows no error.
+</li>
+</ul>
+<p>(FR-transcribe-106)</p>
+<ul>
+<li>A range run stores the audio tracks of the range with the start of the range.
+</li>
+</ul>
+<p>(FR-transcribe-104)</p>
+<ul>
+<li>Deleting a song removes its audio tracks, singer ranges and report.
+</li>
+</ul>
+<p>(FR-transcribe-113)</p>
+<ul>
+<li>A full browser storage gives a completed run, a report line and the toast
+</li>
+</ul>
+<p>sentence. (FR-transcribe-109, 110)</p>
+<ul>
+<li>After a write that did not end, the toast offers no "Run report" link.
+</li>
+</ul>
+<p>(FR-transcribe-111, 112)</p>
+<ul>
+<li>A database from a newer version, and a database that another tab keeps open,
+</li>
+</ul>
+<p>show their messages in the song library. (FR-transcribe-117, 118)</p>
+<ul>
+<li>The zip file after a run with separation holds <code>tracks/vocals.wav</code>,
+</li>
+</ul>
+<p><code>tracks/instruments.wav</code> and <code>report.txt</code>. (FR-transcribe-115)</p>
 <h3 id="transcription-out-of-scope">Out of scope</h3>
 <ul>
 <li>Separation of stems other than the vocals.

@@ -19,6 +19,7 @@ function fakePlayer(): WaveformPlayer {
     loop: vi.fn(async () => undefined),
     setPlayRate: vi.fn(),
     isPlaying: () => false,
+    media: document.createElement('audio'),
     setColors: vi.fn(),
     setView: vi.fn(),
     seek: vi.fn(),

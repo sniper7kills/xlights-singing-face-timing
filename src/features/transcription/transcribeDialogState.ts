@@ -9,7 +9,10 @@ import {
   type TranscribeMode,
   type TranscribeOutcome,
 } from './runTranscription.ts'
+import type { RunDataWrite } from './runRecord.ts'
 import { TranscribeError } from './transcribeClient.ts'
+import { formatMegabytes } from '../audio-import/libraryFormat.ts'
+import { keptTracksBytes } from '../../lib/audio/pcm.ts'
 import { SeparateError } from '../vocal-separation/separateClient.ts'
 import { SINGER_MODEL_BYTES } from '../singer-voices/engine/singerModelBytes.ts'
 import { separationModelMb } from '../vocal-separation/engine/separationModels.ts'
@@ -212,6 +215,14 @@ export const SINGER_NOTE = `The app estimates which singer sings each phrase, an
 export const SINGER_COUNT_NOTE = 'Select the count if you know it. The result is better.'
 
 /** The hint of the check box "Put each singer on its own voice" while "Separate the vocals first" is off. */
+/**
+ * Returns the note under "Keep the separated tracks", with the bytes that the two tracks use.
+ * @param durationMs The length of the song, or of the range of the run.
+ */
+export function keepTracksNote(durationMs: number): string {
+  return `The app stores the vocals and the instruments of this song in this browser, about ${formatMegabytes(keptTracksBytes(durationMs))} MB. You can listen to each track in the editor.`
+}
+
 export const SINGER_HINT = 'Select "Separate the vocals first" to use this option.'
 
 /**
@@ -246,12 +257,43 @@ export function isCancel(error: unknown): boolean {
   return error instanceof TranscribeError && error.kind === 'cancelled'
 }
 
+/** The toast sentence of a run whose run data the app stored with no audio tracks, because the storage is full. */
+export const TRACKS_STORAGE_FULL_MESSAGE =
+  'The browser storage is full, so the app did not keep the separated tracks.'
+
+/** The toast sentence of a run whose run data the app did not store. */
+export const RUN_DATA_FAILED_MESSAGE = 'The app could not store the run report.'
+
+/** The toast sentence of a run whose write of the run data did not end in time. The write continues. */
+export const RUN_DATA_LATE_MESSAGE =
+  'The app still stores the run report. It shows in "Run report" when it is ready.'
+
+/** The toast sentence for each result of the write of the run data. A stored write adds none. */
+const RUN_DATA_MESSAGE: Record<RunDataWrite, string | null> = {
+  stored: null,
+  'storage-full': TRACKS_STORAGE_FULL_MESSAGE,
+  failed: RUN_DATA_FAILED_MESSAGE,
+  late: RUN_DATA_LATE_MESSAGE,
+}
+
 /**
- * Returns the text of the toast after a run, for example "214 words, 9 estimated".
+ * Returns the text of the toast after a run: the counts, then the sentence of the write of the run data when the write was not complete.
+ * See `countsText` for the counts.
+ */
+export function outcomeText(
+  outcome: Pick<TranscribeOutcome, 'wordCount' | 'estimatedCount' | 'singers' | 'runData'>,
+): string {
+  const message = RUN_DATA_MESSAGE[outcome.runData]
+  const counts = countsText(outcome)
+  return message === null ? counts : `${counts}. ${message}`
+}
+
+/**
+ * Returns the counts of a run, for example "214 words, 9 estimated".
  * After a singer step that made voices, the text names the voice count, for example "214 words on 3 voices, 9 estimated".
  * After a singer step that made no voice, or that found more singers than free voices, the text adds the message of `singerMessage`.
  */
-export function outcomeText(
+function countsText(
   outcome: Pick<TranscribeOutcome, 'wordCount' | 'estimatedCount' | 'singers'>,
 ): string {
   const words = `${outcome.wordCount} ${outcome.wordCount === 1 ? 'word' : 'words'}`

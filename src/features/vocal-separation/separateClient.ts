@@ -1,4 +1,5 @@
 import type {
+  SeparatedAudio,
   SeparateMessage,
   SeparateRequest,
   SeparationModelId,
@@ -45,6 +46,8 @@ export type SeparateHandlers = {
   signal?: AbortSignal
   /** The model of the run. With no model, the worker uses 'spleeter'. */
   model?: SeparationModelId
+  /** True asks the worker for the instruments too. Without it, the result has no instruments. */
+  instruments?: boolean
 }
 
 function createDefaultWorker(): SeparateWorkerLike {
@@ -61,7 +64,8 @@ function createDefaultWorker(): SeparateWorkerLike {
 let runCount = 0
 
 /**
- * Returns the vocals of the audio: one channel at 44 100 Hz, with the length of the input.
+ * Returns the vocals of the audio, and the instruments when `handlers.instruments` is true.
+ * Each is one channel at 44 100 Hz, with the length of the input.
  * Each call starts a new separate worker and terminates it at the end, so the memory of the model goes back to the browser.
  * The client transfers the channel buffers to the worker, so the caller cannot read `audio` after the call.
  * @param audio The stereo audio of the run.
@@ -73,13 +77,13 @@ export function separateVocals(
   audio: StereoAudio,
   handlers: SeparateHandlers = {},
   createWorker: () => SeparateWorkerLike = createDefaultWorker,
-): Promise<Float32Array> {
+): Promise<SeparatedAudio> {
   const { signal } = handlers
   if (signal?.aborted === true) return Promise.reject(cancelled())
   runCount += 1
   const runId = runCount
   const worker = createWorker()
-  return new Promise<Float32Array>((resolve, reject) => {
+  return new Promise<SeparatedAudio>((resolve, reject) => {
     function finish(): void {
       worker.terminate()
       signal?.removeEventListener('abort', onAbort)
@@ -100,12 +104,19 @@ export function separateVocals(
       else if (data.type === 'error') fail(new SeparateError(data.kind, data.detail))
       else {
         finish()
-        resolve(data.vocals)
+        resolve(
+          data.instruments === undefined
+            ? { vocals: data.vocals }
+            : { vocals: data.vocals, instruments: data.instruments },
+        )
       }
     }
     // Two channels can share one buffer, and a transfer list that names a buffer two times throws.
     const transfer = [...new Set([audio.left.buffer, audio.right.buffer])]
-    worker.postMessage({ type: 'separate', runId, audio, model: handlers.model }, transfer)
+    worker.postMessage(
+      { type: 'separate', runId, audio, model: handlers.model, instruments: handlers.instruments },
+      transfer,
+    )
   })
 }
 
