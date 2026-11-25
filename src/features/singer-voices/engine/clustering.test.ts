@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { clusterEmbeddings, foldShortGroups } from './clustering.ts'
+import { clusterEmbeddings, foldShortGroups, NO_GROUP } from './clustering.ts'
 
 const vector = (...values: number[]) => Float32Array.from(values)
 const settings = { threshold: 0.5, minGroupSize: 1, maxGroups: 12 }
@@ -46,6 +46,31 @@ describe('clusterEmbeddings', () => {
 
   it('gives an empty list for no embeddings', () => {
     expect(clusterEmbeddings([], settings)).toEqual([])
+  })
+
+  it('gives no group to each of 13 NaN embeddings, and returns at once', () => {
+    const embeddings = Array.from({ length: 13 }, () => vector(Number.NaN, Number.NaN))
+    expect(clusterEmbeddings(embeddings, settings)).toEqual(Array<number>(13).fill(NO_GROUP))
+  })
+
+  it('gives the good embeddings the same groups with or without NaN embeddings among them', () => {
+    const [east, north, nearEast, nearNorth] = [
+      vector(1, 0),
+      vector(0, 1),
+      vector(1, 0.1),
+      vector(0.1, 1),
+    ]
+    const nan = vector(Number.NaN, 0)
+    const groups = clusterEmbeddings([nan, east, nan, north, nearEast, nan, nearNorth], settings)
+    expect(groups.filter((group) => group !== NO_GROUP)).toEqual(
+      clusterEmbeddings([east, north, nearEast, nearNorth], settings),
+    )
+    expect([groups[0], groups[2], groups[5]]).toEqual([NO_GROUP, NO_GROUP, NO_GROUP])
+  })
+
+  it('counts an Infinity value as not finite', () => {
+    const embeddings = [vector(1, 0), vector(Number.POSITIVE_INFINITY, 0), vector(1, 0)]
+    expect(clusterEmbeddings(embeddings, settings)).toEqual([0, NO_GROUP, 0])
   })
 
   it('treats a zero embedding as far from every direction', () => {

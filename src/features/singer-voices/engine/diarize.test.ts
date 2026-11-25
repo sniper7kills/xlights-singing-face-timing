@@ -33,7 +33,7 @@ function fakeModels(): DiarizeModels {
       const logits = new Float32Array((window.length / FRAME) * 7).fill(-5)
       for (let frame = 0; frame < window.length / FRAME; frame++) {
         const value = mean(window.subarray(frame * FRAME, (frame + 1) * FRAME))
-        const single = (value > 0.5) !== swap ? 1 : 2
+        const single = value > 0.5 !== swap ? 1 : 2
         const winner = value > 1.5 ? 4 : Math.abs(value) > 0.5 ? single : 0
         logits[frame * 7 + winner] = 3
       }
@@ -73,7 +73,12 @@ describe('diarize', () => {
   })
 
   it('gives no range to silence', async () => {
-    const ranges = await diarize(audio([0, 500], [1, 2000], [0, 500]), fakeModels(), settings, () => {})
+    const ranges = await diarize(
+      audio([0, 500], [1, 2000], [0, 500]),
+      fakeModels(),
+      settings,
+      () => {},
+    )
     expect(ranges).toEqual([{ startMs: 500, endMs: 2500, singer: 0 }])
   })
 
@@ -118,7 +123,12 @@ describe('diarize', () => {
 
   it('joins a singer with less than the share limit of the sung time into the closest other singer', async () => {
     const vocals = audio([1, 3000], [-1, 500], [1, 3000])
-    const ranges = await diarize(vocals, fakeModels(), { ...settings, minSingerShare: 0.1 }, () => {})
+    const ranges = await diarize(
+      vocals,
+      fakeModels(),
+      { ...settings, minSingerShare: 0.1 },
+      () => {},
+    )
     expect(ranges).toEqual([{ startMs: 0, endMs: 6500, singer: 0 }])
   })
 
@@ -128,8 +138,29 @@ describe('diarize', () => {
     expect(ranges.map((range) => range.singer)).toEqual([0, 1, 0])
   })
 
+  it('gives an empty list at once when each of 13 embeddings is NaN', async () => {
+    const models = { ...fakeModels(), embed: async () => Float32Array.from([Number.NaN, 0]) }
+    // 7000 samples give 13 windows, and each window has one local speaker.
+    expect(await diarize(audio([1, 7000]), models, settings, () => {})).toEqual([])
+  })
+
+  it('gives no singer to the frames of a speaker with an embedding that is not finite', async () => {
+    const fake = fakeModels()
+    const models = {
+      ...fake,
+      embed: async (samples: Float32Array) =>
+        samples.includes(-1)
+          ? Float32Array.from([Number.POSITIVE_INFINITY, 0])
+          : fake.embed(samples),
+    }
+    const ranges = await diarize(audio([1, 1500], [-1, 1500]), models, settings, () => {})
+    expect(ranges).toEqual([{ startMs: 0, endMs: 1500, singer: 0 }])
+  })
+
   it('rejects with the error of a model call', async () => {
     const models = { ...fakeModels(), segment: () => Promise.reject(new Error('no session')) }
-    await expect(diarize(audio([1, 1000]), models, settings, () => {})).rejects.toThrow('no session')
+    await expect(diarize(audio([1, 1000]), models, settings, () => {})).rejects.toThrow(
+      'no session',
+    )
   })
 })
