@@ -10,7 +10,7 @@ import { saveExportOptions, StorageFullError } from '../../store/db.ts'
 import type { SongContent } from '../../store/types.ts'
 import { useViewStore } from '../../store/viewStore.ts'
 import { ChecksList } from './ChecksList.tsx'
-import type { DialogExportOptions } from './exportOptionsStore.ts'
+import { type DialogExportOptions, storedExportOptions } from './exportOptionsStore.ts'
 import { FilePreview } from './FilePreview.tsx'
 import { ImportSteps } from './ImportSteps.tsx'
 import { PackagingGroup } from './PackagingGroup.tsx'
@@ -174,10 +174,7 @@ export function ExportDialog({
 
   async function download() {
     try {
-      await saveExportOptions(song.id, {
-        ...options,
-        knownVoiceIds: voices.map((voice) => voice.id),
-      })
+      await saveExportOptions(song.id, storedExportOptions(content, options))
     } catch (error) {
       if (!(error instanceof StorageFullError)) throw error
       setMessage(error.message)

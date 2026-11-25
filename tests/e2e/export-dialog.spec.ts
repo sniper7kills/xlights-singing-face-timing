@@ -126,3 +126,61 @@ test('warns about a voice name with an accented letter and still downloads', asy
     '1 timing track written to Silent Night.xtiming',
   )
 })
+
+// Moves the first phrase of the song, with its words and phonemes, to "Voice 2".
+const MOVE_FIRST_PHRASE_TO_VOICE_2 = `new Promise((resolve, reject) => {
+  const open = indexedDB.open('singing-face-timing')
+  open.onerror = () => reject(open.error)
+  open.onsuccess = () => {
+    const tx = open.result.transaction(['voices', 'marks'], 'readwrite')
+    tx.oncomplete = () => resolve(true)
+    tx.onerror = () => reject(tx.error)
+    const voices = tx.objectStore('voices').getAll()
+    const marks = tx.objectStore('marks').getAll()
+    marks.onsuccess = () => {
+      const target = voices.result.find((v) => v.name === 'Voice 2')
+      const [phrase] = marks.result.filter((m) => m.layer === 'phrase').sort((a, b) => a.startMs - b.startMs)
+      const moved = new Set([phrase.id])
+      for (const layer of ['word', 'phoneme'])
+        for (const m of marks.result) if (m.layer === layer && moved.has(m.parentId)) moved.add(m.id)
+      for (const m of marks.result) if (moved.has(m.id)) tx.objectStore('marks').put({ ...m, voiceId: target.id })
+    }
+  }
+})`
+
+test('selects a voice that the last export left out with no marks after it gets marks, and warns about a voice that is left out', async ({
+  page,
+}) => {
+  await page.goto('/')
+  await page.getByRole('button', { name: 'Try the demo song' }).click()
+  await expect(page.getByRole('heading', { level: 2, name: 'Silent Night' })).toBeVisible()
+  const rail = page.getByRole('complementary', { name: 'Voices' })
+  await rail.getByRole('button', { name: 'Add voice' }).click()
+  await expect(rail.getByRole('button', { name: 'Voice 2', exact: true })).toBeVisible()
+  await expect(page.locator('.save-state')).toHaveText('Saved')
+
+  await page.getByRole('button', { name: 'Export' }).click()
+  const dialog = page.getByRole('dialog', { name: 'Export to xLights' })
+  const voice2 = dialog.getByRole('checkbox', { name: 'Voice 2' })
+  await expect(voice2).not.toBeChecked()
+  const downloadEvent = page.waitForEvent('download')
+  await dialog.getByRole('button', { name: 'Download' }).click()
+  await downloadEvent
+  await page.keyboard.press('Escape')
+  await expect(dialog).toHaveCount(0)
+
+  await page.evaluate(MOVE_FIRST_PHRASE_TO_VOICE_2)
+  await page.reload()
+  await expect(page.getByRole('heading', { level: 2, name: 'Silent Night' })).toBeVisible()
+  await page.getByRole('button', { name: 'Export' }).click()
+  await expect(voice2).toBeChecked()
+
+  await voice2.uncheck()
+  await dialog.getByText(/^Checks · /).click()
+  await expect(
+    dialog.getByText(
+      '“Voice 2” has marks, and it is not in this export. Select its check box to add it.',
+    ),
+  ).toBeVisible()
+  await expect(dialog.getByRole('button', { name: 'Download' })).toBeEnabled()
+})

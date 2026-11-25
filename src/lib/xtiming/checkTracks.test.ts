@@ -122,6 +122,28 @@ describe('checkTracks', () => {
           check: 'no-marks',
           message: 'No marks to export. Select a voice with marks.',
         },
+        {
+          type: 'warning',
+          check: 'voice-left-out',
+          message:
+            '“Lead Vocals” has marks, and it is not in this export. Select its check box to add it.',
+          voiceId: 'lead',
+        },
+      ])
+    })
+
+    it('warns for each voice with marks that is not selected, and the warning does not block the export', () => {
+      const marks = cleanMarks()
+      const opts = options({ voiceIds: [] })
+
+      expect(check([], marks, opts)).toEqual([
+        {
+          type: 'warning',
+          check: 'voice-left-out',
+          message:
+            '“Lead Vocals” has marks, and it is not in this export. Select its check box to add it.',
+          voiceId: 'lead',
+        },
       ])
     })
 

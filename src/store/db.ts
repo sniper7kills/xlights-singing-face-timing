@@ -240,6 +240,8 @@ export type StoredExportOptions = ExportOptions & {
   knownVoiceIds: string[]
   /** True when the person selected "Everything as one zip file". Options from before the zip file have no value. */
   zip?: boolean
+  /** The voices that the export left out because they had no marks. Options from before issue #165 have no value. */
+  emptyVoiceIds?: string[]
 }
 
 /** Returns the export options of the previous export of the song, or undefined if the song has none. */
