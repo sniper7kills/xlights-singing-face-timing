@@ -9,6 +9,7 @@ import {
 } from './runTranscription.ts'
 import { TranscribeError } from './transcribeClient.ts'
 import { SeparateError } from '../vocal-separation/separateClient.ts'
+import { SEPARATION_MODEL_BYTES } from '../vocal-separation/engine/spleeterModel.ts'
 
 /**
  * A state in which a transcribe run is active and the dialog shows its progress.
@@ -155,6 +156,9 @@ export function separationErrorMessage(error: unknown): string {
   return SEPARATION_COPY.failed
 }
 
+/** The download size of the vocal separation model in megabytes (1 MB = 1 000 000 bytes), as the speech model sizes. */
+const SEPARATION_MODEL_MB = Math.round(SEPARATION_MODEL_BYTES / 1_000_000)
+
 /**
  * Returns the note under the check box "Separate the vocals first".
  * @param host The host of the remote endpoint of the run, or null for a run in the browser.
@@ -164,7 +168,7 @@ export function separationNote(host: string | null): string {
     host === null
       ? 'The audio stays in this browser.'
       : `The app separates the vocals in this browser, and then sends the vocals to ${host}.`
-  return `The app removes the instruments before it finds the words. This step downloads a model one time and adds time to the run. ${where}`
+  return `The app removes the instruments before it finds the words. This step downloads a model of ${SEPARATION_MODEL_MB} MB one time and adds time to the run. ${where}`
 }
 
 /** Returns true when the error is the stop of a run that the person asked for. */

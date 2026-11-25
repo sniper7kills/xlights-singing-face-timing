@@ -121,13 +121,13 @@ describe('separationErrorMessage', () => {
 describe('separationNote', () => {
   it('tells that the audio stays in this browser for a run in the browser', () => {
     expect(separationNote(null)).toBe(
-      'The app removes the instruments before it finds the words. This step downloads a model one time and adds time to the run. The audio stays in this browser.',
+      'The app removes the instruments before it finds the words. This step downloads a model of 79 MB one time and adds time to the run. The audio stays in this browser.',
     )
   })
 
   it('names the host of the remote endpoint for a remote run', () => {
     expect(separationNote('whisper.test')).toBe(
-      'The app removes the instruments before it finds the words. This step downloads a model one time and adds time to the run. The app separates the vocals in this browser, and then sends the vocals to whisper.test.',
+      'The app removes the instruments before it finds the words. This step downloads a model of 79 MB one time and adds time to the run. The app separates the vocals in this browser, and then sends the vocals to whisper.test.',
     )
   })
 })
