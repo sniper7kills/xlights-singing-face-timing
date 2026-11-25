@@ -201,6 +201,26 @@ describe('outcomeText', () => {
   })
 })
 
+describe('outcomeText after a run that left out words', () => {
+  it('states the count of words that the app left out', () => {
+    expect(
+      outcomeText({ wordCount: 10, estimatedCount: 10, runData: 'stored', wordsLeftOut: 3 }),
+    ).toBe('10 words, 10 estimated. The app left out 3 words that it cannot use.')
+  })
+
+  it('states one word in the singular', () => {
+    expect(
+      outcomeText({ wordCount: 10, estimatedCount: 10, runData: 'stored', wordsLeftOut: 1 }),
+    ).toBe('10 words, 10 estimated. The app left out 1 word that it cannot use.')
+  })
+
+  it('states nothing for a count of 0', () => {
+    expect(
+      outcomeText({ wordCount: 10, estimatedCount: 10, runData: 'stored', wordsLeftOut: 0 }),
+    ).toBe('10 words, 10 estimated')
+  })
+})
+
 describe('outcomeText after a run that could not keep the tracks', () => {
   it('adds the sentence that the app could not keep the separated tracks', () => {
     expect(

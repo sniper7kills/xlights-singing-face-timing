@@ -54,6 +54,8 @@ import {
   isQuestion,
   isRunState,
   keepTracksNote,
+  LYRICS_HINT,
+  lyricsFitMessage,
   lowMatchMessage,
   MIXED_CONTENT_MESSAGE,
   progressText,
@@ -330,7 +332,7 @@ export function TranscribeDialog({
         <AlertMessage shown={choicesUnstored} text={CHOICES_UNSTORED_MESSAGE} />
         {usesRemote && <RemoteNotice remote={remote} />}
         <ProgressArea state={state} meter={meter} />
-        <DialogMessage state={state} />
+        <DialogMessage state={state} selection={range !== undefined} />
         {needsLyrics && state.status === 'idle' && (
           <p id={hintId} className="dialog-note">
             Paste the lyrics to use Lyrics only.
@@ -393,6 +395,7 @@ type LyricsFieldProps = {
 /** Shows the lyrics field, and the message under it when the lyrics are too long. */
 function LyricsField({ lyrics, tooLong, onChange }: LyricsFieldProps) {
   const errorId = useId()
+  const hintId = useId()
   return (
     <div className="dialog-field">
       <label className="dialog-field">
@@ -401,10 +404,13 @@ function LyricsField({ lyrics, tooLong, onChange }: LyricsFieldProps) {
           rows={5}
           value={lyrics}
           aria-invalid={tooLong}
-          aria-describedby={tooLong ? errorId : undefined}
+          aria-describedby={tooLong ? `${errorId} ${hintId}` : hintId}
           onChange={(event) => onChange(event.target.value)}
         />
       </label>
+      <p id={hintId} className="field-hint">
+        {LYRICS_HINT}
+      </p>
       {tooLong && (
         <p id={errorId} className="field-error" role="alert">
           {LYRICS_TOO_LONG_MESSAGE}
@@ -936,6 +942,7 @@ function useTranscribeRun(onDone: (outcome: TranscribeOutcome) => void) {
           onFinishing: () => send({ type: 'finishing' }),
           confirmReplace: () => ask({ type: 'confirm-replace' }),
           confirmLowMatch: (ratio) => ask({ type: 'confirm-low-match', ratio }),
+          confirmLyricsFit: (fit) => ask({ type: 'confirm-lyrics-fit', fit }),
         })
         // A cancel during the singer step keeps the marks of the run, so the run ends as done and the toast says so.
         if (controller.signal.aborted && outcome.singers?.status !== 'cancelled') return
@@ -1051,7 +1058,11 @@ function ProgressArea({ state, meter }: ProgressAreaProps) {
   )
 }
 
-function DialogMessage({ state }: { state: DialogState }) {
+/**
+ * Shows the message of a failure, or the question of a run that waits for the answer of the person.
+ * @param selection True for a run over the time selection. The lyrics question names it.
+ */
+function DialogMessage({ state, selection }: { state: DialogState; selection: boolean }) {
   if (state.status === 'error' || state.status === 'separation-failed')
     return (
       <p className="message" role="alert">
@@ -1070,6 +1081,12 @@ function DialogMessage({ state }: { state: DialogState }) {
         {lowMatchMessage(state.ratio)}
       </p>
     )
+  if (state.status === 'lyrics-fit')
+    return (
+      <p className="dialog-confirm" role="alert">
+        {lyricsFitMessage(state.fit, selection)}
+      </p>
+    )
   return null
 }
 
@@ -1080,6 +1097,13 @@ type DialogActionsProps = {
   onClose: () => void
 }
 
+/** The questions that the person answers with "Continue" or "Cancel". */
+const CONTINUE_QUESTIONS: ReadonlySet<DialogState['status']> = new Set([
+  'confirm-replace',
+  'low-match',
+  'lyrics-fit',
+])
+
 function DialogActions({ state, run, onRetry, onClose }: DialogActionsProps) {
   if (isRunState(state))
     return (
@@ -1087,7 +1111,7 @@ function DialogActions({ state, run, onRetry, onClose }: DialogActionsProps) {
         Cancel
       </button>
     )
-  if (state.status === 'confirm-replace' || state.status === 'low-match')
+  if (CONTINUE_QUESTIONS.has(state.status))
     return (
       <>
         <button type="button" className="button primary" onClick={() => run.answer(true)}>

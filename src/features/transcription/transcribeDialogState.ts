@@ -10,6 +10,7 @@ import {
   type TranscribeOutcome,
 } from './runTranscription.ts'
 import type { RunDataWrite } from './runRecord.ts'
+import type { LyricsFit } from '../../lib/text/lyricsFit.ts'
 import { TranscribeError } from './transcribeClient.ts'
 import { formatMegabytes } from '../audio-import/libraryFormat.ts'
 import { keptTracksBytes } from '../../lib/audio/pcm.ts'
@@ -46,6 +47,7 @@ export type DialogState =
   | RunState
   | { status: 'confirm-replace'; resume: RunState }
   | { status: 'low-match'; ratio: number; resume: RunState }
+  | { status: 'lyrics-fit'; fit: LyricsFit; resume: RunState }
   | {
       status: 'separation-failed'
       message: string
@@ -71,6 +73,7 @@ export type DialogEvent =
   | { type: 'finishing' }
   | { type: 'confirm-replace' }
   | { type: 'confirm-low-match'; ratio: number }
+  | { type: 'confirm-lyrics-fit'; fit: LyricsFit }
   | { type: 'answer' }
   | { type: 'cancelled' }
   | { type: 'failed'; error: unknown }
@@ -300,11 +303,13 @@ export const TRACKS_FAILED_MESSAGE =
 export function outcomeText(
   outcome: Pick<
     TranscribeOutcome,
-    'wordCount' | 'estimatedCount' | 'singers' | 'runData' | 'tracksFailed'
+    'wordCount' | 'estimatedCount' | 'singers' | 'runData' | 'tracksFailed' | 'wordsLeftOut'
   >,
 ): string {
   const counts = countsText(outcome)
+  const leftOut = outcome.wordsLeftOut ?? 0
   const messages = [
+    leftOut > 0 ? wordsLeftOutMessage(leftOut) : null,
     outcome.tracksFailed === true ? TRACKS_FAILED_MESSAGE : null,
     RUN_DATA_MESSAGE[outcome.runData],
   ].filter((message) => message !== null)
@@ -330,6 +335,25 @@ function countsText(
       : `${words}, ${outcome.estimatedCount} estimated`
   if (singers === undefined || (singers.status === 'split' && voiceCount > 1)) return counts
   return `${counts}. ${singerMessage(singers)}`
+}
+
+/**
+ * Returns the question before a run whose lyrics have more words than the range has room for.
+ * @param fit The counts of `fitLyricsLines`.
+ * @param selection True for a run over the time selection, false for the full song.
+ */
+export function lyricsFitMessage(fit: LyricsFit, selection: boolean): string {
+  const where = selection ? 'The time selection has' : 'This song has'
+  return `The lyrics have ${fit.wordCount} words. ${where} room for about ${fit.room} words. The app leaves out the lines after line ${fit.keptLineCount}.`
+}
+
+/** The hint under the lyrics field. It states the rule for characters of `parseLyrics`. */
+export const LYRICS_HINT =
+  'The app uses each word that has a letter or a digit. It leaves out other words, such as & or an emoji.'
+
+/** Returns the toast sentence for the words that a run left out because it cannot use them. */
+export function wordsLeftOutMessage(count: number): string {
+  return `The app left out ${count} ${count === 1 ? 'word' : 'words'} that it cannot use.`
 }
 
 /** Returns the copy of the low-match warning for a match ratio from 0 to 1. */
@@ -510,6 +534,7 @@ type RunEvent = Extract<
       | 'finishing'
       | 'confirm-replace'
       | 'confirm-low-match'
+      | 'confirm-lyrics-fit'
   }
 >
 
@@ -538,10 +563,25 @@ function runStep(state: DialogState, event: RunEvent): DialogState {
       return { status: 'transcribing', doneMs: event.doneMs, totalMs: event.totalMs }
     case 'finishing':
       return { status: 'finishing' }
+    default:
+      return isRunState(state) ? questionState(state, event) : state
+  }
+}
+
+type QuestionEvent = Extract<
+  DialogEvent,
+  { type: 'confirm-replace' | 'confirm-low-match' | 'confirm-lyrics-fit' }
+>
+
+/** Returns the question state of an event that asks the person, with the run state to resume after the answer. */
+function questionState(resume: RunState, event: QuestionEvent): DialogState {
+  switch (event.type) {
     case 'confirm-replace':
-      return isRunState(state) ? { status: 'confirm-replace', resume: state } : state
+      return { status: 'confirm-replace', resume }
     case 'confirm-low-match':
-      return isRunState(state) ? { status: 'low-match', ratio: event.ratio, resume: state } : state
+      return { status: 'low-match', ratio: event.ratio, resume }
+    case 'confirm-lyrics-fit':
+      return { status: 'lyrics-fit', fit: event.fit, resume }
   }
 }
 

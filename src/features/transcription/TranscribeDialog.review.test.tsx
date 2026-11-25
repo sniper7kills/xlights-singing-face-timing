@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react'
+import { act, fireEvent, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { TimeRange } from '../../lib/time/timeRange.ts'
@@ -58,6 +58,12 @@ afterEach(() => {
   vi.clearAllMocks()
 })
 
+function lastRun(): HeldRun {
+  const run = runs.at(-1)
+  if (run === undefined) throw new Error('No run started.')
+  return run
+}
+
 async function renderDialog(selection: TimeRange | null = null) {
   const user = userEvent.setup()
   const onClose = vi.fn()
@@ -112,5 +118,47 @@ describe('TranscribeDialog lyrics limit', () => {
     expect(text.length).toBe(1_000_000)
     expect(elapsedMs).toBeLessThan(1000)
     expect(start).toBeDisabled()
+  })
+})
+
+describe('TranscribeDialog lyrics that do not fit', () => {
+  const fit = { wordCount: 1400, room: 578, keptLineCount: 82, lineCount: 200 }
+
+  it('shows the hint for the characters under the lyrics field', async () => {
+    await renderDialog()
+
+    expect(lyricsField()).toHaveAccessibleDescription(
+      'The app uses each word that has a letter or a digit. It leaves out other words, such as & or an emoji.',
+    )
+  })
+
+  it('asks before the run with the three numbers, and continues for "Continue"', async () => {
+    const { user, start } = await renderDialog()
+    await user.click(screen.getByRole('checkbox', { name: 'Lyrics only' }))
+    await user.type(lyricsField(), 'Silent night')
+    await user.click(start)
+
+    let answer: Promise<boolean> | undefined
+    act(() => {
+      answer = lastRun().handlers.confirmLyricsFit(fit)
+    })
+
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      'The lyrics have 1400 words. This song has room for about 578 words. The app leaves out the lines after line 82.',
+    )
+    await user.click(screen.getByRole('button', { name: 'Continue' }))
+    await expect(answer).resolves.toBe(true)
+  })
+
+  it('names the time selection in the question of a range run', async () => {
+    const { user, start } = await renderDialog({ startMs: 1000, endMs: 5000 })
+    await user.click(screen.getByRole('radio', { name: /The time selection/ }))
+    await user.click(start)
+
+    act(() => void lastRun().handlers.confirmLyricsFit(fit))
+
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      'The time selection has room for about 578 words.',
+    )
   })
 })

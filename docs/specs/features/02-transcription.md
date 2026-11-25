@@ -298,6 +298,19 @@ leaves the browser, and the app shows the host before each run.
 - FR-transcribe-133 — A paste of 1 000 000 characters returns control to the
   person in less than 1 second.
 
+### Lyrics that do not fit (issue #163)
+
+- FR-transcribe-134 — Before a run with lyrics, the app counts the words of the
+  lyrics against the room of the range.
+- FR-transcribe-135 — If the words do not fit, the dialog asks before the run, with
+  the count of words, the room and the last kept line.
+- FR-transcribe-136 — If the app leaves out words that it cannot use, the toast
+  states the count.
+- FR-transcribe-137 — The run report states the count of lyrics lines and the count
+  of words that the run left out.
+- FR-transcribe-138 — A hint under the lyrics field states the rule for
+  characters.
+
 ## User flows
 
 ### Transcribe a song
@@ -427,10 +440,12 @@ sequenceDiagram
 
 1. The person selects "Lyrics only" in the transcribe dialog.
 2. The person pastes the lyrics.
-3. The app makes one phrase for each line.
-4. The app spreads the phrases evenly across the target range.
-5. The app spreads the words of each phrase evenly across the phrase.
-6. The app marks every word as "estimated".
+3. If the lyrics have more words than the range has room for, the app asks before
+   the run. See the room rule in [Behaviour rules](#behaviour-rules).
+4. The app makes one phrase for each line.
+5. The app spreads the phrases evenly across the target range.
+6. The app spreads the words of each phrase evenly across the phrase.
+7. The app marks every word as "estimated".
 
 ## Screens & states
 
@@ -477,6 +492,17 @@ If the lyrics have more than 20 000 characters, the message under the lyrics fie
 reads "The lyrics are too long. Use 20 000 characters at most." The app disables
 "Start" and reads no line of the lyrics until the text is shorter. No real song
 has lyrics of this length.
+
+The hint under the lyrics field reads "The app uses each word that has a letter or
+a digit. It leaves out other words, such as & or an emoji."
+
+- lyrics question: before a run with lyrics that do not fit, the dialog shows "The
+  lyrics have <n> words. This song has room for about <m> words. The app leaves out
+  the lines after line <k>." with "Continue" and "Cancel". For a run over the time
+  selection, the second sentence reads "The time selection has room for about <m>
+  words." "Continue" runs with lines 1 to <k>. "Cancel" changes no mark.
+- If the run left out words that it cannot use, the toast adds "The app left out
+  <n> words that it cannot use."
 
 **Separate the vocals first.** The check box comes after "Lyrics only". "Lyrics
 only" hides it, because a lyrics-only run reads no audio. The note under the check
@@ -604,7 +630,7 @@ it. If that control is gone, the focus goes to "Run report" in the top bar.
 | Vocal separation | The separation model, and "Changed to the fast model" | "The run did not separate the vocals." |
 | Singers | The result of the singer step in one sentence. A table of the groups after the clustering. A table of the final singers with the sung time and the count of ranges. The settings in force, the centroid distances, the singer ranges, the phrase rule, the phrase division, the phrases divided, the phrases with no singer and with more than one singer | "The singer step did not run, because the option was off." or "The singer step did not run, because the run had no separated vocals." |
 | Voices | A table: the voice, its count of phrases, and "Made by the run" | "No voice holds phrases of the run." |
-| Marks | Phrases, words, estimated words, unknown words | — |
+| Marks | Phrases, words, estimated words, unknown words, lyrics lines left out, words left out | — |
 | Notes | Each warning and failure | "The run had no warning and no failure." |
 
 The sentence of the singer step:
@@ -641,6 +667,27 @@ copy, the status line shows "Press Ctrl+C to copy."
   frame size, and moves the next word if needed.
 - Words on one layer do not overlap. If the speech model returns an overlap, the
   earlier word ends where the later word starts.
+- **Characters of the lyrics.** A lyrics word is a part of a line between spaces.
+  - The app uses a word that has a letter or a digit, in any script. For example
+    "café", "99" and "你好" are words.
+  - The app leaves out a part with no letter and no digit, for example "&", "—" or
+    an emoji, and counts it as a word that it cannot use.
+  - The label rules above then apply to each word.
+  - The dictionaries have English words only. A word that no dictionary has is an
+    unknown word, for example a word in another script.
+- **Room rule.** The room of a range is one word for each frame size of the range.
+  The app keeps a word one frame size long or more, so more words cannot fit.
+  - Before a run with lyrics, the app counts the words of each lyrics line.
+  - The app keeps the lines from line 1 while their words fit in the room. It
+    leaves out each line after the first line that does not fit.
+  - The app always keeps line 1. If line 1 alone does not fit, the app keeps its
+    earliest words that fit.
+  - At 50 ms, a song of 28.9 s has room for 578 words. 200 lines of 7 words keep
+    lines 1 to 82.
+  - More than about 4 words for each second gives words of one or two frames. The
+    face then changes too fast to read. The room rule does not warn about this.
+- A word of the speech model that has no letter and no digit after the label rules
+  gives no mark. The app counts it as a word that it cannot use.
 - **Align rules.** The app compares the transcribed words with the lyrics words as
   two sequences, without case and without punctuation.
   - A lyrics word that matches a transcribed word takes its time.
@@ -983,7 +1030,7 @@ section starts with a heading line in brackets.
 | Header | "Transcribe run report", the start time of the run (ISO 8601) |
 | `[Run]` | The build of the app, source (`browser` or `remote`), the host of the remote endpoint, the mode, the speech model, the device, the range in ms, the frame size in ms |
 | `[Vocal separation]` | The separation model of the vocals (`spleeter`, `demucs` or `none`), "Changed to the fast model" (`yes` or `no`), "Audio tracks" (the count), "Tracks kept" (`yes` or `no`). A report from before issue #129 gives `not known` for the last two. |
-| `[Counts]` | Phrases, words, estimated words, unknown words |
+| `[Counts]` | Phrases, words, estimated words, unknown words, lyrics lines left out, words left out. A report from before issue #163 gives `not known` for the last two. |
 | `[Voices]` | Each voice that holds phrases of the run, with its count of phrases. A voice that the singer step made has ", made by the run". |
 | `[Singers]` | The result of the singer step, the choice of "Singers" ("Singers selected": `Automatic`, the count, or `not recorded`), the singer diagnostics, the singer ranges, the phrase rule, the phrase division, the phrases divided, the singers with one phrase or more, the phrases with no singer range, the phrases with more than one singer, the voices made |
 | `[Step times]` | The time of each step that ran, in ms |

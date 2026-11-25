@@ -4,6 +4,8 @@ import { breakDownMarks, loadDictionaries } from '../../store/actions/breakDown.
 import { hasMarksInRange, replaceMarksInRange } from '../../store/actions/replaceMarksInRange.ts'
 import type { RemoteEndpoint } from '../../lib/remote/endpoint.ts'
 import { encodeWav } from '../../lib/remote/wav.ts'
+import { fitLyricsLines, leavesOutLines, type LyricsFit } from '../../lib/text/lyricsFit.ts'
+import { wordRoom } from '../../lib/time/fitWords.ts'
 import type { TimeRange } from '../../lib/time/timeRange.ts'
 import { getAudioFile } from '../../store/db.ts'
 import { DictionaryLoadError } from '../phoneme-breakdown/loadDictionary.ts'
@@ -29,7 +31,14 @@ import {
 import type { Mark } from '../../store/types.ts'
 import { alignLyrics } from './alignLyrics.ts'
 import { buildMarks } from './buildMarks.ts'
-import { groupIntoPhrases, parseLyrics, parseSectionTags, spreadLyrics } from './phrases.ts'
+import {
+  countPartsLeftOut,
+  groupIntoPhrases,
+  keepLyricsLines,
+  parseLyrics,
+  parseSectionTags,
+  spreadLyrics,
+} from './phrases.ts'
 import { SPEECH_SAMPLE_RATE } from './protocol.ts'
 import { postTranscription } from './remoteClient.ts'
 import { resampleForSpeech } from './resample.ts'
@@ -124,6 +133,8 @@ export type TranscribeOutcome = {
   runData: RunDataWrite
   /** True when the run asked for the audio tracks and the app could not convert them. Without it, no conversion failed. */
   tracksFailed?: true
+  /** The count of words that the run left out because it cannot use them. Without it, the run left out no word. */
+  wordsLeftOut?: number
 }
 
 /** A break down that did not run, and the words that it leaves without phonemes. */
@@ -171,6 +182,11 @@ export type TranscribeRunHandlers = {
   onFinishing: () => void
   /** Asks the person to replace the marks that exist. Resolves true for "Continue". */
   confirmReplace: () => Promise<boolean>
+  /**
+   * Asks the person to continue when the lyrics have more words than the range has room for.
+   * Resolves true for "Continue". The run then leaves out the lines after `fit.keptLineCount`.
+   */
+  confirmLyricsFit: (fit: LyricsFit) => Promise<boolean>
   /**
    * Asks the person to continue after a low lyrics match. Resolves true for "Continue".
    * @param ratio The match ratio from 0 to 1. The run asks only below 0.3.
@@ -245,22 +261,25 @@ export async function runTranscription(
   // The feature file asks before the download, so a "Cancel" costs no download and no wait.
   if (hasMarksInRange(content, request.voiceId, range) && !(await handlers.confirmReplace()))
     throw declined()
+  const { request: fitted, linesLeftOut } = await fitLyrics(request, range, song.frameMs, handlers)
   stopIfCancelled(signal)
 
   const record = startRunRecord()
+  record.linesLeftOut = linesLeftOut
   const timed = timedHandlers(handlers, record)
-  const { phrases, vocals } = await findPhrases(request, range, song.id, client, timed, record)
+  const { phrases, vocals } = await findPhrases(fitted, range, song.id, client, timed, record)
 
   const { marks, phraseIds } = buildMarks(phrases, request.voiceId, song.frameMs, range)
   const words = marks.filter((mark) => mark.layer === 'word')
   if (words.length === 0) throw new NoWordsError()
+  record.wordsLeftOut = countWordsLeftOut(fitted, phrases, words.length)
   const { written, breakDownFailure } = await breakDownRun(marks, words, song.frameMs)
   endBreakDown(record, breakDownFailure)
   stopIfCancelled(signal)
   // The phonemes go in the same write, so one undo removes the run and its break down.
   if (!replaceMarksInRange(request.voiceId, range, written))
     throw new TranscribeError('cancelled', 'The voice of the transcribe run no longer exists.')
-  addTagSections(request, song.id, phraseIds, written)
+  addTagSections(fitted, song.id, phraseIds, written)
   const singers = await singerStep(request, range, vocals, written, timed, record)
   const end = { request, range, frameMs: song.frameMs, written, device: client.device }
   // The report of every completed run is kept, so the person can see what the run did.
@@ -271,13 +290,61 @@ export async function runTranscription(
     breakDownFailure,
     ...singers,
     runData,
-    ...tracksFailure(record),
+    ...recordFailures(record),
   }
 }
 
-/** Returns the field `tracksFailed` when the app could not convert the audio tracks of the run, else no field. */
-function tracksFailure(record: RunRecord): Pick<TranscribeOutcome, 'tracksFailed'> {
-  return record.notes.includes(TRACKS_FAILED_NOTE) ? { tracksFailed: true } : {}
+/**
+ * Returns the request with the lyrics lines that fit in the range, and the count of lyrics lines that the run leaves out.
+ * When lines do not fit, the run asks the person first. See `fitLyricsLines` for the rule.
+ * Rejects as cancelled when the person declines.
+ */
+async function fitLyrics(
+  request: TranscribeRequest,
+  range: TimeRange,
+  frameMs: number,
+  handlers: TranscribeRunHandlers,
+): Promise<{ request: TranscribeRequest; linesLeftOut: number }> {
+  if (request.lyrics === undefined) return { request, linesLeftOut: 0 }
+  const lines = parseLyrics(request.lyrics)
+  const fit = fitLyricsLines(
+    lines.map((line) => line.length),
+    wordRoom(frameMs, range),
+  )
+  if (!leavesOutLines(fit)) return { request, linesLeftOut: 0 }
+  if (!(await handlers.confirmLyricsFit(fit))) throw declined()
+  return {
+    request: { ...request, lyrics: keepLyricsLines(request.lyrics, fit.keptLineCount) },
+    linesLeftOut: fit.lineCount - fit.keptLineCount,
+  }
+}
+
+/**
+ * Returns the count of words that the run leaves out because it cannot use them:
+ * the parts of the lyrics with no letter and no digit, and the words that gave no word mark.
+ * A word gives no mark when its label has no letter and no digit, or when the range has no frame left for it.
+ */
+function countWordsLeftOut(
+  request: TranscribeRequest,
+  phrases: readonly AlignedPhrase[],
+  wordMarkCount: number,
+): number {
+  const phraseWords = phrases.reduce((count, phrase) => count + phrase.words.length, 0)
+  return countPartsLeftOut(request.lyrics ?? '') + phraseWords - wordMarkCount
+}
+
+/**
+ * Returns the outcome fields of the record that the toast states:
+ * `tracksFailed` when the app could not convert the audio tracks, and `wordsLeftOut` when the run left out words.
+ * A field that has nothing to state is absent.
+ */
+function recordFailures(
+  record: RunRecord,
+): Pick<TranscribeOutcome, 'tracksFailed' | 'wordsLeftOut'> {
+  return {
+    ...(record.notes.includes(TRACKS_FAILED_NOTE) ? { tracksFailed: true } : {}),
+    ...(record.wordsLeftOut > 0 ? { wordsLeftOut: record.wordsLeftOut } : {}),
+  }
 }
 
 /** Returns the handlers with each step of the run timed for the report. */
