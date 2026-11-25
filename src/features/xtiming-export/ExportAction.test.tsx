@@ -52,7 +52,11 @@ describe('ExportAction', () => {
     render(<ExportAction />)
 
     await user.click(screen.getByRole('button', { name: 'Export' }))
-    expect(await screen.findByRole('dialog', { name: 'Export to xLights' })).toHaveFocus()
+    // The dialog opens after a read of the stored options from IndexedDB and a full build of the checks.
+    // A loaded machine that runs the full parallel suite can need more than the default 1000 ms for this path.
+    expect(
+      await screen.findByRole('dialog', { name: 'Export to xLights' }, { timeout: 5000 }),
+    ).toHaveFocus()
     await user.keyboard('{Escape}')
 
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()

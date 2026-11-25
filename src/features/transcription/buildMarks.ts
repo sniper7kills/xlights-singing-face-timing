@@ -25,6 +25,7 @@ export function wordLabel(text: string): string {
  * Each phrase mark comes before its word marks. Each mark has a new UUID.
  * A word with no letter or digit after the label rules gives no mark, and a phrase with no word gives no mark.
  * A word that `fitWords` drops, because the range is too short, gives no mark.
+ * `phraseIds` has one entry for each input phrase: the id of its phrase mark, or null when the phrase gave no mark.
  * @param phrases The phrases from `groupIntoPhrases`, `alignLyrics` or `spreadLyrics`, in time order.
  * @param voiceId The voice that receives the marks.
  * @param frameMs The frame size of the song. Every time of a mark is a multiple of it.
@@ -35,28 +36,31 @@ export function buildMarks(
   voiceId: string,
   frameMs: number,
   range: TimeRange,
-): Mark[] {
-  const kept = phrases
-    .map((phrase) => ({
-      label: phrase.text.trim(),
-      words: phrase.words
-        .map((word) => ({ ...word, label: wordLabel(word.text) }))
-        .filter((word) => word.label !== ''),
-    }))
-    .filter((phrase) => phrase.words.length > 0)
+): { marks: Mark[]; phraseIds: (string | null)[] } {
+  const labelled = phrases.map((phrase) => ({
+    label: phrase.text.trim(),
+    words: phrase.words
+      .map((word) => ({ ...word, label: wordLabel(word.text) }))
+      .filter((word) => word.label !== ''),
+  }))
   const fitted = fitWords(
-    kept.flatMap((phrase) => phrase.words),
+    labelled.flatMap((phrase) => phrase.words),
     frameMs,
     range,
   )
 
   const marks: Mark[] = []
+  const phraseIds: (string | null)[] = []
   let index = 0
-  for (const phrase of kept) {
+  for (const phrase of labelled) {
     const words = fitted.slice(index, index + phrase.words.length)
     index += phrase.words.length
-    if (words.length === 0) continue
+    if (words.length === 0) {
+      phraseIds.push(null)
+      continue
+    }
     const phraseId = crypto.randomUUID()
+    phraseIds.push(phraseId)
     marks.push({
       id: phraseId,
       voiceId,
@@ -80,5 +84,5 @@ export function buildMarks(
         estimated: word.estimated,
       })
   }
-  return marks
+  return { marks, phraseIds }
 }

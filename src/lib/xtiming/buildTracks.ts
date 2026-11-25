@@ -1,4 +1,5 @@
 import type { Mark, Section, Song, Voice } from '../../store/types.ts'
+import { phraseInSection } from '../sections/sectionRules.ts'
 import { snap } from '../time/snap.ts'
 import { defaultTrackName, trackKey, UNSECTIONED } from './names.ts'
 import type { ExportMark, ExportOptions, ExportTrack } from './types.ts'
@@ -52,12 +53,12 @@ export function buildTracks(
     const groups = sortedSections.map((section) => ({
       id: section.id,
       name: section.name,
-      phrases: phrases.filter((phrase) => contains(section, middle(phrase))),
+      phrases: phrases.filter((phrase) => phraseInSection(section, phrase)),
     }))
     groups.push({
       id: UNSECTIONED,
       name: UNSECTIONED,
-      phrases: phrases.filter((phrase) => !sections.some((s) => contains(s, middle(phrase)))),
+      phrases: phrases.filter((phrase) => !sections.some((s) => phraseInSection(s, phrase))),
     })
     for (const group of groups) {
       if (group.phrases.length === 0) continue
@@ -65,14 +66,6 @@ export function buildTracks(
     }
   }
   return tracks
-}
-
-function middle(mark: Mark): number {
-  return (mark.startMs + mark.endMs) / 2
-}
-
-function contains(section: Section, ms: number): boolean {
-  return ms >= section.startMs && ms < section.endMs
 }
 
 function makeTrack(

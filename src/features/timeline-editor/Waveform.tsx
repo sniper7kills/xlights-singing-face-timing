@@ -15,6 +15,7 @@ import {
   checkAudioFile,
   ImportError,
 } from '../audio-import/createSongFromFile.ts'
+import { SectionBand } from '../voices-sections/SectionBand.tsx'
 import { pauseOnRefusal } from './playerStore.ts'
 import { PlayCursor } from './PlayCursor.tsx'
 import { TimeRuler } from './TimeRuler.tsx'
@@ -60,7 +61,7 @@ function readColors(element: HTMLElement): WaveformColors {
 
 /**
  * Shows the waveform region of the editor: the stage and the transport.
- * The stage holds the time ruler, the waveform of the song, the children, the time selection
+ * The stage holds the section band, the time ruler, the waveform of the song, the children, the time selection
  * and the play cursor, on one time scale. The transport holds a play button and the play time.
  * If the song has no audio file, it asks the person for the file again.
  */
@@ -279,6 +280,7 @@ export function Waveform({ songId, durationMs, children }: WaveformProps) {
         </p>
       )}
       <div ref={stageRef} className="stage">
+        <SectionBand durationMs={durationMs} />
         <TimeRuler durationMs={durationMs} onSeek={seek} />
         <div
           className="waveform-stage"

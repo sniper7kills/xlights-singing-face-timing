@@ -9,8 +9,7 @@ remote endpoint, and the app shows the host first.
 
 Current state: the foundation and the song library exist. The person can create a
 song from an audio file, see the song list, rename a song, delete a song and try
-the demo song. The editor shows the waveform and plays the audio. The hosting stack
-does not exist yet (issue #7). The person can transcribe a song with a speech model
+the demo song. The editor shows the waveform and plays the audio. The person can transcribe a song with a speech model
 in the browser, or create phrases from lyrics, and see the marks on three layers.
 The person can export `.xtiming` files from the export dialog. A transcribe run
 breaks down each word into phonemes with the dictionary, and the person manages a
@@ -20,7 +19,10 @@ dialog shows each step, the elapsed time and the device. The person can transcri
 with a remote endpoint that is compatible with the OpenAI transcription API in
 place of the speech model in the browser. The editor has
 shortcuts, undo and redo, loop play, play speed, the frame size control, the
-inspector and the face preview. The voices and the sections are next.
+inspector and the face preview. A song has voices and sections: the person adds
+voices, moves or copies phrases between voices, and makes sections by hand or
+from tags in the lyrics. Production exists and each commit on `main` deploys.
+The manual xLights import check (issue #79) is next.
 
 ## Design
 

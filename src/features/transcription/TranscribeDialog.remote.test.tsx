@@ -76,7 +76,6 @@ async function renderDialog() {
   render(
     <TranscribeDialog
       voiceId="voice-1"
-      durationMs={220_000}
       selection={null}
       onActiveChange={vi.fn()}
       onClose={vi.fn()}

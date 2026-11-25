@@ -321,14 +321,14 @@ describe('Waveform', () => {
       fireEvent[type](waveformStage(), { clientX, button: 0, pointerId: 1 })
     }
 
-    it('puts the time ruler above the waveform and the layers under it', async () => {
+    it('puts the section band above the time ruler, then the waveform and the layers', async () => {
       const { container } = await renderStage()
 
       const stage = container.querySelector('.stage')
       const order = [...(stage?.children ?? [])].map(
         (child) => child.getAttribute('aria-label') ?? child.className,
       )
-      expect(order.slice(0, 3)).toEqual(['time-ruler', 'waveform-stage', 'Layers'])
+      expect(order.slice(0, 4)).toEqual(['Sections', 'time-ruler', 'waveform-stage', 'Layers'])
       expect(useViewStore.getState().stageWidthPx).toBe(1000)
     })
 

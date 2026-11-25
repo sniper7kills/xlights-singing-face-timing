@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import { groupIntoPhrases, parseLyrics, spreadLyrics, spreadWords } from './phrases.ts'
+import {
+  groupIntoPhrases,
+  parseLyrics,
+  parseSectionTags,
+  spreadLyrics,
+  spreadWords,
+} from './phrases.ts'
 import type { AlignedPhrase, TimedWord } from './types.ts'
 
 function word(text: string, startMs: number, endMs: number): TimedWord {
@@ -92,6 +98,39 @@ describe('parseLyrics', () => {
 
   it('keeps the spelling, the case and the punctuation of each word', () => {
     expect(parseLyrics("Don't  STOP, now\r\nok")).toEqual([["Don't", 'STOP,', 'now'], ['ok']])
+  })
+})
+
+describe('parseSectionTags', () => {
+  it('gives each tag the index of the next lyrics line', () => {
+    const lyrics = 'intro\n[Verse 1]\none\n\ntwo\n[Chorus]\nthree'
+
+    expect(parseSectionTags(lyrics)).toEqual([
+      { name: 'Verse 1', lineIndex: 1 },
+      { name: 'Chorus', lineIndex: 3 },
+    ])
+    expect(parseLyrics(lyrics)).toEqual([['intro'], ['one'], ['two'], ['three']])
+  })
+
+  it('gives two tags in sequence the same index', () => {
+    expect(parseSectionTags('[Intro]\n[Verse]\nla')).toEqual([
+      { name: 'Intro', lineIndex: 0 },
+      { name: 'Verse', lineIndex: 0 },
+    ])
+  })
+
+  it('gives a tag at the end the count of lines', () => {
+    expect(parseSectionTags('la\nla\n[Outro]')).toEqual([{ name: 'Outro', lineIndex: 2 }])
+  })
+
+  it('gives no entry for a tag with an empty name or a tag inside a line', () => {
+    expect(parseSectionTags('[]\n[  ]\n[Chorus] la\nla')).toEqual([])
+  })
+
+  it('trims the name and cuts it to 40 characters', () => {
+    const long = 'A'.repeat(39) + ' BC'
+
+    expect(parseSectionTags(`[  ${long} ]\nla`)).toEqual([{ name: 'A'.repeat(39), lineIndex: 0 }])
   })
 })
 

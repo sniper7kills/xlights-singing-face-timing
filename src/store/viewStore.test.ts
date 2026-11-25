@@ -52,6 +52,21 @@ describe('useViewStore', () => {
     expect(useViewStore.getState().selectedVoiceId).toBeNull()
   })
 
+  it('clears the mark selection when the selected voice changes', () => {
+    useViewStore.getState().resetView()
+    useViewStore.getState().selectMarks(['mark-1'])
+    useViewStore.getState().selectVoice(null)
+    expect(useViewStore.getState().selectedMarkIds).toEqual(['mark-1'])
+
+    useViewStore.getState().selectVoice('voice-2')
+
+    expect(useViewStore.getState()).toMatchObject({
+      selectedVoiceId: 'voice-2',
+      selectedMarkIds: [],
+      selectionAnchorId: null,
+    })
+  })
+
   it('records no undo step for a zoom change', () => {
     useSongStore.setState({ current: makeSongContent() })
 

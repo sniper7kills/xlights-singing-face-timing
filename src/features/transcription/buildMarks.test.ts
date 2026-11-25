@@ -50,7 +50,7 @@ describe('wordLabel', () => {
 
 describe('buildMarks', () => {
   it('creates a phrase and one word mark for each word, on the voice', () => {
-    const marks = buildMarks(
+    const { marks } = buildMarks(
       [phrase(word('Silent', 100, 600), word('night,', 700, 1200))],
       'voice-1',
       50,
@@ -66,7 +66,7 @@ describe('buildMarks', () => {
   })
 
   it('gives each mark a new UUID and each word its phrase as the parent', () => {
-    const marks = buildMarks(
+    const { marks } = buildMarks(
       [phrase(word('Silent', 100, 600)), phrase(word('holy', 1000, 1500))],
       'voice-1',
       50,
@@ -81,7 +81,7 @@ describe('buildMarks', () => {
   })
 
   it('removes an overlap across two phrases', () => {
-    const marks = buildMarks(
+    const { marks } = buildMarks(
       [phrase(word('night', 100, 900)), phrase(word('holy', 800, 1200))],
       'voice-1',
       50,
@@ -95,7 +95,7 @@ describe('buildMarks', () => {
   })
 
   it('starts a phrase at its first word and ends it at its last word', () => {
-    const marks = buildMarks(
+    const { marks } = buildMarks(
       [{ ...phrase(word('Silent', 112, 600), word('night', 700, 1190)), startMs: 0, endMs: 5000 }],
       'voice-1',
       50,
@@ -106,7 +106,7 @@ describe('buildMarks', () => {
   })
 
   it('copies estimated from each aligned word to its word mark', () => {
-    const marks = buildMarks(
+    const { marks } = buildMarks(
       [phrase(word('Silent', 100, 600), word('night', 700, 1200, true))],
       'voice-1',
       50,
@@ -118,7 +118,7 @@ describe('buildMarks', () => {
   })
 
   it('drops a word with no letter or digit and a phrase with no word left', () => {
-    const marks = buildMarks(
+    const { marks } = buildMarks(
       [phrase(word('Silent', 100, 600), word('--', 600, 700)), phrase(word('...', 800, 900))],
       'voice-1',
       50,
@@ -129,7 +129,7 @@ describe('buildMarks', () => {
   })
 
   it('keeps every mark inside a range that starts and ends between two frames', () => {
-    const marks = buildMarks(
+    const { marks } = buildMarks(
       [phrase(word('Silent', 1010, 1500, true), word('night', 1500, 1990, true))],
       'voice-1',
       50,
@@ -144,7 +144,7 @@ describe('buildMarks', () => {
   })
 
   it('gives no mark to a phrase whose words do not fit in the range', () => {
-    const marks = buildMarks(
+    const { marks } = buildMarks(
       [phrase(word('Silent', 1000, 1050, true)), phrase(word('night', 1050, 1100, true))],
       'voice-1',
       50,
@@ -157,7 +157,23 @@ describe('buildMarks', () => {
     ])
   })
 
+  it('gives the phrase mark id of each input phrase, and null for a phrase with no mark', () => {
+    const { marks, phraseIds } = buildMarks(
+      [
+        phrase(word('Silent', 100, 600)),
+        phrase(word('...', 700, 800)),
+        phrase(word('night', 900, 1400)),
+      ],
+      'voice-1',
+      50,
+      SONG,
+    )
+
+    expect(phraseIds).toEqual([phrasesOf(marks)[0]?.id, null, phrasesOf(marks)[1]?.id])
+    expect(phraseIds[0]).toEqual(expect.any(String))
+  })
+
   it('returns no mark for no phrase', () => {
-    expect(buildMarks([], 'voice-1', 50, SONG)).toEqual([])
+    expect(buildMarks([], 'voice-1', 50, SONG)).toEqual({ marks: [], phraseIds: [] })
   })
 })

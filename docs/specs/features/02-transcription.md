@@ -2,8 +2,8 @@
 id: transcription
 feature: Transcription
 epic: "Epic 2: Transcription"
-status: issued
-issues: [14, 15, 16, 17, 18, 23, 77, 29, 30, 101]
+status: built
+issues: [14, 15, 16, 17, 18, 23, 77, 29, 30, 91, 93, 97, 101]
 mockups: []
 ---
 

@@ -401,6 +401,17 @@ describe('runTranscription with the speech model', () => {
     })
   })
 
+  it('rejects as cancelled and writes no mark and no section for a voice that no longer exists', async () => {
+    const before = useSongStore.getState().current
+    const request = { ...lyricsOnly, voiceId: 'gone', addSections: true }
+
+    const result = runTranscription(request, fakeClient(), handlers())
+
+    await expect(result).rejects.toMatchObject({ kind: 'cancelled' })
+    expect(useSongStore.getState().current).toBe(before)
+    expect(useSongStore.getState().history.past).toHaveLength(0)
+  })
+
   it('rejects when no song is open', async () => {
     useSongStore.getState().closeSong()
 
@@ -549,6 +560,82 @@ describe('runTranscription with lyrics only', () => {
   })
 })
 
+const TAGGED = '[Verse 1]\nSilent night\n[Chorus]\nholy night'
+// Four words of two seconds each, so each tag gets a section of 4 seconds.
+const TAGGED_WORDS: TimedWord[] = [
+  { text: ' Silent', startMs: 0, endMs: 2000 },
+  { text: ' night', startMs: 2000, endMs: 4000 },
+  { text: ' holy', startMs: 4000, endMs: 6000 },
+  { text: ' night', startMs: 6000, endMs: 8000 },
+]
+const sections = () =>
+  (useSongStore.getState().current?.sections ?? []).map(({ name, startMs, endMs }) => ({
+    name,
+    startMs,
+    endMs,
+  }))
+
+describe('runTranscription and the sections of the lyrics tags', () => {
+  const tagged: TranscribeRequest = { ...lyricsOnly, lyrics: TAGGED, addSections: true }
+
+  it('adds a section for each tag of a lyrics-only run, as a second undo step', async () => {
+    await runTranscription(tagged, fakeClient(), handlers())
+
+    expect(sections()).toEqual([
+      { name: 'Verse 1', startMs: 0, endMs: 15_000 },
+      { name: 'Chorus', startMs: 15_000, endMs: 30_000 },
+    ])
+    expect(useSongStore.getState().history.past).toHaveLength(2)
+    useSongStore.getState().undo()
+    expect(sections()).toEqual([])
+    expect(labels('phrase')).toEqual(['Silent night', 'holy night'])
+  })
+
+  it('makes no mark from a tag line', async () => {
+    await runTranscription(tagged, fakeClient(), handlers())
+
+    expect(marks().filter((mark) => mark.label.includes('['))).toEqual([])
+    expect(labels('word')).toEqual(['Silent', 'night', 'holy', 'night'])
+  })
+
+  it('adds no section without addSections', async () => {
+    await runTranscription({ ...tagged, addSections: false }, fakeClient(), handlers())
+
+    expect(sections()).toEqual([])
+    expect(useSongStore.getState().history.past).toHaveLength(1)
+  })
+
+  it('adds the sections inside the range of a range run', async () => {
+    const range = { startMs: 10_000, endMs: 20_000 }
+
+    await runTranscription({ ...tagged, range }, fakeClient(), handlers())
+
+    expect(sections()).toEqual([
+      { name: 'Verse 1', startMs: 10_000, endMs: 15_000 },
+      { name: 'Chorus', startMs: 15_000, endMs: 20_000 },
+    ])
+  })
+
+  it('adds the sections at the aligned phrases of a speech model run', async () => {
+    const request = { ...modelRequest, lyrics: TAGGED, addSections: true }
+
+    await runTranscription(request, fakeClient(TAGGED_WORDS), handlers())
+
+    expect(sections()).toEqual([
+      { name: 'Verse 1', startMs: 0, endMs: 4000 },
+      { name: 'Chorus', startMs: 4000, endMs: 8000 },
+    ])
+  })
+
+  it('makes no second section over a section of the same name in a second run', async () => {
+    await runTranscription(tagged, fakeClient(), handlers())
+
+    await runTranscription(tagged, fakeClient(), handlers())
+
+    expect(sections().map((section) => section.name)).toEqual(['Verse 1', 'Chorus'])
+  })
+})
+
 describe('runTranscription with a remote endpoint', () => {
   const endpoint = { baseUrl: 'http://localhost:8000/v1', apiKey: '', model: 'whisper-1' }
   const remoteRequest: TranscribeRequest = { ...modelRequest, remote: endpoint }
@@ -652,6 +739,28 @@ describe('runTranscription with a remote endpoint', () => {
       status: 401,
     })
     expect(marks()).toEqual([])
+  })
+
+  it('adds the sections at the aligned phrases of the words of the endpoint', async () => {
+    FakeXhr.responder = (xhr) =>
+      xhr.respond(200, {
+        words: TAGGED_WORDS.map(({ text, startMs, endMs }) => ({
+          word: text,
+          start: startMs / 1000,
+          end: endMs / 1000,
+        })),
+      })
+
+    await runTranscription(
+      { ...remoteRequest, lyrics: TAGGED, addSections: true },
+      fakeClient([]),
+      handlers(),
+    )
+
+    expect(sections()).toEqual([
+      { name: 'Verse 1', startMs: 0, endMs: 4000 },
+      { name: 'Chorus', startMs: 4000, endMs: 8000 },
+    ])
   })
 
   it('creates phrases from lyrics only and sends no request', async () => {

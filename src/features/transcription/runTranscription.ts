@@ -1,3 +1,5 @@
+import { tagSectionRanges } from '../../lib/sections/tagSections.ts'
+import { addSections } from '../../store/actions/addSections.ts'
 import { breakDownMarks, loadDictionaries } from '../../store/actions/breakDown.ts'
 import { hasMarksInRange, replaceMarksInRange } from '../../store/actions/replaceMarksInRange.ts'
 import type { RemoteEndpoint } from '../../lib/remote/endpoint.ts'
@@ -9,7 +11,7 @@ import { useSongStore } from '../../store/songStore.ts'
 import type { Mark } from '../../store/types.ts'
 import { alignLyrics } from './alignLyrics.ts'
 import { buildMarks } from './buildMarks.ts'
-import { groupIntoPhrases, parseLyrics, spreadLyrics } from './phrases.ts'
+import { groupIntoPhrases, parseLyrics, parseSectionTags, spreadLyrics } from './phrases.ts'
 import { SPEECH_SAMPLE_RATE } from './protocol.ts'
 import { postTranscription } from './remoteClient.ts'
 import { resampleForSpeech } from './resample.ts'
@@ -40,6 +42,11 @@ export type TranscribeRequest = {
   lyrics?: string
   /** The part of the song to transcribe. Without a range, the run reads the full song. */
   range?: TimeRange
+  /**
+   * True adds a section for each `[Name]` tag of the lyrics, as a second undo step after the marks.
+   * A run without lyrics adds no section.
+   */
+  addSections?: boolean
 }
 
 /** The result of a run, for the toast "214 words, 9 estimated". */
@@ -117,10 +124,12 @@ function stopIfCancelled(signal: AbortSignal): void {
  * Runs one transcription for the open song, writes the marks as one undo step, and returns the counts.
  * The same undo step holds the phonemes of each new word. If the break down fails, the words have no phonemes and the outcome reports it.
  * The run replaces the marks of the voice in the range. See `replaceMarksInRange` for a mark that crosses an edge of the range.
+ * With `addSections`, the run then adds the sections of the lyrics tags as a second undo step, so one undo removes the sections only.
  * @param request The run that the person started. Without a range, the range is the full song.
  * @param client The client that runs the speech model. A lyrics-only run does not call it.
  * @param handlers The progress functions, the cancel signal and the two confirm callbacks of the dialog.
  * Rejects with TranscribeError of kind 'cancelled' when the signal aborts or the person declines a confirm.
+ * Also rejects as cancelled, with no mark and no section written, when the voice of the run no longer exists.
  * Rejects with NoWordsError when no word is found.
  * Rejects with TranscribeError for a failure of the speech model, and with RemoteError for a failure of the remote endpoint.
  * Rejects with Error when no song is open or the audio file is missing.
@@ -145,18 +154,35 @@ export async function runTranscription(
 
   const phrases = await findPhrases(request, range, song.id, client, handlers)
 
-  const marks = buildMarks(phrases, request.voiceId, song.frameMs, range)
+  const { marks, phraseIds } = buildMarks(phrases, request.voiceId, song.frameMs, range)
   const words = marks.filter((mark) => mark.layer === 'word')
   if (words.length === 0) throw new NoWordsError()
   const { written, breakDownFailure } = await breakDownRun(marks, words, song.frameMs)
   stopIfCancelled(signal)
   // The phonemes go in the same write, so one undo removes the run and its break down.
-  replaceMarksInRange(request.voiceId, range, written)
+  if (!replaceMarksInRange(request.voiceId, range, written))
+    throw new TranscribeError('cancelled', 'The voice of the transcribe run no longer exists.')
+  addTagSections(request, song.id, phraseIds, written)
   return {
     wordCount: words.length,
     estimatedCount: words.filter((mark) => mark.estimated).length,
     breakDownFailure,
   }
+}
+
+/**
+ * Adds a section for each `[Name]` tag of the lyrics of the run, as one undo step.
+ * The run makes one phrase for each lyrics line, so `phraseIds` gives the phrase mark of each line.
+ * A request without `addSections` or without lyrics adds no section.
+ */
+function addTagSections(
+  request: TranscribeRequest,
+  songId: string,
+  phraseIds: readonly (string | null)[],
+  marks: readonly Mark[],
+): void {
+  if (request.addSections !== true || request.lyrics === undefined) return
+  addSections(songId, tagSectionRanges(parseSectionTags(request.lyrics), phraseIds, marks))
 }
 
 /**

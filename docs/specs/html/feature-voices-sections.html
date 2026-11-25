@@ -149,7 +149,7 @@ body.rv-open .layout { padding-right:21rem; }
 </ul></aside>
 <main>
 <h1>Feature: Voices and sections</h1>
-<p class="meta">Epic 5: Voices and sections &nbsp; <span class="badge">issued</span></p>
+<p class="meta">Epic 5: Voices and sections &nbsp; <span class="badge">built</span></p>
 <h3 id="voices-sections-purpose">Purpose</h3>
 <p>A show often has several face models, and each one sings a different part. A voice holds the marks for one singer, and becomes one timing track in xLights. A section names a time range of the song, so the person can work on, and export, one part of the song at a time.</p>
 <h3 id="voices-sections-user-stories">User stories</h3>
@@ -350,7 +350,60 @@ body.rv-open .layout { padding-right:21rem; }
 <ul>
 <li>Voice and section changes are undo steps.
 </li>
+<li>The voice rail has the name "Voices". Each row has the voice name, its count of
+</li>
 </ul>
+<p>phrases, a mute button for the face preview ("Mute face preview of &lt;voice name&gt;") and a menu "Actions for &lt;voice name&gt;" with "Rename", "Colour", "Move up", "Move down" and "Delete". The 8 colours are Amber, Sky, Green, Pink, Violet, Red, Teal and Lime. "Add voice" is disabled at 12 voices, with the note "A song has 12 voices at most."</p>
+<ul>
+<li>A wrong voice name shows "A voice name has 1 to 60 characters." or "A voice name
+</li>
+</ul>
+<p>cannot contain &lt;, &gt;, &amp; or "."</p>
+<ul>
+<li>A delete of a voice asks first: "The app deletes “&lt;voice name&gt;” and its marks."
+</li>
+</ul>
+<p>with "Delete" and "Cancel".</p>
+<ul>
+<li>A click on a voice shows its marks on the three layers and clears the mark
+</li>
+</ul>
+<p>selection.</p>
+<ul>
+<li>The "Phrase" button of the toolbar has "Move to voice" and "Copy to voice".
+</li>
+</ul>
+<p>Each shows the other voices and "New voice". If phrases of the target voice overlap the range, the app asks: "&lt;voice name&gt; has &lt;n&gt; phrases in this range. Replace them?" with "Continue" and "Cancel". A replace removes each such phrase with its words and phonemes. A move or a copy with its replace is one undo step.</p>
+<ul>
+<li>The row "Other voices" shows a bar for each phrase of each other voice, in the
+</li>
+</ul>
+<p>colour of the voice. It shows when the song has two voices or more.</p>
+<ul>
+<li>The face preview shows one face for each voice that is not muted, with the
+</li>
+</ul>
+<p>voice name, for 4 voices at most. More voices give the note "+&lt;n&gt; more". With every voice muted, the note is "Every voice is muted. Select the mute button of a voice to show its face."</p>
+<ul>
+<li>The band "Sections" is above the time ruler. "Add section" makes a section
+</li>
+</ul>
+<p>from the time selection, with the name "Section N" or a typed name of 40 characters at most. With no free range of 1 second, the note is "No room for a section here. Select a free range of 1 second or more."</p>
+<ul>
+<li>A section has the menu "Actions for &lt;section name&gt;" with "Rename", "Move
+</li>
+</ul>
+<p>section to voice" and "Delete". A delete has no confirm dialog. A click on a section selects its time range and scrolls the stage to its start. A dragged edge snaps to the frame size and stops at the adjacent section.</p>
+<ul>
+<li>A change of the frame size snaps the sections in the same undo step. A section
+</li>
+</ul>
+<p>stays inside the song. A section that cannot stay 1 second long is removed.</p>
+<ul>
+<li>The transcribe dialog has the check box "Add sections from the [Name] tags". It
+</li>
+</ul>
+<p>shows when the lyrics have a tag and a word, and it is on by default. The sections are a second undo step after the marks of the run. A tag line is never a phrase or a word.</p>
 <h3 id="voices-sections-data-touched">Data touched</h3>
 <ul>
 <li>Reads and writes <code>VOICE</code>, <code>SECTION</code> and <code>MARK</code>.
