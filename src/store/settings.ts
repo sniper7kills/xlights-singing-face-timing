@@ -12,6 +12,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   theme: 'dark',
   transcribeSource: 'browser',
   remoteEndpoint: { baseUrl: '', apiKey: '', model: 'whisper-1' },
+  separateVocals: false,
 }
 
 /**

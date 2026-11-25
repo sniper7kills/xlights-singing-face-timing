@@ -34,6 +34,7 @@ import {
   IDLE,
   isActive,
   isCancel,
+  isQuestion,
   isRunState,
   lowMatchMessage,
   MIXED_CONTENT_MESSAGE,
@@ -41,6 +42,7 @@ import {
   progressValue,
   remoteWarning,
   type RunSpeed,
+  separationNote,
   runSpeed,
   shownRunState,
   SLOW_GPU_MESSAGE,
@@ -83,6 +85,7 @@ export function TranscribeDialog({
   const [lyrics, setLyrics] = useState('')
   const [lyricsOnly, setLyricsOnly] = useState(false)
   const [tagSections, setTagSections] = useState(true)
+  const [separate, setSeparate] = useState(DEFAULT_SETTINGS.separateVocals)
   const [range, setRange] = useState<TimeRange | undefined>(undefined)
   const remote = useRemoteChoice()
   const { restore } = remote
@@ -107,6 +110,7 @@ export function TranscribeDialog({
         if (!mounted) return
         if (SPEECH_MODELS.some((model) => model.id === settings.speechModelId))
           setSpeechModelId(settings.speechModelId)
+        setSeparate(settings.separateVocals)
         restore(settings)
       })
     if (dialogRef.current !== null) tabStops(dialogRef.current)[0]?.focus()
@@ -130,6 +134,12 @@ export function TranscribeDialog({
     void updateSettings({ speechModelId: id }).catch(() => undefined)
   }
 
+  function selectSeparate(checked: boolean) {
+    setSeparate(checked)
+    // The choice applies to this run even when the browser storage is full.
+    void updateSettings({ separateVocals: checked }).catch(() => undefined)
+  }
+
   function start() {
     void run.start({
       voiceId,
@@ -139,6 +149,7 @@ export function TranscribeDialog({
       range,
       remote: usesRemote ? remote.endpoint : undefined,
       addSections: hasTags && tagSections,
+      separateVocals: !lyricsOnly && separate,
     })
   }
 
@@ -146,10 +157,7 @@ export function TranscribeDialog({
     if (event.key === 'Escape' && !active) {
       event.stopPropagation()
       onClose()
-    } else if (
-      event.key === 'Escape' &&
-      (state.status === 'confirm-replace' || state.status === 'low-match')
-    ) {
+    } else if (event.key === 'Escape' && isQuestion(state)) {
       event.stopPropagation()
       run.answer(false)
     } else if (event.key === 'Tab') {
@@ -221,6 +229,13 @@ export function TranscribeDialog({
             />
             Lyrics only
           </label>
+          <SeparateChoice
+            shown={!lyricsOnly}
+            checked={separate}
+            remote={usesRemote}
+            host={remote.host}
+            onChange={selectSeparate}
+          />
           <fieldset className="choice-group">
             <legend>Range</legend>
             <RangeChoices selection={selection} range={range} onChange={setRange} />
@@ -277,6 +292,39 @@ function TagSectionsChoice({ shown, checked, onChange }: TagSectionsChoiceProps)
       />
       Add sections from the [Name] tags
     </label>
+  )
+}
+
+type SeparateChoiceProps = {
+  /** False for a lyrics-only run, which reads no audio. */
+  shown: boolean
+  checked: boolean
+  /** True when the run uses the remote endpoint. */
+  remote: boolean
+  /** The host of the stored remote endpoint, or null when the person has stored none. */
+  host: string | null
+  onChange: (checked: boolean) => void
+}
+
+/** Shows the check box "Separate the vocals first" and the note that tells where the audio goes. */
+function SeparateChoice({ shown, checked, remote, host, onChange }: SeparateChoiceProps) {
+  const noteId = useId()
+  if (!shown) return null
+  return (
+    <>
+      <label className="choice">
+        <input
+          type="checkbox"
+          checked={checked}
+          aria-describedby={noteId}
+          onChange={(event) => onChange(event.target.checked)}
+        />
+        Separate the vocals first
+      </label>
+      <p id={noteId} className="dialog-note">
+        {separationNote(remote ? host : null)}
+      </p>
+    </>
   )
 }
 
@@ -541,6 +589,11 @@ function useTranscribeRun(onDone: (outcome: TranscribeOutcome) => void) {
           signal: controller.signal,
           onDownload: (loaded, total) =>
             send({ type: 'download', percent: downloadPercent(loaded, total) }),
+          onSeparationDownload: (loaded, total) =>
+            send({ type: 'separation-download', percent: downloadPercent(loaded, total) }),
+          onSeparationProgress: (doneMs, totalMs) =>
+            send({ type: 'separation-progress', doneMs, totalMs }),
+          confirmNoSeparation: (error) => ask({ type: 'confirm-no-separation', error }),
           onUpload: (loaded, total) =>
             send({ type: 'upload', percent: downloadPercent(loaded, total) }),
           onStage: (stage) => {
@@ -648,7 +701,7 @@ function ProgressArea({ state, meter }: ProgressAreaProps) {
 }
 
 function DialogMessage({ state }: { state: DialogState }) {
-  if (state.status === 'error')
+  if (state.status === 'error' || state.status === 'separation-failed')
     return (
       <p className="message" role="alert">
         {state.message}
@@ -690,6 +743,17 @@ function DialogActions({ state, run, onRetry, onClose }: DialogActionsProps) {
           Continue
         </button>
         <button type="button" className="button" onClick={() => run.answer(false)}>
+          Cancel
+        </button>
+      </>
+    )
+  if (state.status === 'separation-failed')
+    return (
+      <>
+        <button type="button" className="button primary" onClick={() => run.answer(true)}>
+          Continue with no separation
+        </button>
+        <button type="button" className="button" onClick={run.cancel}>
           Cancel
         </button>
       </>
