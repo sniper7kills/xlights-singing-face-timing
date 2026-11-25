@@ -2,7 +2,7 @@
 id: voices-sections
 feature: Voices and sections
 epic: "Epic 5: Voices and sections"
-status: issued
+status: built
 issues: [35, 36, 37, 38, 39, 40]
 mockups: []
 ---
@@ -144,6 +144,44 @@ voices and "New voice".
 - Lyrics tags: a line that is only `[Name]` starts a section at the first phrase
   after it. The section ends where the next tag starts, or at the last phrase.
 - Voice and section changes are undo steps.
+- The voice rail has the name "Voices". Each row has the voice name, its count of
+  phrases, a mute button for the face preview ("Mute face preview of <voice
+  name>") and a menu "Actions for <voice name>" with "Rename", "Colour", "Move
+  up", "Move down" and "Delete". The 8 colours are Amber, Sky, Green, Pink,
+  Violet, Red, Teal and Lime. "Add voice" is disabled at 12 voices, with the note
+  "A song has 12 voices at most."
+- A wrong voice name shows "A voice name has 1 to 60 characters." or "A voice name
+  cannot contain <, >, & or "."
+- A delete of a voice asks first: "The app deletes “<voice name>” and its marks."
+  with "Delete" and "Cancel".
+- A click on a voice shows its marks on the three layers and clears the mark
+  selection.
+- The "Phrase" button of the toolbar has "Move to voice" and "Copy to voice".
+  Each shows the other voices and "New voice". If phrases of the target voice
+  overlap the range, the app asks: "<voice name> has <n> phrases in this range.
+  Replace them?" with "Continue" and "Cancel". A replace removes each such phrase
+  with its words and phonemes. A move or a copy with its replace is one undo
+  step.
+- The row "Other voices" shows a bar for each phrase of each other voice, in the
+  colour of the voice. It shows when the song has two voices or more.
+- The face preview shows one face for each voice that is not muted, with the
+  voice name, for 4 voices at most. More voices give the note "+<n> more". With
+  every voice muted, the note is "Every voice is muted. Select the mute button of
+  a voice to show its face."
+- The band "Sections" is above the time ruler. "Add section" makes a section
+  from the time selection, with the name "Section N" or a typed name of 40
+  characters at most. With no free range of 1 second, the note is "No room for a
+  section here. Select a free range of 1 second or more."
+- A section has the menu "Actions for <section name>" with "Rename", "Move
+  section to voice" and "Delete". A delete has no confirm dialog. A click on a
+  section selects its time range and scrolls the stage to its start. A dragged
+  edge snaps to the frame size and stops at the adjacent section.
+- A change of the frame size snaps the sections in the same undo step. A section
+  stays inside the song. A section that cannot stay 1 second long is removed.
+- The transcribe dialog has the check box "Add sections from the [Name] tags". It
+  shows when the lyrics have a tag and a word, and it is on by default. The
+  sections are a second undo step after the marks of the run. A tag line is
+  never a phrase or a word.
 
 ## Data touched
 

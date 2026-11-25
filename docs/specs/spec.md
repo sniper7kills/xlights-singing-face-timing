@@ -726,3 +726,6 @@ The spec has one editor epic. The tracker has two, because 30 requirements do no
 - 2026-11-24 — Batch gate of epic #31. The app selects the device from measured
   speeds and uses 2 threads on the `wasm` device (issue #93, ADR 0006). The
   maintainer said that transcription in the browser was "Just very slow".
+- 2026-11-24 — Batch gate of epic #35. Production exists (issue #7). The features
+  00 and 02 to 05 are built. Feature 06 stays issued until the manual xLights
+  import check (issue #79).
