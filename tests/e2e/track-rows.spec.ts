@@ -102,12 +102,14 @@ function expectInTime(samples: Sample[], rate: number) {
     })
     expect(entry.driftMs).toBeLessThanOrEqual(STALL_LIMIT_MS)
   }
-  expect(
-    percentile(
-      samples.map((entry) => entry.driftMs),
-      0.9,
-    ),
-  ).toBeLessThanOrEqual(P90_LIMIT_MS)
+  const drifts = samples.map((entry) => entry.driftMs)
+  const p90 = percentile(drifts, 0.9)
+  // The annotation keeps the measured values in the report of the run.
+  test.info().annotations.push({
+    type: 'drift',
+    description: `rate ${rate}: p50 ${percentile(drifts, 0.5).toFixed(1)} ms, p90 ${p90.toFixed(1)} ms, max ${Math.max(...drifts).toFixed(1)} ms`,
+  })
+  expect(p90).toBeLessThanOrEqual(P90_LIMIT_MS)
   const first = samples[0]
   const last = samples.at(-1)
   if (first === undefined || last === undefined) throw new Error('No samples.')
