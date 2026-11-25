@@ -196,7 +196,7 @@ voices and "New voice".
 - The voice rail has the name "Voices". Each row has the voice name, its count of
   phrases, a mute button for the face preview ("Mute face preview of <voice
   name>") and a menu "Actions for <voice name>" with "Rename", "Colour", "Move
-  up", "Move down" and "Delete". The 8 colours are Amber, Sky, Green, Pink,
+  up", "Move down" and "Delete". The 12 colours are Amber, Sky, Green, Pink,
   Violet, Red, Teal, Lime, Blue, Magenta, Silver and Brown. "Add voice" is disabled
   at 12 voices, with the note "A song has 12 voices at most."
 - Each row of the voice rail shows its number in the rail, 1 to 12, before the

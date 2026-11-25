@@ -2,8 +2,8 @@
 id: xtiming-export
 feature: xtiming export
 epic: "Epic 6: Export"
-status: issued
-issues: [41, 42, 43, 44, 45, 46, 79, 132, 138]
+status: built
+issues: [41, 42, 43, 44, 45, 46, 79, 132, 138, 143, 170]
 mockups: [mockups/03-export.html]
 ---
 
