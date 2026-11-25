@@ -1,3 +1,4 @@
+import { memo } from 'react'
 import { isMuted } from '../../lib/audio/trackMix.ts'
 import { toggleMute, toggleSolo, useTrackMixStore } from '../../store/trackMixStore.ts'
 
@@ -9,8 +10,11 @@ type RowControlsProps = {
   tooltip?: string
 }
 
-/** Shows the name of a track row and its "Mute" and "Solo" toggle buttons. */
-export function RowControls({ rowId, name, tooltip }: RowControlsProps) {
+/**
+ * Shows the name of a track row and its "Mute" and "Solo" toggle buttons.
+ * The memo keeps the "Song" controls out of the render of the waveform region on each play time.
+ */
+export const RowControls = memo(function RowControls({ rowId, name, tooltip }: RowControlsProps) {
   const muted = useTrackMixStore((state) => isMuted(state, rowId))
   const soloed = useTrackMixStore((state) => state.soloed.includes(rowId))
   return (
@@ -41,4 +45,4 @@ export function RowControls({ rowId, name, tooltip }: RowControlsProps) {
       </button>
     </div>
   )
-}
+})

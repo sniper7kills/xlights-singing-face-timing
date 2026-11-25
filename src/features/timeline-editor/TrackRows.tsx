@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
-import { type PcmTrack, trackToWav } from '../../lib/audio/pcm.ts'
+import { memo, useEffect, useMemo, useRef, useState } from 'react'
+import { trackToWav } from '../../lib/audio/pcm.ts'
 import { peakLevels, type TrackPeaks } from '../../lib/audio/peaks.ts'
 import { audibleRows, SONG_ROW } from '../../lib/audio/trackMix.ts'
 import { useSongStore } from '../../store/songStore.ts'
@@ -24,19 +24,6 @@ const NO_MARKS: readonly Mark[] = []
 
 type TrackName = keyof KeptTracks
 
-function trackDurationMs(track: PcmTrack): number {
-  return (track.samples.length / track.sampleRate) * 1000
-}
-
-function trackPeaks(track: PcmTrack): TrackPeaks {
-  return {
-    levels: peakLevels(track.samples),
-    sampleRate: track.sampleRate,
-    startMs: track.startMs,
-    sampleCount: track.samples.length,
-  }
-}
-
 /**
  * Returns the peaks of each kept track. The app computes one track in each task, so a long song does not block a frame
  * for both tracks. The peaks cover all zoom levels, so a zoom computes nothing.
@@ -52,7 +39,13 @@ function useTrackPeaks(tracks: KeptTracks | undefined): Partial<Record<TrackName
     for (const name of ['vocals', 'instruments'] as const)
       timers.push(
         window.setTimeout(() => {
-          const value = trackPeaks(tracks[name])
+          const track = tracks[name]
+          const value: TrackPeaks = {
+            levels: peakLevels(track.samples),
+            sampleRate: track.sampleRate,
+            startMs: track.startMs,
+            sampleCount: track.samples.length,
+          }
           setPeaks((previous) => ({
             tracks,
             value: { ...(previous?.tracks === tracks ? previous.value : {}), [name]: value },
@@ -109,7 +102,7 @@ function useMixer(
               rowId: row.id,
               media,
               startMs: track.startMs,
-              durationMs: trackDurationMs(track),
+              durationMs: (track.samples.length / track.sampleRate) * 1000,
               gate: row.gate,
             },
           ]
@@ -151,8 +144,9 @@ type TrackRowsProps = {
  * Each row draws its waveform on the time scale of the stage and has "Mute" and "Solo".
  * The audio of each row plays in time with the song audio (ADR 0010).
  * A song with no kept audio tracks shows nothing.
+ * The memo keeps the rows out of the render of the waveform region on each play time.
  */
-export function TrackRows({ songId, durationMs }: TrackRowsProps) {
+export const TrackRows = memo(function TrackRows({ songId, durationMs }: TrackRowsProps) {
   const data = useRunData(songId)
   const voices = useSongStore((state) => state.current?.voices) ?? NO_VOICES
   const marks = useSongStore((state) => state.current?.marks) ?? NO_MARKS
@@ -214,4 +208,4 @@ export function TrackRows({ songId, durationMs }: TrackRowsProps) {
         ))}
     </div>
   )
-}
+})
