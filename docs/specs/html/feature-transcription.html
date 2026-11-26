@@ -916,10 +916,10 @@ body.rv-open .layout { padding-right:21rem; }
 </ul>
 <p>dialog states "The app sends two requests to &lt;host&gt;, one for each singer track. The audio of both tracks leaves this computer."</p>
 <ul>
-<li>FR-transcribe-166 — The run puts the marks of each singer track on its own new
+<li>FR-transcribe-166 — The run puts the marks of each singer track that has words on
 </li>
 </ul>
-<p>voice: "Female" and "Male", or "Lead" and "Backing".</p>
+<p>its own new voice: "Female" and "Male", or "Lead" and "Backing".</p>
 <ul>
 <li>FR-transcribe-167 — The marks of the two voices can overlap in time.
 </li>
@@ -936,7 +936,7 @@ body.rv-open .layout { padding-right:21rem; }
 <li>FR-transcribe-170 — If the song has no room for two more voices, the run does not
 </li>
 </ul>
-<p>start and the dialog states the reason.</p>
+<p>start and the dialog states the reason. The check counts as free only the voices that the run removes by FR-transcribe-187.</p>
 <ul>
 <li>FR-transcribe-171 — The progress text of the step is "Splitting the singers,
 </li>
@@ -1008,6 +1008,37 @@ body.rv-open .layout { padding-right:21rem; }
 </li>
 </ul>
 <p>of the run report counts the two singer tracks.</p>
+<h4 id="transcription-singer-split-review-fixes-epic-192">Singer split review fixes (epic #192)</h4>
+<ul>
+<li>FR-transcribe-185 — A singer track with no words makes no voice. The toast states
+</li>
+</ul>
+<p>it, for example "214 words on 1 voice, 9 estimated. The track "Male" has no words."</p>
+<ul>
+<li>FR-transcribe-186 — The run report states the count of words of each singer
+</li>
+</ul>
+<p>track. For a track with no words, the "Voice" cell shows "No voice" and the "Words" cell shows "0".</p>
+<ul>
+<li>FR-transcribe-187 — A run with the singer split removes each voice that the last
+</li>
+</ul>
+<p>run made and that the run empties. The voice of the run is such a voice when the last run made it. A voice of the run that the person made stays.</p>
+<ul>
+<li>FR-transcribe-188 — The room check before a run with the singer split and the
+</li>
+</ul>
+<p>write after the run use the same count of free voices.</p>
+<ul>
+<li>FR-transcribe-189 — The model download of the vocal separation and of the singer
+</li>
+</ul>
+<p>split rejects a response with a <code>Content-Length</code> of another size, or with the type <code>text/html</code>, before it reads the body. The message is the message for a failed download.</p>
+<ul>
+<li>FR-transcribe-190 — If the browser cannot give the buffer of a model file, the
+</li>
+</ul>
+<p>run stops with the message for not enough memory.</p>
 <h3 id="transcription-user-flows">User flows</h3>
 <h4 id="transcription-transcribe-a-song">Transcribe a song</h4>
 <div class="diagram"><pre class="mermaid">sequenceDiagram
@@ -1199,7 +1230,7 @@ body.rv-open .layout { padding-right:21rem; }
 <li>The app closes the dialog. The toast names the count of voices, for example "214
 </li>
 </ol>
-<p>words on 2 voices, 9 estimated".</p>
+<p>words on 2 voices, 9 estimated". A singer track with no words makes no voice: "214 words on 1 voice, 9 estimated. The track "Male" has no words."</p>
 <h4 id="transcription-create-phrases-from-lyrics-without-a-speech-model">Create phrases from lyrics without a speech model</h4>
 <ol>
 <li>The person selects "Lyrics only" in the transcribe dialog.
@@ -1746,10 +1777,20 @@ body.rv-open .layout { padding-right:21rem; }
 </ul>
 <p>run. The voice of the run gets no marks of a run with the singer split.</p>
 <ul>
-<li>The run counts the voices that the last run added as free. If the song then has
+<li>The run removes each voice that the last run made, a singer voice or a voice of
 </li>
 </ul>
-<p>no room for two more voices, the run does not start.</p>
+<p>a singer split, when the clear removes its last mark. This rule applies to the voice of the run too. A voice that had no mark before the run stays. A voice that the person made stays.</p>
+<ul>
+<li>A voice of the last run counts as free only when the clear empties it. For
+</li>
+</ul>
+<p>example, a range outside the marks of "Female" and "Male" frees no voice. If the song then has no room for two more voices, the run does not start, before any transcription.</p>
+<ul>
+<li>A singer track with no words makes no voice. If both singer tracks have no
+</li>
+</ul>
+<p>words, the run fails with the message for no words.</p>
 <ul>
 <li>The run reads no lyrics and adds no section, because the app cannot tell which
 </li>
@@ -2142,6 +2183,8 @@ spreadLyrics(lyrics: string, startMs: number, endMs: number): AlignedPhrase[]</c
 <tr><td>Singer split: the song has no room for two more voices</td><td>The run does not start. The dialog shows "A song has 12 voices at most, and the singer split adds 2 voices. Delete a voice, or turn off "Split the singers"."</td></tr>
 <tr><td>Singer split: the model does not download</td><td>No mark changes. The dialog shows "The app could not download the singer split model. Check the connection and select Retry."</td></tr>
 <tr><td>Singer split: the model file has the wrong size or SHA-256</td><td>The message for a failed download. The browser cache keeps no copy.</td></tr>
+<tr><td>Singer split or vocal separation: the host answers with an HTML page or a <code>Content-Length</code> of another size</td><td>The message for a failed download, before the download of the body. The browser cache keeps no copy.</td></tr>
+<tr><td>Singer split or vocal separation: the browser cannot give the buffer of the model file</td><td>The message for not enough memory.</td></tr>
 <tr><td>Singer split: out of memory, or the graphics card stops during the run</td><td>No mark changes. The dialog shows "This browser does not have enough memory to split the singers. Close other tabs and select Retry, or turn off "Split the singers"."</td></tr>
 <tr><td>Singer split: the browser cannot start a WebGPU session, or the model needs more than a limit of the graphics hardware</td><td>No mark changes. The dialog shows "The graphics hardware of this computer cannot run the singer split model. Clear "Split the singers" and select Retry."</td></tr>
 <tr><td>Singer split: the model gives an output with the wrong shape</td><td>The message for a failed split.</td></tr>

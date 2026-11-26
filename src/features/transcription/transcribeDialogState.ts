@@ -408,7 +408,8 @@ export function outcomeText(
  * Returns the counts of a run, for example "214 words, 9 estimated".
  * After a singer step that made voices, the text names the voice count, for example "214 words on 3 voices, 9 estimated".
  * After a singer step that made no voice, or that found more singers than free voices, the text adds the message of `singerMessage`.
- * After a singer split, the text names the two voices: "214 words on 2 voices, 9 estimated".
+ * After a singer split, the text names the count of new voices: "214 words on 2 voices, 9 estimated".
+ * A singer track with no word makes no voice, and the text names it: "214 words on 1 voice, 9 estimated. The track "Male" has no words."
  * A singer split that did not run adds the message of `splitMessage`.
  */
 function countsText(
@@ -428,9 +429,16 @@ function countsText(
 
 /** Returns the counts of a run with the singer split. See `countsText`. */
 function splitCountsText(words: string, estimatedCount: number, split: SplitOutcome): string {
-  return split.status === 'split'
-    ? `${words} on ${split.voiceNames.length} voices, ${estimatedCount} estimated`
-    : `${words}, ${estimatedCount} estimated. ${splitMessage(split)}`
+  if (split.status !== 'split')
+    return `${words}, ${estimatedCount} estimated. ${splitMessage(split)}`
+  const voiceCount = split.voiceNames.length
+  const counts = `${words} on ${voiceCount} ${voiceCount === 1 ? 'voice' : 'voices'}, ${estimatedCount} estimated`
+  return [counts, ...split.emptyTracks.map(emptyTrackMessage)].join('. ')
+}
+
+/** Returns the toast sentence for a singer track with no word, for example "The track "Male" has no words." */
+export function emptyTrackMessage(trackName: string): string {
+  return `The track "${trackName}" has no words.`
 }
 
 /**

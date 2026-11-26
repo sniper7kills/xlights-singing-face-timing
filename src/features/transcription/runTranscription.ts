@@ -12,12 +12,12 @@ import { fitLyricsLines, leavesOutLyrics, type LyricsFit } from '../../lib/text/
 import { wordRoom } from '../../lib/time/fitWords.ts'
 import type { TimeRange } from '../../lib/time/timeRange.ts'
 import { getAudioFile, loadRunData } from '../../store/db.ts'
-import { lastRunVoices } from '../../store/trackRows.ts'
+import { type LastRunVoice, lastRunVoices, madeByLastRun } from '../../store/trackRows.ts'
 import { DictionaryLoadError } from '../phoneme-breakdown/loadDictionary.ts'
 import { MAX_VOICES } from '../../lib/voices/voiceRules.ts'
 import { putSingersOnVoices } from '../../store/actions/singerVoices.ts'
 import { findSingers, SingersError, type SingersErrorKind } from '../singer-voices/singersClient.ts'
-import type { SplitMode } from '../../lib/singers/splitRules.ts'
+import { SPLIT_VOICE_NAME, type SplitMode } from '../../lib/singers/splitRules.ts'
 import type { SeparationModelId } from '../vocal-separation/protocol.ts'
 import { separateVocals } from '../vocal-separation/separateClient.ts'
 import { decodeStereo, vocalsForSpeech } from '../vocal-separation/separationAudio.ts'
@@ -34,7 +34,7 @@ import {
   tracksToKeep,
   TRACKS_FAILED_NOTE,
 } from './runRecord.ts'
-import type { Mark, RunData, SongContent } from '../../store/types.ts'
+import type { Mark, RunData, SongContent, Voice } from '../../store/types.ts'
 import { alignLyrics } from './alignLyrics.ts'
 import { buildMarks } from './buildMarks.ts'
 import {
@@ -111,11 +111,13 @@ export type TranscribeRequest = {
 
 /**
  * The result of the singer split of a run with `splitSingers`:
- * - `split`: the step ran. `voiceNames` are the names of the two new voices.
+ * - `split`: the step ran. `voiceNames` are the names of the new voices.
+ *   `emptyTracks` are the names of the singer tracks with no word, for example "Male". Such a track makes no voice.
  * - `no-vocals`: the vocal separation failed and the run went on with no separation, so the step did not run.
  */
 export type SplitOutcome =
-  { status: 'split'; voiceNames: string[] } | { status: 'no-vocals'; voiceName: string }
+  | { status: 'split'; voiceNames: string[]; emptyTracks: string[] }
+  | { status: 'no-vocals'; voiceName: string }
 
 /**
  * The result of the singer step of a run with `singerVoices`:
@@ -412,7 +414,16 @@ function splitOutcome(request: TranscribeRequest, record: RunRecord): { split?: 
   if (!runsSplit(request)) return {}
   if (record.split === null)
     return { split: { status: 'no-vocals', voiceName: voiceNameOf(request.voiceId) } }
-  return { split: { status: 'split', voiceNames: record.split.map((track) => track.voiceName) } }
+  const tracks = record.split
+  return {
+    split: {
+      status: 'split',
+      voiceNames: tracks.filter((track) => track.wordCount > 0).map((track) => track.voiceName),
+      emptyTracks: tracks
+        .filter((track) => track.wordCount === 0)
+        .map((track) => SPLIT_VOICE_NAME[track.label]),
+    },
+  }
 }
 
 /** Returns the stored run data of the song, or undefined when the song has none or the browser cannot read it. */
@@ -438,10 +449,13 @@ async function confirmReplace(
   range: TimeRange,
   handlers: TranscribeRunHandlers,
 ): Promise<ReplacedVoice[]> {
-  const lastRun = lastRunVoices(await lastRunData(content.song.id), content.voices, request.voiceId)
-  if (runsSplit(request))
-    checkSplitRoom(content.voices.length, lastRun.filter(({ made }) => made).length)
-  const replaced = runsSingerStep(request) || runsSplit(request) ? lastRun : []
+  const data = await lastRunData(content.song.id)
+  const lastRun = lastRunVoices(data, content.voices, request.voiceId)
+  const replacing = runsSingerStep(request) || runsSplit(request)
+  const replaced = replacing ? lastRun : []
+  const runVoice = content.voices.find((voice) => voice.id === request.voiceId)
+  const toReplace = replacing ? replacedVoicesOf(replaced, data, runVoice) : []
+  if (runsSplit(request)) checkSplitRoom(content, request.voiceId, range, toReplace)
   const count = (voiceId: string) => countMarksInRange(content.marks, voiceId, range)
   const losing = replaced.filter(({ voice }) => count(voice.id) > 0)
   const markCount = [request.voiceId, ...losing.map(({ voice }) => voice.id)].reduce(
@@ -456,7 +470,22 @@ async function confirmReplace(
     singerVoicesKept: replaced.length === 0 && lastRun.some(({ made }) => made),
   }
   if (markCount > 0 && !(await handlers.confirmReplace(question))) throw declined()
-  return replaced.map(({ voice, made }) => ({ voiceId: voice.id, removable: made }))
+  return toReplace
+}
+
+/**
+ * Returns the voices that the run replaces, for the write.
+ * The list holds the voice of the run too when the last run made it: a split run writes no mark on it, so the write can remove it.
+ * A voice of the run that the person made is not in the list, so it always stays.
+ */
+function replacedVoicesOf(
+  replaced: readonly LastRunVoice[],
+  data: RunData | undefined,
+  runVoice: Voice | undefined,
+): ReplacedVoice[] {
+  const others = replaced.map(({ voice, made }) => ({ voiceId: voice.id, removable: made }))
+  const ownMade = runVoice !== undefined && madeByLastRun(data, runVoice)
+  return ownMade ? [...others, { voiceId: runVoice.id, removable: true }] : others
 }
 
 /**

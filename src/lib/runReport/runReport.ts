@@ -117,6 +117,7 @@ export type SingerSection = {
  * What the singer split of a run did:
  * - `mode`: the mode that the person selected.
  * - `tracks`: each singer track in voice order, with the name of its voice at the end of the run and its count of words.
+ *   A track with no word makes no voice, so its voice name is empty.
  */
 export type SplitSection = {
   mode: SplitMode

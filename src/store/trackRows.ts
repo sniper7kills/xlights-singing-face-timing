@@ -142,12 +142,25 @@ export function lastRunVoices(
   runVoiceId: string,
 ): LastRunVoice[] {
   if (data === undefined) return []
-  const entryOf = (voice: Voice) =>
-    data.voices === undefined
-      ? data.report.voices.find((entry) => entry.name === voice.name)
-      : data.voices.find((entry) => entry.voiceId === voice.id)
   return voices.flatMap((voice) => {
-    const entry = voice.id === runVoiceId ? undefined : entryOf(voice)
+    const entry = voice.id === runVoiceId ? undefined : runVoiceEntry(data, voice)
     return entry === undefined ? [] : [{ voice, made: entry.made === true }]
   })
+}
+
+/** Returns the entry of the voice in the run data, or undefined when the last run did not write to the voice. */
+function runVoiceEntry(data: RunData, voice: Voice) {
+  return data.voices === undefined
+    ? data.report.voices.find((entry) => entry.name === voice.name)
+    : data.voices.find((entry) => entry.voiceId === voice.id)
+}
+
+/**
+ * Returns true when the last run made the voice: a singer voice or a voice of a singer split.
+ * A voice that the person made gives false, so a new run on it never removes it.
+ * @param data The stored run data of the song, or undefined when the song has none.
+ * @param voice The voice to read, for example the voice of a new run.
+ */
+export function madeByLastRun(data: RunData | undefined, voice: Voice): boolean {
+  return data !== undefined && runVoiceEntry(data, voice)?.made === true
 }

@@ -42,7 +42,7 @@ async function readBody(
     return { bytes, received: bytes.byteLength }
   }
   const reader = response.body.getReader()
-  const bytes = new Uint8Array(expected)
+  const bytes = allocate(expected)
   let received = 0
   for (;;) {
     const { done, value } = await reader.read()
@@ -50,6 +50,42 @@ async function readBody(
     if (received + value.byteLength <= expected) bytes.set(value, received)
     received += value.byteLength
     onBytes(value.byteLength)
+  }
+}
+
+function isRangeError(error: unknown): boolean {
+  return (
+    typeof error === 'object' && error !== null && 'name' in error && error.name === 'RangeError'
+  )
+}
+
+/**
+ * Returns a new buffer of the size.
+ * Throws a `SeparationFailure` of kind 'memory' when the browser cannot give the buffer, because that is not a failure of the download.
+ */
+function allocate(size: number): Uint8Array<ArrayBuffer> {
+  try {
+    return new Uint8Array(size)
+  } catch (error) {
+    // The name, not `instanceof`, because the error can come from another realm, for example a test environment.
+    if (!isRangeError(error)) throw error
+    throw new SeparationFailure('memory', `The browser cannot give a buffer of ${size} bytes.`)
+  }
+}
+
+/**
+ * Throws a `SeparationFailure` of kind 'download' when the headers show that the body is not the file.
+ * The check comes before the buffer of the full size, so a short wrong body, for example an HTML page, costs no large buffer.
+ */
+function checkHeaders(response: Response, file: ModelFile): void {
+  const length = response.headers.get('Content-Length')
+  // With a content coding, the length counts the coded bytes and not the bytes of the file.
+  const encoding = response.headers.get('Content-Encoding') ?? 'identity'
+  if (length !== null && encoding === 'identity' && Number(length) !== file.bytes) {
+    throw new SeparationFailure('download', `${file.url} has ${length} bytes, not ${file.bytes}.`)
+  }
+  if (/^text\/html\b/i.test(response.headers.get('Content-Type') ?? '')) {
+    throw new SeparationFailure('download', `The host answered with an HTML page for ${file.url}.`)
   }
 }
 
@@ -64,8 +100,10 @@ async function download(
   if (!response.ok) {
     throw new SeparationFailure('download', `The host answered ${response.status} for ${file.url}.`)
   }
+  checkHeaders(response, file)
   const { bytes, received } = await readBody(response, file.bytes, onBytes).catch(
     (error: unknown) => {
+      if (error instanceof SeparationFailure) throw error
       throw new SeparationFailure(
         'download',
         `The download of ${file.url} stopped: ${String(error)}`,
@@ -128,6 +166,8 @@ async function writeCached(
  * @param onDownload Receives the downloaded bytes and the size of the missing files. A run with all files in the cache calls it never.
  * @param environment The cache storage and the `fetch` function.
  * Rejects with a `SeparationFailure` of kind 'download' when a download fails, or has the wrong size or the wrong hash.
+ * A response with a `Content-Length` of another size, or with the type `text/html`, fails before the download of its body.
+ * Rejects with a `SeparationFailure` of kind 'memory' when the browser cannot give the buffer of the file.
  * A cache that fails never rejects the call.
  */
 export async function loadModelFiles(

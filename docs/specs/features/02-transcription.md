@@ -382,15 +382,16 @@ leaves the browser, and the app shows the host before each run.
 - FR-transcribe-165 — A remote run sends one request for each singer track. The
   dialog states "The app sends two requests to <host>, one for each singer track.
   The audio of both tracks leaves this computer."
-- FR-transcribe-166 — The run puts the marks of each singer track on its own new
-  voice: "Female" and "Male", or "Lead" and "Backing".
+- FR-transcribe-166 — The run puts the marks of each singer track that has words on
+  its own new voice: "Female" and "Male", or "Lead" and "Backing".
 - FR-transcribe-167 — The marks of the two voices can overlap in time.
 - FR-transcribe-168 — The marks of the run, the two new voices and the replace are
   one undo step.
 - FR-transcribe-169 — A run with the singer split replaces the marks in the range of
   each voice of the last run, by the rule of FR-transcribe-148.
 - FR-transcribe-170 — If the song has no room for two more voices, the run does not
-  start and the dialog states the reason.
+  start and the dialog states the reason. The check counts as free only the voices
+  that the run removes by FR-transcribe-187.
 - FR-transcribe-171 — The progress text of the step is "Splitting the singers,
   <n>%".
 - FR-transcribe-172 — With "Keep the separated tracks" on, the run keeps each singer
@@ -424,6 +425,26 @@ leaves the browser, and the app shows the host before each run.
   releases the model session at the end of each run, and after a failure.
 - FR-transcribe-183 — With "Keep the separated tracks" on, the "Audio tracks" line
   of the run report counts the two singer tracks.
+
+### Singer split review fixes (epic #192)
+
+- FR-transcribe-185 — A singer track with no words makes no voice. The toast states
+  it, for example "214 words on 1 voice, 9 estimated. The track "Male" has no
+  words."
+- FR-transcribe-186 — The run report states the count of words of each singer
+  track. For a track with no words, the "Voice" cell shows "No voice" and the
+  "Words" cell shows "0".
+- FR-transcribe-187 — A run with the singer split removes each voice that the last
+  run made and that the run empties. The voice of the run is such a voice when the
+  last run made it. A voice of the run that the person made stays.
+- FR-transcribe-188 — The room check before a run with the singer split and the
+  write after the run use the same count of free voices.
+- FR-transcribe-189 — The model download of the vocal separation and of the singer
+  split rejects a response with a `Content-Length` of another size, or with the
+  type `text/html`, before it reads the body. The message is the message for a
+  failed download.
+- FR-transcribe-190 — If the browser cannot give the buffer of a model file, the
+  run stops with the message for not enough memory.
 
 ## User flows
 
@@ -563,7 +584,8 @@ sequenceDiagram
 8. The run writes the words of each singer track on its own new voice, as one undo
    step.
 9. The app closes the dialog. The toast names the count of voices, for example "214
-   words on 2 voices, 9 estimated".
+   words on 2 voices, 9 estimated". A singer track with no words makes no voice:
+   "214 words on 1 voice, 9 estimated. The track "Male" has no words."
 
 ### Create phrases from lyrics without a speech model
 
@@ -961,8 +983,16 @@ copy, the status line shows "Press Ctrl+C to copy."
     gets the lowest free number, for example "Female 2".
   - The run clears the range of the voice of the run and of each voice of the last
     run. The voice of the run gets no marks of a run with the singer split.
-  - The run counts the voices that the last run added as free. If the song then has
-    no room for two more voices, the run does not start.
+  - The run removes each voice that the last run made, a singer voice or a voice of
+    a singer split, when the clear removes its last mark. This rule applies to the
+    voice of the run too. A voice that had no mark before the run stays. A voice
+    that the person made stays.
+  - A voice of the last run counts as free only when the clear empties it. For
+    example, a range outside the marks of "Female" and "Male" frees no voice. If the
+    song then has no room for two more voices, the run does not start, before any
+    transcription.
+  - A singer track with no words makes no voice. If both singer tracks have no
+    words, the run fails with the message for no words.
   - The run reads no lyrics and adds no section, because the app cannot tell which
     lyrics line belongs to which singer.
   - If the vocal separation fails and the person selects "Continue with no
@@ -1350,6 +1380,8 @@ from 0 to 1.
 | Singer split: the song has no room for two more voices | The run does not start. The dialog shows "A song has 12 voices at most, and the singer split adds 2 voices. Delete a voice, or turn off "Split the singers"." |
 | Singer split: the model does not download | No mark changes. The dialog shows "The app could not download the singer split model. Check the connection and select Retry." |
 | Singer split: the model file has the wrong size or SHA-256 | The message for a failed download. The browser cache keeps no copy. |
+| Singer split or vocal separation: the host answers with an HTML page or a `Content-Length` of another size | The message for a failed download, before the download of the body. The browser cache keeps no copy. |
+| Singer split or vocal separation: the browser cannot give the buffer of the model file | The message for not enough memory. |
 | Singer split: out of memory, or the graphics card stops during the run | No mark changes. The dialog shows "This browser does not have enough memory to split the singers. Close other tabs and select Retry, or turn off "Split the singers"." |
 | Singer split: the browser cannot start a WebGPU session, or the model needs more than a limit of the graphics hardware | No mark changes. The dialog shows "The graphics hardware of this computer cannot run the singer split model. Clear "Split the singers" and select Retry." |
 | Singer split: the model gives an output with the wrong shape | The message for a failed split. |

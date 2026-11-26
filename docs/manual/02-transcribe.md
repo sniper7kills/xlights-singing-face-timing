@@ -127,15 +127,19 @@ This option is experimental. The app divides the vocals into two singer tracks. 
 - The option needs WebGPU. In a browser with no WebGPU, the option is disabled. The window shows "This browser has no WebGPU. The singer split needs it."
 - "Split mode" has the choices "Male and female" and "Lead and backing". "Male and female" makes the voices "Female" and "Male". "Lead and backing" makes the voices "Lead" and "Backing".
 - The first run of a mode downloads its model one time. "Male and female" downloads 267 MB. "Lead and backing" downloads 864 MB. The window shows the size under "Split mode".
-- The two models come from other authors. This project converted them to run in the browser. The "How it works" card of the song library names each model, its author and its source.
+- The two models come from other authors. The "How it works" card of the song library names each model, its author and its source.
+  - "Male and female" uses the BS-RoFormer male and female vocals model by aufr33, from the model list of python-audio-separator. The author states no licence. This project converted the model from PyTorch to ONNX with float16 weights. The project did not train the model.
+  - "Lead and backing" uses the Mel-Band RoFormer karaoke model by becruily, from https://huggingface.co/becruily/mel-band-roformer-karaoke. The author states no licence. This project converted the model from PyTorch to ONNX with float16 weights. The project did not train the model.
 - The "Lead and backing" model needs about 2 GB of memory. If the browser does not have enough memory, the window shows a message. Close other tabs and select "Retry", or select "Male and female".
 - The option and "Put each singer on its own voice (experimental)" exclude each other. When you select one, the app clears the other.
 - The app cannot tell which lyrics line belongs to which singer. So the lyrics field is disabled, and the window shows "Lyrics are not used when the singers are split."
 - With a remote endpoint, the app sends two requests, one for each singer track. The window states this before the run.
 - With "Keep the separated tracks" on, the editor shows each singer track as a track row with the name of its voice.
-- The song needs room for two more voices. A song has 12 voices at most.
+- The song needs room for two more voices. A song has 12 voices at most. A voice that the last run made counts as free only when the new run removes all its marks.
+- If a singer track has no words, the run makes no voice for it. The toast states it, for example "16 words on 1 voice, 0 estimated. The track "Male" has no words." In the run report, that track shows "No voice" and 0 words.
+- If you start a run with the singer split on a voice that the last run made, for example "Female", the run replaces that voice too. A voice that you made stays.
 
-One undo removes the result of the run, with the two voices. The run report has the section "Singer split" with the mode and the count of words of each singer track.
+One undo removes the result of the run, with the new voices. The run report has the section "Singer split" with the mode and the count of words of each singer track.
 
 ### Which options do I need?
 

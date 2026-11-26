@@ -123,6 +123,62 @@ describe('loadModelFiles', () => {
     expect(storage.entries.size).toBe(0)
   })
 
+  it('rejects a body that is many bytes larger than the file, and caches nothing', async () => {
+    const large = Array.from({ length: 1000 }, (_, index) => index % 256)
+    const { environment: env, storage } = environment(async () => streamedResponse([large]))
+    const failure = loadModelFiles([fileA], () => undefined, env)
+    await expect(failure).rejects.toHaveProperty('kind', 'download')
+    await expect(failure).rejects.toThrow('https://host.test/a.onnx has 1000 bytes, not 3.')
+    expect(storage.entries.size).toBe(0)
+  })
+
+  it('rejects a response with a Content-Length of another size before it reads the body', async () => {
+    const response = new Response(Uint8Array.from([1, 2, 3]), {
+      headers: { 'Content-Length': '50' },
+    })
+    const { environment: env, storage } = environment(async () => response)
+    const onDownload = vi.fn()
+    const failure = loadModelFiles([fileA], onDownload, env)
+    await expect(failure).rejects.toHaveProperty('kind', 'download')
+    await expect(failure).rejects.toThrow('https://host.test/a.onnx has 50 bytes, not 3.')
+    expect(onDownload).not.toHaveBeenCalled()
+    expect(response.bodyUsed).toBe(false)
+    expect(storage.entries.size).toBe(0)
+  })
+
+  it('accepts a Content-Length of another size when the body has a content coding', async () => {
+    const response = new Response(Uint8Array.from([1, 2, 3]), {
+      headers: { 'Content-Length': '2', 'Content-Encoding': 'gzip' },
+    })
+    const { environment: env } = environment(async () => response)
+    expect(bytesOf(await loadModelFiles([fileA], () => undefined, env))).toEqual([[1, 2, 3]])
+  })
+
+  it('rejects an HTML page with status 200 before it reads the body', async () => {
+    const response = new Response('<!doctype html><title>Not found</title>', {
+      headers: { 'Content-Type': 'text/html; charset=utf-8' },
+    })
+    const { environment: env, storage } = environment(async () => response)
+    const onDownload = vi.fn()
+    const failure = loadModelFiles([fileA], onDownload, env)
+    await expect(failure).rejects.toHaveProperty('kind', 'download')
+    await expect(failure).rejects.toThrow(
+      'The host answered with an HTML page for https://host.test/a.onnx.',
+    )
+    expect(onDownload).not.toHaveBeenCalled()
+    expect(storage.entries.size).toBe(0)
+  })
+
+  it('fails with the kind memory when the browser cannot give the buffer of the file', async () => {
+    // A typed array of 2^53 bytes is above the limit of each JavaScript engine, so the allocation throws a RangeError.
+    const huge = { url: 'https://host.test/huge.onnx', bytes: 2 ** 53 }
+    const { environment: env, storage } = environment(async () => streamedResponse([[1]]))
+    const failure = loadModelFiles([huge], () => undefined, env)
+    await expect(failure).rejects.toThrow(SeparationFailure)
+    await expect(failure).rejects.toHaveProperty('kind', 'memory')
+    expect(storage.entries.size).toBe(0)
+  })
+
   it('fails with the kind download for an error status', async () => {
     const { environment: env } = environment(async () => new Response('missing', { status: 404 }))
     await expect(loadModelFiles(files, () => undefined, env)).rejects.toThrow(

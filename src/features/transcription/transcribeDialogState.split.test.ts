@@ -54,11 +54,22 @@ describe('the transcribe dialog state with the singer split', () => {
     const text = outcomeText({
       wordCount: 16,
       estimatedCount: 0,
-      split: { status: 'split', voiceNames: ['Female', 'Male'] },
+      split: { status: 'split', voiceNames: ['Female', 'Male'], emptyTracks: [] },
       runData: 'stored',
     })
 
     expect(text).toBe('16 words on 2 voices, 0 estimated')
+  })
+
+  it('names one voice and the track with no words in the toast of a split run', () => {
+    const text = outcomeText({
+      wordCount: 16,
+      estimatedCount: 0,
+      split: { status: 'split', voiceNames: ['Female'], emptyTracks: ['Male'] },
+      runData: 'stored',
+    })
+
+    expect(text).toBe('16 words on 1 voice, 0 estimated. The track "Male" has no words.')
   })
 
   it('states in the toast that the split did not run with no separated vocals', () => {
