@@ -119,13 +119,30 @@ This option is experimental. The app estimates which singer sings each phrase. I
 
 ![The options for vocal separation and singers](images/02-transcribe/02-separation-and-singers.png)
 
+## Split the singers (experimental)
+
+This option is experimental. The app divides the vocals into two singer tracks. It then finds the words of each track and puts each track on its own new voice. The marks of the two voices can overlap in time, so this option works where two people sing at the same time.
+
+- The option needs "Separate the vocals first". The window states this under the disabled option.
+- The option needs WebGPU. In a browser with no WebGPU, the option is disabled. The window shows "This browser has no WebGPU. The singer split needs it."
+- "Split mode" has the choices "Male and female" and "Lead and backing". "Male and female" makes the voices "Female" and "Male". "Lead and backing" makes the voices "Lead" and "Backing".
+- The option and "Put each singer on its own voice (experimental)" exclude each other. When you select one, the app clears the other.
+- The app cannot tell which lyrics line belongs to which singer. So the lyrics field is disabled, and the window shows "Lyrics are not used when the singers are split."
+- With a remote endpoint, the app sends two requests, one for each singer track. The window states this before the run.
+- With "Keep the separated tracks" on, the editor shows each singer track as a track row with the name of its voice.
+- The song needs room for two more voices. A song has 12 voices at most.
+
+One undo removes the result of the run, with the two voices. The run report has the section "Singer split" with the mode and the count of words of each singer track.
+
 ### Which options do I need?
 
 | Case | Options |
 |---|---|
 | A solo song | Select a speech model. Paste the lyrics if you have them. Leave the other options off. |
 | A song with loud instruments | Select "Separate the vocals first". Keep "Fast (Spleeter, 79 MB)". |
-| A lead singer and a chorus | Select "Separate the vocals first". Select "Put each singer on its own voice (experimental)". Select "2" in "Singers". Select "small" if the chorus lines are missing. |
+| A lead singer and a chorus that take turns | Select "Separate the vocals first". Select "Put each singer on its own voice (experimental)". Select "2" in "Singers". Select "small" if the chorus lines are missing. |
+| A lead singer and a chorus that sing at the same time | Select "Separate the vocals first". Select "Split the singers (experimental)". Select "Lead and backing". |
+| Two people who sing at the same time | Select "Separate the vocals first". Select "Split the singers (experimental)". For a man and a woman, keep "Male and female". |
 
 ## What the progress texts mean
 
@@ -143,6 +160,8 @@ This option is experimental. The app estimates which singer sings each phrase. I
 | "Aligning lyrics and breaking down words" | The app matches the words with the lyrics and makes the phonemes. |
 | "Loading singer model", "Downloading singer model" | The app prepares the singer step. |
 | "Finding the singers" | The app estimates the singers. |
+| "Loading singer split model", "Downloading singer split model" | The app prepares the singer split. |
+| "Splitting the singers" | The app divides the vocals into two singer tracks. The text shows a percentage. |
 
 A bar that has no end means that the app cannot tell the time that remains. "Cancel" is on during each step. "Escape" during a run only moves the focus to "Cancel". The window shows "Select Cancel to stop the run."
 
