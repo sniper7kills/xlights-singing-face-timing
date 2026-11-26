@@ -4,6 +4,7 @@ import { formatTime } from '../../lib/time/formatTime.ts'
 import { MAX_VOICES } from '../../lib/voices/voiceRules.ts'
 import { CHUNK_LENGTH_S, type Device } from './protocol.ts'
 import {
+  NoSplitWordsError,
   NoWordsError,
   type ReplaceQuestion,
   type RunStage,
@@ -178,6 +179,8 @@ export const SPLIT_COPY = {
   'not-available':
     'The graphics hardware of this computer cannot run the singer split model. Clear "Split the singers" and select Retry.',
   failed: 'The app could not split the singers. Turn off "Split the singers" and select Retry.',
+  noWords:
+    'The singer tracks have no sound that the speech model can transcribe, so the run found no words. Turn off "Split the singers" and select Retry.',
   noRoom: `A song has ${MAX_VOICES} voices at most, and the singer split adds 2 voices. Delete a voice, or turn off "Split the singers".`,
 } as const
 
@@ -198,6 +201,7 @@ export function errorMessage(error: unknown): string {
   if (error instanceof RemoteError) return remoteErrorMessage(error, globalThis.location.origin)
   if (error instanceof SplitError) return splitErrorMessage(error)
   if (error instanceof NoSplitRoomError) return SPLIT_COPY.noRoom
+  if (error instanceof NoSplitWordsError) return SPLIT_COPY.noWords
   if (error instanceof NoWordsError) return ERROR_COPY.noWords
   if (error instanceof TranscribeError && error.kind === 'download') return ERROR_COPY.download
   if (error instanceof TranscribeError && error.kind === 'memory') return ERROR_COPY.memory

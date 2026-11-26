@@ -446,6 +446,29 @@ leaves the browser, and the app shows the host before each run.
 - FR-transcribe-190 — If the browser cannot give the buffer of a model file, the
   run stops with the message for not enough memory.
 
+### Silent parts of a singer track (issue #200)
+
+- FR-transcribe-191 — The run measures the loudness of each singer track in
+  windows of 50 ms. The loudness limit is 1% (-40 dB) of the 95th percentile of
+  the windows of the two tracks together, and 0.001 (-60 dB of full scale) at least.
+  One loud window, for example a clap, does not change the limit.
+- FR-transcribe-192 — The run keeps a word of a singer track only when one window
+  is at the loudness limit or above in that track, in the word time or in the
+  150 ms before or after it. Word times of the speech model are often 100 ms to
+  300 ms away from the sound.
+- FR-transcribe-193 — A singer track with fewer than 4 windows (200 ms) at the
+  loudness limit is a silent track. One click is not sound. The run sends no audio
+  of a silent track to the speech model. The track has no words, so
+  FR-transcribe-185 applies. A remote run then sends one request fewer.
+- FR-transcribe-194 — The table "The singer tracks" of the run report has the
+  column "Removed words": the count of words that the loudness rule removed. For a
+  silent track, the cell shows "Silent track". If the report has no count, for
+  example a report from before this rule, the cell shows "not known".
+- FR-transcribe-195 — If both singer tracks give no words, the run stops with no
+  change to the marks. The dialog shows "The singer tracks have no sound that the
+  speech model can transcribe, so the run found no words. Turn off "Split the
+  singers" and select Retry."
+
 ## User flows
 
 ### Transcribe a song
@@ -992,7 +1015,11 @@ copy, the status line shows "Press Ctrl+C to copy."
     song then has no room for two more voices, the run does not start, before any
     transcription.
   - A singer track with no words makes no voice. If both singer tracks have no
-    words, the run fails with the message for no words.
+    words, the run fails with the message of FR-transcribe-195.
+  - The run keeps a word of a singer track only where the track has sound
+    (FR-transcribe-191 to 193). The speech model can write the same words again and
+    again on a silent track. On the demo song, a silent "Female" track gave 444
+    words, and the "Male" track gave the 16 words of a run with no split.
   - The run reads no lyrics and adds no section, because the app cannot tell which
     lyrics line belongs to which singer.
   - If the vocal separation fails and the person selects "Continue with no
@@ -1030,7 +1057,9 @@ copy, the status line shows "Press Ctrl+C to copy."
   "Split mode". A record with no value gives `false` and `'male-female'`.
 - Writes `RUN_DATA.tracks.split`, the two singer tracks, and `splitTrack` on each
   voice of the run that holds a singer track. Writes `report.split`: the mode, and
-  the voice and the count of words of each singer track.
+  the voice, the count of words and `removedCount` of each singer track.
+  `removedCount` is null for a silent track. A report from before issue #200 has no
+  `removedCount`.
 
 - Reads `AUDIO_FILE`. Reads and writes `APP_SETTINGS.speechModelId`.
 - Reads and writes `APP_SETTINGS.transcribeSource` and
@@ -1387,6 +1416,7 @@ from 0 to 1.
 | Singer split: the model gives an output with the wrong shape | The message for a failed split. |
 | Singer split: the model fails, the tracks do not match the mode, or another failure | No mark changes. The dialog shows "The app could not split the singers. Turn off "Split the singers" and select Retry." |
 | Singer split: the person selects "Cancel" during the step | The app stops the worker. The dialog shows "The run stopped. The marks did not change." |
+| Singer split: both singer tracks give no words, for example because both are silent tracks | No mark changes. The dialog shows "The singer tracks have no sound that the speech model can transcribe, so the run found no words. Turn off "Split the singers" and select Retry." (FR-transcribe-195) |
 | Singer split: the vocal separation failed and the person selected "Continue with no separation" | The split does not run. The words go on the voice of the run. The toast adds "The app splits the singers only in separated vocals. All phrases stay on <voice name>." |
 | Kept audio tracks: the browser storage is full | The run completes. The app stores the report and the singer ranges with no audio tracks. The report has the line "audio tracks not kept: the browser storage is full". The toast adds "The browser storage is full, so the app did not keep the separated tracks." |
 | Kept audio tracks: the browser cannot resample the tracks | The run completes with no audio tracks. The report has the line "audio tracks not kept: the app could not convert the tracks". The toast adds "The app could not keep the separated tracks. Run "Transcribe" again to try one more time." |
@@ -1631,6 +1661,11 @@ The text writes the raw groups and the final singers as tables with aligned colu
 - After a run with the singer split, a run on the voice "Female" with the split off
   asks with the sentence "The singer voices of the last run do not change."
   (FR-transcribe-150)
+- A unit test with a singer track that is silent in a time range gives no word in
+  that range. (FR-transcribe-192)
+- A run of the demo song with the singer split on a computer with WebGPU gives not
+  more than two times the words of a run with no split. (FR-transcribe-191 to 193)
+- A run with the fixture engine gives the same marks as before issue #200.
 
 ## Out of scope
 

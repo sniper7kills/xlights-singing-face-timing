@@ -121,7 +121,16 @@ export type SingerSection = {
  */
 export type SplitSection = {
   mode: SplitMode
-  tracks: { label: SingerTrackLabel; voiceName: string; wordCount: number }[]
+  tracks: {
+    label: SingerTrackLabel
+    voiceName: string
+    wordCount: number
+    /**
+     * The words that the loudness rule removed, because the track is silent at their time.
+     * Null for a silent track, which the run did not transcribe. A report from before issue #200 has no value.
+     */
+    removedCount?: number | null
+  }[]
 }
 
 /** Returns the text of the choice of "Singers" of a report: "Automatic", the count, or "not recorded". */

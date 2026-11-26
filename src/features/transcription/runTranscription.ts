@@ -46,7 +46,13 @@ import {
   spreadLyrics,
 } from './phrases.ts'
 import { SPEECH_SAMPLE_RATE } from './protocol.ts'
-import { checkSplitRoom, type SpeechTrack, splitVocals, writeSplit } from './splitRun.ts'
+import {
+  checkSplitRoom,
+  type SpeechTrack,
+  splitVocals,
+  soundTrackWords,
+  writeSplit,
+} from './splitRun.ts'
 import { postTranscription } from './remoteClient.ts'
 import { resampleForSpeech } from './resample.ts'
 import {
@@ -263,6 +269,15 @@ export class NoWordsError extends Error {
   constructor() {
     super('The run found no word.')
     this.name = 'NoWordsError'
+  }
+}
+
+/** The singer tracks of a run with the singer split gave no words, for example because both tracks are silent. */
+export class NoSplitWordsError extends NoWordsError {
+  constructor() {
+    super()
+    this.message = 'The singer tracks of the run gave no word.'
+    this.name = 'NoSplitWordsError'
   }
 }
 
@@ -729,7 +744,10 @@ async function findPhrases(
   }
   const { tracks, vocals } = await findWords(request, songId, client, handlers, record)
   stopIfCancelled(handlers.signal)
-  if (tracks.every((track) => track.words.length === 0)) throw new NoWordsError()
+  if (tracks.every((track) => track.words.length === 0))
+    throw tracks.some((track) => track.label !== null)
+      ? new NoSplitWordsError()
+      : new NoWordsError()
   handlers.onFinishing()
 
   const { lyrics } = request
@@ -776,10 +794,13 @@ async function findWords(
     handlers,
     record,
   )
-  const tracks: TrackWords[] = []
-  // The client runs one transcription at a time, so the tracks go one after the other.
-  for (const { label, samples } of speechTracks)
-    tracks.push({ label, words: await wordsOf(samples, request, client, handlers) })
+  const tracks = await soundTrackWords(
+    speechTracks,
+    request.range?.startMs ?? 0,
+    // The client runs one transcription at a time, so the tracks go one after the other.
+    (samples) => wordsOf(samples, request, client, handlers),
+    record,
+  )
   return { tracks, vocals }
 }
 

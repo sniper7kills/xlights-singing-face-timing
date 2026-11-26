@@ -6,6 +6,12 @@ import {
   type SingerTrackLabel,
   type SplitMode,
 } from '../../lib/singers/splitRules.ts'
+import {
+  hasSound,
+  soundWords,
+  loudnessLimit,
+  windowLoudness,
+} from '../../lib/singers/trackLoudness.ts'
 import type { TimeRange } from '../../lib/time/timeRange.ts'
 import { freedVoiceCount, type ReplacedVoice } from '../../store/actions/replaceMarksInRange.ts'
 import { writeSplitRun } from '../../store/actions/splitVoices.ts'
@@ -16,6 +22,7 @@ import { resampleSeparated } from '../vocal-separation/separationAudio.ts'
 import { SPEECH_SAMPLE_RATE } from './protocol.ts'
 import { keptTrack, type RunRecord, TRACKS_FAILED_NOTE } from './runRecord.ts'
 import { TranscribeError } from './transcribeClient.ts'
+import type { TimedWord } from './types.ts'
 
 /** The song has no room for the two voices of the singer split. */
 export class NoSplitRoomError extends Error {
@@ -127,6 +134,47 @@ async function keepSplitTracks(
   }
 }
 
+/** The words of one singer track of a run, with the label of the track. */
+export type SpeechTrackWords = { label: SingerTrackLabel; words: TimedWord[] }
+
+/**
+ * Returns the words of each singer track that have sound in their own track, in track order.
+ * A silent track gets no words, and the run sends none of its audio to the speech model.
+ * The speech model can repeat words with no end on a silent track, so the loudness rule removes the words in the silent parts.
+ * The record gets the count of removed words of each track, or null for a silent track.
+ * @param tracks The singer tracks at the speech model sample rate.
+ * @param offsetMs The song time of the first sample of each track.
+ * @param transcribe Returns the words of samples, with song times. The calls go one after the other.
+ */
+export async function soundTrackWords(
+  tracks: readonly SpeechTrack[],
+  offsetMs: number,
+  transcribe: (samples: Float32Array) => Promise<TimedWord[]>,
+  record: RunRecord,
+): Promise<SpeechTrackWords[]> {
+  const loudness = tracks.map((track) => windowLoudness(track.samples, SPEECH_SAMPLE_RATE))
+  const limit = loudnessLimit(loudness)
+  const result: SpeechTrackWords[] = []
+  record.splitRemoved = []
+  for (const [index, { label, samples }] of tracks.entries()) {
+    const trackLoudness = loudness[index] ?? new Float32Array(0)
+    if (!hasSound(trackLoudness, limit)) {
+      result.push({ label, words: [] })
+      record.splitRemoved.push(null)
+      continue
+    }
+    const { kept, removedCount } = soundWords(
+      await transcribe(samples),
+      trackLoudness,
+      limit,
+      offsetMs,
+    )
+    result.push({ label, words: kept })
+    record.splitRemoved.push(removedCount)
+  }
+  return result
+}
+
 /** The marks of one singer track of a run, with the label of the track. */
 export type TrackMarks = { label: SingerTrackLabel; marks: readonly Mark[] }
 
@@ -153,9 +201,14 @@ export function writeSplit(
   if (voiceIds === null) throw new NoSplitRoomError()
   record.splitVoiceIds = voiceIds
   const after = useSongStore.getState().current?.voices ?? []
-  record.split = tracks.map((track, index) => ({
-    label: track.label,
-    voiceName: after.find((voice) => voice.id === voiceIds[index])?.name ?? '',
-    wordCount: track.marks.filter((mark) => mark.layer === 'word').length,
-  }))
+  record.split = tracks.map((track, index) => {
+    const removedCount = record.splitRemoved[index]
+    return {
+      label: track.label,
+      voiceName: after.find((voice) => voice.id === voiceIds[index])?.name ?? '',
+      wordCount: track.marks.filter((mark) => mark.layer === 'word').length,
+      // A missing count stays out of the report, so the report shows "not known" and not "Silent track".
+      ...(removedCount === undefined ? {} : { removedCount }),
+    }
+  })
 }
