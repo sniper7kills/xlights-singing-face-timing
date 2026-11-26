@@ -50,7 +50,7 @@ import {
   checkSplitRoom,
   type SpeechTrack,
   splitVocals,
-  voicedTrackWords,
+  soundTrackWords,
   writeSplit,
 } from './splitRun.ts'
 import { postTranscription } from './remoteClient.ts'
@@ -782,7 +782,7 @@ async function findWords(
     handlers,
     record,
   )
-  const tracks = await voicedTrackWords(
+  const tracks = await soundTrackWords(
     speechTracks,
     request.range?.startMs ?? 0,
     // The client runs one transcription at a time, so the tracks go one after the other.

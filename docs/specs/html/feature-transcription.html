@@ -1039,6 +1039,27 @@ body.rv-open .layout { padding-right:21rem; }
 </li>
 </ul>
 <p>run stops with the message for not enough memory.</p>
+<h4 id="transcription-silent-parts-of-a-singer-track-issue-200">Silent parts of a singer track (issue #200)</h4>
+<ul>
+<li>FR-transcribe-191 — The run measures the loudness of each singer track in
+</li>
+</ul>
+<p>windows of 50 ms. The loudness limit is 1% (-40 dB) of the loudest window of the two tracks, and 0.001 (-60 dB of full scale) at least.</p>
+<ul>
+<li>FR-transcribe-192 — The run keeps a word of a singer track only when one window
+</li>
+</ul>
+<p>of the word time is at the loudness limit or above in that track.</p>
+<ul>
+<li>FR-transcribe-193 — A singer track with no window at the loudness limit is a
+</li>
+</ul>
+<p>silent track. The run sends no audio of a silent track to the speech model. The track has no words, so FR-transcribe-185 applies.</p>
+<ul>
+<li>FR-transcribe-194 — The table "The singer tracks" of the run report has the
+</li>
+</ul>
+<p>column "Removed words": the count of words that the loudness rule removed. For a silent track, the cell shows "Silent track". For a report from before this rule, the cell shows "not known".</p>
 <h3 id="transcription-user-flows">User flows</h3>
 <h4 id="transcription-transcribe-a-song">Transcribe a song</h4>
 <div class="diagram"><pre class="mermaid">sequenceDiagram
@@ -1792,6 +1813,11 @@ body.rv-open .layout { padding-right:21rem; }
 </ul>
 <p>words, the run fails with the message for no words.</p>
 <ul>
+<li>The run keeps a word of a singer track only where the track has sound
+</li>
+</ul>
+<p>(FR-transcribe-191 to 193). The speech model can write the same words again and again on a silent track. On the demo song, a silent "Female" track gave 444 words, and the "Male" track gave the 16 words of a run with no split.</p>
+<ul>
 <li>The run reads no lyrics and adds no section, because the app cannot tell which
 </li>
 </ul>
@@ -1870,7 +1896,7 @@ body.rv-open .layout { padding-right:21rem; }
 <li>Writes <code>RUN_DATA.tracks.split</code>, the two singer tracks, and <code>splitTrack</code> on each
 </li>
 </ul>
-<p>voice of the run that holds a singer track. Writes <code>report.split</code>: the mode, and the voice and the count of words of each singer track.</p>
+<p>voice of the run that holds a singer track. Writes <code>report.split</code>: the mode, and the voice, the count of words and <code>removedCount</code> of each singer track. <code>removedCount</code> is null for a silent track. A report from before issue #200 has no <code>removedCount</code>.</p>
 <ul>
 <li>Reads <code>AUDIO_FILE</code>. Reads and writes <code>APP_SETTINGS.speechModelId</code>.
 </li>
@@ -2690,6 +2716,20 @@ spreadLyrics(lyrics: string, startMs: number, endMs: number): AlignedPhrase[]</c
 </li>
 </ul>
 <p>asks with the sentence "The singer voices of the last run do not change." (FR-transcribe-150)</p>
+<ul>
+<li>A unit test with a singer track that is silent in a time range gives no word in
+</li>
+</ul>
+<p>that range. (FR-transcribe-192)</p>
+<ul>
+<li>A run of the demo song with the singer split on a computer with WebGPU gives not
+</li>
+</ul>
+<p>more than two times the words of a run with no split. (FR-transcribe-191 to 193)</p>
+<ul>
+<li>A run with the fixture engine gives the same marks as before issue #200.
+</li>
+</ul>
 <h3 id="transcription-out-of-scope">Out of scope</h3>
 <ul>
 <li>Separation of stems other than the vocals.

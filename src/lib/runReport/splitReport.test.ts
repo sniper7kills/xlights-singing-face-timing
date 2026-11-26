@@ -26,7 +26,7 @@ describe('the run report of a singer split', () => {
     ])
   })
 
-  it('shows the removed words of each singer track, and "No signal" for a track with no voice', () => {
+  it('shows the removed words of each singer track, and "Silent track" for a silent track', () => {
     const report = makeReport({
       split: {
         mode: 'male-female',
@@ -41,7 +41,7 @@ describe('the run report of a singer split', () => {
 
     expect(section?.tables[0]?.columns).toEqual(['Track', 'Voice', 'Words', 'Removed words'])
     expect(section?.tables[0]?.rows).toEqual([
-      ['1', 'No voice', '0', 'No signal'],
+      ['1', 'No voice', '0', 'Silent track'],
       ['2', 'Male', '16', '3'],
     ])
   })

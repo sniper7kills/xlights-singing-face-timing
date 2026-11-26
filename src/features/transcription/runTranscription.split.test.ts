@@ -67,8 +67,8 @@ const STEREO: StereoAudio = {
 }
 const FULL_VOCALS = new Float32Array([0.5, 0.5, 0.5])
 const SPEECH = new Float32Array(10 * SPEECH_SAMPLE_RATE)
-/** A singer track at the speech model sample rate with a voice in each part. The level rule of issue #200 keeps all its words. */
-const VOICED_TRACK = new Float32Array(10 * SPEECH_SAMPLE_RATE).fill(0.5)
+/** A singer track at the speech model sample rate with sound in each part. The loudness rule of issue #200 keeps all its words. */
+const SOUND_TRACK = new Float32Array(10 * SPEECH_SAMPLE_RATE).fill(0.5)
 
 const request: TranscribeRequest = {
   voiceId: VOICE,
@@ -90,9 +90,9 @@ function track(label: SingerTrack['label']): SingerTrack {
 function firstSpeechTrack(first: Float32Array): void {
   let speechCalls = 0
   vi.mocked(resampleSeparated).mockImplementation(async (_samples, sampleRate) => {
-    if (sampleRate !== SPEECH_SAMPLE_RATE) return VOICED_TRACK
+    if (sampleRate !== SPEECH_SAMPLE_RATE) return SOUND_TRACK
     speechCalls += 1
-    return speechCalls === 1 ? first : VOICED_TRACK
+    return speechCalls === 1 ? first : SOUND_TRACK
   })
 }
 
@@ -162,7 +162,7 @@ beforeEach(async () => {
     instruments: new Float32Array(3),
   })
   vi.mocked(vocalsForSpeech).mockResolvedValue(SPEECH)
-  vi.mocked(resampleSeparated).mockResolvedValue(VOICED_TRACK)
+  vi.mocked(resampleSeparated).mockResolvedValue(SOUND_TRACK)
   // The engine can return the tracks in any order.
   vi.mocked(splitSingers).mockImplementation(async (_vocals, mode, splitHandlers) => {
     splitHandlers?.onDownload?.(1, 2)
@@ -337,7 +337,7 @@ describe('runTranscription with the singer split', () => {
     })
   })
 
-  it('sends no audio of a singer track with no voice to the speech model, and the track has no words', async () => {
+  it('sends no audio of a silent singer track to the speech model, and the track has no words', async () => {
     // The female track is 0 in each part, as a model track with no singer gives.
     firstSpeechTrack(new Float32Array(10 * SPEECH_SAMPLE_RATE))
     const client = fakeClient()
@@ -356,7 +356,7 @@ describe('runTranscription with the singer split', () => {
 
   it('removes the words in the silent parts of a singer track and reports their count', async () => {
     const partly = new Float32Array(10 * SPEECH_SAMPLE_RATE)
-    // The track has a voice from 0 s to 3 s only, so " night." from 3 s to 6 s has no voice.
+    // The track has sound from 0 s to 3 s only, so " night." from 3 s to 6 s is silent.
     partly.fill(0.5, 0, 3 * SPEECH_SAMPLE_RATE)
     firstSpeechTrack(partly)
 

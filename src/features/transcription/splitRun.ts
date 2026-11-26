@@ -6,7 +6,12 @@ import {
   type SingerTrackLabel,
   type SplitMode,
 } from '../../lib/singers/splitRules.ts'
-import { hasVoice, voicedWords, voiceLevel, windowLevels } from '../../lib/singers/trackLevel.ts'
+import {
+  hasSound,
+  soundWords,
+  loudnessLimit,
+  windowLoudness,
+} from '../../lib/singers/trackLoudness.ts'
 import type { TimeRange } from '../../lib/time/timeRange.ts'
 import { freedVoiceCount, type ReplacedVoice } from '../../store/actions/replaceMarksInRange.ts'
 import { writeSplitRun } from '../../store/actions/splitVoices.ts'
@@ -133,34 +138,34 @@ async function keepSplitTracks(
 export type SpeechTrackWords = { label: SingerTrackLabel; words: TimedWord[] }
 
 /**
- * Returns the words of each singer track that have a voice in their own track, in track order.
- * A track with no voice gets no words, and the run sends none of its audio to the speech model.
- * The speech model can repeat words without end on a track with no voice, so the rule removes the words in the silent parts.
- * The record gets the count of removed words of each track, or null for a track with no voice.
+ * Returns the words of each singer track that have sound in their own track, in track order.
+ * A silent track gets no words, and the run sends none of its audio to the speech model.
+ * The speech model can repeat words with no end on a silent track, so the loudness rule removes the words in the silent parts.
+ * The record gets the count of removed words of each track, or null for a silent track.
  * @param tracks The singer tracks at the speech model sample rate.
  * @param offsetMs The song time of the first sample of each track.
  * @param transcribe Returns the words of samples, with song times. The calls go one after the other.
  */
-export async function voicedTrackWords(
+export async function soundTrackWords(
   tracks: readonly SpeechTrack[],
   offsetMs: number,
   transcribe: (samples: Float32Array) => Promise<TimedWord[]>,
   record: RunRecord,
 ): Promise<SpeechTrackWords[]> {
-  const levels = tracks.map((track) => windowLevels(track.samples, SPEECH_SAMPLE_RATE))
-  const limit = voiceLevel(levels)
+  const loudness = tracks.map((track) => windowLoudness(track.samples, SPEECH_SAMPLE_RATE))
+  const limit = loudnessLimit(loudness)
   const result: SpeechTrackWords[] = []
   record.splitRemoved = []
   for (const [index, { label, samples }] of tracks.entries()) {
-    const trackLevels = levels[index] ?? new Float32Array(0)
-    if (!hasVoice(trackLevels, limit)) {
+    const trackLoudness = loudness[index] ?? new Float32Array(0)
+    if (!hasSound(trackLoudness, limit)) {
       result.push({ label, words: [] })
       record.splitRemoved.push(null)
       continue
     }
-    const { kept, removedCount } = voicedWords(
+    const { kept, removedCount } = soundWords(
       await transcribe(samples),
-      trackLevels,
+      trackLoudness,
       limit,
       offsetMs,
     )
@@ -200,7 +205,7 @@ export function writeSplit(
     label: track.label,
     voiceName: after.find((voice) => voice.id === voiceIds[index])?.name ?? '',
     wordCount: track.marks.filter((mark) => mark.layer === 'word').length,
-    // `voicedTrackWords` sets a value for each track, so the fallback does not occur.
+    // `soundTrackWords` sets a value for each track, so the fallback does not occur.
     removedCount: record.splitRemoved[index] ?? null,
   }))
 }

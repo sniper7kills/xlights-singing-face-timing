@@ -126,8 +126,8 @@ export type SplitSection = {
     voiceName: string
     wordCount: number
     /**
-     * The words that the level rule removed, because their time has no voice in the track.
-     * Null when the track has no voice at all, so the run did not transcribe it. A report from before issue #200 has no value.
+     * The words that the loudness rule removed, because the track is silent at their time.
+     * Null for a silent track, which the run did not transcribe. A report from before issue #200 has no value.
      */
     removedCount?: number | null
   }[]

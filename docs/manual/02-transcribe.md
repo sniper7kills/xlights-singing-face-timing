@@ -141,6 +141,8 @@ This option is experimental. The app divides the vocals into two singer tracks. 
 
 One undo removes the result of the run, with the new voices. The run report has the section "Singer split" with the mode and the count of words of each singer track.
 
+A singer track can be silent in some parts, for example when one singer sings alone. The app keeps a word only where its singer track has sound. The column "Removed words" of the run report shows how many words the app removed from each track. If a singer track is silent from start to end, the app does not transcribe it, and the cell shows "Silent track".
+
 ### Which options do I need?
 
 | Case | Options |

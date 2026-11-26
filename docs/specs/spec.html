@@ -165,7 +165,7 @@ body.rv-open .layout { padding-right:21rem; }
 <li><a href="html/feature-xtiming-export.html">xtiming export</a></li>
 </ul></aside>
 <main>
-<p class="meta"><span class="badge">approved</span> &nbsp; created 2026-11-24 &nbsp; rendered 2026-11-25</p>
+<p class="meta"><span class="badge">approved</span> &nbsp; created 2026-11-24 &nbsp; rendered 2026-11-26</p>
 <h1>xLights Singing Face Timing Generator</h1>
 <h1 id="xlights-singing-face-timing-generator">xLights Singing Face Timing Generator</h1>
 <h2 id="overview">Overview</h2>
@@ -212,6 +212,7 @@ body.rv-open .layout { padding-right:21rem; }
 <tr><td>vocal separation</td><td>noun</td><td>The step that removes the instruments from the audio before a transcribe run.</td><td>stem split, demix, isolation</td></tr>
 <tr><td>singer split</td><td>noun</td><td>The step of a transcribe run that divides the separated vocals into two singer tracks, and puts the words of each track on its own voice.</td><td>stem split, voice split, diarization</td></tr>
 <tr><td>singer track</td><td>noun</td><td>One of the two audio tracks that the singer split gives, for example the female singer or the backing singers.</td><td>stem, singer stem</td></tr>
+<tr><td>loudness</td><td>noun</td><td>The root mean square of the samples of an audio track in one window of 50 ms. The singer split keeps a word only where its singer track has a loudness at the loudness limit or above.</td><td>level, volume, energy</td></tr>
 <tr><td>transcribe</td><td>verb</td><td>To run the speech model on the audio file and get words with times.</td><td>recognise, sync, analyse</td></tr>
 <tr><td>align</td><td>verb</td><td>To match the transcribed words with lyrics that the person supplies.</td><td>reconcile, merge</td></tr>
 <tr><td>break down</td><td>verb</td><td>To convert a word into phonemes.</td><td>split, expand, decompose</td></tr>

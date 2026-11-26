@@ -126,6 +126,15 @@ test('a run with the option on gives two voices whose phrases overlap, and one u
   await page.locator('.toast').getByRole('button', { name: 'Run report' }).click()
   const report = page.getByRole('dialog', { name: 'Run report' })
   await expect(report.locator('dt', { hasText: /^Audio tracks$/ }).locator('+ dd')).toHaveText('4')
+  // The fixture transcriber gives no word in a silent part, so the loudness rule removes no word.
+  const singerTracks = report.getByRole('table', { name: 'The singer tracks' })
+  await expect(singerTracks.getByRole('columnheader')).toHaveText([
+    'Track',
+    'Voice',
+    'Words',
+    'Removed words',
+  ])
+  await expect(singerTracks.locator('tbody tr td:last-child')).toHaveText(['0', '0'])
   await page.keyboard.press('Escape')
   await expect(report).toBeHidden()
 

@@ -6,7 +6,7 @@ status: approved
 spec_version: 2
 created: 2026-11-24
 approved: 2026-11-24
-html_generated: 2026-11-25
+html_generated: 2026-11-26
 branch_model: trunk
 visibility: public
 features:
@@ -94,6 +94,7 @@ The user's request, verbatim:
 | vocal separation | noun | The step that removes the instruments from the audio before a transcribe run. | stem split, demix, isolation |
 | singer split | noun | The step of a transcribe run that divides the separated vocals into two singer tracks, and puts the words of each track on its own voice. | stem split, voice split, diarization |
 | singer track | noun | One of the two audio tracks that the singer split gives, for example the female singer or the backing singers. | stem, singer stem |
+| loudness | noun | The root mean square of the samples of an audio track in one window of 50 ms. The singer split keeps a word only where its singer track has a loudness at the loudness limit or above. | level, volume, energy |
 | transcribe | verb | To run the speech model on the audio file and get words with times. | recognise, sync, analyse |
 | align | verb | To match the transcribed words with lyrics that the person supplies. | reconcile, merge |
 | break down | verb | To convert a word into phonemes. | split, expand, decompose |
