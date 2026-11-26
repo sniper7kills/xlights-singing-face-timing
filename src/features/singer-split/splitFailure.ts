@@ -3,7 +3,7 @@ import type { SplitFailureKind } from './protocol.ts'
 
 /**
  * An engine failure with a known cause.
- * The engine throws it for a model download that fails, a model that does not run, or an engine that does not exist yet.
+ * The engine throws it for a model download that fails, a model that does not run, or a browser with no WebGPU.
  */
 export class SplitFailure extends Error {
   readonly kind: SplitFailureKind
