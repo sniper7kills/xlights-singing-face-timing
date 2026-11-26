@@ -63,7 +63,7 @@ The user's request, verbatim:
 | person | noun | The human who uses the app. | user, sequencer, customer |
 | song | noun | One audio file plus all voices, sections and marks that belong to it. The app saves a song in the browser. | project, session, document |
 | audio file | noun | The file that the person loads. It holds the recording. | track, media, upload |
-| audio track | noun | One audio signal of a song: the song audio, the vocals or the instruments. A timing track is a different term: it holds marks, not audio. | stem, channel |
+| audio track | noun | One audio signal of a song: the song audio, the vocals, the instruments or a singer track. A timing track is a different term: it holds marks, not audio. | stem, channel |
 | track row | noun | One row of the stage under the waveform that shows one audio track, with "Mute" and "Solo". A layer is a different term: it holds marks. | lane, strip |
 | side panel | noun | The voice rail or the inspector of the editor. The person folds each one, so the stage gets the width. | sidebar, drawer, pane |
 | solo | verb | To make one track row or more the only rows that sound. | isolate |
@@ -92,6 +92,8 @@ The user's request, verbatim:
 | run report | noun | The record of what the last transcribe run of a song did: the source, the models, the counts, the time of each step, the singer diagnostics, and each warning and failure. It holds no lyrics. | debug info, log, run log |
 | build | noun | The short git commit of the version of the app, for example `abc1234`. The run report and the song library show it. | version number, release |
 | vocal separation | noun | The step that removes the instruments from the audio before a transcribe run. | stem split, demix, isolation |
+| singer split | noun | The step of a transcribe run that divides the separated vocals into two singer tracks, and puts the words of each track on its own voice. | stem split, voice split, diarization |
+| singer track | noun | One of the two audio tracks that the singer split gives, for example the female singer or the backing singers. | stem, singer stem |
 | transcribe | verb | To run the speech model on the audio file and get words with times. | recognise, sync, analyse |
 | align | verb | To match the transcribed words with lyrics that the person supplies. | reconcile, merge |
 | break down | verb | To convert a word into phonemes. | split, expand, decompose |

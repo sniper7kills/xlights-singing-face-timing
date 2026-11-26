@@ -47,13 +47,30 @@ async function load(speechModelId: string): Promise<void> {
   post({ type: 'ready' })
 }
 
-/** Returns the demo song words that lie fully inside the run. */
-async function fixtureWords(offsetMs: number, durationMs: number): Promise<TimedWord[]> {
+// The singer split fixture sets parts of a track to 0. A resample of 0 gives values near 0, not exactly 0.
+const SILENCE_LEVEL = 1e-4
+
+/** Returns true when each sample of the word time is near 0, so the fixture gives no word there. */
+function silentAt(
+  samples: Float32Array,
+  offsetMs: number,
+  word: { startMs: number; endMs: number },
+) {
+  const toIndex = (ms: number) => Math.round(((ms - offsetMs) / 1000) * SPEECH_SAMPLE_RATE)
+  return samples
+    .subarray(toIndex(word.startMs), toIndex(word.endMs))
+    .every((value) => Math.abs(value) < SILENCE_LEVEL)
+}
+
+/** Returns the demo song words that lie fully inside the run and that have sound. */
+async function fixtureWords(samples: Float32Array, offsetMs: number): Promise<TimedWord[]> {
+  const durationMs = (samples.length / SPEECH_SAMPLE_RATE) * 1000
   const response = await fetch(`${import.meta.env.BASE_URL}demo/silent-night.marks.json`)
   const file = (await response.json()) as MarksFile
   return file.marks
     .filter((mark) => mark.layer === 'word')
     .filter((mark) => mark.startMs >= offsetMs && mark.endMs <= offsetMs + durationMs)
+    .filter((mark) => !silentAt(samples, offsetMs, mark))
     .map(({ label, startMs, endMs }) => ({ text: label, startMs, endMs }))
 }
 
@@ -72,7 +89,7 @@ async function transcribe(runId: string, samples: Float32Array, offsetMs: number
     if (chunkDoneMs >= durationMs) break
     await wait()
   }
-  post({ type: 'result', runId, words: await fixtureWords(offsetMs, durationMs) })
+  post({ type: 'result', runId, words: await fixtureWords(samples, offsetMs) })
 }
 
 self.addEventListener('message', (event: MessageEvent<ToWorkerMessage>) => {

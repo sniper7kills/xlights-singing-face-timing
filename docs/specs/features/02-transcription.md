@@ -3,7 +3,7 @@ id: transcription
 feature: Transcription
 epic: "Epic 2: Transcription"
 status: built
-issues: [14, 15, 16, 17, 18, 23, 77, 29, 30, 91, 93, 97, 101, 117, 119]
+issues: [14, 15, 16, 17, 18, 23, 77, 29, 30, 91, 93, 97, 101, 117, 119, 193]
 mockups: []
 ---
 
@@ -354,6 +354,55 @@ leaves the browser, and the app shows the host before each run.
   and has the labels and the units of the panel.
 - FR-transcribe-154 — The toast hides while the run report panel is open.
 
+### Singer split (issue #193)
+
+- FR-transcribe-155 — The dialog shows the check box "Split the singers
+  (experimental)". The check box is off by default.
+- FR-transcribe-156 — While "Separate the vocals first" is off, "Split the singers"
+  is disabled and the dialog shows "Select "Separate the vocals first" to use this
+  option."
+- FR-transcribe-157 — If "Separate the vocals first" is on in a browser with no
+  WebGPU adapter, "Split the singers" is disabled and the dialog shows "This browser
+  has no WebGPU. The singer split needs it."
+- FR-transcribe-158 — A disabled "Split the singers" stays in the tab order. Its
+  description holds the reason.
+- FR-transcribe-159 — With "Split the singers" on, the dialog shows "Split mode"
+  with the choices "Male and female" and "Lead and backing". "Male and female" is
+  the default.
+- FR-transcribe-160 — A check of "Split the singers" clears "Put each singer on its
+  own voice". A check of "Put each singer on its own voice" clears "Split the
+  singers".
+- FR-transcribe-161 — For "Lyrics only", the dialog hides "Split the singers".
+- FR-transcribe-162 — With the singer split on, the lyrics field is disabled and
+  the dialog shows "Lyrics are not used when the singers are split."
+- FR-transcribe-163 — After the vocal separation, the run divides the vocals into
+  two singer tracks.
+- FR-transcribe-164 — The run transcribes each singer track with the source of the
+  run.
+- FR-transcribe-165 — A remote run sends one request for each singer track. The
+  dialog states "The app sends two requests to <host>, one for each singer track.
+  The audio of both tracks leaves this computer."
+- FR-transcribe-166 — The run puts the marks of each singer track on its own new
+  voice: "Female" and "Male", or "Lead" and "Backing".
+- FR-transcribe-167 — The marks of the two voices can overlap in time.
+- FR-transcribe-168 — The marks of the run, the two new voices and the replace are
+  one undo step.
+- FR-transcribe-169 — A run with the singer split replaces the marks in the range of
+  each voice of the last run, by the rule of FR-transcribe-148.
+- FR-transcribe-170 — If the song has no room for two more voices, the run does not
+  start and the dialog states the reason.
+- FR-transcribe-171 — The progress text of the step is "Splitting the singers,
+  <n>%".
+- FR-transcribe-172 — With "Keep the separated tracks" on, the run keeps each singer
+  track. The editor shows each singer track as a track row with the name of its
+  voice.
+- FR-transcribe-173 — The run report states the split mode, the two singer tracks
+  and the count of words of each track.
+- FR-transcribe-174 — The singer split engine is behind one interface. A test
+  selects the fixture engine with `__SPLIT_FIXTURE__`.
+- FR-transcribe-175 — The singer split engine reads its model files from the app
+  origin, at `models/<file>`. It checks the size and the SHA-256 of each file.
+
 ## User flows
 
 ### Transcribe a song
@@ -478,6 +527,21 @@ sequenceDiagram
    "Automatic", the worker estimates the count.
 8. The app closes the dialog. The toast names the count of voices, for example "214
    words on 3 voices, 9 estimated".
+
+### Split the singers
+
+1. The person selects "Separate the vocals first".
+2. The person selects "Split the singers (experimental)".
+3. The person selects the split mode: "Male and female" or "Lead and backing".
+4. The person selects "Start".
+5. The run separates the vocals, as for a run with vocal separation.
+6. The split worker loads the singer split model, and divides the vocals into two
+   singer tracks. The progress text is "Splitting the singers, <n>%".
+7. The run finds the words of each singer track. A remote run sends two requests.
+8. The run writes the words of each singer track on its own new voice, as one undo
+   step.
+9. The app closes the dialog. The toast names the count of voices, for example "214
+   words on 2 voices, 9 estimated".
 
 ### Create phrases from lyrics without a speech model
 
@@ -863,6 +927,25 @@ copy, the status line shows "Press Ctrl+C to copy."
   a run.
 - The app transcribes in 30-second chunks with a 5-second stride.
 - The language is English. The task is transcribe.
+- **Singer split rules** (issue #193):
+  - The singer split needs a speech model run with "Separate the vocals first".
+    The singer split excludes the singer step.
+  - The split engine reads the separated vocals at 44 100 Hz, as two equal
+    channels. The engine returns two stereo singer tracks at 44 100 Hz, each with a
+    label. The app puts the tracks in the label order of the mode.
+  - The mode "Male and female" gives the voices "Female" and "Male". The mode "Lead
+    and backing" gives the voices "Lead" and "Backing".
+  - A new voice gets the next unused colour. If a voice has the name, the new voice
+    gets the lowest free number, for example "Female 2".
+  - The run clears the range of the voice of the run and of each voice of the last
+    run. The voice of the run gets no marks of a run with the singer split.
+  - The run counts the voices that the last run added as free. If the song then has
+    no room for two more voices, the run does not start.
+  - The run reads no lyrics and adds no section, because the app cannot tell which
+    lyrics line belongs to which singer.
+  - If the vocal separation fails and the person selects "Continue with no
+    separation", the split does not run. The words go on the voice of the run.
+  - A failure of the split stops the run before it writes a mark.
 - **Remote endpoint rules.**
   - The app removes the spaces and the trailing slashes of the base URL. It keeps
     the path as typed and adds `/audio/transcriptions`.
@@ -889,6 +972,13 @@ copy, the status line shows "Press Ctrl+C to copy."
   run.
 - Reads and writes `APP_SETTINGS.keepTracks`, the last choice of "Keep the separated
   tracks". A record with no value gives `true`.
+
+- Reads and writes `APP_SETTINGS.splitSingers` and `APP_SETTINGS.splitMode`
+  (`'male-female' | 'lead-backing'`), the last choices of "Split the singers" and
+  "Split mode". A record with no value gives `false` and `'male-female'`.
+- Writes `RUN_DATA.tracks.split`, the two singer tracks, and `splitTrack` on each
+  voice of the run that holds a singer track. Writes `report.split`: the mode, and
+  the voice and the count of words of each singer track.
 
 - Reads `AUDIO_FILE`. Reads and writes `APP_SETTINGS.speechModelId`.
 - Reads and writes `APP_SETTINGS.transcribeSource` and
@@ -1113,6 +1203,38 @@ together. The accuracy on one duet and two test mixes is in the ADR. See
 `docs/adr/0009-singer-voices-from-diarization.md` and
 `docs/licences/singer-models.md`.
 
+**Singer split, `src/workers/split.worker.ts`.** The types are in
+`src/features/singer-split/protocol.ts` and `src/features/singer-split/splitter.ts`.
+The client `splitSingers(vocals, mode, { onDownload, onProgress, signal })` starts
+one worker for each run and terminates it at the end or at "Cancel". When
+`__SPLIT_FIXTURE__` is true, the client starts `splitFixture.worker.ts`, which
+downloads no model. When `__SPLIT_WEBGPU__` is set, the dialog reads it in place of
+the WebGPU check.
+
+```ts
+type SplitMode = 'male-female' | 'lead-backing'
+type SingerTrackLabel = 'female' | 'male' | 'lead' | 'backing'
+interface SingerTrack { label: SingerTrackLabel; audio: StereoAudio } // 44.1 kHz, the length of the input
+// to worker (SplitRequest)
+{ type: 'split'; runId: number; vocals: StereoAudio; mode: SplitMode }
+{ type: 'cancel'; runId: number }
+// from worker (SplitMessage)
+{ type: 'download'; runId: number; loadedBytes: number; totalBytes: number }
+{ type: 'progress'; runId: number; doneMs: number; totalMs: number }
+{ type: 'result'; runId: number; tracks: SingerTrack[] }
+{ type: 'error'; runId: number; kind: 'download' | 'memory' | 'model' | 'not-available' | 'unknown'; detail: string }
+// the engine (Splitter)
+split(vocals: StereoAudio, mode: SplitMode, on: SplitterEvents, signal: AbortSignal): Promise<{ tracks: SingerTrack[] }>
+```
+
+The interface holds no ONNX detail. The fixture engine keeps the first 60% of the
+vocals in the first track and the last 60% in the second track. This version has no
+real engine: `createSplitter()` rejects with the kind `not-available`. Issue #194
+adds the real engine. The engine reads its model files from the app origin at
+`models/<file>`, the site bucket. It checks the size and the SHA-256 of each file,
+and keeps the files in the Cache API, as the vocal separation engine does. See
+`docs/adr/0011-singer-split-in-the-browser.md`.
+
 **Pure functions, `src/features/transcription/`:**
 
 ```ts
@@ -1168,6 +1290,14 @@ from 0 to 1.
 | Singer step: more singers than free voices | The song keeps 12 voices or fewer. See the singer rules in [05-voices-sections.md](05-voices-sections.md#behaviour-rules). |
 | Singer step: more singers than free voices, and the song has 12 voices | No new voice. The toast adds "The song has 12 voices, so the app cannot add a voice for each singer. All phrases stay on <voice name>." |
 | Singer step: more singers than free voices, and the song has room for some singers | The app adds a voice for each free voice. The toast adds "The song has room for <k> more voices. The other singers stay on <voice name>." |
+| Singer split: the browser has no WebGPU adapter | "Split the singers" is disabled. The dialog shows "This browser has no WebGPU. The singer split needs it." |
+| Singer split: the song has no room for two more voices | The run does not start. The dialog shows "A song has 12 voices at most, and the singer split adds 2 voices. Delete a voice, or turn off "Split the singers"." |
+| Singer split: the model does not download | No mark changes. The dialog shows "The app could not download the singer split model. Check the connection and select Retry." |
+| Singer split: out of memory | No mark changes. The dialog shows "This browser does not have enough memory to split the singers of this song. Select a shorter time range, or turn off "Split the singers"." |
+| Singer split: this version of the app has no split engine | No mark changes. The dialog shows "This version of the app cannot split the singers yet. Turn off "Split the singers" and select Retry." |
+| Singer split: the model fails, the tracks do not match the mode, or another failure | No mark changes. The dialog shows "The app could not split the singers. Turn off "Split the singers" and select Retry." |
+| Singer split: the person selects "Cancel" during the step | The app stops the worker. The dialog shows "The run stopped. The marks did not change." |
+| Singer split: the vocal separation failed and the person selected "Continue with no separation" | The split does not run. The words go on the voice of the run. The toast adds "The app splits the singers only in separated vocals. All phrases stay on <voice name>." |
 | Kept audio tracks: the browser storage is full | The run completes. The app stores the report and the singer ranges with no audio tracks. The report has the line "audio tracks not kept: the browser storage is full". The toast adds "The browser storage is full, so the app did not keep the separated tracks." |
 | Kept audio tracks: the browser cannot resample the tracks | The run completes with no audio tracks. The report has the line "audio tracks not kept: the app could not convert the tracks". The toast adds "The app could not keep the separated tracks. Run "Transcribe" again to try one more time." |
 | The browser cannot store the remote endpoint | Under the endpoint panel: "The app could not store the remote endpoint in this browser. It works until you reload the page." The run uses the endpoint. |
@@ -1383,12 +1513,30 @@ The text writes the raw groups and the final singers as tables with aligned colu
 - A second run with the singer option off asks with the sentence "The voices of the
   last singer step do not change." (FR-transcribe-150)
 
+- With "Split the singers" off, a run gives the same marks and voices as before
+  issue #193. (FR-transcribe-155)
+- With "Split the singers" on and the fixture engine, a run gives the voices
+  "Female" and "Male". One phrase of "Female" overlaps a phrase of "Male" in time.
+  (FR-transcribe-163, 166, 167)
+- One undo removes the result of a run with the singer split. One redo restores it.
+  (FR-transcribe-168)
+- In a browser with no WebGPU, "Split the singers" is disabled. A keyboard user
+  reaches it and hears "This browser has no WebGPU. The singer split needs it."
+  (FR-transcribe-157, 158)
+- An export of the result has one timing track for each voice, each with three
+  `EffectLayer` elements. (FR-transcribe-166)
+- With "Keep the separated tracks" on, the editor shows the track rows "Female" and
+  "Male". (FR-transcribe-172)
+- The run report shows the section "Singer split" with "Split mode: Male and
+  female" and the words of each singer track. (FR-transcribe-173)
+
 ## Out of scope
 
 - Separation of stems other than the vocals.
 - Vocal separation on a server.
 - Detecting which singer sings each word. The singer step gives singers to phrases.
-- Two clean audio signals for singers who sing at the same time.
+- More than two singer tracks.
+- The real singer split engine and its model files. Issue #194 adds them.
 - The names of the singers.
 - Languages other than English.
 - Speech models larger than small.
@@ -1398,4 +1546,5 @@ The text writes the raw groups and the final singers as tables with aligned colu
 
 ## Open questions
 
-None.
+- The licences of the model files of the singer split. Issue #194 checks them
+  before the files go in the site bucket.

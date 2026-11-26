@@ -17,6 +17,8 @@ export const DEFAULT_SETTINGS: AppSettings = {
   singerCount: 'automatic',
   separationModel: 'spleeter',
   keepTracks: true,
+  splitSingers: false,
+  splitMode: 'male-female',
 }
 
 /**

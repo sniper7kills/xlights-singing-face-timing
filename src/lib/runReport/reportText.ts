@@ -6,9 +6,9 @@ import {
   type PanelSection,
   type PanelTable,
   reportPanel,
+  reportSummary,
 } from './reportPanel.ts'
 import { alignedTable, type NamedVoice, type RunReport } from './runReport.ts'
-import { singerSummary } from './singerSummary.ts'
 
 function factLines(facts: readonly PanelFact[]): string[] {
   return facts.map((fact) => `${fact.label}: ${fact.value}`)
@@ -39,7 +39,7 @@ function sectionLines(section: PanelSection, summary: string): string[] {
 
 /**
  * Returns the report as plain text to paste into a chat or to save as `report.txt`.
- * The text starts with the summary of the singer step. Then each section of the panel follows with a heading line in
+ * The text starts with the summary of the singer step, or of the singer split. Then each section of the panel follows with a heading line in
  * brackets, the same labels and the same units as the panel, and each number of the details part.
  * The text holds the names of the voices and no lyrics.
  * @param report The report of a run.
@@ -51,7 +51,7 @@ export function reportToText(
   formatDate: (iso: string) => string = (iso) => formatStartTime(iso),
   voices?: readonly NamedVoice[],
 ): string {
-  const summaryLines = singerSummary(report.singers)
+  const summaryLines = reportSummary(report)
   const summary = summaryLines.join(' ')
   const sections = [
     ['Transcribe run report'],

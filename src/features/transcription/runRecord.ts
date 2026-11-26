@@ -10,6 +10,7 @@ import {
   type RunNote,
   type RunStep,
   type SingerSection,
+  type SplitSection,
   type StepClock,
   voicePhrases,
 } from '../../lib/runReport/runReport.ts'
@@ -48,6 +49,12 @@ export type RunRecord = {
   singers: SingerOutcome | null
   /** The ids of the voices that the singer step added. */
   singerVoiceIds: string[]
+  /** The mode of the singer split, or null when the split did not run. */
+  splitMode: SplitSection['mode'] | null
+  /** The ids of the voices that the singer split added, in the order of the singer tracks. */
+  splitVoiceIds: string[]
+  /** Each singer track of the split with its voice and its count of words, or null when the split wrote no marks. */
+  split: SplitSection['tracks'] | null
   /** The lyrics lines that the run left out, because the range has no room for their words. */
   linesLeftOut: number
   /** The words that the run left out, because it cannot use them. */
@@ -69,6 +76,9 @@ export function startRunRecord(now: Date = new Date()): RunRecord {
     assignment: null,
     singers: null,
     singerVoiceIds: [],
+    splitMode: null,
+    splitVoiceIds: [],
+    split: null,
     linesLeftOut: 0,
     wordsLeftOut: 0,
   }
@@ -85,6 +95,8 @@ export const STAGE_STEP: Record<RunStage, RunStep> = {
   waiting: 'wait',
   'singers-download': 'singersDownload',
   'finding-singers': 'singers',
+  'split-download': 'splitDownload',
+  splitting: 'split',
 }
 
 /**
@@ -99,12 +111,24 @@ export async function tracksToKeep(
 ): Promise<KeptTracks | null> {
   const { instruments } = separated
   if (instruments === undefined) return null
-  const track = async (samples: Float32Array): Promise<PcmTrack> => ({
+  return {
+    vocals: await keptTrack(separated.vocals, startMs),
+    instruments: await keptTrack(instruments, startMs),
+  }
+}
+
+/**
+ * Returns one channel at 44 100 Hz as an audio track to store: 16-bit PCM at `KEPT_TRACK_SAMPLE_RATE`.
+ * @param samples One channel at 44 100 Hz.
+ * @param startMs The song time of the first sample.
+ * Rejects when the browser cannot resample the audio.
+ */
+export async function keptTrack(samples: Float32Array, startMs: number): Promise<PcmTrack> {
+  return {
     startMs,
     sampleRate: KEPT_TRACK_SAMPLE_RATE,
     samples: floatToPcm16(await resampleSeparated(samples, KEPT_TRACK_SAMPLE_RATE)),
-  })
-  return { vocals: await track(separated.vocals), instruments: await track(instruments) }
+  }
 }
 
 /** The report line of a run whose audio tracks the browser storage could not keep. */
@@ -183,7 +207,7 @@ export type RunEnd = {
   request: TranscribeRequest
   range: TimeRange
   frameMs: number
-  /** The marks that the run wrote, before the singer step. */
+  /** The marks that the run wrote, before the singer step. A run with the singer split gives the marks of both tracks. */
   written: readonly Mark[]
   /** The device that ran the speech model, for a speech model run in the browser. */
   device: 'webgpu' | 'wasm'
@@ -222,18 +246,33 @@ function runVoicesOf(
     record.singerSegments ?? [],
     voices.map((voice) => ({ voiceId: voice.id, phrases: phraseRangesOf(marks, voice.id, range) })),
   )
-  return voices.map((voice) => ({
-    voiceId: voice.id,
-    singers: singers.get(voice.id) ?? [],
-    made: record.singerVoiceIds.includes(voice.id),
-  }))
+  return voices.map((voice) => {
+    const splitTrack = record.splitVoiceIds.indexOf(voice.id)
+    return {
+      voiceId: voice.id,
+      singers: singers.get(voice.id) ?? [],
+      made: madeIds(record).includes(voice.id),
+      ...(splitTrack < 0 ? {} : { splitTrack }),
+    }
+  })
+}
+
+/** Returns the ids of the voices that the run added: the voices of the singer step and of the singer split. */
+function madeIds(record: RunRecord): string[] {
+  return [...record.singerVoiceIds, ...record.splitVoiceIds]
+}
+
+/** Returns the split section of the report, or no field for a run in which the split wrote no marks. */
+function splitFacts(record: RunRecord): { split?: SplitSection } {
+  if (record.splitMode === null || record.split === null) return {}
+  return { split: { mode: record.splitMode, tracks: record.split } }
 }
 
 /** Returns the run data of a completed run: the voices of the run, the singer ranges and the report. */
 export function finishRunRecord(record: RunRecord, end: RunEnd): RunData {
   record.clock.enter(null)
   const content = useSongStore.getState().current
-  const runVoiceIds = [end.request.voiceId, ...record.singerVoiceIds]
+  const runVoiceIds = [end.request.voiceId, ...madeIds(record)]
   const voices = (content?.voices ?? []).filter((voice) => runVoiceIds.includes(voice.id))
   const marks = content?.marks ?? []
   const report = buildRunReport({
@@ -246,7 +285,8 @@ export function finishRunRecord(record: RunRecord, end: RunEnd): RunData {
     trackCount: record.trackCount,
     tracksKept: record.tracks !== null,
     singers: singerSection(record, end.request),
-    voices: voicePhrases(voices, marks, end.range, record.singerVoiceIds),
+    ...splitFacts(record),
+    voices: voicePhrases(voices, marks, end.range, madeIds(record)),
     marks: end.written,
     linesLeftOut: record.linesLeftOut,
     wordsLeftOut: record.wordsLeftOut,
