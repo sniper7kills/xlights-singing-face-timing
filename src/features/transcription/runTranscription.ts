@@ -12,11 +12,12 @@ import { fitLyricsLines, leavesOutLyrics, type LyricsFit } from '../../lib/text/
 import { wordRoom } from '../../lib/time/fitWords.ts'
 import type { TimeRange } from '../../lib/time/timeRange.ts'
 import { getAudioFile, loadRunData } from '../../store/db.ts'
-import { lastRunVoices } from '../../store/trackRows.ts'
+import { type LastRunVoice, lastRunVoices, madeByLastRun } from '../../store/trackRows.ts'
 import { DictionaryLoadError } from '../phoneme-breakdown/loadDictionary.ts'
 import { MAX_VOICES } from '../../lib/voices/voiceRules.ts'
 import { putSingersOnVoices } from '../../store/actions/singerVoices.ts'
 import { findSingers, SingersError, type SingersErrorKind } from '../singer-voices/singersClient.ts'
+import { SPLIT_VOICE_NAME, type SplitMode } from '../../lib/singers/splitRules.ts'
 import type { SeparationModelId } from '../vocal-separation/protocol.ts'
 import { separateVocals } from '../vocal-separation/separateClient.ts'
 import { decodeStereo, vocalsForSpeech } from '../vocal-separation/separationAudio.ts'
@@ -33,7 +34,7 @@ import {
   tracksToKeep,
   TRACKS_FAILED_NOTE,
 } from './runRecord.ts'
-import type { Mark, RunData, SongContent } from '../../store/types.ts'
+import type { Mark, RunData, SongContent, Voice } from '../../store/types.ts'
 import { alignLyrics } from './alignLyrics.ts'
 import { buildMarks } from './buildMarks.ts'
 import {
@@ -45,6 +46,7 @@ import {
   spreadLyrics,
 } from './phrases.ts'
 import { SPEECH_SAMPLE_RATE } from './protocol.ts'
+import { checkSplitRoom, type SpeechTrack, splitVocals, writeSplit } from './splitRun.ts'
 import { postTranscription } from './remoteClient.ts'
 import { resampleForSpeech } from './resample.ts'
 import {
@@ -98,7 +100,24 @@ export type TranscribeRequest = {
   singerVoices?: boolean
   /** The count of singers that the person gives for the singer step. Without it, the step estimates the count. */
   singerCount?: number
+  /**
+   * True divides the separated vocals into two singer tracks, and puts the words of each track on its own new voice.
+   * It needs `separateVocals` and a speech model run. The run then reads no lyrics and makes no section.
+   */
+  splitSingers?: boolean
+  /** The mode of the singer split. Without it, the run uses 'male-female'. */
+  splitMode?: SplitMode
 }
+
+/**
+ * The result of the singer split of a run with `splitSingers`:
+ * - `split`: the step ran. `voiceNames` are the names of the new voices.
+ *   `emptyTracks` are the names of the singer tracks with no word, for example "Male". Such a track makes no voice.
+ * - `no-vocals`: the vocal separation failed and the run went on with no separation, so the step did not run.
+ */
+export type SplitOutcome =
+  | { status: 'split'; voiceNames: string[]; emptyTracks: string[] }
+  | { status: 'no-vocals'; voiceName: string }
 
 /**
  * The result of the singer step of a run with `singerVoices`:
@@ -134,6 +153,8 @@ export type TranscribeOutcome = {
   breakDownFailure: BreakDownFailure | null
   /** The result of the singer step. A run without `singerVoices` has no value. */
   singers?: SingerOutcome
+  /** The result of the singer split. A run without `splitSingers` has no value. */
+  split?: SplitOutcome
   /** The result of the write of the run data. See `RunDataWrite`. */
   runData: RunDataWrite
   /** True when the run asked for the audio tracks and the app could not convert them. Without it, no conversion failed. */
@@ -160,6 +181,8 @@ export type BreakDownFailure = {
  * - `waiting`: a remote run sent all audio and waits for the response of the endpoint.
  * - `singers-download`: after the marks, the singers worker loads the singer model. A download also sends singer download progress.
  * - `finding-singers`: the singers worker finds the singers in the vocals. The singer progress follows.
+ * - `split-download`: the split worker loads the singer split model. A download also sends split download progress.
+ * - `splitting`: the split worker divides the vocals into two singer tracks. The split progress follows.
  */
 export type RunStage =
   | 'preparing'
@@ -170,6 +193,8 @@ export type RunStage =
   | 'waiting'
   | 'singers-download'
   | 'finding-singers'
+  | 'split-download'
+  | 'splitting'
 
 /**
  * The facts of the replace question:
@@ -227,6 +252,10 @@ export type TranscribeRunHandlers = {
   onSingersDownload?: (loadedBytes: number, totalBytes: number) => void
   /** Receives the audio time that the singer search completed, and the audio time of the run. */
   onSingersProgress?: (doneMs: number, totalMs: number) => void
+  /** Receives the download progress of the singer split model. */
+  onSplitDownload?: (loadedBytes: number, totalBytes: number) => void
+  /** Receives the audio time that the singer split completed, and the audio time of the run. */
+  onSplitProgress?: (doneMs: number, totalMs: number) => void
 }
 
 /** The speech model or the lyrics gave no word. */
@@ -257,6 +286,8 @@ function stopIfCancelled(signal: AbortSignal): void {
  * and removes each of those voices that has no mark left. See `confirmReplace`.
  * With `addSections`, the run then adds the sections of the lyrics tags as a second undo step, so one undo removes the sections only.
  * With `singerVoices`, the run then puts each singer on its own voice as a further undo step. See `SingerOutcome`.
+ * With `splitSingers`, the run transcribes each singer track and writes it on its own new voice, in the same undo step.
+ * It reads no lyrics then. A song with no room for two more voices rejects with NoSplitRoomError before any step.
  * A cancel or a failure of the singer step keeps the marks, so the run resolves and the outcome reports it.
  * @param request The run that the person started. Without a range, the range is the full song.
  * @param client The client that runs the speech model. A lyrics-only run does not call it.
@@ -269,11 +300,13 @@ function stopIfCancelled(signal: AbortSignal): void {
  * Rejects with Error when no song is open or the audio file is missing.
  */
 export async function runTranscription(
-  request: TranscribeRequest,
+  asked: TranscribeRequest,
   client: TranscribeClient,
   handlers: TranscribeRunHandlers,
 ): Promise<TranscribeOutcome> {
   const { signal } = handlers
+  // The app cannot tell which lyrics line belongs to which singer, so a split run uses the words of the speech model.
+  const request = runsSplit(asked) ? { ...asked, lyrics: undefined, addSections: false } : asked
   const content = useSongStore.getState().current
   if (content === null) throw new Error('The open song has no audio file.')
   const { song } = content
@@ -289,19 +322,23 @@ export async function runTranscription(
   const record = startRunRecord()
   record.linesLeftOut = linesLeftOut
   const timed = timedHandlers(handlers, record)
-  const { phrases, vocals } = await findPhrases(fitted, range, song.id, client, timed, record)
+  const { tracks, vocals } = await findPhrases(fitted, range, song.id, client, timed, record)
 
-  const { marks, phraseIds } = buildMarks(phrases, request.voiceId, song.frameMs, range)
+  // Each singer track gets its own voice id for now, so the phonemes of the break down keep the track of their word.
+  const built = tracks.map((track, index) =>
+    buildMarks(track.phrases, trackVoiceId(request.voiceId, track, index), song.frameMs, range),
+  )
+  const marks = built.flatMap((track) => track.marks)
   const words = marks.filter((mark) => mark.layer === 'word')
   if (words.length === 0) throw new NoWordsError()
+  const phrases = tracks.flatMap((track) => track.phrases)
   record.wordsLeftOut = countWordsLeftOut(fitted, phrases, words.length)
   const { written, breakDownFailure } = await breakDownRun(marks, words, song.frameMs)
   endBreakDown(record, breakDownFailure)
   stopIfCancelled(signal)
   // The phonemes go in the same write, so one undo removes the run and its break down.
-  if (!replaceMarksInRange(request.voiceId, range, written, replacedVoices))
-    throw new TranscribeError('cancelled', 'The voice of the transcribe run no longer exists.')
-  addTagSections(fitted, song.id, phraseIds, written)
+  writeRun(request, range, tracks, written, replacedVoices, record)
+  addTagSections(fitted, song.id, built[0]?.phraseIds ?? [], written)
   const singers = await singerStep(request, range, vocals, written, timed, record)
   const end = { request, range, frameMs: song.frameMs, written, device: client.device }
   // The report of every completed run is kept, so the person can see what the run did.
@@ -311,16 +348,82 @@ export async function runTranscription(
     estimatedCount: words.filter((mark) => mark.estimated).length,
     breakDownFailure,
     ...singers,
+    ...splitOutcome(request, record),
     runData,
     ...recordFailures(record),
   }
 }
 
-/** Returns true when the run puts each singer on its own voice: a speech model run with the vocal separation. */
+/**
+ * Returns true when the run puts each singer on its own voice: a speech model run with the vocal separation.
+ * The singer split excludes the singer step.
+ */
 function runsSingerStep(request: TranscribeRequest): boolean {
   return (
-    request.mode === 'model' && request.singerVoices === true && request.separateVocals === true
+    request.mode === 'model' &&
+    request.singerVoices === true &&
+    request.separateVocals === true &&
+    !runsSplit(request)
   )
+}
+
+/** Returns true when the run splits the singers: a speech model run with the vocal separation. */
+function runsSplit(request: TranscribeRequest): boolean {
+  return (
+    request.mode === 'model' && request.splitSingers === true && request.separateVocals === true
+  )
+}
+
+/** The phrases of one singer track of a run. A run with no singer split has one track with no label. */
+type TrackPhrases = { label: SpeechTrack['label'] | null; phrases: AlignedPhrase[] }
+
+/** Returns the voice id of the marks of a track before the write: the voice of the run, or a mark of the track index. */
+function trackVoiceId(voiceId: string, track: TrackPhrases, index: number): string {
+  return track.label === null ? voiceId : `split-track:${index}`
+}
+
+/**
+ * Writes the marks of the run as one undo step: on the voice of the run, or on two new voices for a singer split.
+ * Rejects as cancelled when the voice of the run no longer exists.
+ */
+function writeRun(
+  request: TranscribeRequest,
+  range: TimeRange,
+  tracks: readonly TrackPhrases[],
+  written: Mark[],
+  replaced: readonly ReplacedVoice[],
+  record: RunRecord,
+): void {
+  const labelled = tracks.flatMap((track, index) =>
+    track.label === null ? [] : [{ label: track.label, voiceId: trackVoiceId('', track, index) }],
+  )
+  if (labelled.length === 0) {
+    if (!replaceMarksInRange(request.voiceId, range, written, replaced))
+      throw new TranscribeError('cancelled', 'The voice of the transcribe run no longer exists.')
+    return
+  }
+  const trackMarks = labelled.map(({ label, voiceId }) => ({
+    label,
+    marks: written.filter((mark) => mark.voiceId === voiceId),
+  }))
+  writeSplit(request.voiceId, range, trackMarks, replaced, record)
+}
+
+/** Returns the outcome of the singer split, or no field when the request has no split. */
+function splitOutcome(request: TranscribeRequest, record: RunRecord): { split?: SplitOutcome } {
+  if (!runsSplit(request)) return {}
+  if (record.split === null)
+    return { split: { status: 'no-vocals', voiceName: voiceNameOf(request.voiceId) } }
+  const tracks = record.split
+  return {
+    split: {
+      status: 'split',
+      voiceNames: tracks.filter((track) => track.wordCount > 0).map((track) => track.voiceName),
+      emptyTracks: tracks
+        .filter((track) => track.wordCount === 0)
+        .map((track) => SPLIT_VOICE_NAME[track.label]),
+    },
+  }
 }
 
 /** Returns the stored run data of the song, or undefined when the song has none or the browser cannot read it. */
@@ -346,8 +449,13 @@ async function confirmReplace(
   range: TimeRange,
   handlers: TranscribeRunHandlers,
 ): Promise<ReplacedVoice[]> {
-  const lastRun = lastRunVoices(await lastRunData(content.song.id), content.voices, request.voiceId)
-  const replaced = runsSingerStep(request) ? lastRun : []
+  const data = await lastRunData(content.song.id)
+  const lastRun = lastRunVoices(data, content.voices, request.voiceId)
+  const replacing = runsSingerStep(request) || runsSplit(request)
+  const replaced = replacing ? lastRun : []
+  const runVoice = content.voices.find((voice) => voice.id === request.voiceId)
+  const toReplace = replacing ? replacedVoicesOf(replaced, data, runVoice) : []
+  if (runsSplit(request)) checkSplitRoom(content, request.voiceId, range, toReplace)
   const count = (voiceId: string) => countMarksInRange(content.marks, voiceId, range)
   const losing = replaced.filter(({ voice }) => count(voice.id) > 0)
   const markCount = [request.voiceId, ...losing.map(({ voice }) => voice.id)].reduce(
@@ -362,7 +470,22 @@ async function confirmReplace(
     singerVoicesKept: replaced.length === 0 && lastRun.some(({ made }) => made),
   }
   if (markCount > 0 && !(await handlers.confirmReplace(question))) throw declined()
-  return replaced.map(({ voice, made }) => ({ voiceId: voice.id, removable: made }))
+  return toReplace
+}
+
+/**
+ * Returns the voices that the run replaces, for the write.
+ * The list holds the voice of the run too when the last run made it: a split run writes no mark on it, so the write can remove it.
+ * A voice of the run that the person made is not in the list, so it always stays.
+ */
+function replacedVoicesOf(
+  replaced: readonly LastRunVoice[],
+  data: RunData | undefined,
+  runVoice: Voice | undefined,
+): ReplacedVoice[] {
+  const others = replaced.map(({ voice, made }) => ({ voiceId: voice.id, removable: made }))
+  const ownMade = runVoice !== undefined && madeByLastRun(data, runVoice)
+  return ownMade ? [...others, { voiceId: runVoice.id, removable: true }] : others
 }
 
 /**
@@ -449,7 +572,7 @@ async function singerStep(
   handlers: TranscribeRunHandlers,
   record: RunRecord,
 ): Promise<{ singers?: SingerOutcome }> {
-  if (request.singerVoices !== true || request.separateVocals !== true) return {}
+  if (!runsSingerStep(request)) return {}
   const runPhrases = written.filter((mark) => mark.layer === 'phrase')
   const voicesBefore = new Set(songVoiceIds())
   const singers = await splitSingers(request, range, vocals, runPhrases, handlers, record)
@@ -599,25 +722,34 @@ async function findPhrases(
   client: TranscribeClient,
   handlers: TranscribeRunHandlers,
   record: RunRecord,
-): Promise<{ phrases: AlignedPhrase[]; vocals: Float32Array | null }> {
-  if (request.mode === 'lyrics-only')
-    return { phrases: spreadLyrics(request.lyrics ?? '', range.startMs, range.endMs), vocals: null }
-  const { words, vocals } = await findWords(request, songId, client, handlers, record)
+): Promise<{ tracks: TrackPhrases[]; vocals: Float32Array | null }> {
+  if (request.mode === 'lyrics-only') {
+    const phrases = spreadLyrics(request.lyrics ?? '', range.startMs, range.endMs)
+    return { tracks: [{ label: null, phrases }], vocals: null }
+  }
+  const { tracks, vocals } = await findWords(request, songId, client, handlers, record)
   stopIfCancelled(handlers.signal)
-  if (words.length === 0) throw new NoWordsError()
+  if (tracks.every((track) => track.words.length === 0)) throw new NoWordsError()
   handlers.onFinishing()
 
-  if (request.lyrics === undefined) return { phrases: groupIntoPhrases(words), vocals }
-  const { phrases, matchRatio } = alignLyrics(words, request.lyrics)
+  const { lyrics } = request
+  if (lyrics === undefined) {
+    const grouped = tracks.map(({ label, words }) => ({ label, phrases: groupIntoPhrases(words) }))
+    return { tracks: grouped, vocals }
+  }
+  // A run with lyrics has no singer split, so it has one track.
+  const words = tracks.flatMap((track) => track.words)
+  const { phrases, matchRatio } = alignLyrics(words, lyrics)
   if (matchRatio < LOW_MATCH_RATIO && !(await handlers.confirmLowMatch(matchRatio)))
     throw declined()
-  return { phrases, vocals }
+  return { tracks: [{ label: null, phrases }], vocals }
 }
 
 /**
  * Returns the words of the audio of the run, with song times, from the speech model in the browser or from the remote endpoint.
  * A range run converts and sends only the audio of the range, and adds the start of the range to each word time.
  * Also returns the separated vocals at 16 kHz for the singer step, or null when the run has no separated vocals.
+ * A run with the singer split returns the words of each singer track. A remote run sends each track as its own request.
  */
 async function findWords(
   request: TranscribeRequest,
@@ -625,16 +757,47 @@ async function findWords(
   client: TranscribeClient,
   handlers: TranscribeRunHandlers,
   record: RunRecord,
-): Promise<{ words: TimedWord[]; vocals: Float32Array | null }> {
-  const { signal } = handlers
+): Promise<{ tracks: TrackWords[]; vocals: Float32Array | null }> {
   handlers.onStage('preparing')
   const audio = await getAudioFile(songId)
   if (audio === undefined) throw new Error('The open song has no audio file.')
-  const { samples, separated } = await speechSamples(request, audio.data, handlers, record)
-  stopIfCancelled(signal)
-  const offsetMs = request.range?.startMs ?? 0
-  const vocals = separated ? samples : null
+  const found = await speechSamples(request, audio.data, handlers, record)
+  stopIfCancelled(handlers.signal)
+  const vocals = found.separated ? found.samples : null
+  if (!runsSplit(request) || found.fullVocals === null) {
+    const words = await wordsOf(found.samples, request, client, handlers)
+    return { tracks: [{ label: null, words }], vocals }
+  }
+  const speechTracks = await splitVocals(
+    found.fullVocals,
+    request.splitMode ?? 'male-female',
+    request.keepTracks === true,
+    request.range?.startMs ?? 0,
+    handlers,
+    record,
+  )
+  const tracks: TrackWords[] = []
+  // The client runs one transcription at a time, so the tracks go one after the other.
+  for (const { label, samples } of speechTracks)
+    tracks.push({ label, words: await wordsOf(samples, request, client, handlers) })
+  return { tracks, vocals }
+}
 
+/** The words of one singer track of a run. A run with no singer split has one track with no label. */
+type TrackWords = { label: SpeechTrack['label'] | null; words: TimedWord[] }
+
+/**
+ * Returns the words of samples at the speech model sample rate, with song times,
+ * from the speech model in the browser or from the remote endpoint.
+ */
+async function wordsOf(
+  samples: Float32Array,
+  request: TranscribeRequest,
+  client: TranscribeClient,
+  handlers: TranscribeRunHandlers,
+): Promise<TimedWord[]> {
+  const { signal } = handlers
+  const offsetMs = request.range?.startMs ?? 0
   if (request.remote !== undefined) {
     handlers.onStage('sending')
     const words = await postTranscription(
@@ -643,7 +806,7 @@ async function findWords(
       offsetMs,
       { signal, onUpload: handlers.onUpload, onWaiting: () => handlers.onStage('waiting') },
     )
-    return { words, vocals }
+    return words
   }
 
   handlers.onStage('loading')
@@ -652,16 +815,16 @@ async function findWords(
 
   const totalMs = (samples.length / SPEECH_SAMPLE_RATE) * 1000
   // The client adds the start of the range, so each word time is a song time.
-  const words = await client.transcribe(samples, offsetMs, {
+  return client.transcribe(samples, offsetMs, {
     onDownload: handlers.onDownload,
     onProgress: (doneMs) => handlers.onProgress(doneMs, totalMs),
     onStage: handlers.onStage,
   })
-  return { words, vocals }
 }
 
 /**
  * Returns the audio of the run as one channel at the speech model sample rate, and true when the samples are the separated vocals.
+ * `fullVocals` is the separated vocals at 44 100 Hz for the singer split, or null when the run has no separated vocals.
  * With `separateVocals`, the samples are the vocals. A range run separates only the audio of the range.
  * If the separation fails and the person selects "Continue with no separation", the samples are the audio of the song.
  * If the person selects "Use the fast model", the step runs again with Spleeter.
@@ -675,13 +838,12 @@ async function speechSamples(
   handlers: TranscribeRunHandlers,
   record: RunRecord,
   model: SeparationModelId = request.separationModel ?? 'spleeter',
-): Promise<{ samples: Float32Array; separated: boolean }> {
-  if (request.separateVocals !== true)
-    return { samples: await resampleForSpeech(audio, request.range), separated: false }
+): Promise<SpeechSamples> {
+  if (request.separateVocals !== true) return songSamples(audio, request.range)
   try {
-    const samples = await separatedSamples(request, audio, model, handlers, record)
+    const { samples, fullVocals } = await separatedSamples(request, audio, model, handlers, record)
     record.separationModel = model
-    return { samples, separated: true }
+    return { samples, separated: true, fullVocals }
   } catch (error) {
     // A cancel during the step also rejects the separation, and it must not ask the person.
     stopIfCancelled(handlers.signal)
@@ -692,12 +854,20 @@ async function speechSamples(
     record.separationFallback ||= answer === 'fast-model'
     if (answer === 'fast-model') return speechSamples(request, audio, handlers, record, 'spleeter')
     handlers.onStage('preparing')
-    return { samples: await resampleForSpeech(audio, request.range), separated: false }
+    return songSamples(audio, request.range)
   }
 }
 
+/** The audio of a run for the speech model. See `speechSamples`. */
+type SpeechSamples = { samples: Float32Array; separated: boolean; fullVocals: Float32Array | null }
+
+/** Returns the audio of the song at the speech model sample rate, with no separated vocals. */
+async function songSamples(audio: Blob, range: TimeRange | undefined): Promise<SpeechSamples> {
+  return { samples: await resampleForSpeech(audio, range), separated: false, fullVocals: null }
+}
+
 /**
- * Returns the vocals of the audio of the run, at the speech model sample rate.
+ * Returns the vocals of the audio of the run, at the speech model sample rate, and at 44 100 Hz as `fullVocals`.
  * With `keepTracks`, the record also gets the vocals and the instruments as audio tracks to store.
  */
 async function separatedSamples(
@@ -706,7 +876,7 @@ async function separatedSamples(
   model: SeparationModelId,
   handlers: TranscribeRunHandlers,
   record: RunRecord,
-): Promise<Float32Array> {
+): Promise<{ samples: Float32Array; fullVocals: Float32Array }> {
   const { signal } = handlers
   const stereo = await decodeStereo(audio, request.range)
   stopIfCancelled(signal)
@@ -733,5 +903,5 @@ async function separatedSamples(
     record.notes.push(TRACKS_FAILED_NOTE)
     return null
   })
-  return speech
+  return { samples: speech, fullVocals: separated.vocals }
 }

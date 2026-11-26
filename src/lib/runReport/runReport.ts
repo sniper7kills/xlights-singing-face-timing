@@ -1,5 +1,6 @@
 // The run report holds counts, names of models, voice names and times only. It never holds a lyrics word, an API key, a URL or audio.
 import type { SingerDiagnostics } from '../singers/diagnostics.ts'
+import type { SingerTrackLabel, SplitMode } from '../singers/splitRules.ts'
 
 /** A step of a transcribe run that the report times. */
 export type RunStep =
@@ -12,6 +13,8 @@ export type RunStep =
   | 'wait'
   | 'singersDownload'
   | 'singers'
+  | 'splitDownload'
+  | 'split'
   | 'breakDown'
 
 /** The text of each step in the run report panel and in the copied text, in the order of a run. */
@@ -19,6 +22,8 @@ const STEP_TEXT: Record<RunStep, string> = {
   prepare: 'Prepare the audio',
   separationDownload: 'Load the vocal separation model',
   separation: 'Separate the vocals',
+  splitDownload: 'Load the singer split model',
+  split: 'Split the singers',
   modelLoad: 'Load the speech model',
   transcribe: 'Transcribe',
   upload: 'Send the audio',
@@ -108,6 +113,17 @@ export type SingerSection = {
   selected?: number | 'automatic'
 }
 
+/**
+ * What the singer split of a run did:
+ * - `mode`: the mode that the person selected.
+ * - `tracks`: each singer track in voice order, with the name of its voice at the end of the run and its count of words.
+ *   A track with no word makes no voice, so its voice name is empty.
+ */
+export type SplitSection = {
+  mode: SplitMode
+  tracks: { label: SingerTrackLabel; voiceName: string; wordCount: number }[]
+}
+
 /** Returns the text of the choice of "Singers" of a report: "Automatic", the count, or "not recorded". */
 export function selectedSingersText(selected: SingerSection['selected']): string {
   if (selected === undefined) return 'not recorded'
@@ -141,6 +157,8 @@ export type RunReport = {
   /** True when the app stored the audio tracks of the run. A report of an earlier version of the app has no value. */
   tracksKept?: boolean
   singers: SingerSection
+  /** The result of the singer split. A run with no singer split, and a report from before issue #193, have no value. */
+  split?: SplitSection
   /** Each voice that holds phrases of the run, with its count of phrases. */
   voices: VoicePhrases[]
   phraseCount: number
@@ -198,6 +216,7 @@ export function buildRunReport(facts: RunFacts): RunReport {
     ...(facts.trackCount === undefined ? {} : { trackCount: facts.trackCount }),
     ...(facts.tracksKept === undefined ? {} : { tracksKept: facts.tracksKept }),
     singers: facts.singers,
+    ...(facts.split === undefined ? {} : { split: facts.split }),
     voices: facts.voices,
     phraseCount: facts.marks.filter((mark) => mark.layer === 'phrase').length,
     wordCount: words.length,

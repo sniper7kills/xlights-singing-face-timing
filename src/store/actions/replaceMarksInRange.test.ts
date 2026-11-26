@@ -3,7 +3,12 @@ import { saveSong } from '../db.ts'
 import { makeSongContent } from '../fixtures.test-helpers.ts'
 import { useSongStore } from '../songStore.ts'
 import type { Mark, SongContent } from '../types.ts'
-import { countMarksInRange, hasMarksInRange, replaceMarksInRange } from './replaceMarksInRange.ts'
+import {
+  countMarksInRange,
+  freedVoiceCount,
+  hasMarksInRange,
+  replaceMarksInRange,
+} from './replaceMarksInRange.ts'
 import { deleteVoice } from './voices.ts'
 
 const VOICE = 'song-1-voice'
@@ -298,6 +303,17 @@ describe('replaceMarksInRange with the singer voices of the last run', () => {
     useSongStore.getState().undo()
     useSongStore.getState().undo()
     expect(current()).toStrictEqual(before)
+  })
+
+  it('counts as freed only the removable voices that the clear of the range empties', () => {
+    addMarksAndVoice()
+    const song = current()
+    const replaced = singers(OTHER_VOICE, THIRD_VOICE)
+
+    // "other-late" at 15 s keeps OTHER_VOICE. THIRD_VOICE has one phrase at 3 s.
+    expect(freedVoiceCount(song, VOICE, { startMs: 0, endMs: 5000 }, replaced)).toBe(1)
+    expect(freedVoiceCount(song, VOICE, { startMs: 0, endMs: 20_000 }, replaced)).toBe(2)
+    expect(freedVoiceCount(song, VOICE, { startMs: 8500, endMs: 10_000 }, replaced)).toBe(0)
   })
 
   it('clears the voice of the last run in the range and keeps the voice when it becomes empty', () => {

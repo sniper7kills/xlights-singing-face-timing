@@ -17,34 +17,76 @@ export interface DownloadEnvironment {
   /** A browser with no Cache API, for example in an insecure context, gives `undefined`. */
   caches: Pick<CacheStorage, 'open'> | undefined
   fetch: (url: string) => Promise<Response>
+  /** The name of the cache. With no value, the files go into `MODEL_CACHE`. */
+  cacheName?: string
 }
 
 /** The cache of the model files. A new name makes each browser download the files again. */
 export const MODEL_CACHE = 'vocal-separation-models-v1'
 
+/** The bytes of a response body, and the count of bytes that the host sent. */
+type Body = { bytes: Uint8Array<ArrayBuffer>; received: number }
+
+/**
+ * Returns the body of a response in one buffer of the expected size.
+ * The function writes each part into that buffer at once, so a file of 864 MB never has a second full copy in a list of parts.
+ * A body that is too large keeps its first `expected` bytes, and `received` gives the true count for the size check.
+ */
 async function readBody(
   response: Response,
+  expected: number,
   onBytes: (bytes: number) => void,
-): Promise<Uint8Array<ArrayBuffer>[]> {
-  if (response.body === null) return [new Uint8Array(await response.arrayBuffer())]
+): Promise<Body> {
+  if (response.body === null) {
+    const bytes = new Uint8Array(await response.arrayBuffer())
+    return { bytes, received: bytes.byteLength }
+  }
   const reader = response.body.getReader()
-  const parts: Uint8Array<ArrayBuffer>[] = []
+  const bytes = allocate(expected)
+  let received = 0
   for (;;) {
     const { done, value } = await reader.read()
-    if (done) return parts
-    parts.push(value)
+    if (done) return { bytes, received }
+    if (received + value.byteLength <= expected) bytes.set(value, received)
+    received += value.byteLength
     onBytes(value.byteLength)
   }
 }
 
-function concatenate(parts: readonly Uint8Array[]): Uint8Array<ArrayBuffer> {
-  const bytes = new Uint8Array(parts.reduce((sum, part) => sum + part.byteLength, 0))
-  let offset = 0
-  for (const part of parts) {
-    bytes.set(part, offset)
-    offset += part.byteLength
+function isRangeError(error: unknown): boolean {
+  return (
+    typeof error === 'object' && error !== null && 'name' in error && error.name === 'RangeError'
+  )
+}
+
+/**
+ * Returns a new buffer of the size.
+ * Throws a `SeparationFailure` of kind 'memory' when the browser cannot give the buffer, because that is not a failure of the download.
+ */
+function allocate(size: number): Uint8Array<ArrayBuffer> {
+  try {
+    return new Uint8Array(size)
+  } catch (error) {
+    // The name, not `instanceof`, because the error can come from another realm, for example a test environment.
+    if (!isRangeError(error)) throw error
+    throw new SeparationFailure('memory', `The browser cannot give a buffer of ${size} bytes.`)
   }
-  return bytes
+}
+
+/**
+ * Throws a `SeparationFailure` of kind 'download' when the headers show that the body is not the file.
+ * The check comes before the buffer of the full size, so a short wrong body, for example an HTML page, costs no large buffer.
+ */
+function checkHeaders(response: Response, file: ModelFile): void {
+  const length = response.headers.get('Content-Length')
+  // With a content coding, the length counts the coded bytes and not the bytes of the file.
+  const encoding = response.headers.get('Content-Encoding') ?? 'identity'
+  if (length !== null && encoding === 'identity' && Number(length) !== file.bytes) {
+    throw new SeparationFailure('download', `${file.url} has ${length} bytes, not ${file.bytes}.`)
+  }
+  if (/^text\/html\b/i.test(response.headers.get('Content-Type') ?? '')) {
+    throw new SeparationFailure('download', `The host answered with an HTML page for ${file.url}.`)
+  }
 }
 
 async function download(
@@ -58,15 +100,18 @@ async function download(
   if (!response.ok) {
     throw new SeparationFailure('download', `The host answered ${response.status} for ${file.url}.`)
   }
-  const parts = await readBody(response, onBytes).catch((error: unknown) => {
-    throw new SeparationFailure('download', `The download of ${file.url} stopped: ${String(error)}`)
-  })
-  const bytes = concatenate(parts)
-  if (bytes.byteLength !== file.bytes) {
-    throw new SeparationFailure(
-      'download',
-      `${file.url} has ${bytes.byteLength} bytes, not ${file.bytes}.`,
-    )
+  checkHeaders(response, file)
+  const { bytes, received } = await readBody(response, file.bytes, onBytes).catch(
+    (error: unknown) => {
+      if (error instanceof SeparationFailure) throw error
+      throw new SeparationFailure(
+        'download',
+        `The download of ${file.url} stopped: ${String(error)}`,
+      )
+    },
+  )
+  if (received !== file.bytes || bytes.byteLength !== file.bytes) {
+    throw new SeparationFailure('download', `${file.url} has ${received} bytes, not ${file.bytes}.`)
   }
   await checkHash(file, bytes)
   return bytes
@@ -88,8 +133,8 @@ async function checkHash(file: ModelFile, bytes: Uint8Array<ArrayBuffer>): Promi
 }
 
 // A private window or blocked site data makes each cache call reject, and the run then uses the bytes in memory.
-async function openCache(caches: DownloadEnvironment['caches']): Promise<Cache | undefined> {
-  return caches?.open(MODEL_CACHE).catch(() => undefined)
+async function openCache(environment: DownloadEnvironment): Promise<Cache | undefined> {
+  return environment.caches?.open(environment.cacheName ?? MODEL_CACHE).catch(() => undefined)
 }
 
 /** Returns the cached contents of a file, or `undefined` for a miss or a cache that fails. */
@@ -121,6 +166,8 @@ async function writeCached(
  * @param onDownload Receives the downloaded bytes and the size of the missing files. A run with all files in the cache calls it never.
  * @param environment The cache storage and the `fetch` function.
  * Rejects with a `SeparationFailure` of kind 'download' when a download fails, or has the wrong size or the wrong hash.
+ * A response with a `Content-Length` of another size, or with the type `text/html`, fails before the download of its body.
+ * Rejects with a `SeparationFailure` of kind 'memory' when the browser cannot give the buffer of the file.
  * A cache that fails never rejects the call.
  */
 export async function loadModelFiles(
@@ -128,7 +175,7 @@ export async function loadModelFiles(
   onDownload: (loadedBytes: number, totalBytes: number) => void,
   environment: DownloadEnvironment,
 ): Promise<ArrayBuffer[]> {
-  const cache = await openCache(environment.caches)
+  const cache = await openCache(environment)
   const cached = await Promise.all(files.map((file) => readCached(cache, file)))
   const totalBytes = files.reduce((sum, file, index) => sum + (cached[index] ? 0 : file.bytes), 0)
   let loadedBytes = 0

@@ -23,7 +23,8 @@ function trackFile(
 }
 
 /**
- * Returns the files of the last run of a song for its zip file: `tracks/vocals.wav` and `tracks/instruments.wav` when the run kept the tracks, then `report.txt`.
+ * Returns the files of the last run of a song for its zip file: `tracks/vocals.wav` and `tracks/instruments.wav` when the run kept the tracks,
+ * `tracks/singer-1.wav` and `tracks/singer-2.wav` when the run also split the singers, then `report.txt`.
  * A song with no run data gives no file.
  * @param runData The data of the last run of the song.
  * @param wav Returns the bytes of the WAV file of a track. The size note gives empty bytes and counts `trackWavBytes`, so it converts no audio.
@@ -40,6 +41,9 @@ export function runArchiveFiles(
       : [
           trackFile('vocals.wav', 'vocals', tracks.vocals, wav),
           trackFile('instruments.wav', 'instruments', tracks.instruments, wav),
+          ...(tracks.split ?? []).map((track, index) =>
+            trackFile(`singer-${index + 1}.wav`, `singer track ${index + 1}`, track, wav),
+          ),
         ]
   const report: ArchiveFile = {
     folder: null,

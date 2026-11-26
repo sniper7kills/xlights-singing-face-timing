@@ -46,10 +46,13 @@ function clearedMarks(marks: Mark[], voiceIds: readonly string[], range: TimeRan
   )
 }
 
-/** A voice that a transcribe run clears in its range, besides the voice of the run. */
+/** A voice that a transcribe run clears in its range. */
 export type ReplacedVoice = {
   voiceId: string
-  /** True for a singer voice of the last run. It goes when this step removes its last mark. */
+  /**
+   * True for a voice that the last run made: a singer voice or a voice of a singer split.
+   * It goes when this step removes its last mark. The voice of the run goes by this rule too.
+   */
   removable: boolean
 }
 
@@ -75,24 +78,56 @@ function emptiedVoiceIds(
   )
 }
 
+/** Returns the marks after the step and the ids of the voices that the step removes. See `replaceStep`. */
+function replacePlan(
+  content: SongContent,
+  voiceId: string,
+  range: TimeRange,
+  newMarks: Mark[],
+  replacedVoices: readonly ReplacedVoice[],
+): { marks: Mark[]; emptied: Set<string> } {
+  const known = replacedVoices.filter((item) =>
+    content.voices.some((voice) => voice.id === item.voiceId),
+  )
+  const cleared = [
+    ...known.filter((item) => item.voiceId !== voiceId).map((item) => item.voiceId),
+    voiceId,
+  ]
+  const marks = [...clearedMarks(content.marks, cleared, range), ...newMarks]
+  // A voice of the last run that this step empties goes, so the run can use its name again.
+  return { marks, emptied: emptiedVoiceIds(known, content.marks, marks) }
+}
+
 /**
- * Returns the content with the range of each voice cleared, the emptied singer voices removed, and the new marks added.
+ * Returns the count of voices that a step with no new marks removes: the removable voices that the clear of the range empties.
+ * A run with the singer split writes no mark on the voices that it clears, so the count is the count of voices that it frees.
+ * The room check before the run and the write after it use this one rule, so they cannot disagree.
+ * @param content The open song.
+ * @param voiceId The voice of the run.
+ * @param range The target range of the run.
+ * @param replacedVoices The voices of the last run that the run replaces.
+ */
+export function freedVoiceCount(
+  content: SongContent,
+  voiceId: string,
+  range: TimeRange,
+  replacedVoices: readonly ReplacedVoice[],
+): number {
+  return replacePlan(content, voiceId, range, [], replacedVoices).emptied.size
+}
+
+/**
+ * Returns the content with the range of each voice cleared, the emptied voices of the last run removed, and the new marks added.
  * Returns the input when no mark and no voice changes, so the store records no step.
  */
-function replaceStep(
+export function replaceStep(
   content: SongContent,
   voiceId: string,
   range: TimeRange,
   newMarks: Mark[],
   replacedVoices: readonly ReplacedVoice[],
 ): SongContent {
-  const replaced = replacedVoices.filter(
-    (item) => item.voiceId !== voiceId && content.voices.some((voice) => voice.id === item.voiceId),
-  )
-  const cleared = [...replaced.map((item) => item.voiceId), voiceId]
-  const marks = [...clearedMarks(content.marks, cleared, range), ...newMarks]
-  // A singer voice that this step empties goes, so the singer step of the run can use its name again.
-  const emptied = emptiedVoiceIds(replaced, content.marks, marks)
+  const { marks, emptied } = replacePlan(content, voiceId, range, newMarks, replacedVoices)
   const unchanged =
     emptied.size === 0 &&
     marks.length === content.marks.length &&
@@ -110,12 +145,13 @@ function replaceStep(
  * A word that overlaps the range goes with its phonemes. A phrase that overlaps the range keeps its words outside the range.
  * See `previewRangeClear` for the full rules.
  * With `replacedVoices`, the same step clears the range on each of those voices by the same rules.
- * It removes each removable voice from which the step removed its last mark. The other voices get `order` 0, 1, 2 again.
+ * It removes each removable voice from which the step removed its last mark. The voice of the run goes by this rule too,
+ * when `replacedVoices` holds it as removable and the step writes no mark on it. The other voices get `order` 0, 1, 2 again.
  * The marks of other voices do not change.
  * @param voiceId The voice that receives the marks.
  * @param range The target range. For a full-song run, the range is the full song.
  * @param newMarks The marks that the run creates, inside the range, with their phrase, word and phoneme parents set.
- * @param replacedVoices The voices of the last run that the run replaces. An unknown id and the id of `voiceId` change nothing.
+ * @param replacedVoices The voices of the last run that the run replaces. An unknown id changes nothing.
  * Returns false when the open song has no voice with the id. The marks then do not change and the store records no step.
  */
 export function replaceMarksInRange(

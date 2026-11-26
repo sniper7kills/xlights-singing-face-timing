@@ -119,13 +119,37 @@ This option is experimental. The app estimates which singer sings each phrase. I
 
 ![The options for vocal separation and singers](images/02-transcribe/02-separation-and-singers.png)
 
+## Split the singers (experimental)
+
+This option is experimental. The app divides the vocals into two singer tracks. It then finds the words of each track and puts each track on its own new voice. The marks of the two voices can overlap in time, so this option works where two people sing at the same time.
+
+- The option needs "Separate the vocals first". The window states this under the disabled option.
+- The option needs WebGPU. In a browser with no WebGPU, the option is disabled. The window shows "This browser has no WebGPU. The singer split needs it."
+- "Split mode" has the choices "Male and female" and "Lead and backing". "Male and female" makes the voices "Female" and "Male". "Lead and backing" makes the voices "Lead" and "Backing".
+- The first run of a mode downloads its model one time. "Male and female" downloads 267 MB. "Lead and backing" downloads 864 MB. The window shows the size under "Split mode".
+- The two models come from other authors. The "How it works" card of the song library names each model, its author and its source.
+  - "Male and female" uses the BS-RoFormer male and female vocals model by aufr33, from the model list of python-audio-separator. The author states no licence. This project converted the model from PyTorch to ONNX with float16 weights. The project did not train the model.
+  - "Lead and backing" uses the Mel-Band RoFormer karaoke model by becruily, from https://huggingface.co/becruily/mel-band-roformer-karaoke. The author states no licence. This project converted the model from PyTorch to ONNX with float16 weights. The project did not train the model.
+- The "Lead and backing" model needs about 2 GB of memory. If the browser does not have enough memory, the window shows a message. Close other tabs and select "Retry", or select "Male and female".
+- The option and "Put each singer on its own voice (experimental)" exclude each other. When you select one, the app clears the other.
+- The app cannot tell which lyrics line belongs to which singer. So the lyrics field is disabled, and the window shows "Lyrics are not used when the singers are split."
+- With a remote endpoint, the app sends two requests, one for each singer track. The window states this before the run.
+- With "Keep the separated tracks" on, the editor shows each singer track as a track row with the name of its voice.
+- The song needs room for two more voices. A song has 12 voices at most. A voice that the last run made counts as free only when the new run removes all its marks.
+- If a singer track has no words, the run makes no voice for it. The toast states it, for example "16 words on 1 voice, 0 estimated. The track "Male" has no words." In the run report, that track shows "No voice" and 0 words.
+- If you start a run with the singer split on a voice that the last run made, for example "Female", the run replaces that voice too. A voice that you made stays.
+
+One undo removes the result of the run, with the new voices. The run report has the section "Singer split" with the mode and the count of words of each singer track.
+
 ### Which options do I need?
 
 | Case | Options |
 |---|---|
 | A solo song | Select a speech model. Paste the lyrics if you have them. Leave the other options off. |
 | A song with loud instruments | Select "Separate the vocals first". Keep "Fast (Spleeter, 79 MB)". |
-| A lead singer and a chorus | Select "Separate the vocals first". Select "Put each singer on its own voice (experimental)". Select "2" in "Singers". Select "small" if the chorus lines are missing. |
+| A lead singer and a chorus that take turns | Select "Separate the vocals first". Select "Put each singer on its own voice (experimental)". Select "2" in "Singers". Select "small" if the chorus lines are missing. |
+| A lead singer and a chorus that sing at the same time | Select "Separate the vocals first". Select "Split the singers (experimental)". Select "Lead and backing". |
+| Two people who sing at the same time | Select "Separate the vocals first". Select "Split the singers (experimental)". For a man and a woman, keep "Male and female". |
 
 ## What the progress texts mean
 
@@ -143,6 +167,8 @@ This option is experimental. The app estimates which singer sings each phrase. I
 | "Aligning lyrics and breaking down words" | The app matches the words with the lyrics and makes the phonemes. |
 | "Loading singer model", "Downloading singer model" | The app prepares the singer step. |
 | "Finding the singers" | The app estimates the singers. |
+| "Loading singer split model", "Downloading singer split model" | The app prepares the singer split. |
+| "Splitting the singers" | The app divides the vocals into two singer tracks. The text shows a percentage. |
 
 A bar that has no end means that the app cannot tell the time that remains. "Cancel" is on during each step. "Escape" during a run only moves the focus to "Cancel". The window shows "Select Cancel to stop the run."
 
@@ -152,7 +178,7 @@ A bar that has no end means that the app cannot tell the time that remains. "Can
 
 If the range has marks of the shown voice, the window asks before the run. For example, "The run replaces the 70 marks of "Lead Vocals" from 0:00.000 to 0:28.900." Select "Continue" to replace the marks. Select "Cancel" to change nothing.
 
-If the last run wrote marks to other voices, for example singer voices, the question names those voices too. It also names the voice of the last run when you run on a different voice. A run with no singer step leaves those voices as they are. The question then adds "The voices of the last singer step do not change."
+If the last run wrote marks to other voices, for example singer voices, the question names those voices too. It also names the voice of the last run when you run on a different voice. A run with no singer step and no singer split leaves those voices as they are. The question then adds "The singer voices of the last run do not change."
 
 ![The replace question](images/02-transcribe/06-replace-question.png)
 

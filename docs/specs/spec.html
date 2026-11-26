@@ -181,7 +181,7 @@ body.rv-open .layout { padding-right:21rem; }
 <tr><td>person</td><td>noun</td><td>The human who uses the app.</td><td>user, sequencer, customer</td></tr>
 <tr><td>song</td><td>noun</td><td>One audio file plus all voices, sections and marks that belong to it. The app saves a song in the browser.</td><td>project, session, document</td></tr>
 <tr><td>audio file</td><td>noun</td><td>The file that the person loads. It holds the recording.</td><td>track, media, upload</td></tr>
-<tr><td>audio track</td><td>noun</td><td>One audio signal of a song: the song audio, the vocals or the instruments. A timing track is a different term: it holds marks, not audio.</td><td>stem, channel</td></tr>
+<tr><td>audio track</td><td>noun</td><td>One audio signal of a song: the song audio, the vocals, the instruments or a singer track. A timing track is a different term: it holds marks, not audio.</td><td>stem, channel</td></tr>
 <tr><td>track row</td><td>noun</td><td>One row of the stage under the waveform that shows one audio track, with "Mute" and "Solo". A layer is a different term: it holds marks.</td><td>lane, strip</td></tr>
 <tr><td>side panel</td><td>noun</td><td>The voice rail or the inspector of the editor. The person folds each one, so the stage gets the width.</td><td>sidebar, drawer, pane</td></tr>
 <tr><td>solo</td><td>verb</td><td>To make one track row or more the only rows that sound.</td><td>isolate</td></tr>
@@ -210,6 +210,8 @@ body.rv-open .layout { padding-right:21rem; }
 <tr><td>run report</td><td>noun</td><td>The record of what the last transcribe run of a song did: the source, the models, the counts, the time of each step, the singer diagnostics, and each warning and failure. It holds no lyrics.</td><td>debug info, log, run log</td></tr>
 <tr><td>build</td><td>noun</td><td>The short git commit of the version of the app, for example <code>abc1234</code>. The run report and the song library show it.</td><td>version number, release</td></tr>
 <tr><td>vocal separation</td><td>noun</td><td>The step that removes the instruments from the audio before a transcribe run.</td><td>stem split, demix, isolation</td></tr>
+<tr><td>singer split</td><td>noun</td><td>The step of a transcribe run that divides the separated vocals into two singer tracks, and puts the words of each track on its own voice.</td><td>stem split, voice split, diarization</td></tr>
+<tr><td>singer track</td><td>noun</td><td>One of the two audio tracks that the singer split gives, for example the female singer or the backing singers.</td><td>stem, singer stem</td></tr>
 <tr><td>transcribe</td><td>verb</td><td>To run the speech model on the audio file and get words with times.</td><td>recognise, sync, analyse</td></tr>
 <tr><td>align</td><td>verb</td><td>To match the transcribed words with lyrics that the person supplies.</td><td>reconcile, merge</td></tr>
 <tr><td>break down</td><td>verb</td><td>To convert a word into phonemes.</td><td>split, expand, decompose</td></tr>

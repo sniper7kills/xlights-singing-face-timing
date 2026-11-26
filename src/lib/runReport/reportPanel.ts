@@ -10,11 +10,13 @@ import {
   type RunReport,
   type SingerSection,
   selectedSingersText,
+  type SplitSection,
   type StepDurations,
   stepTimes,
   type VoicePhrases,
 } from './runReport.ts'
 import { singerSummary } from './singerSummary.ts'
+import { SPLIT_MODE_TEXT } from '../singers/splitRules.ts'
 
 /** One fact of a panel section: a label and its value with the unit. */
 export type PanelFact = { label: string; value: string }
@@ -297,7 +299,23 @@ function assignmentFacts(singers: SingerSection): PanelFact[] {
   ]
 }
 
-function singerSection(singers: SingerSection): PanelSection {
+/** The text of the Singers section of a run with the singer split, which excludes the singer step. */
+export const SPLIT_SINGERS_TEXT = 'The run split the singers, so the singer step did not run.'
+
+/** The summary of a run with the singer split. */
+export const SPLIT_SUMMARY =
+  'The run divided the vocals into two singer tracks, and put the words of each track on its own voice.'
+
+/**
+ * Returns the summary at the top of the copied report: the summary of the singer split, or of the singer step.
+ * @param report The stored report of a run.
+ */
+export function reportSummary(report: RunReport): string[] {
+  return report.split === undefined ? singerSummary(report.singers) : [SPLIT_SUMMARY]
+}
+
+function singerSection(singers: SingerSection, split: boolean): PanelSection {
+  if (split) return section('Singers', { text: SPLIT_SINGERS_TEXT })
   const text = singerSummary(singers).join(' ')
   if (singers.status === 'option-off' || singers.status === 'no-vocals')
     return section('Singers', { text })
@@ -346,6 +364,28 @@ function voiceSection(report: RunReport, present: readonly NamedVoice[] | undefi
   })
 }
 
+/** The voice cell of a singer track with no word. Such a track makes no voice. */
+export const NO_VOICE_TEXT = 'No voice'
+
+/** Returns the section of the singer split: the mode, and each singer track with its voice and its count of words. */
+function splitSection(split: SplitSection): PanelSection {
+  return section('Singer split', {
+    text: SPLIT_SUMMARY,
+    facts: [{ label: 'Split mode', value: SPLIT_MODE_TEXT[split.mode] }],
+    tables: [
+      {
+        caption: 'The singer tracks',
+        columns: ['Track', 'Voice', 'Words'],
+        rows: split.tracks.map((track, index) => [
+          String(index + 1),
+          track.voiceName === '' ? NO_VOICE_TEXT : track.voiceName,
+          String(track.wordCount),
+        ]),
+      },
+    ],
+  })
+}
+
 function markSection(report: RunReport): PanelSection {
   return section('Marks', {
     facts: [
@@ -382,7 +422,8 @@ export function reportPanel(
     runSection(report, formatDate),
     stepSection(report.durationsMs),
     separationSection(report),
-    singerSection(report.singers),
+    ...(report.split === undefined ? [] : [splitSection(report.split)]),
+    singerSection(report.singers, report.split !== undefined),
     voiceSection(report, voices),
     markSection(report),
     noteSection(report),

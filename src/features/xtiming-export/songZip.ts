@@ -50,7 +50,9 @@ function entries(
 /** Returns the bytes of the WAV files of the kept audio tracks of the song, or 0 when the song has none. */
 function trackBytes(source: ZipSource): number {
   const tracks = source.runData?.tracks
-  return tracks === undefined ? 0 : trackWavBytes(tracks.vocals) + trackWavBytes(tracks.instruments)
+  if (tracks === undefined) return 0
+  const all = [tracks.vocals, tracks.instruments, ...(tracks.split ?? [])]
+  return all.reduce((sum, track) => sum + trackWavBytes(track), 0)
 }
 
 /**

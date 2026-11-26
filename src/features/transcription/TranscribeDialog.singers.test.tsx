@@ -109,7 +109,8 @@ describe('TranscribeDialog and the singer voices', () => {
     expect(box).not.toBeChecked()
     expect(box).toBeDisabled()
     expect(box).toHaveAccessibleDescription(`${HINT} ${NOTE}`)
-    expect(screen.getByText(HINT)).toBeInTheDocument()
+    // "Split the singers" shows the same hint, so the dialog has two.
+    expect(screen.getAllByText(HINT)).toHaveLength(2)
     expect(screen.getByText(NOTE)).toBeInTheDocument()
   })
 

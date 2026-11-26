@@ -88,6 +88,30 @@ export function HowItWorks() {
         </ExternalLink>{' '}
         model of pyannote (MIT).
       </p>
+      {/* The maintainer ruled on 2026-11-25 to ship the two models with this attribution. See docs/adr/0011. */}
+      <p className="card-note">
+        The singer split option uses the BS-RoFormer male and female vocals model by aufr33, from
+        the model list of{' '}
+        <ExternalLink href="https://github.com/karaokenerds/python-audio-separator">
+          python-audio-separator
+        </ExternalLink>
+        . The author states no licence. This project converted the model from PyTorch to ONNX with
+        float16 weights. The project did not train the model.
+      </p>
+      <p className="card-note">
+        The singer split option also uses the{' '}
+        <ExternalLink href="https://huggingface.co/becruily/mel-band-roformer-karaoke">
+          Mel-Band RoFormer karaoke model
+        </ExternalLink>{' '}
+        by becruily, from its Hugging Face page. The author states no licence. This project
+        converted the model from PyTorch to ONNX with float16 weights. The project did not train the
+        model.
+      </p>
+      <p className="card-note">
+        The STFT is outside each model. The{' '}
+        <ExternalLink href="models/NOTICE.txt">model notice</ExternalLink> gives the source and the
+        SHA-256 of each file.
+      </p>
     </section>
   )
 }
