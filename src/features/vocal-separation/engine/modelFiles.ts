@@ -54,7 +54,9 @@ async function readBody(
 }
 
 function isRangeError(error: unknown): boolean {
-  return typeof error === 'object' && error !== null && 'name' in error && error.name === 'RangeError'
+  return (
+    typeof error === 'object' && error !== null && 'name' in error && error.name === 'RangeError'
+  )
 }
 
 /**

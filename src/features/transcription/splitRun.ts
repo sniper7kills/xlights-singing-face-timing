@@ -7,10 +7,10 @@ import {
   type SplitMode,
 } from '../../lib/singers/splitRules.ts'
 import type { TimeRange } from '../../lib/time/timeRange.ts'
-import type { ReplacedVoice } from '../../store/actions/replaceMarksInRange.ts'
+import { freedVoiceCount, type ReplacedVoice } from '../../store/actions/replaceMarksInRange.ts'
 import { writeSplitRun } from '../../store/actions/splitVoices.ts'
 import { useSongStore } from '../../store/songStore.ts'
-import type { Mark } from '../../store/types.ts'
+import type { Mark, SongContent } from '../../store/types.ts'
 import { SplitError, splitSingers } from '../singer-split/splitClient.ts'
 import { resampleSeparated } from '../vocal-separation/separationAudio.ts'
 import { SPEECH_SAMPLE_RATE } from './protocol.ts'
@@ -27,11 +27,20 @@ export class NoSplitRoomError extends Error {
 
 /**
  * Rejects before the run starts when the song has no room for the two voices of the singer split.
- * @param voiceCount The count of voices of the song.
- * @param removableCount The count of voices that the last run added. The run removes each of them that it empties.
+ * A voice of the last run counts as free only when the clear of the range empties it. `writeSplitRun` uses the same rule.
+ * @param content The open song.
+ * @param voiceId The voice of the run.
+ * @param range The target range of the run.
+ * @param replaced The voices of the last run that the run replaces.
  */
-export function checkSplitRoom(voiceCount: number, removableCount: number): void {
-  if (!hasRoomForSplit(voiceCount, removableCount)) throw new NoSplitRoomError()
+export function checkSplitRoom(
+  content: SongContent,
+  voiceId: string,
+  range: TimeRange,
+  replaced: readonly ReplacedVoice[],
+): void {
+  const freed = freedVoiceCount(content, voiceId, range, replaced)
+  if (!hasRoomForSplit(content.voices.length, freed)) throw new NoSplitRoomError()
 }
 
 /** One singer track of a run: its label and its samples at the speech model sample rate. */

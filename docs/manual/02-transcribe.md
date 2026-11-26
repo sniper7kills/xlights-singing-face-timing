@@ -135,9 +135,11 @@ This option is experimental. The app divides the vocals into two singer tracks. 
 - The app cannot tell which lyrics line belongs to which singer. So the lyrics field is disabled, and the window shows "Lyrics are not used when the singers are split."
 - With a remote endpoint, the app sends two requests, one for each singer track. The window states this before the run.
 - With "Keep the separated tracks" on, the editor shows each singer track as a track row with the name of its voice.
-- The song needs room for two more voices. A song has 12 voices at most.
+- The song needs room for two more voices. A song has 12 voices at most. A voice that the last run made counts as free only when the new run removes all its marks.
+- If a singer track has no words, the run makes no voice for it. The toast states it, for example "16 words on 1 voice, 0 estimated. The track "Male" has no words." In the run report, that track shows "No voice" and 0 words.
+- If you start a run with the singer split on a voice that the last run made, for example "Female", the run replaces that voice too. A voice that you made stays.
 
-One undo removes the result of the run, with the two voices. The run report has the section "Singer split" with the mode and the count of words of each singer track.
+One undo removes the result of the run, with the new voices. The run report has the section "Singer split" with the mode and the count of words of each singer track.
 
 ### Which options do I need?
 

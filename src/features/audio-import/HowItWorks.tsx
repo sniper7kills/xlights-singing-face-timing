@@ -104,8 +104,8 @@ export function HowItWorks() {
           Mel-Band RoFormer karaoke model
         </ExternalLink>{' '}
         by becruily, from its Hugging Face page. The author states no licence. This project
-        converted the model from PyTorch to ONNX with float16 weights. The project did not train
-        the model.
+        converted the model from PyTorch to ONNX with float16 weights. The project did not train the
+        model.
       </p>
       <p className="card-note">
         The STFT is outside each model. The{' '}

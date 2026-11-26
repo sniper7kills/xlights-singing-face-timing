@@ -61,10 +61,10 @@ export function orderedTracks<T extends { label: SingerTrackLabel }>(
 /**
  * Returns true when the song has room for the two voices of a singer split.
  * @param voiceCount The count of voices of the song before the run.
- * @param removableCount The count of voices that the run removes first: the voices that the last run added.
+ * @param freedCount The count of voices that the run removes first: the voices of the last run that its clear empties.
  */
-export function hasRoomForSplit(voiceCount: number, removableCount: number): boolean {
-  return voiceCount - removableCount + SPLIT_VOICE_COUNT <= MAX_VOICES
+export function hasRoomForSplit(voiceCount: number, freedCount: number): boolean {
+  return voiceCount - freedCount + SPLIT_VOICE_COUNT <= MAX_VOICES
 }
 
 /** Returns the mean of the two channels, one sample for each sample of the left channel. */

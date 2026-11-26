@@ -26,6 +26,25 @@ describe('the run report of a singer split', () => {
     ])
   })
 
+  it('shows "No voice" and 0 words for a singer track with no words', () => {
+    const report = makeReport({
+      split: {
+        mode: 'male-female',
+        tracks: [
+          { label: 'female', voiceName: 'Female', wordCount: 9 },
+          { label: 'male', voiceName: '', wordCount: 0 },
+        ],
+      },
+    })
+
+    const section = reportPanel(report).find((item) => item.title === 'Singer split')
+
+    expect(section?.tables[0]?.rows).toEqual([
+      ['1', 'Female', '9'],
+      ['2', 'No voice', '0'],
+    ])
+  })
+
   it('puts the section in the copied text', () => {
     const text = reportToText(SPLIT_REPORT, () => 'now')
 

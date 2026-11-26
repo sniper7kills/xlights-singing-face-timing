@@ -14,6 +14,10 @@ function phrase(id: string, voiceId: string, startMs: number, endMs: number): Ma
   return { id, voiceId, layer: 'phrase', label: id, startMs, endMs, parentId: null, edited: false }
 }
 
+function word(id: string, phraseMark: Mark): Mark {
+  return { ...phraseMark, id, layer: 'word', parentId: phraseMark.id }
+}
+
 function open(voices: Voice[], marks: Mark[] = []) {
   const content: SongContent = {
     song: {
@@ -37,10 +41,10 @@ const current = () => {
   return content
 }
 
-const TRACKS = [
-  { name: 'Female', marks: [phrase('a', 'track-0', 1000, 6000)] },
-  { name: 'Male', marks: [phrase('b', 'track-1', 4000, 8000)] },
-]
+const FEMALE_PHRASE = phrase('a', 'track-0', 1000, 6000)
+const MALE_PHRASE = phrase('b', 'track-1', 4000, 8000)
+const FEMALE_TRACK = { name: 'Female', marks: [FEMALE_PHRASE, word('a-word', FEMALE_PHRASE)] }
+const TRACKS = [FEMALE_TRACK, { name: 'Male', marks: [MALE_PHRASE, word('b-word', MALE_PHRASE)] }]
 
 beforeEach(() => {
   open([voice('v1', 'Lead Vocals', 0)], [phrase('old', 'v1', 0, 2000)])
@@ -57,7 +61,9 @@ describe('writeSplitRun', () => {
     expect(current().voices.map((item) => item.name)).toEqual(['Lead Vocals', 'Female', 'Male'])
     expect(current().marks.map((mark) => [mark.id, mark.voiceId])).toEqual([
       ['a', ids?.[0]],
+      ['a-word', ids?.[0]],
       ['b', ids?.[1]],
+      ['b-word', ids?.[1]],
     ])
     expect(new Set(current().voices.map((item) => item.color)).size).toBe(3)
     expect(useSongStore.getState().history.past).toHaveLength(1)
@@ -70,6 +76,33 @@ describe('writeSplitRun', () => {
 
     expect(current().voices.map((item) => item.name)).toEqual(['Lead Vocals', 'Female', 'Male'])
     expect(current().voices.some((item) => item.id === 'f')).toBe(false)
+  })
+
+  it('makes no voice for a track with no word and gives it the id null', () => {
+    const ids = writeSplitRun('v1', RANGE, [FEMALE_TRACK, { name: 'Male', marks: [] }], [])
+
+    expect(current().voices.map((item) => item.name)).toEqual(['Lead Vocals', 'Female'])
+    expect(ids).toEqual([current().voices[1]?.id, null])
+  })
+
+  it('removes the voice of the run when the last run made it and the step empties it', () => {
+    open([voice('v1', 'Lead Vocals', 0), voice('f', 'Female', 1)], [phrase('old', 'f', 0, 2000)])
+    const before = current()
+
+    writeSplitRun('f', RANGE, TRACKS, [{ voiceId: 'f', removable: true }])
+
+    expect(current().voices.map((item) => item.name)).toEqual(['Lead Vocals', 'Female', 'Male'])
+    expect(current().voices.some((item) => item.id === 'f')).toBe(false)
+    useSongStore.getState().undo()
+    expect(current()).toStrictEqual(before)
+  })
+
+  it('keeps the voice of the run that is not removable when the step empties it', () => {
+    open([voice('v1', 'Lead Vocals', 0)], [phrase('old', 'v1', 0, 2000)])
+
+    writeSplitRun('v1', RANGE, TRACKS, [])
+
+    expect(current().voices.map((item) => item.id)).toContain('v1')
   })
 
   it('changes nothing and returns null when the song has no room for two voices', () => {

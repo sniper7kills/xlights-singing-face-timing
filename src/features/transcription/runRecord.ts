@@ -51,8 +51,8 @@ export type RunRecord = {
   singerVoiceIds: string[]
   /** The mode of the singer split, or null when the split did not run. */
   splitMode: SplitSection['mode'] | null
-  /** The ids of the voices that the singer split added, in the order of the singer tracks. */
-  splitVoiceIds: string[]
+  /** The ids of the voices that the singer split added, in the order of the singer tracks. A track with no word has null. */
+  splitVoiceIds: (string | null)[]
   /** Each singer track of the split with its voice and its count of words, or null when the split wrote no marks. */
   split: SplitSection['tracks'] | null
   /** The lyrics lines that the run left out, because the range has no room for their words. */
@@ -259,7 +259,7 @@ function runVoicesOf(
 
 /** Returns the ids of the voices that the run added: the voices of the singer step and of the singer split. */
 function madeIds(record: RunRecord): string[] {
-  return [...record.singerVoiceIds, ...record.splitVoiceIds]
+  return [...record.singerVoiceIds, ...record.splitVoiceIds.filter((id) => id !== null)]
 }
 
 /** Returns the split section of the report, or no field for a run in which the split wrote no marks. */

@@ -43,7 +43,8 @@ export async function loadSplitModel(
     cacheName: SPLIT_MODEL_CACHE,
   }).catch((error: unknown) => {
     // A buffer that the browser cannot give is a memory failure, so the dialog shows the memory message.
-    const kind = error instanceof SeparationFailure && error.kind === 'memory' ? 'memory' : 'download'
+    const kind =
+      error instanceof SeparationFailure && error.kind === 'memory' ? 'memory' : 'download'
     throw new SplitFailure(kind, error instanceof Error ? error.message : String(error))
   })
   if (contents === undefined) throw new SplitFailure('download', `${file.url} gave no contents.`)

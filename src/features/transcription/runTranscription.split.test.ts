@@ -19,6 +19,7 @@ import { SPEECH_SAMPLE_RATE } from './protocol.ts'
 import { postTranscription } from './remoteClient.ts'
 import { resampleForSpeech } from './resample.ts'
 import {
+  NoWordsError,
   runTranscription,
   type TranscribeRequest,
   type TranscribeRunHandlers,
@@ -188,7 +189,7 @@ describe('runTranscription with the singer split', () => {
     expect(marksOn('Lead Vocals', 'phrase')).toEqual([])
     expect(outcome).toMatchObject({
       wordCount: 5,
-      split: { status: 'split', voiceNames: ['Female', 'Male'] },
+      split: { status: 'split', voiceNames: ['Female', 'Male'], emptyTracks: [] },
     })
   })
 
@@ -263,6 +264,95 @@ describe('runTranscription with the singer split', () => {
 
     expect(separateVocals).not.toHaveBeenCalled()
     expect(run.confirmReplace).not.toHaveBeenCalled()
+  })
+
+  it('stops before any transcription when a range run frees no voice of the last run and the song has no room', async () => {
+    await runTranscription(request, fakeClient(), handlers())
+    // The song has 11 voices: "Lead Vocals", "Female", "Male" and 8 more.
+    for (let count = 3; count < MAX_VOICES - 1; count++) addVoice(content().song.id)
+    vi.mocked(separateVocals).mockClear()
+    const client = fakeClient()
+    const run = handlers()
+
+    // The range is outside the marks of "Female" and "Male", so the run empties neither voice.
+    const failure = runTranscription(
+      { ...request, range: { startMs: 8500, endMs: 10_000 } },
+      client,
+      run,
+    )
+
+    await expect(failure).rejects.toBeInstanceOf(NoSplitRoomError)
+    expect(separateVocals).not.toHaveBeenCalled()
+    expect(client.transcribe).not.toHaveBeenCalled()
+    expect(run.confirmReplace).not.toHaveBeenCalled()
+  })
+
+  it('counts the voices of the last run that the range run empties as free', async () => {
+    await runTranscription(request, fakeClient(), handlers())
+    for (let count = 3; count < MAX_VOICES - 1; count++) addVoice(content().song.id)
+
+    await runTranscription(
+      { ...request, range: { startMs: 0, endMs: 10_000 } },
+      fakeClient(),
+      handlers(),
+    )
+
+    expect(voiceNames()).toHaveLength(MAX_VOICES - 1)
+    expect(marksOn('Female', 'phrase')).toHaveLength(1)
+    expect(marksOn('Male', 'phrase')).toHaveLength(1)
+  })
+
+  it('makes no voice for a singer track with no words, and the report counts 0 words for it', async () => {
+    const client = fakeClient()
+    vi.mocked(client.transcribe).mockResolvedValueOnce(FIRST_WORDS).mockResolvedValueOnce([])
+
+    const outcome = await runTranscription({ ...request, keepTracks: true }, client, handlers())
+
+    expect(voiceNames()).toEqual(['Lead Vocals', 'Female'])
+    expect(outcome.split).toEqual({
+      status: 'split',
+      voiceNames: ['Female'],
+      emptyTracks: ['Male'],
+    })
+    const data = await loadRunData(content().song.id)
+    expect(data?.report.split?.tracks).toEqual([
+      { label: 'female', voiceName: 'Female', wordCount: 2 },
+      { label: 'male', voiceName: '', wordCount: 0 },
+    ])
+    expect(data?.voices?.find((entry) => entry.voiceId === voiceId('Female'))).toMatchObject({
+      made: true,
+      splitTrack: 0,
+    })
+  })
+
+  it('rejects with NoWordsError and changes no mark when both singer tracks have no words', async () => {
+    const client = fakeClient()
+    vi.mocked(client.transcribe).mockResolvedValue([])
+
+    await expect(runTranscription(request, client, handlers())).rejects.toBeInstanceOf(NoWordsError)
+    expect(voiceNames()).toEqual(['Lead Vocals'])
+  })
+
+  it('removes the split voice of the last run that a new split run on it empties, and undo restores it', async () => {
+    await runTranscription(request, fakeClient(), handlers())
+    const before = content()
+
+    await runTranscription({ ...request, voiceId: voiceId('Female') }, fakeClient(), handlers())
+
+    expect(voiceNames()).toEqual(['Lead Vocals', 'Female', 'Male'])
+    expect(content().voices.some((voice) => voice.id === before.voices[1]?.id)).toBe(false)
+    useSongStore.getState().undo()
+    expect(content()).toStrictEqual(before)
+  })
+
+  it('keeps the voice of the run that the person made when a split run empties it', async () => {
+    await runTranscription({ ...request, splitSingers: false }, fakeClient(), handlers())
+    expect(marksOn('Lead Vocals', 'phrase').length).toBeGreaterThan(0)
+
+    await runTranscription(request, fakeClient(), handlers())
+
+    expect(voiceNames()).toEqual(['Lead Vocals', 'Female', 'Male'])
+    expect(marksOn('Lead Vocals', 'phrase')).toEqual([])
   })
 
   it('rejects with the failure of the split and changes no mark', async () => {

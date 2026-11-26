@@ -18,11 +18,18 @@ function freeName(voices: readonly Voice[], name: string): string {
   return voiceNameError(voices, null, name) === null ? name : nextVoiceName(voices, name)
 }
 
-/** Returns the content with one new voice and the marks of each track, or null when the song has no room. */
+/**
+ * Returns the content with one new voice and the marks of each track that has a word, or null when the song has no room.
+ * The id of a track with no word is null, because the track makes no voice.
+ */
 function withTrackVoices(content: SongContent, tracks: readonly SplitTrackMarks[]) {
   let next = content
-  const voiceIds: string[] = []
+  const voiceIds: (string | null)[] = []
   for (const track of tracks) {
+    if (!track.marks.some((mark) => mark.layer === 'word')) {
+      voiceIds.push(null)
+      continue
+    }
     const added = addVoiceStep(next, freeName(next.voices, track.name))
     if (added === null) return null
     const voiceId = added.voice.id
@@ -39,14 +46,16 @@ function withTrackVoices(content: SongContent, tracks: readonly SplitTrackMarks[
  * The rules:
  * - The step clears the range on the voice of the run and on each voice of `replacedVoices`, as `replaceMarksInRange` does.
  * - It removes each removable voice from which it removed the last mark.
- * - Then it adds one voice for each track, with the next unused colour, and puts the marks of the track on it.
+ * - Then it adds one voice for each track that has a word, with the next unused colour, and puts the marks of the track on it.
+ *   A track with no word makes no voice.
  * - A voice gets the name of its track. When another voice has the name, it gets the lowest free number, for example "Female 2".
  *
  * @param voiceId The voice of the run.
  * @param range The target range of the run.
  * @param tracks The marks of each singer track, in voice order.
  * @param replacedVoices The voices of the last run that the run replaces.
- * Returns the ids of the new voices, or null when the voice of the run does not exist or the song has no room for each new voice.
+ * Returns the id of the new voice of each track, null for a track with no word,
+ * or null when the voice of the run does not exist or the song has no room for each new voice.
  * The song then does not change and the store records no step.
  */
 export function writeSplitRun(
@@ -54,8 +63,8 @@ export function writeSplitRun(
   range: TimeRange,
   tracks: readonly SplitTrackMarks[],
   replacedVoices: readonly ReplacedVoice[],
-): string[] | null {
-  let voiceIds: string[] | null = null
+): (string | null)[] | null {
+  let voiceIds: (string | null)[] | null = null
   useSongStore.getState().apply((content) => {
     if (!content.voices.some((voice) => voice.id === voiceId)) return content
     const cleared = replaceStep(content, voiceId, range, [], replacedVoices)

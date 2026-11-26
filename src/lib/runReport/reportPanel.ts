@@ -364,6 +364,9 @@ function voiceSection(report: RunReport, present: readonly NamedVoice[] | undefi
   })
 }
 
+/** The voice cell of a singer track with no word. Such a track makes no voice. */
+export const NO_VOICE_TEXT = 'No voice'
+
 /** Returns the section of the singer split: the mode, and each singer track with its voice and its count of words. */
 function splitSection(split: SplitSection): PanelSection {
   return section('Singer split', {
@@ -375,7 +378,7 @@ function splitSection(split: SplitSection): PanelSection {
         columns: ['Track', 'Voice', 'Words'],
         rows: split.tracks.map((track, index) => [
           String(index + 1),
-          track.voiceName,
+          track.voiceName === '' ? NO_VOICE_TEXT : track.voiceName,
           String(track.wordCount),
         ]),
       },
