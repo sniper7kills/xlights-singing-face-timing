@@ -10,7 +10,13 @@ import {
   setShownRows,
   useTrackMixStore,
 } from '../../store/trackMixStore.ts'
-import { type TrackRow, trackRows } from '../../store/trackRows.ts'
+import {
+  type TrackKey,
+  trackKeys,
+  trackOf,
+  type TrackRow,
+  trackRows,
+} from '../../store/trackRows.ts'
 import type { KeptTracks, Mark, Voice } from '../../store/types.ts'
 import {
   RUN_DATA_FAILED,
@@ -31,7 +37,7 @@ export const START_NOTE = 'The tracks start muted. Select "Solo" on a track to h
 const NO_VOICES: readonly Voice[] = []
 const NO_MARKS: readonly Mark[] = []
 
-type TrackName = keyof KeptTracks
+type TrackName = TrackKey
 
 /**
  * Returns the peaks of each kept track. The app computes one track in each task, so a long song does not block a frame
@@ -45,10 +51,11 @@ function useTrackPeaks(tracks: KeptTracks | undefined): Partial<Record<TrackName
   useEffect(() => {
     if (tracks === undefined) return
     const timers: number[] = []
-    for (const name of ['vocals', 'instruments'] as const)
+    for (const name of trackKeys(tracks))
       timers.push(
         window.setTimeout(() => {
-          const track = tracks[name]
+          const track = trackOf(tracks, name)
+          if (track === undefined) return
           const value: TrackPeaks = {
             levels: peakLevels(track.samples),
             sampleRate: track.sampleRate,
@@ -67,23 +74,22 @@ function useTrackPeaks(tracks: KeptTracks | undefined): Partial<Record<TrackName
 }
 
 /** Returns a Blob URL of a WAV file for each kept track, and revokes the URLs when the tracks change or the rows go. */
-function useTrackUrls(tracks: KeptTracks | undefined): Record<TrackName, string> | null {
-  const [urls, setUrls] = useState<{ tracks: KeptTracks; value: Record<TrackName, string> } | null>(
-    null,
-  )
+function useTrackUrls(tracks: KeptTracks | undefined): Partial<Record<TrackName, string>> | null {
+  const [urls, setUrls] = useState<{
+    tracks: KeptTracks
+    value: Partial<Record<TrackName, string>>
+  } | null>(null)
   useEffect(() => {
     if (tracks === undefined) return
-    const value = {
-      vocals: URL.createObjectURL(new Blob([trackToWav(tracks.vocals)], { type: 'audio/wav' })),
-      instruments: URL.createObjectURL(
-        new Blob([trackToWav(tracks.instruments)], { type: 'audio/wav' }),
-      ),
-    }
+    const entries = trackKeys(tracks).flatMap((key) => {
+      const track = trackOf(tracks, key)
+      if (track === undefined) return []
+      const url = URL.createObjectURL(new Blob([trackToWav(track)], { type: 'audio/wav' }))
+      return [[key, url] as const]
+    })
+    const value: Partial<Record<TrackName, string>> = Object.fromEntries(entries)
     setUrls({ tracks, value })
-    return () => {
-      URL.revokeObjectURL(value.vocals)
-      URL.revokeObjectURL(value.instruments)
-    }
+    return () => entries.forEach(([, url]) => URL.revokeObjectURL(url))
   }, [tracks])
   return urls !== null && urls.tracks === tracks ? urls.value : null
 }
@@ -96,8 +102,8 @@ function followersOf(
 ): FollowerTrack[] {
   return rows.flatMap((row) => {
     const media = elements.get(row.id)
-    const track = tracks[row.track]
-    return media === undefined
+    const track = trackOf(tracks, row.track)
+    return media === undefined || track === undefined
       ? []
       : [
           {
@@ -120,7 +126,7 @@ function followersOf(
 function useMixer(
   rows: readonly TrackRow[],
   tracks: KeptTracks | undefined,
-  urls: Record<TrackName, string> | null,
+  urls: Partial<Record<TrackName, string>> | null,
   elements: Map<string, HTMLAudioElement>,
 ) {
   const leader = usePlayerStore((state) => state.player?.media)

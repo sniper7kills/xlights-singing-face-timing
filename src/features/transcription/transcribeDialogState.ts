@@ -21,6 +21,9 @@ import { SINGER_MODEL_BYTES } from '../singer-voices/engine/singerModelBytes.ts'
 import { separationModelMb } from '../vocal-separation/engine/separationModels.ts'
 import type { SeparationModelId } from '../vocal-separation/protocol.ts'
 import type { AppSettings } from '../../store/types.ts'
+import { SplitError } from '../singer-split/splitClient.ts'
+import { NoSplitRoomError } from './splitRun.ts'
+import type { SplitOutcome } from './runTranscription.ts'
 
 /**
  * A state in which a transcribe run is active and the dialog shows its progress.
@@ -43,6 +46,9 @@ export type RunState =
   | { status: 'singers-downloading'; percent: number }
   | { status: 'singers-started' }
   | { status: 'finding-singers'; doneMs: number; totalMs: number }
+  | { status: 'split-loading' }
+  | { status: 'split-downloading'; percent: number }
+  | { status: 'splitting'; percent: number }
 
 /** The state of the transcribe dialog. The dialog closes in the state `done`. */
 export type DialogState =
@@ -72,6 +78,8 @@ export type DialogEvent =
   | { type: 'confirm-no-separation'; error: unknown; model?: SeparationModelId }
   | { type: 'singers-download'; percent: number }
   | { type: 'singers-progress'; doneMs: number; totalMs: number }
+  | { type: 'split-download'; percent: number }
+  | { type: 'split-progress'; percent: number }
   | { type: 'upload'; percent: number }
   | { type: 'progress'; doneMs: number; totalMs: number }
   | { type: 'finishing' }
@@ -156,9 +164,38 @@ export function remoteErrorMessage(error: RemoteError, origin: string): string {
   return REMOTE_COPY[error.kind](error, origin)
 }
 
+/**
+ * The copy of each failure of the singer split, from the edge case table in docs/specs/features/02-transcription.md.
+ * `model` and `unknown` share one message.
+ */
+export const SPLIT_COPY = {
+  download:
+    'The app could not download the singer split model. Check the connection and select Retry.',
+  memory:
+    'This browser does not have enough memory to split the singers of this song. Select a shorter time range, or turn off "Split the singers".',
+  'not-available':
+    'This version of the app cannot split the singers yet. Turn off "Split the singers" and select Retry.',
+  failed: 'The app could not split the singers. Turn off "Split the singers" and select Retry.',
+  noRoom: `A song has ${MAX_VOICES} voices at most, and the singer split adds 2 voices. Delete a voice, or turn off "Split the singers".`,
+} as const
+
+/** Returns the message of a failed singer split. */
+function splitErrorMessage(error: SplitError): string {
+  switch (error.kind) {
+    case 'download':
+    case 'memory':
+    case 'not-available':
+      return SPLIT_COPY[error.kind]
+    default:
+      return SPLIT_COPY.failed
+  }
+}
+
 /** Returns the message that the dialog shows for a failed run. */
 export function errorMessage(error: unknown): string {
   if (error instanceof RemoteError) return remoteErrorMessage(error, globalThis.location.origin)
+  if (error instanceof SplitError) return splitErrorMessage(error)
+  if (error instanceof NoSplitRoomError) return SPLIT_COPY.noRoom
   if (error instanceof NoWordsError) return ERROR_COPY.noWords
   if (error instanceof TranscribeError && error.kind === 'download') return ERROR_COPY.download
   if (error instanceof TranscribeError && error.kind === 'memory') return ERROR_COPY.memory
@@ -223,7 +260,21 @@ export const SINGER_NOTE = `The app estimates which singer sings each phrase, an
 /** The note of the "Singers" choice under the check box "Put each singer on its own voice". */
 export const SINGER_COUNT_NOTE = 'Select the count if you know it. The result is better.'
 
-/** The hint of the check box "Put each singer on its own voice" while "Separate the vocals first" is off. */
+/** The note under the check box "Split the singers". */
+export const SPLIT_NOTE =
+  'The app divides the vocals into two singer tracks. It puts the words of each track on its own new voice. The marks of the two voices can overlap in time.'
+
+/** The reason under the disabled check box "Split the singers" on a browser with no WebGPU adapter. */
+export const SPLIT_WEBGPU_REASON = 'This browser has no WebGPU. The singer split needs it.'
+
+/** The reason under the disabled lyrics field while the singer split is on. */
+export const LYRICS_SPLIT_REASON = 'Lyrics are not used when the singers are split.'
+
+/** Returns the note of a remote run with the singer split: the run sends two requests. */
+export function splitRemoteNote(host: string): string {
+  return `The app sends two requests to ${host}, one for each singer track. The audio of both tracks leaves this computer.`
+}
+
 /**
  * Returns the note under "Keep the separated tracks", with the bytes that the two tracks use.
  * @param durationMs The length of the song, or of the range of the run.
@@ -232,6 +283,7 @@ export function keepTracksNote(durationMs: number): string {
   return `The app stores the vocals and the instruments of this song in this browser, about ${formatMegabytes(keptTracksBytes(durationMs))} MB. You can listen to each track in the editor.`
 }
 
+/** The hint of the check boxes "Put each singer on its own voice" and "Split the singers" while "Separate the vocals first" is off. */
 export const SINGER_HINT = 'Select "Separate the vocals first" to use this option.'
 
 /** The hint under the singer note while the option is on and a small speech model runs in this browser. */
@@ -274,6 +326,14 @@ export function singerMessage(singers: SingerOutcome): string {
   }
 }
 
+/**
+ * Returns the sentence that the toast adds when the singer split did not run.
+ * @param split The outcome of a singer split.
+ */
+export function splitMessage(split: Extract<SplitOutcome, { status: 'no-vocals' }>): string {
+  return `The app splits the singers only in separated vocals. All phrases stay on ${split.voiceName}.`
+}
+
 /** Returns true when the error is the stop of a run that the person asked for. */
 export function isCancel(error: unknown): boolean {
   return error instanceof TranscribeError && error.kind === 'cancelled'
@@ -309,7 +369,13 @@ export const TRACKS_FAILED_MESSAGE =
 export function outcomeText(
   outcome: Pick<
     TranscribeOutcome,
-    'wordCount' | 'estimatedCount' | 'singers' | 'runData' | 'tracksFailed' | 'wordsLeftOut'
+    | 'wordCount'
+    | 'estimatedCount'
+    | 'singers'
+    | 'split'
+    | 'runData'
+    | 'tracksFailed'
+    | 'wordsLeftOut'
   >,
 ): string {
   const counts = countsText(outcome)
@@ -328,12 +394,15 @@ export function outcomeText(
  * Returns the counts of a run, for example "214 words, 9 estimated".
  * After a singer step that made voices, the text names the voice count, for example "214 words on 3 voices, 9 estimated".
  * After a singer step that made no voice, or that found more singers than free voices, the text adds the message of `singerMessage`.
+ * After a singer split, the text names the two voices: "214 words on 2 voices, 9 estimated".
+ * A singer split that did not run adds the message of `splitMessage`.
  */
 function countsText(
-  outcome: Pick<TranscribeOutcome, 'wordCount' | 'estimatedCount' | 'singers'>,
+  outcome: Pick<TranscribeOutcome, 'wordCount' | 'estimatedCount' | 'singers' | 'split'>,
 ): string {
   const words = `${outcome.wordCount} ${outcome.wordCount === 1 ? 'word' : 'words'}`
-  const { singers } = outcome
+  const { singers, split } = outcome
+  if (split !== undefined) return splitCountsText(words, outcome.estimatedCount, split)
   const voiceCount = singers !== undefined && 'voiceCount' in singers ? singers.voiceCount : 1
   const counts =
     voiceCount > 1
@@ -341,6 +410,13 @@ function countsText(
       : `${words}, ${outcome.estimatedCount} estimated`
   if (singers === undefined || (singers.status === 'split' && voiceCount > 1)) return counts
   return `${counts}. ${singerMessage(singers)}`
+}
+
+/** Returns the counts of a run with the singer split. See `countsText`. */
+function splitCountsText(words: string, estimatedCount: number, split: SplitOutcome): string {
+  return split.status === 'split'
+    ? `${words} on ${split.voiceNames.length} voices, ${estimatedCount} estimated`
+    : `${words}, ${estimatedCount} estimated. ${splitMessage(split)}`
 }
 
 /**
@@ -423,6 +499,9 @@ const STATE_LABEL: Record<RunState['status'], (host: string, model: SeparationMo
     'singers-downloading': () => 'Downloading singer model',
     'singers-started': () => 'Finding the singers',
     'finding-singers': () => 'Finding the singers',
+    'split-loading': () => 'Loading singer split model',
+    'split-downloading': () => 'Downloading singer split model',
+    splitting: () => 'Splitting the singers',
   }
 
 /** Returns the name of the vocal separation model in the load and download steps. The Spleeter text is the text of issue #117. */
@@ -454,7 +533,8 @@ export function showsElapsed(state: RunState): boolean {
     state.status === 'started' ||
     state.status === 'waiting' ||
     state.status === 'singers-loading' ||
-    state.status === 'singers-started'
+    state.status === 'singers-started' ||
+    state.status === 'split-loading'
   )
 }
 
@@ -472,12 +552,9 @@ export function progressText(
 ): string {
   const label = stateLabel(state, host, model)
   if (showsElapsed(state)) return `${label}, ${formatClock(elapsedMs)} elapsed`
+  // A state with a percent of null shows the elapsed time, so `showsElapsed` handled it.
+  if ('percent' in state) return `${label}, ${state.percent ?? 0}%`
   switch (state.status) {
-    case 'downloading':
-    case 'separation-downloading':
-    case 'singers-downloading':
-    case 'sending':
-      return `${label}, ${state.percent}%`
     case 'transcribing':
     case 'finding-singers':
       return `${label}, ${formatClock(state.doneMs)} of ${formatClock(state.totalMs)}`
@@ -605,6 +682,8 @@ const STAGE_STATE: Record<RunStage, RunState> = {
   waiting: { status: 'waiting' },
   'singers-download': { status: 'singers-loading' },
   'finding-singers': { status: 'singers-started' },
+  'split-download': { status: 'split-loading' },
+  splitting: { status: 'splitting', percent: 0 },
 }
 type EndEvent = Extract<DialogEvent, { type: 'answer' | 'cancelled' | 'failed' | 'done' }>
 
@@ -651,6 +730,8 @@ type AudioStepEvent = Extract<
       | 'confirm-no-separation'
       | 'singers-download'
       | 'singers-progress'
+      | 'split-download'
+      | 'split-progress'
   }
 >
 
@@ -660,6 +741,8 @@ const AUDIO_STEP_EVENT_TYPES: ReadonlySet<DialogEvent['type']> = new Set([
   'confirm-no-separation',
   'singers-download',
   'singers-progress',
+  'split-download',
+  'split-progress',
 ])
 
 function isAudioStepEvent(event: DialogEvent): event is AudioStepEvent {
@@ -676,6 +759,10 @@ function audioStep(state: DialogState, event: AudioStepEvent): DialogState {
       return { status: 'singers-downloading', percent: event.percent }
     case 'singers-progress':
       return { status: 'finding-singers', doneMs: event.doneMs, totalMs: event.totalMs }
+    case 'split-download':
+      return { status: 'split-downloading', percent: event.percent }
+    case 'split-progress':
+      return { status: 'splitting', percent: event.percent }
     case 'confirm-no-separation':
       return isRunState(state)
         ? {

@@ -79,7 +79,7 @@ function emptiedVoiceIds(
  * Returns the content with the range of each voice cleared, the emptied singer voices removed, and the new marks added.
  * Returns the input when no mark and no voice changes, so the store records no step.
  */
-function replaceStep(
+export function replaceStep(
   content: SongContent,
   voiceId: string,
   range: TimeRange,

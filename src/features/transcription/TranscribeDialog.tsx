@@ -32,6 +32,13 @@ import {
   singerCountOf,
 } from '../singer-voices/singerCount.ts'
 import type { SeparationModelId } from '../vocal-separation/protocol.ts'
+import {
+  isSplitMode,
+  SPLIT_LABELS,
+  SPLIT_MODE_TEXT,
+  type SplitMode,
+} from '../../lib/singers/splitRules.ts'
+import { canSplitSingers } from '../singer-split/webgpu.ts'
 import { type Device, SPEECH_MODELS } from './protocol.ts'
 import { RemoteEndpointPanel } from './RemoteEndpointPanel.tsx'
 import {
@@ -57,6 +64,7 @@ import {
   isRunState,
   keepTracksNote,
   LYRICS_HINT,
+  LYRICS_SPLIT_REASON,
   lyricsFitMessage,
   lowMatchMessage,
   replaceQuestionMessage,
@@ -76,6 +84,9 @@ import {
   showsSingerModelHint,
   shownRunState,
   SLOW_GPU_MESSAGE,
+  SPLIT_NOTE,
+  SPLIT_WEBGPU_REASON,
+  splitRemoteNote,
   stateLabel,
   transcribeDialogReducer,
 } from './transcribeDialogState.ts'
@@ -140,6 +151,8 @@ export function TranscribeDialog({
   const [singers, setSingers] = useState(DEFAULT_SETTINGS.singerVoices)
   const [keepTracks, setKeepTracks] = useState(DEFAULT_SETTINGS.keepTracks)
   const [singerCount, setSingerCount] = useState(DEFAULT_SETTINGS.singerCount)
+  const splitChoice = useSplitChoice()
+  const { setChecked: setSplit, restore: restoreSplit } = splitChoice
   const [range, setRange] = useState<TimeRange | undefined>(undefined)
   const [choicesUnstored, setChoicesUnstored] = useState(false)
   const [escaped, setEscaped] = useState(false)
@@ -168,6 +181,7 @@ export function TranscribeDialog({
     lyricsOnly,
   )
   const usesRemote = remote.appliesTo(lyricsOnly)
+  const splitOn = splitApplies(lyricsOnly, separate, splitChoice)
   const canStart = remote.canStart(usesRemote, run.webgpu !== null) && lyricsReady
 
   useEffect(() => {
@@ -183,16 +197,17 @@ export function TranscribeDialog({
         setSeparate(settings.separateVocals)
         if (isSeparationModelId(settings.separationModel))
           setSeparationModel(settings.separationModel)
-        setSingers(settings.singerVoices)
+        setSingers(singerVoicesOf(settings))
         setKeepTracks(settings.keepTracks)
         if (isSingerCountChoice(settings.singerCount)) setSingerCount(settings.singerCount)
+        restoreSplit(settings)
         restore(settings)
       })
     if (dialogRef.current !== null) tabStops(dialogRef.current)[0]?.focus()
     return () => {
       mounted = false
     }
-  }, [restore])
+  }, [restore, restoreSplit])
 
   useEffect(() => onActiveChange(active), [active, onActiveChange])
 
@@ -231,9 +246,22 @@ export function TranscribeDialog({
     storeSetting({ keepTracks: checked })
   }
 
+  // The singer step and the singer split exclude each other, so a check of one clears the other.
   function selectSingers(checked: boolean) {
     setSingers(checked)
-    storeSetting({ singerVoices: checked })
+    if (checked) setSplit(false)
+    storeSetting(checked ? { singerVoices: true, splitSingers: false } : { singerVoices: false })
+  }
+
+  function selectSplit(checked: boolean) {
+    setSplit(checked)
+    if (checked) setSingers(false)
+    storeSetting(checked ? { splitSingers: true, singerVoices: false } : { splitSingers: false })
+  }
+
+  function selectSplitMode(mode: SplitMode) {
+    splitChoice.setMode(mode)
+    storeSetting({ splitMode: mode })
   }
 
   function selectSingerCount(choice: SingerCountChoice) {
@@ -247,15 +275,20 @@ export function TranscribeDialog({
       voiceId,
       speechModelId,
       mode: lyricsOnly ? 'lyrics-only' : 'model',
-      lyrics: hasLyrics ? lyrics : undefined,
+      lyrics: hasLyrics && !splitOn ? lyrics : undefined,
       range,
       remote: usesRemote ? remote.endpoint : undefined,
-      addSections: hasTags && tagSections,
-      separateVocals: !lyricsOnly && separate,
-      separationModel,
-      keepTracks: !lyricsOnly && separate && keepTracks,
-      singerVoices: !lyricsOnly && separate && singers,
-      singerCount: singerCountOf(singerCount),
+      addSections: hasTags && tagSections && !splitOn,
+      ...audioRequest({
+        lyricsOnly,
+        separate,
+        separationModel,
+        keepTracks,
+        singers,
+        singerCount,
+        splitOn,
+        splitMode: splitChoice.mode,
+      }),
     })
   }
 
@@ -300,8 +333,18 @@ export function TranscribeDialog({
               onSpeechModelChange={selectSpeechModel}
               note={<DeviceNote webgpu={run.webgpu} device={run.device} meter={meter} />}
             />
-            <LyricsField lyrics={lyrics} tooLong={tooLong} onChange={setLyrics} />
-            <TagSectionsChoice shown={hasTags} checked={tagSections} onChange={setTagSections} />
+            <LyricsField
+              lyrics={lyrics}
+              tooLong={tooLong}
+              onChange={setLyrics}
+              disabledReason={lyricsReason(splitOn)}
+            />
+            <TagSectionsChoice
+              shown={hasTags}
+              split={splitOn}
+              checked={tagSections}
+              onChange={setTagSections}
+            />
             <label className="choice">
               <input
                 type="checkbox"
@@ -335,6 +378,16 @@ export function TranscribeDialog({
               count={singerCount}
               onCountChange={selectSingerCount}
               modelHint={showsSingerModelHint(usesRemote, speechModelId)}
+            />
+            <SplitChoice
+              shown={!lyricsOnly}
+              separate={separate}
+              webgpu={splitChoice.ready}
+              checked={splitChoice.checked}
+              onChange={selectSplit}
+              mode={splitChoice.mode}
+              onModeChange={selectSplitMode}
+              remoteHost={usesRemote ? remote.host : null}
             />
             <fieldset className="choice-group">
               <legend>Range</legend>
@@ -501,12 +554,16 @@ type LyricsFieldProps = {
   /** True when the lyrics have more characters than the limit. */
   tooLong: boolean
   onChange: (lyrics: string) => void
+  /** The reason that the run does not read the lyrics, or null when it reads them. The field is then disabled. */
+  disabledReason: string | null
 }
 
 /** Shows the lyrics field, and the message under it when the lyrics are too long. */
-function LyricsField({ lyrics, tooLong, onChange }: LyricsFieldProps) {
+function LyricsField({ lyrics, tooLong, onChange, disabledReason }: LyricsFieldProps) {
   const errorId = useId()
   const hintId = useId()
+  const reasonId = useId()
+  const described = [disabledReason === null ? null : reasonId, tooLong ? errorId : null, hintId]
   return (
     <div className="dialog-field">
       <label className="dialog-field">
@@ -514,11 +571,17 @@ function LyricsField({ lyrics, tooLong, onChange }: LyricsFieldProps) {
         <textarea
           rows={5}
           value={lyrics}
+          disabled={disabledReason !== null}
           aria-invalid={tooLong}
-          aria-describedby={tooLong ? `${errorId} ${hintId}` : hintId}
+          aria-describedby={described.filter((id) => id !== null).join(' ')}
           onChange={(event) => onChange(event.target.value)}
         />
       </label>
+      {disabledReason !== null && (
+        <p id={reasonId} className="dialog-note">
+          {disabledReason}
+        </p>
+      )}
       <p id={hintId} className="field-hint">
         {LYRICS_HINT}
       </p>
@@ -534,13 +597,15 @@ function LyricsField({ lyrics, tooLong, onChange }: LyricsFieldProps) {
 type TagSectionsChoiceProps = {
   /** True when the lyrics have a `[Name]` tag and a word. */
   shown: boolean
+  /** True when the run splits the singers. The run then reads no lyrics, so it makes no section. */
+  split: boolean
   checked: boolean
   onChange: (checked: boolean) => void
 }
 
 /** Shows the check box that adds a section for each `[Name]` tag of the lyrics. */
-function TagSectionsChoice({ shown, checked, onChange }: TagSectionsChoiceProps) {
-  if (!shown) return null
+function TagSectionsChoice({ shown, split, checked, onChange }: TagSectionsChoiceProps) {
+  if (!shown || split) return null
   return (
     <label className="choice">
       <input
@@ -748,6 +813,163 @@ function SingerCountChoices({ count, onChange }: SingerCountChoicesProps) {
       <p id={noteId} className="dialog-note">
         {SINGER_COUNT_NOTE}
       </p>
+    </fieldset>
+  )
+}
+
+type SplitChoiceState = ReturnType<typeof useSplitChoice>
+
+/**
+ * Returns the choices of the singer split: the check box, the mode and the result of the WebGPU check.
+ * `ready` is true when the browser can run the singer split, or null before the check ends.
+ */
+function useSplitChoice() {
+  const [checked, setChecked] = useState(DEFAULT_SETTINGS.splitSingers === true)
+  const [mode, setMode] = useState<SplitMode>('male-female')
+  const [ready, setReady] = useState<boolean | null>(null)
+  useEffect(() => {
+    let mounted = true
+    void canSplitSingers().then((available) => {
+      if (mounted) setReady(available)
+    })
+    return () => {
+      mounted = false
+    }
+  }, [])
+  const restore = useCallback((settings: AppSettings) => {
+    setChecked(settings.splitSingers === true)
+    if (isSplitMode(settings.splitMode)) setMode(settings.splitMode)
+  }, [])
+  return { checked, setChecked, mode, setMode, ready, restore }
+}
+
+/** Returns the stored choice of the singer step. The singer split excludes it, so a stored split clears it. */
+function singerVoicesOf(settings: AppSettings): boolean {
+  return settings.singerVoices && settings.splitSingers !== true
+}
+
+/** Returns true when the run splits the singers: the separated vocals and WebGPU exist, and the run reads audio. */
+function splitApplies(lyricsOnly: boolean, separate: boolean, choice: SplitChoiceState): boolean {
+  return !lyricsOnly && separate && choice.checked && choice.ready === true
+}
+
+/** Returns the reason that the lyrics field is disabled, or null when the run reads the lyrics. */
+function lyricsReason(splitOn: boolean): string | null {
+  return splitOn ? LYRICS_SPLIT_REASON : null
+}
+
+/** The choices of the dialog that decide the audio steps of a run. */
+type AudioChoices = {
+  lyricsOnly: boolean
+  separate: boolean
+  separationModel: SeparationModelId
+  keepTracks: boolean
+  singers: boolean
+  singerCount: SingerCountChoice
+  splitOn: boolean
+  splitMode: SplitMode
+}
+
+/** Returns the fields of a run request for the audio steps. A lyrics-only run reads no audio, so it has none of the steps. */
+function audioRequest(choices: AudioChoices) {
+  const separated = !choices.lyricsOnly && choices.separate
+  return {
+    separateVocals: separated,
+    separationModel: choices.separationModel,
+    keepTracks: separated && choices.keepTracks,
+    singerVoices: separated && choices.singers && !choices.splitOn,
+    singerCount: singerCountOf(choices.singerCount),
+    // A run with no split sends the same request as before the option existed.
+    ...(choices.splitOn ? { splitSingers: true, splitMode: choices.splitMode } : {}),
+  }
+}
+
+type SplitChoiceProps = {
+  /** False for a lyrics-only run, which reads no audio. */
+  shown: boolean
+  /** True when "Separate the vocals first" is on, because the step reads the separated vocals. */
+  separate: boolean
+  /** True when the browser can run the singer split, or null before the check ends. */
+  webgpu: boolean | null
+  checked: boolean
+  onChange: (checked: boolean) => void
+  mode: SplitMode
+  onModeChange: (mode: SplitMode) => void
+  /** The host of the remote endpoint of the run, or null for a run in the browser. */
+  remoteHost: string | null
+}
+
+/** Returns the reason that the check box "Split the singers" is disabled, or null when it is enabled. */
+function splitDisabledReason(separate: boolean, webgpu: boolean | null): string | null {
+  if (webgpu === false) return SPLIT_WEBGPU_REASON
+  return separate ? null : SINGER_HINT
+}
+
+/**
+ * Shows the check box "Split the singers", its note, and the reason while it is disabled.
+ * The check box stays in the tab order while it is disabled, so a keyboard user reaches it and hears the reason.
+ * While the option is on, it also shows "Split mode" and the note of a remote run.
+ */
+function SplitChoice(props: SplitChoiceProps) {
+  const { shown, checked, onChange } = props
+  const noteId = useId()
+  const reasonId = useId()
+  if (!shown) return null
+  const reason = splitDisabledReason(props.separate, props.webgpu)
+  const on = reason === null && props.webgpu === true && checked
+  return (
+    <>
+      <label className="choice">
+        <input
+          type="checkbox"
+          checked={on}
+          aria-disabled={reason !== null || props.webgpu === null}
+          aria-describedby={reason === null ? noteId : `${reasonId} ${noteId}`}
+          onChange={(event) => {
+            if (reason === null && props.webgpu === true) onChange(event.target.checked)
+          }}
+        />
+        Split the singers (experimental)
+      </label>
+      {reason !== null && (
+        <p id={reasonId} className="dialog-note">
+          {reason}
+        </p>
+      )}
+      <p id={noteId} className="dialog-note">
+        {SPLIT_NOTE}
+      </p>
+      {on && <SplitModeChoices mode={props.mode} onChange={props.onModeChange} />}
+      {on && props.remoteHost !== null && (
+        <p className="dialog-confirm">{splitRemoteNote(props.remoteHost)}</p>
+      )}
+    </>
+  )
+}
+
+/** Shows the "Split mode" choice: "Male and female" or "Lead and backing". */
+function SplitModeChoices({
+  mode,
+  onChange,
+}: {
+  mode: SplitMode
+  onChange: (mode: SplitMode) => void
+}) {
+  return (
+    <fieldset className="choice-group">
+      <legend>Split mode</legend>
+      {(Object.keys(SPLIT_LABELS) as SplitMode[]).map((value) => (
+        <label key={value} className="choice">
+          <input
+            type="radio"
+            name="split-mode"
+            value={value}
+            checked={mode === value}
+            onChange={() => onChange(value)}
+          />
+          {SPLIT_MODE_TEXT[value]}
+        </label>
+      ))}
     </fieldset>
   )
 }
@@ -1042,6 +1264,10 @@ function useTranscribeRun(onDone: (outcome: TranscribeOutcome) => void) {
             send({ type: 'singers-download', percent: downloadPercent(loaded, total) }),
           onSingersProgress: (doneMs, totalMs) =>
             send({ type: 'singers-progress', doneMs, totalMs }),
+          onSplitDownload: (loaded, total) =>
+            send({ type: 'split-download', percent: downloadPercent(loaded, total) }),
+          onSplitProgress: (doneMs, totalMs) =>
+            send({ type: 'split-progress', percent: downloadPercent(doneMs, totalMs) }),
           onUpload: (loaded, total) =>
             send({ type: 'upload', percent: downloadPercent(loaded, total) }),
           onStage: (stage) => {

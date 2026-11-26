@@ -1,15 +1,37 @@
 import { phraseRangesOf, rangesOfSingers, singerVoiceRanges } from '../lib/singers/singerRanges.ts'
 import type { TimeRange } from '../lib/time/timeRange.ts'
+import type { PcmTrack } from '../lib/audio/pcm.ts'
 import type { KeptTracks, Mark, RunData, RunVoice, Voice } from './types.ts'
 
-/** One track row of the editor: an audio track, or the vocals in the time ranges of one singer. */
+/** The key of one kept audio track: the vocals, the instruments, or the singer track with an index of `KeptTracks.split`. */
+export type TrackKey = 'vocals' | 'instruments' | `split:${number}`
+
+/** Returns the kept audio track of a key, or undefined when the tracks have no such singer track. */
+export function trackOf(tracks: KeptTracks, key: TrackKey): PcmTrack | undefined {
+  if (key === 'vocals' || key === 'instruments') return tracks[key]
+  return tracks.split?.[Number(key.slice('split:'.length))]
+}
+
+/** Returns the key of each kept audio track: the vocals, the instruments, then each singer track. */
+export function trackKeys(tracks: KeptTracks): TrackKey[] {
+  return [
+    'vocals',
+    'instruments',
+    ...(tracks.split ?? []).map((_track, index): TrackKey => `split:${index}`),
+  ]
+}
+
+/**
+ * One track row of the editor: an audio track, the vocals in the time ranges of one singer,
+ * or the singer track of one voice of a singer split.
+ */
 export type TrackRow = {
-  /** `vocals`, `instruments`, or `singer:<voice id>`. */
+  /** `vocals`, `instruments`, `singer:<voice id>` or `split:<voice id>`. */
   id: string
   /** The row name. The names of the controls end with it. */
   name: string
   /** The kept audio track that the row shows and plays. */
-  track: keyof KeptTracks
+  track: TrackKey
   /** The time ranges that the row shows and plays, or null for all of the track. */
   gate: TimeRange[] | null
   /** The colour of the voice of a singer row, or null for the colour of the waveform. */
@@ -65,7 +87,21 @@ function singerRows(data: RunData, voices: readonly Voice[], marks: readonly Mar
 }
 
 /**
- * Returns the track rows of a song, from top to bottom: "Vocals", "Instruments", then one row for each singer voice.
+ * Returns one row for each voice of a singer split that has its singer track, in the present voice order.
+ * The row has the present name and colour of the voice, and plays all of the track.
+ */
+function splitRows(data: RunData, tracks: KeptTracks, voices: readonly Voice[]): TrackRow[] {
+  return voices.flatMap((voice) => {
+    const index = data.voices?.find((runVoice) => runVoice.voiceId === voice.id)?.splitTrack
+    if (index === undefined || tracks.split?.[index] === undefined) return []
+    const track: TrackKey = `split:${index}`
+    return [{ id: `split:${voice.id}`, name: voice.name, track, gate: null, color: voice.color }]
+  })
+}
+
+/**
+ * Returns the track rows of a song, from top to bottom: "Vocals", "Instruments", then one row for each singer voice,
+ * then one row for each voice of a singer split.
  * A song with no kept audio tracks has no row.
  * @param data The run data of the song, or null or undefined when the editor has none.
  * @param voices The voices of the song. A singer row has the present name and colour of its voice.
@@ -81,6 +117,7 @@ export function trackRows(
     { id: 'vocals', name: 'Vocals', track: 'vocals', gate: null, color: null },
     { id: 'instruments', name: 'Instruments', track: 'instruments', gate: null, color: null },
     ...singerRows(data, voices, marks),
+    ...splitRows(data, data.tracks, voices),
   ]
 }
 

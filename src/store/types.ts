@@ -3,6 +3,7 @@ import type { SingerCountChoice } from '../features/singer-voices/singerCount.ts
 import type { SeparationModelId } from '../features/vocal-separation/protocol.ts'
 import type { PcmTrack } from '../lib/audio/pcm.ts'
 import type { RemoteEndpoint } from '../lib/remote/endpoint.ts'
+import type { SplitMode } from '../lib/singers/splitRules.ts'
 import type { ReportSingerRange, RunReport } from '../lib/runReport/runReport.ts'
 
 /** The length of one xLights frame in milliseconds. */
@@ -118,12 +119,21 @@ export type AppSettings = {
   separationModel: SeparationModelId
   /** The last choice of the check box "Keep the separated tracks" of the transcribe dialog. */
   keepTracks: boolean
+  /** The last choice of the check box "Split the singers" of the transcribe dialog. A record from before issue #193 has no value. */
+  splitSingers?: boolean
+  /** The last choice of "Split mode" of the transcribe dialog. A record from before issue #193 has no value. */
+  splitMode?: SplitMode
 }
 
 /** The two audio tracks of the vocal separation of a run, as 16-bit PCM at `KEPT_TRACK_SAMPLE_RATE`. */
 export type KeptTracks = {
   vocals: PcmTrack
   instruments: PcmTrack
+  /**
+   * The two singer tracks of a run with the singer split, in voice order. `RunVoice.splitTrack` gives the index.
+   * A run with no singer split has no value.
+   */
+  split?: PcmTrack[]
 }
 
 /** One voice that a transcribe run wrote marks to, by its id, which stays the same after a rename. */
@@ -131,8 +141,10 @@ export type RunVoice = {
   voiceId: string
   /** The singer numbers of the singer search whose ranges belong to the voice. Empty when the run found no singer ranges. */
   singers: number[]
-  /** True for a voice that the singer step of the run added. */
+  /** True for a voice that the singer step or the singer split of the run added. */
   made: boolean
+  /** The index of the singer track of the voice in `KeptTracks.split`. A voice that the singer split did not add has no value. */
+  splitTrack?: number
 }
 
 /**
