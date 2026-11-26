@@ -109,7 +109,10 @@ jobs:
       # CloudFront then serves the new index.html, which needs no file that this step deletes.
       # A failure here leaves a correct site with unused files, and the next deploy removes them.
       # The upload steps put every file of dist/ in the bucket, so this pass uploads nothing and needs no cache-control value.
+      # The singer split model files are in the bucket under models/ and not in dist/ (issue #195).
+      # `aws s3 sync help` states that a file excluded by a filter is excluded from the deletion, so the filter keeps them.
       - name: Delete the files that are not in dist/
         run: >-
           aws s3 sync dist/ "s3://$SITE_BUCKET/"
+          --exclude "models/*"
           --delete

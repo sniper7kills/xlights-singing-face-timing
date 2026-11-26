@@ -80,6 +80,7 @@ async function runSplit(page: Page) {
   await dialog.getByRole('checkbox', { name: SEPARATE }).check()
   await dialog.getByRole('checkbox', { name: SPLIT }).check()
   await expect(dialog.getByRole('radio', { name: 'Male and female' })).toBeChecked()
+  await expect(dialog.getByText('This mode downloads a model of 267 MB one time.')).toBeVisible()
   await dialog.getByRole('button', { name: 'Start' }).click()
   // The run has four worker steps, so it takes longer than the default timeout.
   await expect(dialog).toBeHidden({ timeout: 20_000 })
@@ -121,6 +122,13 @@ test('a run with the option on gives two voices whose phrases overlap, and one u
   await expect(trackGroup.getByRole('button', { name: 'Solo Female' })).toBeVisible()
   await expect(trackGroup.getByRole('button', { name: 'Solo Male' })).toBeVisible()
 
+  // The run keeps the vocals, the instruments and the two singer tracks.
+  await page.locator('.toast').getByRole('button', { name: 'Run report' }).click()
+  const report = page.getByRole('dialog', { name: 'Run report' })
+  await expect(report.locator('dt', { hasText: /^Audio tracks$/ }).locator('+ dd')).toHaveText('4')
+  await page.keyboard.press('Escape')
+  await expect(report).toBeHidden()
+
   await page.keyboard.press('ControlOrMeta+z')
   await expect(voiceRows(page)).toHaveCount(1)
   await page.keyboard.press('ControlOrMeta+Shift+Z')
@@ -143,6 +151,44 @@ test('a run with the option on gives two voices whose phrases overlap, and one u
   expect(male.length).toBeGreaterThan(0)
   const overlaps = female.some((a) => male.some((b) => a.startMs < b.endMs && b.startMs < a.endMs))
   expect(overlaps).toBe(true)
+})
+
+test('the dialog shows the download size of each split mode, and the memory note of "Lead and backing"', async ({
+  page,
+}) => {
+  await page.addInitScript({ content: initScript(true) })
+  await createSong(page)
+  const dialog = await openDialog(page)
+  await dialog.getByRole('checkbox', { name: SEPARATE }).check()
+  await dialog.getByRole('checkbox', { name: SPLIT }).check()
+  await expect(dialog.getByText('This mode downloads a model of 267 MB one time.')).toBeVisible()
+
+  await dialog.getByRole('radio', { name: 'Lead and backing' }).check()
+
+  await expect(
+    dialog.getByText(
+      'This mode downloads a model of 864 MB one time. The model needs about 2 GB of memory.',
+    ),
+  ).toBeVisible()
+})
+
+test('a later run on the voice "Female" states that the singer voices of the last run do not change', async ({
+  page,
+}) => {
+  await page.addInitScript({ content: initScript(true) })
+  await runSplit(page)
+  await page
+    .getByRole('complementary', { name: 'Voices' })
+    .getByRole('button', { name: 'Female', exact: true })
+    .click()
+
+  const dialog = await openDialog(page)
+  await dialog.getByRole('checkbox', { name: SPLIT }).uncheck()
+  await dialog.getByRole('button', { name: 'Start' }).click()
+
+  await expect(dialog.getByText(/The singer voices of the last run do not change\.$/)).toBeVisible({
+    timeout: 20_000,
+  })
 })
 
 test('without WebGPU, the option is disabled and a keyboard user reaches it with its reason', async ({

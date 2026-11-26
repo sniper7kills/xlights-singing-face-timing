@@ -1,0 +1,41 @@
+Singer split model files of xLights Singing Face Timing
+=========================================================
+
+The option "Split the singers" of the app downloads one of these files from
+this folder. This project did not train the models. This project converted
+each model from PyTorch to ONNX with float16 weights. The STFT is outside the
+model. The maintainer ruled on 2026-11-25 to ship the files with this
+attribution. The authors state no licence.
+
+
+1. bs_roformer_male_female_aufr33.v2.w16.onnx
+
+   Model:    BS-RoFormer male and female vocals model
+   Author:   aufr33
+   Source:   the model list of python-audio-separator 0.48.0,
+             file bs_roformer_male_female_by_aufr33_sdr_7.2889.ckpt
+             https://github.com/karaokenerds/python-audio-separator
+   Mirror:   https://huggingface.co/Politrees/UVR_resources
+             (the mirror has the tag "mit")
+   Licence:  the author states no licence.
+   Size:     266945164 bytes
+   SHA-256:  da41d39969d2282c8bf1ce746f85fa01fb064666f1c0925b893d2447aaddd700
+
+
+2. mel_band_roformer_karaoke_becruily.v2.w16.onnx
+
+   Model:    Mel-Band RoFormer karaoke model
+   Author:   becruily
+   Source:   https://huggingface.co/becruily/mel-band-roformer-karaoke
+             file mel_band_roformer_karaoke_becruily.ckpt
+   Licence:  the page states no licence.
+   Size:     864108113 bytes
+   SHA-256:  0ee3f23372e832f74a6aac430684d690ccae2e645137296295ae60afc113eefb
+
+
+Model code
+
+   The conversion used the RoFormer implementation of
+   ZFTurbo/Music-Source-Separation-Training (MIT licence), as packaged in
+   python-audio-separator 0.48.0. The licence file of python-audio-separator
+   0.48.0 is the MIT License, "Copyright (c) 2023 karaokenerds".

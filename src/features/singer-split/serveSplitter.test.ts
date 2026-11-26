@@ -1,7 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import type { StereoAudio } from '../vocal-separation/protocol.ts'
 import { createFixtureSplitter } from './engine/fixtureSplitter.ts'
-import { createSplitter } from './engine/index.ts'
 import type { SplitMessage } from './protocol.ts'
 import { serveSplitter } from './serveSplitter.ts'
 import { SplitFailure, splitFailureKind } from './splitFailure.ts'
@@ -50,7 +49,9 @@ describe('serveSplitter', () => {
   })
 
   it('posts the kind of a failure of the engine', async () => {
-    const { handle, posted } = serve(createSplitter())
+    const { handle, posted } = serve({
+      split: () => Promise.reject(new SplitFailure('not-available', 'No WebGPU adapter.')),
+    })
 
     await handle({ type: 'split', runId: 2, vocals, mode: 'male-female' })
 

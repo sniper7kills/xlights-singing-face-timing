@@ -330,6 +330,32 @@ describe('runTranscription with the singer split', () => {
     expect(data?.report.durationsMs).toHaveProperty('splitDownload')
   })
 
+  it('counts the two kept singer tracks in the audio tracks of the report', async () => {
+    await runTranscription({ ...request, keepTracks: true }, fakeClient(), handlers())
+
+    expect((await loadRunData(content().song.id))?.report.trackCount).toBe(4)
+  })
+
+  it('counts no singer track in the audio tracks of the report when the run keeps no track', async () => {
+    await runTranscription({ ...request, keepTracks: false }, fakeClient(), handlers())
+
+    expect((await loadRunData(content().song.id))?.report.trackCount).toBe(2)
+  })
+
+  it('states that the singer voices of a split run do not change at a later run with no split', async () => {
+    await runTranscription(request, fakeClient(), handlers())
+    const run = handlers()
+
+    // A run on the voice "Female" replaces its marks and asks first. The voice "Male" keeps its marks.
+    const female = voiceId('Female')
+    await runTranscription({ ...request, voiceId: female, splitSingers: false }, fakeClient(), run)
+
+    expect(run.confirmReplace).toHaveBeenCalledWith(
+      expect.objectContaining({ singerVoicesKept: true }),
+    )
+    expect(voiceNames()).toEqual(['Lead Vocals', 'Female', 'Male'])
+  })
+
   it('runs the singer step and no split when the request has the split off', async () => {
     await runTranscription({ ...request, splitSingers: false }, fakeClient(), handlers())
 

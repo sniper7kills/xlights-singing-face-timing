@@ -126,6 +126,9 @@ This option is experimental. The app divides the vocals into two singer tracks. 
 - The option needs "Separate the vocals first". The window states this under the disabled option.
 - The option needs WebGPU. In a browser with no WebGPU, the option is disabled. The window shows "This browser has no WebGPU. The singer split needs it."
 - "Split mode" has the choices "Male and female" and "Lead and backing". "Male and female" makes the voices "Female" and "Male". "Lead and backing" makes the voices "Lead" and "Backing".
+- The first run of a mode downloads its model one time. "Male and female" downloads 267 MB. "Lead and backing" downloads 864 MB. The window shows the size under "Split mode".
+- The two models come from other authors. This project converted them to run in the browser. The "How it works" card of the song library names each model, its author and its source.
+- The "Lead and backing" model needs about 2 GB of memory. If the browser does not have enough memory, the window shows a message. Close other tabs and select "Retry", or select "Male and female".
 - The option and "Put each singer on its own voice (experimental)" exclude each other. When you select one, the app clears the other.
 - The app cannot tell which lyrics line belongs to which singer. So the lyrics field is disabled, and the window shows "Lyrics are not used when the singers are split."
 - With a remote endpoint, the app sends two requests, one for each singer track. The window states this before the run.
@@ -171,7 +174,7 @@ A bar that has no end means that the app cannot tell the time that remains. "Can
 
 If the range has marks of the shown voice, the window asks before the run. For example, "The run replaces the 70 marks of "Lead Vocals" from 0:00.000 to 0:28.900." Select "Continue" to replace the marks. Select "Cancel" to change nothing.
 
-If the last run wrote marks to other voices, for example singer voices, the question names those voices too. It also names the voice of the last run when you run on a different voice. A run with no singer step leaves those voices as they are. The question then adds "The voices of the last singer step do not change."
+If the last run wrote marks to other voices, for example singer voices, the question names those voices too. It also names the voice of the last run when you run on a different voice. A run with no singer step and no singer split leaves those voices as they are. The question then adds "The singer voices of the last run do not change."
 
 ![The replace question](images/02-transcribe/06-replace-question.png)
 

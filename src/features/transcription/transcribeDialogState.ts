@@ -22,6 +22,8 @@ import { separationModelMb } from '../vocal-separation/engine/separationModels.t
 import type { SeparationModelId } from '../vocal-separation/protocol.ts'
 import type { AppSettings } from '../../store/types.ts'
 import { SplitError } from '../singer-split/splitClient.ts'
+import { splitModelMb } from '../singer-split/splitModels.ts'
+import type { SplitMode } from '../../lib/singers/splitRules.ts'
 import { NoSplitRoomError } from './splitRun.ts'
 import type { SplitOutcome } from './runTranscription.ts'
 
@@ -172,9 +174,9 @@ export const SPLIT_COPY = {
   download:
     'The app could not download the singer split model. Check the connection and select Retry.',
   memory:
-    'This browser does not have enough memory to split the singers of this song. Select a shorter time range, or turn off "Split the singers".',
+    'This browser does not have enough memory to split the singers. Close other tabs and select Retry, or turn off "Split the singers".',
   'not-available':
-    'This version of the app cannot split the singers yet. Turn off "Split the singers" and select Retry.',
+    'The graphics hardware of this computer cannot run the singer split model. Clear "Split the singers" and select Retry.',
   failed: 'The app could not split the singers. Turn off "Split the singers" and select Retry.',
   noRoom: `A song has ${MAX_VOICES} voices at most, and the singer split adds 2 voices. Delete a voice, or turn off "Split the singers".`,
 } as const
@@ -263,6 +265,18 @@ export const SINGER_COUNT_NOTE = 'Select the count if you know it. The result is
 /** The note under the check box "Split the singers". */
 export const SPLIT_NOTE =
   'The app divides the vocals into two singer tracks. It puts the words of each track on its own new voice. The marks of the two voices can overlap in time.'
+
+/** The sentence after the download size of the "Lead and backing" model. */
+export const SPLIT_MEMORY_NOTE = 'The model needs about 2 GB of memory.'
+
+/**
+ * Returns the note under "Split mode": the download size of the model of the mode, and the memory note for "Lead and backing".
+ * @param mode The selected split mode.
+ */
+export function splitSizeNote(mode: SplitMode): string {
+  const size = `This mode downloads a model of ${splitModelMb(mode)} MB one time.`
+  return mode === 'lead-backing' ? `${size} ${SPLIT_MEMORY_NOTE}` : size
+}
 
 /** The reason under the disabled check box "Split the singers" on a browser with no WebGPU adapter. */
 export const SPLIT_WEBGPU_REASON = 'This browser has no WebGPU. The singer split needs it.'
@@ -470,7 +484,7 @@ export function replaceQuestionMessage(question: ReplaceQuestion): string {
 }
 
 /** The sentence of the replace question for a run that leaves the singer voices of the last run as they are. */
-export const SINGER_VOICES_KEPT = 'The voices of the last singer step do not change.'
+export const SINGER_VOICES_KEPT = 'The singer voices of the last run do not change.'
 
 /** Returns the copy of the low-match warning for a match ratio from 0 to 1. */
 export function lowMatchMessage(ratio: number): string {

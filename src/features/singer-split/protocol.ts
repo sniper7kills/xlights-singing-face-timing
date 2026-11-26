@@ -15,7 +15,7 @@ export type SplitResult = {
   tracks: SingerTrack[]
 }
 
-/** The cause of a failed singer split. `not-available` is an engine that this version of the app does not have. */
+/** The cause of a failed singer split. `not-available` is a browser that cannot start the engine, for example with no WebGPU adapter. */
 export type SplitFailureKind = 'download' | 'memory' | 'model' | 'not-available' | 'unknown'
 
 /** A message from the page to the split worker. `cancel` stops the run with the same `runId`. */
