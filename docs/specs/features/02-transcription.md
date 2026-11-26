@@ -361,9 +361,9 @@ leaves the browser, and the app shows the host before each run.
 - FR-transcribe-156 — While "Separate the vocals first" is off, "Split the singers"
   is disabled and the dialog shows "Select "Separate the vocals first" to use this
   option."
-- FR-transcribe-157 — In a browser with no WebGPU adapter, "Split the singers" is
-  disabled and the dialog shows "This browser has no WebGPU. The singer split needs
-  it."
+- FR-transcribe-157 — If "Separate the vocals first" is on in a browser with no
+  WebGPU adapter, "Split the singers" is disabled and the dialog shows "This browser
+  has no WebGPU. The singer split needs it."
 - FR-transcribe-158 — A disabled "Split the singers" stays in the tab order. Its
   description holds the reason.
 - FR-transcribe-159 — With "Split the singers" on, the dialog shows "Split mode"

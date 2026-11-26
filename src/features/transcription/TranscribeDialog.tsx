@@ -899,10 +899,13 @@ type SplitChoiceProps = {
   remoteHost: string | null
 }
 
-/** Returns the reason that the check box "Split the singers" is disabled, or null when it is enabled. */
+/**
+ * Returns the reason that the check box "Split the singers" is disabled, or null when it is enabled.
+ * The separation comes first in the dialog, so its hint shows first. The WebGPU reason shows after the person selects it.
+ */
 function splitDisabledReason(separate: boolean, webgpu: boolean | null): string | null {
-  if (webgpu === false) return SPLIT_WEBGPU_REASON
-  return separate ? null : SINGER_HINT
+  if (!separate) return SINGER_HINT
+  return webgpu === false ? SPLIT_WEBGPU_REASON : null
 }
 
 /**
