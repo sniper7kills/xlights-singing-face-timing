@@ -449,17 +449,25 @@ leaves the browser, and the app shows the host before each run.
 ### Silent parts of a singer track (issue #200)
 
 - FR-transcribe-191 — The run measures the loudness of each singer track in
-  windows of 50 ms. The loudness limit is 1% (-40 dB) of the loudest window of the
-  two tracks, and 0.001 (-60 dB of full scale) at least.
+  windows of 50 ms. The loudness limit is 1% (-40 dB) of the 95th percentile of
+  the windows of the two tracks together, and 0.001 (-60 dB of full scale) at least.
+  One loud window, for example a clap, does not change the limit.
 - FR-transcribe-192 — The run keeps a word of a singer track only when one window
-  of the word time is at the loudness limit or above in that track.
-- FR-transcribe-193 — A singer track with no window at the loudness limit is a
-  silent track. The run sends no audio of a silent track to the speech model. The
-  track has no words, so FR-transcribe-185 applies.
+  is at the loudness limit or above in that track, in the word time or in the
+  150 ms before or after it. Word times of the speech model are often 100 ms to
+  300 ms away from the sound.
+- FR-transcribe-193 — A singer track with fewer than 4 windows (200 ms) at the
+  loudness limit is a silent track. One click is not sound. The run sends no audio
+  of a silent track to the speech model. The track has no words, so
+  FR-transcribe-185 applies. A remote run then sends one request fewer.
 - FR-transcribe-194 — The table "The singer tracks" of the run report has the
   column "Removed words": the count of words that the loudness rule removed. For a
-  silent track, the cell shows "Silent track". For a report from before this rule,
-  the cell shows "not known".
+  silent track, the cell shows "Silent track". If the report has no count, for
+  example a report from before this rule, the cell shows "not known".
+- FR-transcribe-195 — If both singer tracks give no words, the run stops with no
+  change to the marks. The dialog shows "The singer tracks have no sound that the
+  speech model can transcribe, so the run found no words. Turn off "Split the
+  singers" and select Retry."
 
 ## User flows
 
@@ -1007,7 +1015,7 @@ copy, the status line shows "Press Ctrl+C to copy."
     song then has no room for two more voices, the run does not start, before any
     transcription.
   - A singer track with no words makes no voice. If both singer tracks have no
-    words, the run fails with the message for no words.
+    words, the run fails with the message of FR-transcribe-195.
   - The run keeps a word of a singer track only where the track has sound
     (FR-transcribe-191 to 193). The speech model can write the same words again and
     again on a silent track. On the demo song, a silent "Female" track gave 444
@@ -1408,6 +1416,7 @@ from 0 to 1.
 | Singer split: the model gives an output with the wrong shape | The message for a failed split. |
 | Singer split: the model fails, the tracks do not match the mode, or another failure | No mark changes. The dialog shows "The app could not split the singers. Turn off "Split the singers" and select Retry." |
 | Singer split: the person selects "Cancel" during the step | The app stops the worker. The dialog shows "The run stopped. The marks did not change." |
+| Singer split: both singer tracks give no words, for example because both are silent tracks | No mark changes. The dialog shows "The singer tracks have no sound that the speech model can transcribe, so the run found no words. Turn off "Split the singers" and select Retry." (FR-transcribe-195) |
 | Singer split: the vocal separation failed and the person selected "Continue with no separation" | The split does not run. The words go on the voice of the run. The toast adds "The app splits the singers only in separated vocals. All phrases stay on <voice name>." |
 | Kept audio tracks: the browser storage is full | The run completes. The app stores the report and the singer ranges with no audio tracks. The report has the line "audio tracks not kept: the browser storage is full". The toast adds "The browser storage is full, so the app did not keep the separated tracks." |
 | Kept audio tracks: the browser cannot resample the tracks | The run completes with no audio tracks. The report has the line "audio tracks not kept: the app could not convert the tracks". The toast adds "The app could not keep the separated tracks. Run "Transcribe" again to try one more time." |

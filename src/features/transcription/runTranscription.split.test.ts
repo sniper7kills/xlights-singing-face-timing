@@ -18,13 +18,15 @@ import {
 import { SPEECH_SAMPLE_RATE } from './protocol.ts'
 import { postTranscription } from './remoteClient.ts'
 import { resampleForSpeech } from './resample.ts'
+import { startRunRecord } from './runRecord.ts'
 import {
+  NoSplitWordsError,
   NoWordsError,
   runTranscription,
   type TranscribeRequest,
   type TranscribeRunHandlers,
 } from './runTranscription.ts'
-import { NoSplitRoomError } from './splitRun.ts'
+import { NoSplitRoomError, writeSplit } from './splitRun.ts'
 import type { TranscribeClient } from './transcribeClient.ts'
 import type { TimedWord } from './types.ts'
 
@@ -346,6 +348,8 @@ describe('runTranscription with the singer split', () => {
 
     expect(client.transcribe).toHaveBeenCalledTimes(1)
     expect(outcome.split).toMatchObject({ voiceNames: ['Male'], emptyTracks: ['Female'] })
+    // The silent track makes no empty voice.
+    expect(voiceNames()).toEqual(['Lead Vocals', 'Male'])
     expect(marksOn('Male', 'phrase')).toEqual([expect.objectContaining({ label: 'Silent night.' })])
     const data = await loadRunData(content().song.id)
     expect(data?.report.split?.tracks).toEqual([
@@ -356,8 +360,8 @@ describe('runTranscription with the singer split', () => {
 
   it('removes the words in the silent parts of a singer track and reports their count', async () => {
     const partly = new Float32Array(10 * SPEECH_SAMPLE_RATE)
-    // The track has sound from 0 s to 3 s only, so " night." from 3 s to 6 s is silent.
-    partly.fill(0.5, 0, 3 * SPEECH_SAMPLE_RATE)
+    // The track has sound from 0 s to 2 s only, so " night." from 3 s to 6 s is silent, also with the margin of 150 ms.
+    partly.fill(0.5, 0, 2 * SPEECH_SAMPLE_RATE)
     firstSpeechTrack(partly)
 
     const outcome = await runTranscription(request, fakeClient(), handlers())
@@ -366,6 +370,28 @@ describe('runTranscription with the singer split', () => {
     expect(marksOn('Female', 'word').map((mark) => mark.label)).toEqual(['Silent'])
     const data = await loadRunData(content().song.id)
     expect(data?.report.split?.tracks.map((track) => track.removedCount)).toEqual([1, 0])
+  })
+
+  it('rejects with NoSplitWordsError, transcribes nothing and makes no voice when both singer tracks are silent', async () => {
+    vi.mocked(resampleSeparated).mockImplementation(async (_samples, sampleRate) =>
+      sampleRate === SPEECH_SAMPLE_RATE ? new Float32Array(10 * SPEECH_SAMPLE_RATE) : SOUND_TRACK,
+    )
+    const client = fakeClient()
+
+    await expect(runTranscription(request, client, handlers())).rejects.toBeInstanceOf(
+      NoSplitWordsError,
+    )
+    expect(client.transcribe).not.toHaveBeenCalled()
+    expect(voiceNames()).toEqual(['Lead Vocals'])
+  })
+
+  it('leaves out the removed words of a track with no recorded count, so the report shows "not known"', () => {
+    const record = startRunRecord()
+    const marks = [{ label: 'female' as const, marks: [] }]
+
+    writeSplit(VOICE, { startMs: 0, endMs: 10_000 }, marks, [], record)
+
+    expect(record.split).toEqual([{ label: 'female', voiceName: '', wordCount: 0 }])
   })
 
   it('rejects with NoWordsError and changes no mark when both singer tracks have no words', async () => {

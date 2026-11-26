@@ -37,8 +37,18 @@ describe('windowLoudness', () => {
 })
 
 describe('loudnessLimit', () => {
-  it('gives 1% of the loudest window of all tracks', () => {
-    expect(loudnessLimit([Float32Array.of(0.1, 0.2), Float32Array.of(0.5)])).toBeCloseTo(0.005)
+  it('gives 1% of the 95th percentile window of all tracks together', () => {
+    const first = new Float32Array(50).fill(0.5)
+    const second = new Float32Array(50).fill(0.1)
+
+    expect(loudnessLimit([first, second])).toBeCloseTo(0.005)
+  })
+
+  it('does not let one loud window, for example a clap, raise the limit', () => {
+    const loudness = new Float32Array(100).fill(0.2)
+    loudness[40] = 50
+
+    expect(loudnessLimit([loudness, new Float32Array(100).fill(0.2)])).toBeCloseTo(0.002)
   })
 
   it('gives the lowest limit when all tracks are quiet', () => {
@@ -53,8 +63,14 @@ describe('hasSound', () => {
     expect(hasSound(loudness, loudnessLimit([loudness]))).toBe(false)
   })
 
-  it('is true for a track with one window at the limit', () => {
+  it('is false for a track with one loud window only, for example a click', () => {
     const loudness = windowLoudness(track(4, 1000, 1050), RATE)
+
+    expect(hasSound(loudness, loudnessLimit([loudness]))).toBe(false)
+  })
+
+  it('is true for a track with 200 ms at the limit', () => {
+    const loudness = windowLoudness(track(4, 1000, 1200), RATE)
 
     expect(hasSound(loudness, loudnessLimit([loudness]))).toBe(true)
   })
@@ -95,10 +111,25 @@ describe('soundWords', () => {
     expect(kept).toEqual([word(11_200, 11_500)])
   })
 
+  it('keeps a word whose time is 100 ms before the sound, and removes a word 1 s inside a silence', () => {
+    const loudness = windowLoudness(track(10, 2000, 5000), RATE)
+    const limit = loudnessLimit([loudness])
+
+    const { kept } = soundWords([word(1700, 1900), word(6000, 6500)], loudness, limit, 0)
+
+    expect(kept).toEqual([word(1700, 1900)])
+  })
+
   it('removes a word after the end of the track', () => {
     const loudness = windowLoudness(track(4, 0, 4000), RATE)
 
-    expect(soundWords([word(4100, 4300)], loudness, loudnessLimit([loudness]), 0).kept).toEqual([])
+    expect(soundWords([word(4300, 4500)], loudness, loudnessLimit([loudness]), 0).kept).toEqual([])
+  })
+
+  it('removes a word before the start of the range when the track starts silent', () => {
+    const loudness = windowLoudness(track(4, 3000, 4000), RATE)
+
+    expect(soundWords([word(0, 300)], loudness, loudnessLimit([loudness]), 1000).kept).toEqual([])
   })
 
   it('reads one window for a word with no length or with an end before its start', () => {

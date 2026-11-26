@@ -201,11 +201,14 @@ export function writeSplit(
   if (voiceIds === null) throw new NoSplitRoomError()
   record.splitVoiceIds = voiceIds
   const after = useSongStore.getState().current?.voices ?? []
-  record.split = tracks.map((track, index) => ({
-    label: track.label,
-    voiceName: after.find((voice) => voice.id === voiceIds[index])?.name ?? '',
-    wordCount: track.marks.filter((mark) => mark.layer === 'word').length,
-    // `soundTrackWords` sets a value for each track, so the fallback does not occur.
-    removedCount: record.splitRemoved[index] ?? null,
-  }))
+  record.split = tracks.map((track, index) => {
+    const removedCount = record.splitRemoved[index]
+    return {
+      label: track.label,
+      voiceName: after.find((voice) => voice.id === voiceIds[index])?.name ?? '',
+      wordCount: track.marks.filter((mark) => mark.layer === 'word').length,
+      // A missing count stays out of the report, so the report shows "not known" and not "Silent track".
+      ...(removedCount === undefined ? {} : { removedCount }),
+    }
+  })
 }

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { RemoteError } from '../../lib/remote/response.ts'
 import { DEFAULT_SETTINGS } from '../../store/settings.ts'
-import { NoWordsError } from './runTranscription.ts'
+import { NoSplitWordsError, NoWordsError } from './runTranscription.ts'
 import { TranscribeError } from './transcribeClient.ts'
 import {
   type DialogState,
@@ -168,6 +168,12 @@ describe('errorMessage', () => {
   it('shows the memory copy for an out-of-memory failure', () => {
     expect(errorMessage(new TranscribeError('memory', 'x'))).toBe(
       'This browser ran out of memory. Select a smaller speech model.',
+    )
+  })
+
+  it('shows the singer split no-words copy when the singer tracks give no word', () => {
+    expect(errorMessage(new NoSplitWordsError())).toBe(
+      'The singer tracks have no sound that the speech model can transcribe, so the run found no words. Turn off "Split the singers" and select Retry.',
     )
   })
 

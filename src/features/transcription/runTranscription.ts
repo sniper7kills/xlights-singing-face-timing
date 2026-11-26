@@ -272,6 +272,15 @@ export class NoWordsError extends Error {
   }
 }
 
+/** The singer tracks of a run with the singer split gave no words, for example because both tracks are silent. */
+export class NoSplitWordsError extends NoWordsError {
+  constructor() {
+    super()
+    this.message = 'The singer tracks of the run gave no word.'
+    this.name = 'NoSplitWordsError'
+  }
+}
+
 /** Below this match ratio, the run asks the person before it creates marks. */
 const LOW_MATCH_RATIO = 0.3
 
@@ -735,7 +744,10 @@ async function findPhrases(
   }
   const { tracks, vocals } = await findWords(request, songId, client, handlers, record)
   stopIfCancelled(handlers.signal)
-  if (tracks.every((track) => track.words.length === 0)) throw new NoWordsError()
+  if (tracks.every((track) => track.words.length === 0))
+    throw tracks.some((track) => track.label !== null)
+      ? new NoSplitWordsError()
+      : new NoWordsError()
   handlers.onFinishing()
 
   const { lyrics } = request
