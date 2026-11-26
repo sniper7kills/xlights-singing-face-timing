@@ -62,6 +62,23 @@ These values come from the outputs of the hosting stack.
   Hugging Face Hub, commit `92e33df61cfc9eb820272aaa62d2ef6dcf4d950d`, downloaded by
   the browser at the first run with "Separation model" set to Demucs. The licence
   notes are in `docs/licences/README.md`.
+- Singer split models: two ONNX files with float16 weights, made in issue #191
+  from RoFormer checkpoints. The browser downloads a file from `models/<file>` on
+  the site at the first run of its split mode. The PM uploads the files to the site
+  bucket. The deploy keeps the objects under `models/`.
+  - `bs_roformer_male_female_aufr33.w16.onnx`, 272 233 247 bytes, SHA-256
+    `84ecd40a7ba5e8bbb1ddc4d56f329288654968d329ccf34aba9f0ec9012aa980`. Source
+    checkpoint: `bs_roformer_male_female_by_aufr33_sdr_7.2889.ckpt` by aufr33, from
+    the model list of `audio-separator` 0.48.0. A mirror is
+    https://huggingface.co/Politrees/UVR_resources . Licence: not stated by the
+    author. The mirror has the tag `mit`.
+  - `mel_band_roformer_karaoke_becruily.w16.onnx`, 868 622 079 bytes, SHA-256
+    `46d63c42cebf13306053cbef804f897cf54efabf11192523ee7236546b62a8fc`. Source
+    checkpoint: `mel_band_roformer_karaoke_becruily.ckpt`, from
+    https://huggingface.co/becruily/mel-band-roformer-karaoke . Licence: not stated
+    by the author. The page has no licence field and no model card.
+  - The contract of the files (`CONTRACT.md`, `reference.py` and the test vectors)
+    is on the development computer of the maintainer. Issue #191 records it.
 - Dictionary: `cmudict.dict` from https://github.com/cmusphinx/cmudict, commit
   `74790861f652b15e4ac49015a90074ad62a27690` (2025-10-24). The licence is a
   BSD-2-Clause style licence, copyright Carnegie Mellon University. The copy is in

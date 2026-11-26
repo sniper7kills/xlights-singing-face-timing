@@ -962,6 +962,47 @@ body.rv-open .layout { padding-right:21rem; }
 </li>
 </ul>
 <p>origin, at <code>models/&lt;file&gt;</code>. It checks the size and the SHA-256 of each file.</p>
+<h4 id="transcription-singer-split-engine-issue-194">Singer split engine (issue #194)</h4>
+<ul>
+<li>FR-transcribe-176 — With "Split the singers" on, the dialog shows the download
+</li>
+</ul>
+<p>size of the model of the selected mode: "This mode downloads a model of 272 MB one time." or "This mode downloads a model of 869 MB one time."</p>
+<ul>
+<li>FR-transcribe-177 — With "Lead and backing" selected, the size note adds "The
+</li>
+</ul>
+<p>model needs about 2 GB of memory."</p>
+<ul>
+<li>FR-transcribe-178 — The engine rejects a model file with the wrong size or the
+</li>
+</ul>
+<p>wrong SHA-256, and the browser cache keeps no copy of it.</p>
+<ul>
+<li>FR-transcribe-179 — The engine runs the model on WebGPU only. If the browser
+</li>
+</ul>
+<p>cannot start a WebGPU session, the run stops with the message for no WebGPU.</p>
+<ul>
+<li>FR-transcribe-180 — The engine does the STFT, the chunks and the overlap-add by
+</li>
+</ul>
+<p>the contract of issue #191. Each singer track has the length of the vocals.</p>
+<ul>
+<li>FR-transcribe-181 — The engine reports the download of the model, and the
+</li>
+</ul>
+<p>progress after each chunk.</p>
+<ul>
+<li>FR-transcribe-182 — "Cancel" stops the engine before the next chunk. The engine
+</li>
+</ul>
+<p>releases the model session at the end of each run, and after a failure.</p>
+<ul>
+<li>FR-transcribe-183 — With "Keep the separated tracks" on, the "Audio tracks" line
+</li>
+</ul>
+<p>of the run report counts the two singer tracks.</p>
 <h3 id="transcription-user-flows">User flows</h3>
 <h4 id="transcription-transcribe-a-song">Transcribe a song</h4>
 <div class="diagram"><pre class="mermaid">sequenceDiagram
@@ -1217,7 +1258,7 @@ body.rv-open .layout { padding-right:21rem; }
 <li>confirm for a run with no singer step on a song with singer voices of the last
 </li>
 </ul>
-<p>run (FR-transcribe-150): the text adds "The voices of the last singer step do not change."</p>
+<p>run (FR-transcribe-150): the text adds "The singer voices of the last run do not change." The singer voices are the voices of a singer step or of a singer split.</p>
 <ul>
 <li>question: while the dialog asks, the progress area shows no text and no bar,
 </li>
@@ -2002,7 +2043,48 @@ interface SingerTrack { label: SingerTrackLabel; audio: StereoAudio } // 44.1 kH
 { type: 'error'; runId: number; kind: 'download' | 'memory' | 'model' | 'not-available' | 'unknown'; detail: string }
 // the engine (Splitter)
 split(vocals: StereoAudio, mode: SplitMode, on: SplitterEvents, signal: AbortSignal): Promise&lt;{ tracks: SingerTrack[] }&gt;</code></pre>
-<p>The interface holds no ONNX detail. The fixture engine keeps the first 60% of the vocals in the first track and the last 60% in the second track. This version has no real engine: <code>createSplitter()</code> rejects with the kind <code>not-available</code>. Issue #194 adds the real engine. The engine reads its model files from the app origin at <code>models/&lt;file&gt;</code>, the site bucket. It checks the size and the SHA-256 of each file, and keeps the files in the Cache API, as the vocal separation engine does. See <code>docs/adr/0011-singer-split-in-the-browser.md</code>.</p>
+<p>The interface holds no ONNX detail. The fixture engine keeps the first 60% of the vocals in the first track and the last 60% in the second track. See <code>docs/adr/0011-singer-split-in-the-browser.md</code>.</p>
+<p><strong>Singer split engine (issue #194), <code>src/features/singer-split/engine/</code>.</strong> <code>createSplitter()</code> loads <code>roformerSplitter.ts</code> at the first request. The engine reads its model file from the app origin at <code>models/&lt;file&gt;</code>, the site bucket, with the download code of the vocal separation: a size check, a SHA-256 check, and the Cache API under the name <code>singer-split-models-v1</code>. The download writes into one buffer of the file size. The model table is <code>src/features/singer-split/splitModels.ts</code>:</p>
+<div class="table-wrap"><table>
+<tr><th>Mode</th><th>File</th><th>Bytes</th><th>Chunk (samples)</th><th>Frames</th><th>Output 0</th><th>Output 1</th></tr>
+<tr><td><code>male-female</code></td><td><code>bs_roformer_male_female_aufr33.w16.onnx</code></td><td>272 233 247</td><td>352 800</td><td>801</td><td>male</td><td>female</td></tr>
+<tr><td><code>lead-backing</code></td><td><code>mel_band_roformer_karaoke_becruily.w16.onnx</code></td><td>868 622 079</td><td>485 100</td><td>1101</td><td>lead</td><td>backing</td></tr>
+</table></div>
+<ul>
+<li>The session is `ort.InferenceSession.create(bytes, { executionProviders:
+</li>
+</ul>
+<p>['webgpu'] })<code> of </code>onnxruntime-web/webgpu<code>. The engine has no </code>wasm<code> fallback, because a model of this size is not usable on </code>wasm`.</p>
+<ul>
+<li>The input <code>spec</code> is float32 <code>[1, 2, 1025, T, 2]</code>: the channel, the bin, the frame,
+</li>
+</ul>
+<p>and the real and imaginary parts. The output <code>out</code> is float32 <code>[1, 2, 2, 1025, T, 2]</code>, with the stem first. An output of another shape fails with the kind <code>model</code>.</p>
+<ul>
+<li>The STFT: <code>n_fft</code> 2048, hop 441, a periodic Hann window, reflect padding of 1024
+</li>
+</ul>
+<p>samples on each side, no scale. The inverse STFT divides by the sum of the squared window. <code>roformerSignal.ts</code> reuses the FFT of the vocal separation.</p>
+<ul>
+<li>The chunks: two chunks cover each sample (<code>step = floor(C / 2)</code>), each chunk gets
+</li>
+</ul>
+<p>a symmetric Hamming fade, and the result is divided by the sum of the fades. The last chunk ends at the end of the vocals. Vocals shorter than one chunk get zeros at the end and the engine keeps their own length.</p>
+<ul>
+<li>The engine disposes the input and the output tensor of each chunk. It releases the
+</li>
+</ul>
+<p>session at the end of the run, after a failure and after "Cancel".</p>
+<ul>
+<li>Failures: no WebGPU adapter gives <code>not-available</code>. An allocation failure or a lost
+</li>
+</ul>
+<p>GPU device gives <code>memory</code>. A download or check failure gives <code>download</code>. A wrong output shape gives <code>model</code>.</p>
+<ul>
+<li>The unit tests compare the STFT, the tensor layout, the inverse STFT and the
+</li>
+</ul>
+<p>overlap-add with <code>reference.py</code> of issue #191. The fixtures in <code>tests/fixtures/singer-split/</code> come from <code>scripts/make-singer-split-fixtures.py</code>.</p>
 <p><strong>Pure functions, <code>src/features/transcription/</code>:</strong></p>
 <pre class="code"><code>alignLyrics(transcribed: TimedWord[], lyrics: string): AlignResult
 groupIntoPhrases(words: TimedWord[]): AlignedPhrase[]
@@ -2054,8 +2136,10 @@ spreadLyrics(lyrics: string, startMs: number, endMs: number): AlignedPhrase[]</c
 <tr><td>Singer split: the browser has no WebGPU adapter</td><td>"Split the singers" is disabled. The dialog shows "This browser has no WebGPU. The singer split needs it."</td></tr>
 <tr><td>Singer split: the song has no room for two more voices</td><td>The run does not start. The dialog shows "A song has 12 voices at most, and the singer split adds 2 voices. Delete a voice, or turn off "Split the singers"."</td></tr>
 <tr><td>Singer split: the model does not download</td><td>No mark changes. The dialog shows "The app could not download the singer split model. Check the connection and select Retry."</td></tr>
-<tr><td>Singer split: out of memory</td><td>No mark changes. The dialog shows "This browser does not have enough memory to split the singers of this song. Select a shorter time range, or turn off "Split the singers"."</td></tr>
-<tr><td>Singer split: this version of the app has no split engine</td><td>No mark changes. The dialog shows "This version of the app cannot split the singers yet. Turn off "Split the singers" and select Retry."</td></tr>
+<tr><td>Singer split: the model file has the wrong size or SHA-256</td><td>The message for a failed download. The browser cache keeps no copy.</td></tr>
+<tr><td>Singer split: out of memory, or the graphics card stops during the run</td><td>No mark changes. The dialog shows "This browser does not have enough memory to split the singers. Close other tabs and select Retry, or turn off "Split the singers"."</td></tr>
+<tr><td>Singer split: the browser cannot start a WebGPU session</td><td>No mark changes. The dialog shows "This browser could not start WebGPU for the singer split. Turn off "Split the singers" and select Retry."</td></tr>
+<tr><td>Singer split: the model gives an output with the wrong shape</td><td>The message for a failed split.</td></tr>
 <tr><td>Singer split: the model fails, the tracks do not match the mode, or another failure</td><td>No mark changes. The dialog shows "The app could not split the singers. Turn off "Split the singers" and select Retry."</td></tr>
 <tr><td>Singer split: the person selects "Cancel" during the step</td><td>The app stops the worker. The dialog shows "The run stopped. The marks did not change."</td></tr>
 <tr><td>Singer split: the vocal separation failed and the person selected "Continue with no separation"</td><td>The split does not run. The words go on the voice of the run. The toast adds "The app splits the singers only in separated vocals. All phrases stay on &lt;voice name&gt;."</td></tr>
@@ -2494,10 +2578,10 @@ spreadLyrics(lyrics: string, startMs: number, endMs: number): AlignedPhrase[]</c
 </ul>
 <p>to &lt;end&gt;: the marks of "Lead Vocals", and the marks of "Singer 2" from the last run." (FR-transcribe-148, 149)</p>
 <ul>
-<li>A second run with the singer option off asks with the sentence "The voices of the
+<li>A second run with the singer option off asks with the sentence "The singer voices
 </li>
 </ul>
-<p>last singer step do not change." (FR-transcribe-150)</p>
+<p>of the last run do not change." (FR-transcribe-150)</p>
 <ul>
 <li>With "Split the singers" off, a run gives the same marks and voices as before
 </li>
@@ -2533,6 +2617,31 @@ spreadLyrics(lyrics: string, startMs: number, endMs: number): AlignedPhrase[]</c
 </li>
 </ul>
 <p>female" and the words of each singer track. (FR-transcribe-173)</p>
+<ul>
+<li>With "Split the singers" on, the dialog shows "This mode downloads a model of
+</li>
+</ul>
+<p>272 MB one time." With "Lead and backing", it shows the 869 MB size and "The model needs about 2 GB of memory." (FR-transcribe-176, 177)</p>
+<ul>
+<li>A unit test runs the STFT and the overlap-add of the engine against values of
+</li>
+</ul>
+<p><code>reference.py</code> of issue #191 for its noise test vectors. (FR-transcribe-180)</p>
+<ul>
+<li>A model file with the wrong size or SHA-256 fails with the message for a failed
+</li>
+</ul>
+<p>download, and the cache keeps no copy. (FR-transcribe-178)</p>
+<ul>
+<li>After a run with the singer split and "Keep the separated tracks", the run report
+</li>
+</ul>
+<p>shows "Audio tracks: 4". (FR-transcribe-183)</p>
+<ul>
+<li>After a run with the singer split, a run on the voice "Female" with the split off
+</li>
+</ul>
+<p>asks with the sentence "The singer voices of the last run do not change." (FR-transcribe-150)</p>
 <h3 id="transcription-out-of-scope">Out of scope</h3>
 <ul>
 <li>Separation of stems other than the vocals.
@@ -2543,7 +2652,7 @@ spreadLyrics(lyrics: string, startMs: number, endMs: number): AlignedPhrase[]</c
 </li>
 <li>More than two singer tracks.
 </li>
-<li>The real singer split engine and its model files. Issue #194 adds them.
+<li>A run of the real singer split model in CI.
 </li>
 <li>The names of the singers.
 </li>
