@@ -110,6 +110,7 @@ async function keepSplitTracks(
   try {
     const split = await Promise.all(mono.map(({ samples }) => keptTrack(samples, startMs)))
     record.tracks = { ...tracks, split }
+    record.trackCount += split.length
   } catch {
     // The tracks are extra data, so the run keeps no audio track and states it.
     record.tracks = null

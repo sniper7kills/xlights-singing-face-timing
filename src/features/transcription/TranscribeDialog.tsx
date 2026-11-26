@@ -85,6 +85,7 @@ import {
   shownRunState,
   SLOW_GPU_MESSAGE,
   SPLIT_NOTE,
+  splitSizeNote,
   SPLIT_WEBGPU_REASON,
   splitRemoteNote,
   stateLabel,
@@ -950,7 +951,7 @@ function SplitChoice(props: SplitChoiceProps) {
   )
 }
 
-/** Shows the "Split mode" choice: "Male and female" or "Lead and backing". */
+/** Shows the "Split mode" choice: "Male and female" or "Lead and backing", and the download size of the model of the mode. */
 function SplitModeChoices({
   mode,
   onChange,
@@ -959,21 +960,24 @@ function SplitModeChoices({
   onChange: (mode: SplitMode) => void
 }) {
   return (
-    <fieldset className="choice-group">
-      <legend>Split mode</legend>
-      {(Object.keys(SPLIT_LABELS) as SplitMode[]).map((value) => (
-        <label key={value} className="choice">
-          <input
-            type="radio"
-            name="split-mode"
-            value={value}
-            checked={mode === value}
-            onChange={() => onChange(value)}
-          />
-          {SPLIT_MODE_TEXT[value]}
-        </label>
-      ))}
-    </fieldset>
+    <>
+      <fieldset className="choice-group">
+        <legend>Split mode</legend>
+        {(Object.keys(SPLIT_LABELS) as SplitMode[]).map((value) => (
+          <label key={value} className="choice">
+            <input
+              type="radio"
+              name="split-mode"
+              value={value}
+              checked={mode === value}
+              onChange={() => onChange(value)}
+            />
+            {SPLIT_MODE_TEXT[value]}
+          </label>
+        ))}
+      </fieldset>
+      <p className="dialog-note">{splitSizeNote(mode)}</p>
+    </>
   )
 }
 

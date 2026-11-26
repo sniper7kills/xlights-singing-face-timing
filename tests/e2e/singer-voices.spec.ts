@@ -232,7 +232,7 @@ test('a run with the singer option off states that the singer voices of the last
 
   // The question follows a read of the run data, which is slow on a busy test computer.
   await expect(dialog.locator('.dialog-confirm')).toHaveText(
-    /^The run replaces the \d+ marks of "Lead Vocals" from 0:00\.000 to 0:28\.\d{3}\. The voices of the last singer step do not change\.$/,
+    /^The run replaces the \d+ marks of "Lead Vocals" from 0:00\.000 to 0:28\.\d{3}\. The singer voices of the last run do not change\.$/,
     { timeout: 20_000 },
   )
   await dialog.getByRole('button', { name: 'Cancel' }).click()
