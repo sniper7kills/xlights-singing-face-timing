@@ -121,7 +121,16 @@ export type SingerSection = {
  */
 export type SplitSection = {
   mode: SplitMode
-  tracks: { label: SingerTrackLabel; voiceName: string; wordCount: number }[]
+  tracks: {
+    label: SingerTrackLabel
+    voiceName: string
+    wordCount: number
+    /**
+     * The words that the level rule removed, because their time has no voice in the track.
+     * Null when the track has no voice at all, so the run did not transcribe it. A report from before issue #200 has no value.
+     */
+    removedCount?: number | null
+  }[]
 }
 
 /** Returns the text of the choice of "Singers" of a report: "Automatic", the count, or "not recorded". */

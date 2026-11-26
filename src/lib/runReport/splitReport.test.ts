@@ -21,8 +21,28 @@ describe('the run report of a singer split', () => {
 
     expect(section?.facts).toEqual([{ label: 'Split mode', value: 'Male and female' }])
     expect(section?.tables[0]?.rows).toEqual([
-      ['1', 'Female', '9'],
-      ['2', 'Male', '7'],
+      ['1', 'Female', '9', 'not known'],
+      ['2', 'Male', '7', 'not known'],
+    ])
+  })
+
+  it('shows the removed words of each singer track, and "No signal" for a track with no voice', () => {
+    const report = makeReport({
+      split: {
+        mode: 'male-female',
+        tracks: [
+          { label: 'female', voiceName: '', wordCount: 0, removedCount: null },
+          { label: 'male', voiceName: 'Male', wordCount: 16, removedCount: 3 },
+        ],
+      },
+    })
+
+    const section = reportPanel(report).find((item) => item.title === 'Singer split')
+
+    expect(section?.tables[0]?.columns).toEqual(['Track', 'Voice', 'Words', 'Removed words'])
+    expect(section?.tables[0]?.rows).toEqual([
+      ['1', 'No voice', '0', 'No signal'],
+      ['2', 'Male', '16', '3'],
     ])
   })
 
@@ -40,8 +60,8 @@ describe('the run report of a singer split', () => {
     const section = reportPanel(report).find((item) => item.title === 'Singer split')
 
     expect(section?.tables[0]?.rows).toEqual([
-      ['1', 'Female', '9'],
-      ['2', 'No voice', '0'],
+      ['1', 'Female', '9', 'not known'],
+      ['2', 'No voice', '0', 'not known'],
     ])
   })
 

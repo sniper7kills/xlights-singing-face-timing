@@ -367,7 +367,16 @@ function voiceSection(report: RunReport, present: readonly NamedVoice[] | undefi
 /** The voice cell of a singer track with no word. Such a track makes no voice. */
 export const NO_VOICE_TEXT = 'No voice'
 
-/** Returns the section of the singer split: the mode, and each singer track with its voice and its count of words. */
+/** The "Removed words" cell of a singer track with no voice. The run did not transcribe such a track. */
+export const NO_SIGNAL_TEXT = 'No signal'
+
+/** Returns the "Removed words" cell: the count, "No signal", or "not known" for a report from before issue #200. */
+function removedText(removedCount: number | null | undefined): string {
+  if (removedCount === undefined) return countText(null)
+  return removedCount === null ? NO_SIGNAL_TEXT : String(removedCount)
+}
+
+/** Returns the section of the singer split: the mode, and each singer track with its voice, its count of words and its removed words. */
 function splitSection(split: SplitSection): PanelSection {
   return section('Singer split', {
     text: SPLIT_SUMMARY,
@@ -375,11 +384,12 @@ function splitSection(split: SplitSection): PanelSection {
     tables: [
       {
         caption: 'The singer tracks',
-        columns: ['Track', 'Voice', 'Words'],
+        columns: ['Track', 'Voice', 'Words', 'Removed words'],
         rows: split.tracks.map((track, index) => [
           String(index + 1),
           track.voiceName === '' ? NO_VOICE_TEXT : track.voiceName,
           String(track.wordCount),
+          removedText(track.removedCount),
         ]),
       },
     ],

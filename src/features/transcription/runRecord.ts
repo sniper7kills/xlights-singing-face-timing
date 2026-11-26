@@ -55,6 +55,8 @@ export type RunRecord = {
   splitVoiceIds: (string | null)[]
   /** Each singer track of the split with its voice and its count of words, or null when the split wrote no marks. */
   split: SplitSection['tracks'] | null
+  /** The words that the level rule removed from each singer track, in track order. Null for a track with no voice. */
+  splitRemoved: (number | null)[]
   /** The lyrics lines that the run left out, because the range has no room for their words. */
   linesLeftOut: number
   /** The words that the run left out, because it cannot use them. */
@@ -79,6 +81,7 @@ export function startRunRecord(now: Date = new Date()): RunRecord {
     splitMode: null,
     splitVoiceIds: [],
     split: null,
+    splitRemoved: [],
     linesLeftOut: 0,
     wordsLeftOut: 0,
   }

@@ -46,7 +46,13 @@ import {
   spreadLyrics,
 } from './phrases.ts'
 import { SPEECH_SAMPLE_RATE } from './protocol.ts'
-import { checkSplitRoom, type SpeechTrack, splitVocals, writeSplit } from './splitRun.ts'
+import {
+  checkSplitRoom,
+  type SpeechTrack,
+  splitVocals,
+  voicedTrackWords,
+  writeSplit,
+} from './splitRun.ts'
 import { postTranscription } from './remoteClient.ts'
 import { resampleForSpeech } from './resample.ts'
 import {
@@ -776,10 +782,13 @@ async function findWords(
     handlers,
     record,
   )
-  const tracks: TrackWords[] = []
-  // The client runs one transcription at a time, so the tracks go one after the other.
-  for (const { label, samples } of speechTracks)
-    tracks.push({ label, words: await wordsOf(samples, request, client, handlers) })
+  const tracks = await voicedTrackWords(
+    speechTracks,
+    request.range?.startMs ?? 0,
+    // The client runs one transcription at a time, so the tracks go one after the other.
+    (samples) => wordsOf(samples, request, client, handlers),
+    record,
+  )
   return { tracks, vocals }
 }
 
