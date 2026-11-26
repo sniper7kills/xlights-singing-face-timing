@@ -75,6 +75,25 @@ default. Issue #193 builds the option, the run step and a fixture engine. Issue
 - A run with the singer split runs the speech model two times, so it takes about
   two times as long as a run with no split.
 - The deploy must put the model files in the bucket at `models/`. Issue #194
-  names the files, the sizes and the SHA-256 values.
-- Open point: the licences of the model files are not known. Issue #194 checks them
-  before the files go in the site bucket.
+  names the files, the sizes and the SHA-256 values. The first export had Concat
+  and Split nodes with 62 tensors and failed on a WebGPU device with 16 storage
+  buffers for each shader. Version 2 of the files (`.v2.w16.onnx`) has 5 tensors at
+  most for each node.
+- Licences, ruling of the maintainer on 2026-11-25: the app ships both model files
+  with attribution. The authors state no licence.
+  - "BS-RoFormer male and female vocals model" by aufr33. Source: the model list
+    of python-audio-separator 0.48.0, file
+    `bs_roformer_male_female_by_aufr33_sdr_7.2889.ckpt`. A mirror at
+    huggingface.co/Politrees/UVR_resources has the tag `mit`. The author states no
+    licence.
+  - "Mel-Band RoFormer karaoke model" by becruily. Source:
+    https://huggingface.co/becruily/mel-band-roformer-karaoke , file
+    `mel_band_roformer_karaoke_becruily.ckpt`. The page states no licence.
+  - This project converted each model from PyTorch to ONNX with float16 weights.
+    The STFT is outside the model. The project did not train the model.
+  - The model code is the RoFormer implementation of
+    ZFTurbo/Music-Source-Separation-Training (MIT), as packaged in
+    python-audio-separator 0.48.0. The licence file of that package is the MIT
+    License, "Copyright (c) 2023 karaokenerds".
+  - The "How it works" card of the app and `public/models/NOTICE.txt` give the
+    attribution. The notice deploys with the site to `models/NOTICE.txt`.

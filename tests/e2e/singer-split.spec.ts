@@ -80,7 +80,7 @@ async function runSplit(page: Page) {
   await dialog.getByRole('checkbox', { name: SEPARATE }).check()
   await dialog.getByRole('checkbox', { name: SPLIT }).check()
   await expect(dialog.getByRole('radio', { name: 'Male and female' })).toBeChecked()
-  await expect(dialog.getByText('This mode downloads a model of 272 MB one time.')).toBeVisible()
+  await expect(dialog.getByText('This mode downloads a model of 267 MB one time.')).toBeVisible()
   await dialog.getByRole('button', { name: 'Start' }).click()
   // The run has four worker steps, so it takes longer than the default timeout.
   await expect(dialog).toBeHidden({ timeout: 20_000 })
@@ -161,13 +161,13 @@ test('the dialog shows the download size of each split mode, and the memory note
   const dialog = await openDialog(page)
   await dialog.getByRole('checkbox', { name: SEPARATE }).check()
   await dialog.getByRole('checkbox', { name: SPLIT }).check()
-  await expect(dialog.getByText('This mode downloads a model of 272 MB one time.')).toBeVisible()
+  await expect(dialog.getByText('This mode downloads a model of 267 MB one time.')).toBeVisible()
 
   await dialog.getByRole('radio', { name: 'Lead and backing' }).check()
 
   await expect(
     dialog.getByText(
-      'This mode downloads a model of 869 MB one time. The model needs about 2 GB of memory.',
+      'This mode downloads a model of 864 MB one time. The model needs about 2 GB of memory.',
     ),
   ).toBeVisible()
 })

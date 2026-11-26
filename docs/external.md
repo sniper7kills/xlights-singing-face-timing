@@ -62,21 +62,30 @@ These values come from the outputs of the hosting stack.
   Hugging Face Hub, commit `92e33df61cfc9eb820272aaa62d2ef6dcf4d950d`, downloaded by
   the browser at the first run with "Separation model" set to Demucs. The licence
   notes are in `docs/licences/README.md`.
-- Singer split models: two ONNX files with float16 weights, made in issue #191
-  from RoFormer checkpoints. The browser downloads a file from `models/<file>` on
-  the site at the first run of its split mode. The PM uploads the files to the site
-  bucket. The deploy keeps the objects under `models/`.
-  - `bs_roformer_male_female_aufr33.w16.onnx`, 272 233 247 bytes, SHA-256
-    `84ecd40a7ba5e8bbb1ddc4d56f329288654968d329ccf34aba9f0ec9012aa980`. Source
-    checkpoint: `bs_roformer_male_female_by_aufr33_sdr_7.2889.ckpt` by aufr33, from
-    the model list of `audio-separator` 0.48.0. A mirror is
-    https://huggingface.co/Politrees/UVR_resources . Licence: not stated by the
-    author. The mirror has the tag `mit`.
-  - `mel_band_roformer_karaoke_becruily.w16.onnx`, 868 622 079 bytes, SHA-256
-    `46d63c42cebf13306053cbef804f897cf54efabf11192523ee7236546b62a8fc`. Source
-    checkpoint: `mel_band_roformer_karaoke_becruily.ckpt`, from
-    https://huggingface.co/becruily/mel-band-roformer-karaoke . Licence: not stated
-    by the author. The page has no licence field and no model card.
+- Singer split models: two ONNX files with float16 weights. This project converted
+  them in issue #191 from PyTorch checkpoints. The STFT is outside the model. The
+  project did not train the models. The browser downloads a file from
+  `models/<file>` on the site at the first run of its split mode. The PM uploads
+  the `.onnx` files to the site bucket, and the deploy keeps the objects under
+  `models/`. `public/models/NOTICE.txt` deploys with the site and holds the same
+  facts. The maintainer ruled on 2026-11-25 to ship both files with attribution.
+  - `bs_roformer_male_female_aufr33.v2.w16.onnx`, 266 945 164 bytes, SHA-256
+    `da41d39969d2282c8bf1ce746f85fa01fb064666f1c0925b893d2447aaddd700`. Model:
+    "BS-RoFormer male and female vocals model" by aufr33. Source: the model list of
+    python-audio-separator 0.48.0, file
+    `bs_roformer_male_female_by_aufr33_sdr_7.2889.ckpt`. A mirror at
+    https://huggingface.co/Politrees/UVR_resources has the tag `mit`. Licence: the
+    author states no licence.
+  - `mel_band_roformer_karaoke_becruily.v2.w16.onnx`, 864 108 113 bytes, SHA-256
+    `0ee3f23372e832f74a6aac430684d690ccae2e645137296295ae60afc113eefb`. Model:
+    "Mel-Band RoFormer karaoke model" by becruily. Source:
+    https://huggingface.co/becruily/mel-band-roformer-karaoke , file
+    `mel_band_roformer_karaoke_becruily.ckpt`. Licence: the page states no
+    licence.
+  - Model code: the RoFormer implementation of
+    ZFTurbo/Music-Source-Separation-Training (MIT), as packaged in
+    python-audio-separator 0.48.0. The licence file of that package is the MIT
+    License, "Copyright (c) 2023 karaokenerds".
   - The contract of the files (`CONTRACT.md`, `reference.py` and the test vectors)
     is on the development computer of the maintainer. Issue #191 records it.
 - Dictionary: `cmudict.dict` from https://github.com/cmusphinx/cmudict, commit

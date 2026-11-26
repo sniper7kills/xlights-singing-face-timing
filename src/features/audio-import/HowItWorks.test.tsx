@@ -79,4 +79,21 @@ describe('HowItWorks', () => {
       'https://huggingface.co/pyannote/wespeaker-voxceleb-resnet34-LM',
     )
   })
+
+  it('credits the two singer split models, states the conversion and links the model notice', () => {
+    render(<HowItWorks />)
+
+    const card = screen.getByRole('region', { name: 'How it works' })
+    expect(card).toHaveTextContent(
+      'The singer split option uses the BS-RoFormer male and female vocals model by aufr33, from the model list of python-audio-separator, and the Mel-Band RoFormer karaoke model by becruily. The authors state no licence. This project converted each model from PyTorch to ONNX with float16 weights. The STFT is outside the model. The project did not train the models.',
+    )
+    expect(screen.getByRole('link', { name: 'Mel-Band RoFormer karaoke model' })).toHaveAttribute(
+      'href',
+      'https://huggingface.co/becruily/mel-band-roformer-karaoke',
+    )
+    expect(screen.getByRole('link', { name: 'model notice' })).toHaveAttribute(
+      'href',
+      'models/NOTICE.txt',
+    )
+  })
 })

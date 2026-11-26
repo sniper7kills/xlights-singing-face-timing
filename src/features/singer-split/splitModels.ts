@@ -25,17 +25,17 @@ export type SplitModel = {
  */
 export const SPLIT_MODELS: Readonly<Record<SplitMode, SplitModel>> = {
   'male-female': {
-    fileName: 'bs_roformer_male_female_aufr33.w16.onnx',
-    bytes: 272_233_247,
-    sha256: '84ecd40a7ba5e8bbb1ddc4d56f329288654968d329ccf34aba9f0ec9012aa980',
+    fileName: 'bs_roformer_male_female_aufr33.v2.w16.onnx',
+    bytes: 266_945_164,
+    sha256: 'da41d39969d2282c8bf1ce746f85fa01fb064666f1c0925b893d2447aaddd700',
     chunkSamples: 352_800,
     frames: 801,
     stems: ['male', 'female'],
   },
   'lead-backing': {
-    fileName: 'mel_band_roformer_karaoke_becruily.w16.onnx',
-    bytes: 868_622_079,
-    sha256: '46d63c42cebf13306053cbef804f897cf54efabf11192523ee7236546b62a8fc',
+    fileName: 'mel_band_roformer_karaoke_becruily.v2.w16.onnx',
+    bytes: 864_108_113,
+    sha256: '0ee3f23372e832f74a6aac430684d690ccae2e645137296295ae60afc113eefb',
     chunkSamples: 485_100,
     frames: 1101,
     stems: ['lead', 'backing'],

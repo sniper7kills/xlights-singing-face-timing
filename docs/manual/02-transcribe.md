@@ -126,7 +126,8 @@ This option is experimental. The app divides the vocals into two singer tracks. 
 - The option needs "Separate the vocals first". The window states this under the disabled option.
 - The option needs WebGPU. In a browser with no WebGPU, the option is disabled. The window shows "This browser has no WebGPU. The singer split needs it."
 - "Split mode" has the choices "Male and female" and "Lead and backing". "Male and female" makes the voices "Female" and "Male". "Lead and backing" makes the voices "Lead" and "Backing".
-- The first run of a mode downloads its model one time. "Male and female" downloads 272 MB. "Lead and backing" downloads 869 MB. The window shows the size under "Split mode".
+- The first run of a mode downloads its model one time. "Male and female" downloads 267 MB. "Lead and backing" downloads 864 MB. The window shows the size under "Split mode".
+- The two models come from other authors. This project converted them to run in the browser. The "How it works" card of the song library names each model, its author and its source.
 - The "Lead and backing" model needs about 2 GB of memory. If the browser does not have enough memory, the window shows a message. Close other tabs and select "Retry", or select "Male and female".
 - The option and "Put each singer on its own voice (experimental)" exclude each other. When you select one, the app clears the other.
 - The app cannot tell which lyrics line belongs to which singer. So the lyrics field is disabled, and the window shows "Lyrics are not used when the singers are split."

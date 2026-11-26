@@ -176,7 +176,7 @@ export const SPLIT_COPY = {
   memory:
     'This browser does not have enough memory to split the singers. Close other tabs and select Retry, or turn off "Split the singers".',
   'not-available':
-    'This browser could not start WebGPU for the singer split. Turn off "Split the singers" and select Retry.',
+    'The graphics hardware of this computer cannot run the singer split model. Clear "Split the singers" and select Retry.',
   failed: 'The app could not split the singers. Turn off "Split the singers" and select Retry.',
   noRoom: `A song has ${MAX_VOICES} voices at most, and the singer split adds 2 voices. Delete a voice, or turn off "Split the singers".`,
 } as const

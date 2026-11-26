@@ -250,6 +250,11 @@ describe('runtimeFailure', () => {
     ['WebGPU is not supported in current environment', 'load', 'not-available'],
     ['Failed to get GPU adapter.', 'load', 'not-available'],
     ['std::bad_alloc', 'load', 'memory'],
+    [
+      'failed to call OrtRun(). ERROR_CODE: 1, ERROR_MESSAGE: shader_helper.cc:308 numbers_storage_buffers_ <= limits_.maxStorageBuffersPerShaderStage was false. Too many storage buffers in shader. Current: 17, Max is 16',
+      'run',
+      'not-available',
+    ],
     ['Out of memory', 'run', 'memory'],
     ['Device is lost', 'run', 'memory'],
     ['Unsupported model IR version', 'load', 'model'],

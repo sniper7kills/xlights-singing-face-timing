@@ -150,13 +150,13 @@ describe('TranscribeDialog and the singer split', () => {
 
   it('shows the download size of the selected mode, and the memory note for "Lead and backing"', async () => {
     const { user } = await renderWithSplit()
-    expect(screen.getByText('This mode downloads a model of 272 MB one time.')).toBeInTheDocument()
+    expect(screen.getByText('This mode downloads a model of 267 MB one time.')).toBeInTheDocument()
 
     await user.click(screen.getByRole('radio', { name: 'Lead and backing' }))
 
     expect(
       await screen.findByText(
-        'This mode downloads a model of 869 MB one time. The model needs about 2 GB of memory.',
+        'This mode downloads a model of 864 MB one time. The model needs about 2 GB of memory.',
       ),
     ).toBeInTheDocument()
   })
@@ -213,7 +213,7 @@ describe('TranscribeDialog and the singer split', () => {
     act(() => lastRun().reject(new SplitError('not-available', 'none')))
 
     expect(await screen.findByRole('alert')).toHaveTextContent(
-      'This browser could not start WebGPU for the singer split. Turn off "Split the singers" and select Retry.',
+      'The graphics hardware of this computer cannot run the singer split model. Clear "Split the singers" and select Retry.',
     )
   })
 

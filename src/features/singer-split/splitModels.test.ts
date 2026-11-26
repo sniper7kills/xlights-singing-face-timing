@@ -14,9 +14,9 @@ describe('SPLIT_MODELS', () => {
 })
 
 describe('splitModelMb', () => {
-  it('gives 272 MB for male and female and 869 MB for lead and backing', () => {
-    expect(splitModelMb('male-female')).toBe(272)
-    expect(splitModelMb('lead-backing')).toBe(869)
+  it('gives 267 MB for male and female and 864 MB for lead and backing', () => {
+    expect(splitModelMb('male-female')).toBe(267)
+    expect(splitModelMb('lead-backing')).toBe(864)
   })
 })
 

@@ -29,7 +29,7 @@ type Body = { bytes: Uint8Array<ArrayBuffer>; received: number }
 
 /**
  * Returns the body of a response in one buffer of the expected size.
- * The function writes each part into that buffer at once, so a file of 869 MB never has a second full copy in a list of parts.
+ * The function writes each part into that buffer at once, so a file of 864 MB never has a second full copy in a list of parts.
  * A body that is too large keeps its first `expected` bytes, and `received` gives the true count for the size check.
  */
 async function readBody(

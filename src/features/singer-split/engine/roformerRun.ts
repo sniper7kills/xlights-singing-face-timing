@@ -47,11 +47,13 @@ export type SplitRuntime<T extends TensorLike> = {
 }
 
 const NO_BACKEND = /no available backend|Failed to get GPU adapter|WebGPU is not supported/i
+// onnxruntime names the limit of the device that a shader passes, for example `maxStorageBuffersPerShaderStage`.
+const GPU_LIMIT = /Too many storage buffers|limits_?\.max\w+|exceeds? the max\w* \w*\s?limit/i
 const MEMORY = /out of memory|bad_alloc|allocation failed|device (?:was |is )?lost|OutOfMemory/i
 
 /**
  * Returns the failure that the engine reports for an error of the ONNX runtime.
- * - No WebGPU adapter, or no `navigator.gpu`: 'not-available'.
+ * - No WebGPU adapter, no `navigator.gpu`, or a shader that passes a limit of the GPU device: 'not-available'.
  * - A failed allocation, or a lost GPU device: 'memory'.
  * - Another error at the session start: 'model'. Another error in a chunk: 'unknown'.
  * @param error The rejection of the runtime.
@@ -61,7 +63,8 @@ export function runtimeFailure(error: unknown, step: 'load' | 'run'): SplitFailu
   if (error instanceof SplitFailure) return error
   const text = error instanceof Error ? `${error.name}: ${error.message}` : String(error)
   const detail = `The singer split model failed: ${text}`
-  if (NO_BACKEND.test(text)) return new SplitFailure('not-available', detail)
+  if (NO_BACKEND.test(text) || GPU_LIMIT.test(text))
+    return new SplitFailure('not-available', detail)
   if (error instanceof RangeError || MEMORY.test(text)) return new SplitFailure('memory', detail)
   return new SplitFailure(step === 'load' ? 'model' : 'unknown', detail)
 }

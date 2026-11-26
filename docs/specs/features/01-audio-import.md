@@ -133,6 +133,13 @@ strip.
     the htdemucs model of Demucs by Meta. The code of each project has the MIT
     licence. The licence notes state the facts about the weights."
   - The CMU Pronouncing Dictionary and the singer models, as before.
+  - "The singer split option uses the BS-RoFormer male and female vocals model by
+    aufr33, from the model list of python-audio-separator, and the Mel-Band
+    RoFormer karaoke model by becruily. The authors state no licence. This project
+    converted each model from PyTorch to ONNX with float16 weights. The STFT is
+    outside the model. The project did not train the models. The model notice
+    gives the source and the SHA-256 of each file." The link "model notice" opens
+    `models/NOTICE.txt` (issue #194).
 - error: a message band above the drop zone shows the failure text.
 - drag-over: the drop zone has a bright border and the text "Drop to add".
 

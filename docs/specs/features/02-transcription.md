@@ -406,14 +406,16 @@ leaves the browser, and the app shows the host before each run.
 ### Singer split engine (issue #194)
 
 - FR-transcribe-176 — With "Split the singers" on, the dialog shows the download
-  size of the model of the selected mode: "This mode downloads a model of 272 MB
-  one time." or "This mode downloads a model of 869 MB one time."
+  size of the model of the selected mode: "This mode downloads a model of 267 MB
+  one time." or "This mode downloads a model of 864 MB one time."
 - FR-transcribe-177 — With "Lead and backing" selected, the size note adds "The
   model needs about 2 GB of memory."
 - FR-transcribe-178 — The engine rejects a model file with the wrong size or the
   wrong SHA-256, and the browser cache keeps no copy of it.
 - FR-transcribe-179 — The engine runs the model on WebGPU only. If the browser
   cannot start a WebGPU session, the run stops with the message for no WebGPU.
+- FR-transcribe-184 — If the model needs more than a limit of the graphics
+  hardware, the run stops with the message for no WebGPU.
 - FR-transcribe-180 — The engine does the STFT, the chunks and the overlap-add by
   the contract of issue #191. Each singer track has the length of the vocals.
 - FR-transcribe-181 — The engine reports the download of the model, and the
@@ -1261,8 +1263,8 @@ buffer of the file size. The model table is
 
 | Mode | File | Bytes | Chunk (samples) | Frames | Output 0 | Output 1 |
 |---|---|---|---|---|---|---|
-| `male-female` | `bs_roformer_male_female_aufr33.w16.onnx` | 272 233 247 | 352 800 | 801 | male | female |
-| `lead-backing` | `mel_band_roformer_karaoke_becruily.w16.onnx` | 868 622 079 | 485 100 | 1101 | lead | backing |
+| `male-female` | `bs_roformer_male_female_aufr33.v2.w16.onnx` | 266 945 164 | 352 800 | 801 | male | female |
+| `lead-backing` | `mel_band_roformer_karaoke_becruily.v2.w16.onnx` | 864 108 113 | 485 100 | 1101 | lead | backing |
 
 - The session is `ort.InferenceSession.create(bytes, { executionProviders:
   ['webgpu'] })` of `onnxruntime-web/webgpu`. The engine has no `wasm` fallback,
@@ -1280,7 +1282,8 @@ buffer of the file size. The model table is
   at the end and the engine keeps their own length.
 - The engine disposes the input and the output tensor of each chunk. It releases the
   session at the end of the run, after a failure and after "Cancel".
-- Failures: no WebGPU adapter gives `not-available`. An allocation failure or a lost
+- Failures: no WebGPU adapter, or a model run that passes a limit of the device
+  (for example "Too many storage buffers in shader"), gives `not-available`. An allocation failure or a lost
   GPU device gives `memory`. A download or check failure gives `download`. A wrong
   output shape gives `model`.
 - The unit tests compare the STFT, the tensor layout, the inverse STFT and the
@@ -1348,7 +1351,7 @@ from 0 to 1.
 | Singer split: the model does not download | No mark changes. The dialog shows "The app could not download the singer split model. Check the connection and select Retry." |
 | Singer split: the model file has the wrong size or SHA-256 | The message for a failed download. The browser cache keeps no copy. |
 | Singer split: out of memory, or the graphics card stops during the run | No mark changes. The dialog shows "This browser does not have enough memory to split the singers. Close other tabs and select Retry, or turn off "Split the singers"." |
-| Singer split: the browser cannot start a WebGPU session | No mark changes. The dialog shows "This browser could not start WebGPU for the singer split. Turn off "Split the singers" and select Retry." |
+| Singer split: the browser cannot start a WebGPU session, or the model needs more than a limit of the graphics hardware | No mark changes. The dialog shows "The graphics hardware of this computer cannot run the singer split model. Clear "Split the singers" and select Retry." |
 | Singer split: the model gives an output with the wrong shape | The message for a failed split. |
 | Singer split: the model fails, the tracks do not match the mode, or another failure | No mark changes. The dialog shows "The app could not split the singers. Turn off "Split the singers" and select Retry." |
 | Singer split: the person selects "Cancel" during the step | The app stops the worker. The dialog shows "The run stopped. The marks did not change." |
@@ -1585,7 +1588,7 @@ The text writes the raw groups and the final singers as tables with aligned colu
 - The run report shows the section "Singer split" with "Split mode: Male and
   female" and the words of each singer track. (FR-transcribe-173)
 - With "Split the singers" on, the dialog shows "This mode downloads a model of
-  272 MB one time." With "Lead and backing", it shows the 869 MB size and "The
+  267 MB one time." With "Lead and backing", it shows the 864 MB size and "The
   model needs about 2 GB of memory." (FR-transcribe-176, 177)
 - A unit test runs the STFT and the overlap-add of the engine against values of
   `reference.py` of issue #191 for its noise test vectors. (FR-transcribe-180)

@@ -967,7 +967,7 @@ body.rv-open .layout { padding-right:21rem; }
 <li>FR-transcribe-176 — With "Split the singers" on, the dialog shows the download
 </li>
 </ul>
-<p>size of the model of the selected mode: "This mode downloads a model of 272 MB one time." or "This mode downloads a model of 869 MB one time."</p>
+<p>size of the model of the selected mode: "This mode downloads a model of 267 MB one time." or "This mode downloads a model of 864 MB one time."</p>
 <ul>
 <li>FR-transcribe-177 — With "Lead and backing" selected, the size note adds "The
 </li>
@@ -983,6 +983,11 @@ body.rv-open .layout { padding-right:21rem; }
 </li>
 </ul>
 <p>cannot start a WebGPU session, the run stops with the message for no WebGPU.</p>
+<ul>
+<li>FR-transcribe-184 — If the model needs more than a limit of the graphics
+</li>
+</ul>
+<p>hardware, the run stops with the message for no WebGPU.</p>
 <ul>
 <li>FR-transcribe-180 — The engine does the STFT, the chunks and the overlap-add by
 </li>
@@ -2047,8 +2052,8 @@ split(vocals: StereoAudio, mode: SplitMode, on: SplitterEvents, signal: AbortSig
 <p><strong>Singer split engine (issue #194), <code>src/features/singer-split/engine/</code>.</strong> <code>createSplitter()</code> loads <code>roformerSplitter.ts</code> at the first request. The engine reads its model file from the app origin at <code>models/&lt;file&gt;</code>, the site bucket, with the download code of the vocal separation: a size check, a SHA-256 check, and the Cache API under the name <code>singer-split-models-v1</code>. The download writes into one buffer of the file size. The model table is <code>src/features/singer-split/splitModels.ts</code>:</p>
 <div class="table-wrap"><table>
 <tr><th>Mode</th><th>File</th><th>Bytes</th><th>Chunk (samples)</th><th>Frames</th><th>Output 0</th><th>Output 1</th></tr>
-<tr><td><code>male-female</code></td><td><code>bs_roformer_male_female_aufr33.w16.onnx</code></td><td>272 233 247</td><td>352 800</td><td>801</td><td>male</td><td>female</td></tr>
-<tr><td><code>lead-backing</code></td><td><code>mel_band_roformer_karaoke_becruily.w16.onnx</code></td><td>868 622 079</td><td>485 100</td><td>1101</td><td>lead</td><td>backing</td></tr>
+<tr><td><code>male-female</code></td><td><code>bs_roformer_male_female_aufr33.v2.w16.onnx</code></td><td>266 945 164</td><td>352 800</td><td>801</td><td>male</td><td>female</td></tr>
+<tr><td><code>lead-backing</code></td><td><code>mel_band_roformer_karaoke_becruily.v2.w16.onnx</code></td><td>864 108 113</td><td>485 100</td><td>1101</td><td>lead</td><td>backing</td></tr>
 </table></div>
 <ul>
 <li>The session is `ort.InferenceSession.create(bytes, { executionProviders:
@@ -2076,10 +2081,10 @@ split(vocals: StereoAudio, mode: SplitMode, on: SplitterEvents, signal: AbortSig
 </ul>
 <p>session at the end of the run, after a failure and after "Cancel".</p>
 <ul>
-<li>Failures: no WebGPU adapter gives <code>not-available</code>. An allocation failure or a lost
+<li>Failures: no WebGPU adapter, or a model run that passes a limit of the device
 </li>
 </ul>
-<p>GPU device gives <code>memory</code>. A download or check failure gives <code>download</code>. A wrong output shape gives <code>model</code>.</p>
+<p>(for example "Too many storage buffers in shader"), gives <code>not-available</code>. An allocation failure or a lost GPU device gives <code>memory</code>. A download or check failure gives <code>download</code>. A wrong output shape gives <code>model</code>.</p>
 <ul>
 <li>The unit tests compare the STFT, the tensor layout, the inverse STFT and the
 </li>
@@ -2138,7 +2143,7 @@ spreadLyrics(lyrics: string, startMs: number, endMs: number): AlignedPhrase[]</c
 <tr><td>Singer split: the model does not download</td><td>No mark changes. The dialog shows "The app could not download the singer split model. Check the connection and select Retry."</td></tr>
 <tr><td>Singer split: the model file has the wrong size or SHA-256</td><td>The message for a failed download. The browser cache keeps no copy.</td></tr>
 <tr><td>Singer split: out of memory, or the graphics card stops during the run</td><td>No mark changes. The dialog shows "This browser does not have enough memory to split the singers. Close other tabs and select Retry, or turn off "Split the singers"."</td></tr>
-<tr><td>Singer split: the browser cannot start a WebGPU session</td><td>No mark changes. The dialog shows "This browser could not start WebGPU for the singer split. Turn off "Split the singers" and select Retry."</td></tr>
+<tr><td>Singer split: the browser cannot start a WebGPU session, or the model needs more than a limit of the graphics hardware</td><td>No mark changes. The dialog shows "The graphics hardware of this computer cannot run the singer split model. Clear "Split the singers" and select Retry."</td></tr>
 <tr><td>Singer split: the model gives an output with the wrong shape</td><td>The message for a failed split.</td></tr>
 <tr><td>Singer split: the model fails, the tracks do not match the mode, or another failure</td><td>No mark changes. The dialog shows "The app could not split the singers. Turn off "Split the singers" and select Retry."</td></tr>
 <tr><td>Singer split: the person selects "Cancel" during the step</td><td>The app stops the worker. The dialog shows "The run stopped. The marks did not change."</td></tr>
@@ -2621,7 +2626,7 @@ spreadLyrics(lyrics: string, startMs: number, endMs: number): AlignedPhrase[]</c
 <li>With "Split the singers" on, the dialog shows "This mode downloads a model of
 </li>
 </ul>
-<p>272 MB one time." With "Lead and backing", it shows the 869 MB size and "The model needs about 2 GB of memory." (FR-transcribe-176, 177)</p>
+<p>267 MB one time." With "Lead and backing", it shows the 864 MB size and "The model needs about 2 GB of memory." (FR-transcribe-176, 177)</p>
 <ul>
 <li>A unit test runs the STFT and the overlap-add of the engine against values of
 </li>
