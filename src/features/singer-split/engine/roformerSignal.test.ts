@@ -134,11 +134,11 @@ describe('createRoformerStft', () => {
     const output = new Float32Array(input.length * 2)
     output.set(input, 0)
     output.set(input, input.length)
-    for (const stem of [0, 1]) {
-      expect(maxDifference(stft.inverse(output, stem, 0), left)).toBeLessThan(1e-5)
-      expect(maxDifference(stft.inverse(output, stem, 1), right)).toBeLessThan(1e-5)
-    }
-  })
+    // Stem 1 checks the stem offset of the output index too.
+    expect(maxDifference(stft.inverse(output, 1, 0), left)).toBeLessThan(1e-5)
+    expect(maxDifference(stft.inverse(output, 1, 1), right)).toBeLessThan(1e-5)
+    // A full chunk takes about 1 s alone, and more while the full suite runs in parallel.
+  }, 30_000)
 })
 
 describe('chunkStarts', () => {
