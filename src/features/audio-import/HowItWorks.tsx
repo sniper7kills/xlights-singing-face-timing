@@ -95,14 +95,22 @@ export function HowItWorks() {
         <ExternalLink href="https://github.com/karaokenerds/python-audio-separator">
           python-audio-separator
         </ExternalLink>
-        , and the{' '}
+        . The author states no licence. This project converted the model from PyTorch to ONNX with
+        float16 weights. The project did not train the model.
+      </p>
+      <p className="card-note">
+        The singer split option also uses the{' '}
         <ExternalLink href="https://huggingface.co/becruily/mel-band-roformer-karaoke">
           Mel-Band RoFormer karaoke model
         </ExternalLink>{' '}
-        by becruily. The authors state no licence. This project converted each model from PyTorch to
-        ONNX with float16 weights. The STFT is outside the model. The project did not train the
-        models. The <ExternalLink href="models/NOTICE.txt">model notice</ExternalLink> gives the
-        source and the SHA-256 of each file.
+        by becruily, from its Hugging Face page. The author states no licence. This project
+        converted the model from PyTorch to ONNX with float16 weights. The project did not train
+        the model.
+      </p>
+      <p className="card-note">
+        The STFT is outside each model. The{' '}
+        <ExternalLink href="models/NOTICE.txt">model notice</ExternalLink> gives the source and the
+        SHA-256 of each file.
       </p>
     </section>
   )

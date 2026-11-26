@@ -85,7 +85,13 @@ describe('HowItWorks', () => {
 
     const card = screen.getByRole('region', { name: 'How it works' })
     expect(card).toHaveTextContent(
-      'The singer split option uses the BS-RoFormer male and female vocals model by aufr33, from the model list of python-audio-separator, and the Mel-Band RoFormer karaoke model by becruily. The authors state no licence. This project converted each model from PyTorch to ONNX with float16 weights. The STFT is outside the model. The project did not train the models.',
+      'The singer split option uses the BS-RoFormer male and female vocals model by aufr33, from the model list of python-audio-separator. The author states no licence. This project converted the model from PyTorch to ONNX with float16 weights. The project did not train the model.',
+    )
+    expect(card).toHaveTextContent(
+      'The singer split option also uses the Mel-Band RoFormer karaoke model by becruily, from its Hugging Face page. The author states no licence. This project converted the model from PyTorch to ONNX with float16 weights. The project did not train the model.',
+    )
+    expect(card).toHaveTextContent(
+      'The STFT is outside each model. The model notice gives the source and the SHA-256 of each file.',
     )
     expect(screen.getByRole('link', { name: 'Mel-Band RoFormer karaoke model' })).toHaveAttribute(
       'href',
