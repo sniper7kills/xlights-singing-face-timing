@@ -81,6 +81,15 @@ describe('loadSplitModel', () => {
     expect(entries.size).toBe(0)
   })
 
+  it('rejects with the kind memory when the browser cannot give the buffer of the file', async () => {
+    // A typed array of 2^53 bytes is above the limit of each JavaScript engine, so the allocation throws a RangeError.
+    const { value, entries } = source([1, 2, 3])
+    const failure = loadSplitModel({ ...model, bytes: 2 ** 53 }, () => undefined, value)
+    await expect(failure).rejects.toThrow(SplitFailure)
+    await expect(failure).rejects.toHaveProperty('kind', 'memory')
+    expect(entries.size).toBe(0)
+  })
+
   it('reads the file from the cache at the second run, with no download', async () => {
     const { value, fetch } = source([1, 2, 3])
     await loadSplitModel(model, () => undefined, value)
